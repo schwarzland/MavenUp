@@ -28,7 +28,7 @@
     <!-- Extensions defined by the plugin.
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
     <extensions defaultExtensionNs="com.intellij">
-        <toolWindow id="mavenup" factoryClass="de.schwarzland.mavenup.MavenUpWindowFactory"
+        <toolWindow id="MavenUp" factoryClass="de.schwarzland.mavenup.MavenUpWindowFactory"
                     icon="AllIcons.Toolwindows.ToolWindowPalette"
                     anchor="right"
                     secondary="false"/>
