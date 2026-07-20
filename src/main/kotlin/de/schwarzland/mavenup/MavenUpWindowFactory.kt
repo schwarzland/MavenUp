@@ -8,11 +8,12 @@ import com.intellij.ui.components.JBPanel
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.content.ContentFactory
 import org.jetbrains.idea.maven.project.MavenProjectsManager
+import com.intellij.ui.table.JBTable
+import javax.swing.table.DefaultTableModel
 import java.awt.BorderLayout
 import java.awt.FlowLayout
 import java.net.HttpURLConnection
 import java.net.URL
-import javax.swing.BoxLayout
 import javax.swing.JButton
 import javax.swing.JPanel
 import javax.xml.parsers.DocumentBuilderFactory
@@ -53,9 +54,16 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private var isUpdating = false
 
         private val content = JBPanel<JBPanel<*>>(BorderLayout()).apply {
-            val dependenciesPanel = JPanel().apply {
-                layout = BoxLayout(this, BoxLayout.Y_AXIS)
+            val tableModel = object : DefaultTableModel() {
+                override fun isCellEditable(row: Int, column: Int): Boolean = false
+            }.apply {
+                addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.groupId"))
+                addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.artifactId"))
+                addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.currentVersion"))
+                addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.newVersion"))
             }
+
+            val table = JBTable(tableModel)
 
             val refreshButton = JButton(MyMessageBundle.message("toolwindow.MyToolWindow.refresh.button"))
             val checkUpdatesButton = JButton(MyMessageBundle.message("toolwindow.MyToolWindow.checkUpdates.button"))
@@ -64,49 +72,27 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 override fun invoke(checkUpdates: Boolean) {
                     if (isUpdating) return
                     
-                    dependenciesPanel.removeAll()
+                    tableModel.setRowCount(0)
                     val mavenProjectsManager = MavenProjectsManager.getInstance(project)
                     val projects = mavenProjectsManager.projects
 
-                    if (projects.isEmpty()) {
-                        dependenciesPanel.add(JBLabel(MyMessageBundle.message("toolwindow.MyToolWindow.noProjects.label")))
-                    } else {
+                    if (projects.isNotEmpty()) {
                         projects.forEach { mavenProject ->
-                            dependenciesPanel.add(
-                                JBLabel(
-                                    MyMessageBundle.message(
-                                        "toolwindow.MyToolWindow.project.label",
-                                        mavenProject.mavenId.artifactId
-                                    )
-                                ).apply {
-                                    font = font.deriveFont(java.awt.Font.BOLD)
-                                })
-
                             mavenProject.dependencyTree.forEach { node ->
                                 val dependency = node.artifact
                                 val currentVersion = dependency.version ?: ""
                                 val key = "${dependency.groupId}:${dependency.artifactId}"
-                                val labelText =
-                                    StringBuilder("  ${dependency.groupId}:${dependency.artifactId}:${currentVersion}")
-
-                                if (latestVersions.containsKey(key)) {
-                                    val latest = latestVersions[key]
-                                    if (latest != null && latest != currentVersion) {
-                                        labelText.append(" ").append(
-                                            MyMessageBundle.message(
-                                                "toolwindow.MyToolWindow.updateAvailable.label",
-                                                latest
-                                            )
-                                        )
-                                    }
-                                }
-
-                                dependenciesPanel.add(JBLabel(labelText.toString()))
+                                val latest = latestVersions[key] ?: ""
+                                
+                                tableModel.addRow(arrayOf(
+                                    dependency.groupId,
+                                    dependency.artifactId,
+                                    currentVersion,
+                                    if (latest.isNotEmpty() && latest != currentVersion) latest else ""
+                                ))
                             }
                         }
                     }
-                    dependenciesPanel.revalidate()
-                    dependenciesPanel.repaint()
 
                     if (checkUpdates) {
                         isUpdating = true
@@ -127,7 +113,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
             refreshAction(false)
 
-            add(JBScrollPane(dependenciesPanel), BorderLayout.CENTER)
+            add(JBScrollPane(table), BorderLayout.CENTER)
 
             val buttonPanel = JPanel(FlowLayout(FlowLayout.LEFT)).apply {
                 add(refreshButton.apply {
