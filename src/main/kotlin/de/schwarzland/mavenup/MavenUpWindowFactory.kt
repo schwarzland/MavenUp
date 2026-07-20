@@ -5,9 +5,13 @@ import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBPanel
+import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.content.ContentFactory
 import org.jetbrains.idea.maven.project.MavenProjectsManager
+import java.awt.BorderLayout
+import javax.swing.BoxLayout
 import javax.swing.JButton
+import javax.swing.JPanel
 import kotlin.random.Random
 
 /**
@@ -27,7 +31,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
     }
 
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
-        val myToolWindow = MyToolWindow()
+        val myToolWindow = MyToolWindow(project)
 
         val content = ContentFactory
             .getInstance()
@@ -36,19 +40,40 @@ class MavenUpWindowFactory : ToolWindowFactory {
         toolWindow.contentManager.addContent(content)
     }
 
-    class MyToolWindow {
-        private val content = JBPanel<JBPanel<*>>().apply {
-            val label = JBLabel(MyMessageBundle.message("toolwindow.MyToolWindow.number.label", "?"))
+    class MyToolWindow(private val project: Project) {
+        private val content = JBPanel<JBPanel<*>>(BorderLayout()).apply {
+            val dependenciesPanel = JPanel().apply {
+                layout = BoxLayout(this, BoxLayout.Y_AXIS)
+            }
 
-            add(label)
-            add(JButton(MyMessageBundle.message("toolwindow.MyToolWindow.shuffle.button")).apply {
-                addActionListener {
-                    label.text = MyMessageBundle.message(
-                        "toolwindow.MyToolWindow.number.label",
-                        Random(System.currentTimeMillis()).nextInt(1000)
-                    )
+            val refreshAction = {
+                dependenciesPanel.removeAll()
+                val mavenProjectsManager = MavenProjectsManager.getInstance(project)
+                val projects = mavenProjectsManager.projects
+                
+                if (projects.isEmpty()) {
+                    dependenciesPanel.add(JBLabel(MyMessageBundle.message("toolwindow.MyToolWindow.noProjects.label")))
+                } else {
+                    projects.forEach { mavenProject ->
+                        dependenciesPanel.add(JBLabel(MyMessageBundle.message("toolwindow.MyToolWindow.project.label", mavenProject.mavenId.artifactId)).apply {
+                            font = font.deriveFont(java.awt.Font.BOLD)
+                        })
+                        
+                        mavenProject.dependencies.forEach { dependency ->
+                            dependenciesPanel.add(JBLabel("  ${dependency.groupId}:${dependency.artifactId}:${dependency.version}"))
+                        }
+                    }
                 }
-            })
+                dependenciesPanel.revalidate()
+                dependenciesPanel.repaint()
+            }
+
+            refreshAction()
+
+            add(JBScrollPane(dependenciesPanel), BorderLayout.CENTER)
+            add(JButton(MyMessageBundle.message("toolwindow.MyToolWindow.refresh.button")).apply {
+                addActionListener { refreshAction() }
+            }, BorderLayout.SOUTH)
         }
 
         fun getContent(): JBPanel<JBPanel<*>> = content
