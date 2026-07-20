@@ -6,6 +6,7 @@ import com.intellij.openapi.wm.ToolWindowFactory
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBPanel
 import com.intellij.ui.content.ContentFactory
+import org.jetbrains.idea.maven.project.MavenProjectsManager
 import javax.swing.JButton
 import kotlin.random.Random
 
@@ -20,12 +21,18 @@ import kotlin.random.Random
  * Aktuell ist das also ein einfaches Beispiel-Tool-Window, vermutlich aus einem Plugin-Template, das als Grundlage für weitere Funktionalität dienen kann.
  */
 
-class MyToolWindowFactory : ToolWindowFactory {
-    override fun shouldBeAvailable(project: Project) = true
+class MavenUpWindowFactory : ToolWindowFactory {
+    override fun shouldBeAvailable(project: Project): Boolean {
+        return MavenProjectsManager.getInstance(project).hasProjects()
+    }
 
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
         val myToolWindow = MyToolWindow()
-        val content = ContentFactory.getInstance().createContent(myToolWindow.getContent(), null, false)
+
+        val content = ContentFactory
+            .getInstance()
+            .createContent(myToolWindow.getContent(), null, false)
+
         toolWindow.contentManager.addContent(content)
     }
 
@@ -37,7 +44,8 @@ class MyToolWindowFactory : ToolWindowFactory {
             add(JButton(MyMessageBundle.message("toolwindow.MyToolWindow.shuffle.button")).apply {
                 addActionListener {
                     label.text = MyMessageBundle.message(
-                        "toolwindow.MyToolWindow.number.label", Random(System.currentTimeMillis()).nextInt(1000)
+                        "toolwindow.MyToolWindow.number.label",
+                        Random(System.currentTimeMillis()).nextInt(1000)
                     )
                 }
             })

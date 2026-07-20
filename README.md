@@ -1,5 +1,10 @@
 # MavenUp
 
+MavenUp ist ein IntelliJ-Plugin, das speziell für Maven-Projekte entwickelt wurde.
+
+## Anforderungen
+- Das Plugin kann nur in Projekten verwendet werden, die als Maven-Projekte konfiguriert sind.
+
 [![Twitter Follow](https://img.shields.io/badge/follow-%40JBPlatform-1DA1F2?logo=twitter)](https://twitter.com/JBPlatform)
 [![Developers Forum](https://img.shields.io/badge/JetBrains%20Platform-Join-blue)][jb:forum]
 
