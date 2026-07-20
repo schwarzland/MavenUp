@@ -18,6 +18,9 @@ import javax.swing.JPanel
 import javax.xml.parsers.DocumentBuilderFactory
 import org.w3c.dom.Element
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.progress.ProgressIndicator
+import com.intellij.openapi.progress.ProgressManager
+import com.intellij.openapi.progress.Task
 
 /**
  * Zusammenfassung
@@ -47,14 +50,20 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
     class MyToolWindow(private val project: Project) {
         private val latestVersions = mutableMapOf<String, String>()
+        private var isUpdating = false
 
         private val content = JBPanel<JBPanel<*>>(BorderLayout()).apply {
             val dependenciesPanel = JPanel().apply {
                 layout = BoxLayout(this, BoxLayout.Y_AXIS)
             }
 
+            val refreshButton = JButton(MyMessageBundle.message("toolwindow.MyToolWindow.refresh.button"))
+            val checkUpdatesButton = JButton(MyMessageBundle.message("toolwindow.MyToolWindow.checkUpdates.button"))
+
             val refreshAction = object : (Boolean) -> Unit {
                 override fun invoke(checkUpdates: Boolean) {
+                    if (isUpdating) return
+                    
                     dependenciesPanel.removeAll()
                     val mavenProjectsManager = MavenProjectsManager.getInstance(project)
                     val projects = mavenProjectsManager.projects
@@ -74,6 +83,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                                 })
 
                             mavenProject.dependencies.forEach { dependency ->
+                                if (mavenProject.findDependencies(dependency.mavenId).isEmpty()) return@forEach
                                 val currentVersion = dependency.version ?: ""
                                 val key = "${dependency.groupId}:${dependency.artifactId}"
                                 val labelText =
@@ -99,8 +109,15 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     dependenciesPanel.repaint()
 
                     if (checkUpdates) {
+                        isUpdating = true
+                        refreshButton.isEnabled = false
+                        checkUpdatesButton.isEnabled = false
+                        
                         checkForUpdates {
                             ApplicationManager.getApplication().invokeLater {
+                                isUpdating = false
+                                refreshButton.isEnabled = true
+                                checkUpdatesButton.isEnabled = true
                                 this(false)
                             }
                         }
@@ -113,10 +130,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
             add(JBScrollPane(dependenciesPanel), BorderLayout.CENTER)
 
             val buttonPanel = JPanel(FlowLayout(FlowLayout.LEFT)).apply {
-                add(JButton(MyMessageBundle.message("toolwindow.MyToolWindow.refresh.button")).apply {
+                add(refreshButton.apply {
                     addActionListener { refreshAction(false) }
                 })
-                add(JButton(MyMessageBundle.message("toolwindow.MyToolWindow.checkUpdates.button")).apply {
+                add(checkUpdatesButton.apply {
                     addActionListener { refreshAction(true) }
                 })
             }
@@ -124,22 +141,32 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         private fun checkForUpdates(onFinished: () -> Unit) {
-            ApplicationManager.getApplication().executeOnPooledThread {
-                val mavenProjectsManager = MavenProjectsManager.getInstance(project)
-                val allDependencies = mavenProjectsManager.projects.flatMap { it.dependencies }
-
-                allDependencies.forEach { dependency ->
-                    val groupId = dependency.groupId
-                    val artifactId = dependency.artifactId
-                    if (groupId != null && artifactId != null) {
-                        val latest = fetchLatestVersion(groupId, artifactId)
-                        if (latest != null) {
-                            latestVersions["$groupId:$artifactId"] = latest
+            ProgressManager.getInstance().run(object : Task.Backgroundable(project, MyMessageBundle.message("toolwindow.MyToolWindow.checkUpdates.progress"), true) {
+                override fun run(indicator: ProgressIndicator) {
+                    val mavenProjectsManager = MavenProjectsManager.getInstance(project)
+                    val projects = mavenProjectsManager.projects
+                    
+                    projects.forEach { mavenProject ->
+                        mavenProject.dependencies.forEach { dependency ->
+                            if (indicator.isCanceled) return@run
+                            if (mavenProject.findDependencies(dependency.mavenId).isEmpty()) return@forEach
+                            
+                            val groupId = dependency.groupId
+                            val artifactId = dependency.artifactId
+                            
+                            indicator.text2 = "$groupId:$artifactId"
+                            
+                            if (groupId != null && artifactId != null) {
+                                val latest = fetchLatestVersion(groupId, artifactId)
+                                if (latest != null) {
+                                    latestVersions["$groupId:$artifactId"] = latest
+                                }
+                            }
                         }
                     }
+                    onFinished()
                 }
-                onFinished()
-            }
+            })
         }
 
         private fun fetchLatestVersion(groupId: String, artifactId: String): String? {
