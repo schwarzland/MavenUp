@@ -82,8 +82,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
                                     font = font.deriveFont(java.awt.Font.BOLD)
                                 })
 
-                            mavenProject.dependencies.forEach { dependency ->
-                                if (mavenProject.findDependencies(dependency.mavenId).isEmpty()) return@forEach
+                            mavenProject.dependencyTree.forEach { node ->
+                                val dependency = node.artifact
                                 val currentVersion = dependency.version ?: ""
                                 val key = "${dependency.groupId}:${dependency.artifactId}"
                                 val labelText =
@@ -147,9 +147,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     val projects = mavenProjectsManager.projects
                     
                     projects.forEach { mavenProject ->
-                        mavenProject.dependencies.forEach { dependency ->
+                        mavenProject.dependencyTree.forEach { node ->
                             if (indicator.isCanceled) return@run
-                            if (mavenProject.findDependencies(dependency.mavenId).isEmpty()) return@forEach
+                            val dependency = node.artifact
                             
                             val groupId = dependency.groupId
                             val artifactId = dependency.artifactId
