@@ -1,4 +1,4 @@
-package de.schwarzland
+package de.schwarzland.mavenup
 
 import com.intellij.DynamicBundle
 import org.jetbrains.annotations.Nls
@@ -19,7 +19,7 @@ import java.util.function.Supplier
 
 private const val BUNDLE = "messages.MyMessageBundle"
 
-internal object MyMessageBundle {
+public object MyMessageBundle {
     private val instance = DynamicBundle(MyMessageBundle::class.java, BUNDLE)
 
     @JvmStatic
