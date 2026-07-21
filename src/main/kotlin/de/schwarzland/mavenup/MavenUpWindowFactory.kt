@@ -82,12 +82,13 @@ class MavenUpWindowFactory : ToolWindowFactory {
             val tableModel = DefaultTableModel().apply {
                 addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.groupId"))
                 addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.artifactId"))
+                addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.type"))
                 addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.currentVersion"))
                 addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.newVersion"))
             }
 
             updates.forEach { update ->
-                tableModel.addRow(arrayOf(update.groupId, update.artifactId, update.oldVersion, update.newVersion))
+                tableModel.addRow(arrayOf(update.groupId, update.artifactId, update.type, update.oldVersion, update.newVersion))
             }
 
             val table = JBTable(tableModel)
@@ -98,6 +99,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
         data class DependencyUpdate(
             val groupId: String,
             val artifactId: String,
+            val type: String,
             val oldVersion: String,
             val newVersion: String
         )
@@ -111,10 +113,11 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
         private val content = JBPanel<JBPanel<*>>(BorderLayout()).apply {
             val tableModel = object : DefaultTableModel() {
-                override fun isCellEditable(row: Int, column: Int): Boolean = column == 3
+                override fun isCellEditable(row: Int, column: Int): Boolean = column == 4
             }.apply {
                 addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.groupId"))
                 addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.artifactId"))
+                addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.type"))
                 addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.currentVersion"))
                 addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.newVersion"))
             }
@@ -129,8 +132,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
                             val rawGroupId = table.getValueAt(row, 0) as? String ?: ""
                             val groupId = if (rawGroupId.contains(" (")) rawGroupId.substringBefore(" (") else rawGroupId
                             val artifactId = table.getValueAt(row, 1) as? String ?: ""
+                            val type = table.getValueAt(row, 2) as? String ?: "dependency"
                             
-                            navigateToDependency(groupId, artifactId)
+                            navigateToDependency(groupId, artifactId, type)
                         }
                     }
                 }
@@ -156,6 +160,17 @@ class MavenUpWindowFactory : ToolWindowFactory {
                             hasUpdate = true
                         }
                     }
+                    
+                    // Also check plugins for update button state
+                    mavenProject.plugins.forEach { plugin ->
+                        val key = "${plugin.groupId}:${plugin.artifactId}"
+                        val newVersion = selectedVersions[key]
+                        val currentVersion = plugin.version ?: ""
+                        
+                        if (newVersion != null && newVersion != currentVersion) {
+                            hasUpdate = true
+                        }
+                    }
                 }
                 updateButton.isEnabled = hasUpdate && !isUpdating
             }
@@ -166,7 +181,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     table.putClientProperty("terminateEditOnFocusLost", true)
                     
                     // Custom Renderer and Editor for the "New Version" column
-            table.columnModel.getColumn(3).cellRenderer = object : TableCellRenderer {
+            table.columnModel.getColumn(4).cellRenderer = object : TableCellRenderer {
                 override fun getTableCellRendererComponent(
                     table: JTable?, value: Any?, isSelected: Boolean, hasFocus: Boolean, row: Int, column: Int
                 ): Component {
@@ -193,7 +208,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 }
             }
 
-            table.columnModel.getColumn(3).cellEditor = object : AbstractTableCellEditor() {
+            table.columnModel.getColumn(4).cellEditor = object : AbstractTableCellEditor() {
                 private var currentComboBox: JComboBox<String>? = null
                 private var currentKey: String? = null
                 
@@ -257,43 +272,119 @@ class MavenUpWindowFactory : ToolWindowFactory {
                                 PsiManager.getInstance(project).findFile(pomFile) as? XmlFile
                             }
                             
+                            val localDependencies = mutableSetOf<String>()
+                            val localPlugins = mutableSetOf<String>()
+                            
+                            if (psiFile != null) {
+                                ApplicationManager.getApplication().runReadAction {
+                                    val documentElement = psiFile.document?.rootTag
+                                    
+                                // Collect local dependencies and their properties
+                                val dependenciesTag = documentElement?.findFirstSubTag("dependencies")
+                                dependenciesTag?.findSubTags("dependency")?.forEach { depTag ->
+                                    val g = depTag.findFirstSubTag("groupId")?.value?.text ?: ""
+                                    val a = depTag.findFirstSubTag("artifactId")?.value?.text ?: ""
+                                    val key = "$g:$a"
+                                    localDependencies.add(key)
+                                    
+                                    val versionText = depTag.findFirstSubTag("version")?.value?.trimmedText
+                                    if (versionText != null && versionText.startsWith("\${") && versionText.endsWith("}")) {
+                                        dependencyToProperty[key] = versionText.substring(2, versionText.length - 1)
+                                    }
+                                }
+
+                                // Collect dependencyManagement dependencies
+                                val dmTag = documentElement?.findFirstSubTag("dependencyManagement")
+                                val dmDepsTag = dmTag?.findFirstSubTag("dependencies")
+                                dmDepsTag?.findSubTags("dependency")?.forEach { depTag ->
+                                    val g = depTag.findFirstSubTag("groupId")?.value?.text ?: ""
+                                    val a = depTag.findFirstSubTag("artifactId")?.value?.text ?: ""
+                                    val key = "$g:$a"
+                                    localDependencies.add(key)
+                                    
+                                    val versionText = depTag.findFirstSubTag("version")?.value?.trimmedText
+                                    if (versionText != null && versionText.startsWith("\${") && versionText.endsWith("}")) {
+                                        dependencyToProperty[key] = versionText.substring(2, versionText.length - 1)
+                                    }
+                                }
+                                
+                                // Collect local plugins and their properties
+                                val buildTag = documentElement?.findFirstSubTag("build")
+                                val pluginsTag = buildTag?.findFirstSubTag("plugins")
+                                pluginsTag?.findSubTags("plugin")?.forEach { pluginTag ->
+                                    val g = pluginTag.findFirstSubTag("groupId")?.value?.text ?: ""
+                                    val a = pluginTag.findFirstSubTag("artifactId")?.value?.text ?: ""
+                                    val key = "$g:$a"
+                                    localPlugins.add(key)
+                                    
+                                    val versionText = pluginTag.findFirstSubTag("version")?.value?.trimmedText
+                                    if (versionText != null && versionText.startsWith("\${") && versionText.endsWith("}")) {
+                                        dependencyToProperty[key] = versionText.substring(2, versionText.length - 1)
+                                    }
+                                }
+
+                                // Collect pluginManagement plugins
+                                val pmTag = buildTag?.findFirstSubTag("pluginManagement")
+                                val pmPluginsTag = pmTag?.findFirstSubTag("plugins")
+                                pmPluginsTag?.findSubTags("plugin")?.forEach { pluginTag ->
+                                    val g = pluginTag.findFirstSubTag("groupId")?.value?.text ?: ""
+                                    val a = pluginTag.findFirstSubTag("artifactId")?.value?.text ?: ""
+                                    val key = "$g:$a"
+                                    localPlugins.add(key)
+                                    
+                                    val versionText = pluginTag.findFirstSubTag("version")?.value?.trimmedText
+                                    if (versionText != null && versionText.startsWith("\${") && versionText.endsWith("}")) {
+                                        dependencyToProperty[key] = versionText.substring(2, versionText.length - 1)
+                                    }
+                                }
+                                }
+                            }
+
                             mavenProject.dependencyTree.forEach { node ->
                                 val dependency = node.artifact
                                 val key = "${dependency.groupId}:${dependency.artifactId}"
                                 
-                                // Identify if version is a property
-                                if (psiFile != null) {
-                                    ApplicationManager.getApplication().runReadAction {
-                                        val documentElement = psiFile.document?.rootTag
-                                        val dependenciesTag = documentElement?.findFirstSubTag("dependencies")
-                                        dependenciesTag?.findSubTags("dependency")?.forEach { depTag ->
-                                            val g = depTag.findFirstSubTag("groupId")?.value?.text
-                                            val a = depTag.findFirstSubTag("artifactId")?.value?.text
-                                            if (g == dependency.groupId && a == dependency.artifactId) {
-                                                val versionText = depTag.findFirstSubTag("version")?.value?.text
-                                                if (versionText != null && versionText.startsWith("${") && versionText.endsWith("}")) {
-                                                    dependencyToProperty[key] = versionText.substring(2, versionText.length - 1)
-                                                }
-                                            }
-                                        }
+                                if (localDependencies.contains(key)) {
+                                    val currentVersion = dependency.version ?: ""
+                                    val versions = availableVersions[key] ?: emptyList()
+                                    
+                                    val displayGroupId = if (dependencyToProperty.containsKey(key)) {
+                                        "${dependency.groupId} (${dependencyToProperty[key]})"
+                                    } else {
+                                        dependency.groupId ?: ""
                                     }
-                                }
 
-                                val currentVersion = dependency.version ?: ""
-                                val versions = availableVersions[key] ?: emptyList()
+                                    tableModel.addRow(arrayOf(
+                                        displayGroupId,
+                                        dependency.artifactId ?: "",
+                                        "dependency",
+                                        currentVersion,
+                                        versions
+                                    ))
+                                }
+                            }
+                            
+                            mavenProject.plugins.forEach { plugin ->
+                                val key = "${plugin.groupId}:${plugin.artifactId}"
                                 
-                                val displayGroupId = if (dependencyToProperty.containsKey(key)) {
-                                    "${dependency.groupId} (${dependencyToProperty[key]})"
-                                } else {
-                                    dependency.groupId ?: ""
-                                }
+                                if (localPlugins.contains(key)) {
+                                    val currentVersion = plugin.version ?: ""
+                                    val versions = availableVersions[key] ?: emptyList()
+                                    
+                                    val displayGroupId = if (dependencyToProperty.containsKey(key)) {
+                                        "${plugin.groupId} (${dependencyToProperty[key]})"
+                                    } else {
+                                        plugin.groupId ?: ""
+                                    }
 
-                                tableModel.addRow(arrayOf(
-                                    displayGroupId,
-                                    dependency.artifactId ?: "",
-                                    currentVersion,
-                                    versions
-                                ))
+                                    tableModel.addRow(arrayOf(
+                                        displayGroupId,
+                                        plugin.artifactId ?: "",
+                                        "plugin",
+                                        currentVersion,
+                                        versions
+                                    ))
+                                }
                             }
                         }
                     }
@@ -324,16 +415,82 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     val updates = mutableListOf<UpdateConfirmationDialog.DependencyUpdate>()
                     
                     projects.forEach { mavenProject ->
+                        val pomFile = mavenProject.file
+                        val psiFile = ApplicationManager.getApplication().runReadAction<XmlFile?> {
+                            PsiManager.getInstance(project).findFile(pomFile) as? XmlFile
+                        }
+                        
+                        val localDependencies = mutableSetOf<String>()
+                        val localPlugins = mutableSetOf<String>()
+                        
+                        if (psiFile != null) {
+                            ApplicationManager.getApplication().runReadAction {
+                                val documentElement = psiFile.document?.rootTag
+                                
+                                // Collect local dependencies
+                                val dependenciesTag = documentElement?.findFirstSubTag("dependencies")
+                                dependenciesTag?.findSubTags("dependency")?.forEach { depTag ->
+                                    val g = depTag.findFirstSubTag("groupId")?.value?.text ?: ""
+                                    val a = depTag.findFirstSubTag("artifactId")?.value?.text ?: ""
+                                    localDependencies.add("$g:$a")
+                                }
+                                
+                                // Collect dependencyManagement dependencies
+                                val dmTag = documentElement?.findFirstSubTag("dependencyManagement")
+                                val dmDepsTag = dmTag?.findFirstSubTag("dependencies")
+                                dmDepsTag?.findSubTags("dependency")?.forEach { depTag ->
+                                    val g = depTag.findFirstSubTag("groupId")?.value?.text ?: ""
+                                    val a = depTag.findFirstSubTag("artifactId")?.value?.text ?: ""
+                                    localDependencies.add("$g:$a")
+                                }
+                                
+                                // Collect local plugins
+                                val buildTag = documentElement?.findFirstSubTag("build")
+                                val pluginsTag = buildTag?.findFirstSubTag("plugins")
+                                pluginsTag?.findSubTags("plugin")?.forEach { pluginTag ->
+                                    val g = pluginTag.findFirstSubTag("groupId")?.value?.text ?: ""
+                                    val a = pluginTag.findFirstSubTag("artifactId")?.value?.text ?: ""
+                                    localPlugins.add("$g:$a")
+                                }
+
+                                // Collect pluginManagement plugins
+                                val pmTag = buildTag?.findFirstSubTag("pluginManagement")
+                                val pmPluginsTag = pmTag?.findFirstSubTag("plugins")
+                                pmPluginsTag?.findSubTags("plugin")?.forEach { pluginTag ->
+                                    val g = pluginTag.findFirstSubTag("groupId")?.value?.text ?: ""
+                                    val a = pluginTag.findFirstSubTag("artifactId")?.value?.text ?: ""
+                                    localPlugins.add("$g:$a")
+                                }
+                            }
+                        }
+
                         mavenProject.dependencyTree.forEach { node ->
                             val dependency = node.artifact
                             val key = "${dependency.groupId}:${dependency.artifactId}"
                             val newVersion = selectedVersions[key]
                             val currentVersion = dependency.version ?: ""
                             
-                            if (newVersion != null && newVersion != currentVersion) {
+                            if (newVersion != null && newVersion != currentVersion && localDependencies.contains(key)) {
                                 updates.add(UpdateConfirmationDialog.DependencyUpdate(
                                     dependency.groupId ?: "",
                                     dependency.artifactId ?: "",
+                                    "dependency",
+                                    currentVersion,
+                                    newVersion
+                                ))
+                            }
+                        }
+                        
+                        mavenProject.plugins.forEach { plugin ->
+                            val key = "${plugin.groupId}:${plugin.artifactId}"
+                            val newVersion = selectedVersions[key]
+                            val currentVersion = plugin.version ?: ""
+                            
+                            if (newVersion != null && newVersion != currentVersion && localPlugins.contains(key)) {
+                                updates.add(UpdateConfirmationDialog.DependencyUpdate(
+                                    plugin.groupId ?: "",
+                                    plugin.artifactId ?: "",
+                                    "plugin",
                                     currentVersion,
                                     newVersion
                                 ))
@@ -354,33 +511,52 @@ class MavenUpWindowFactory : ToolWindowFactory {
                                         
                                         WriteCommandAction.runWriteCommandAction(project) {
                                             val documentElement = psiFile.document?.rootTag ?: return@runWriteCommandAction
-                                            val dependenciesTag = documentElement.findFirstSubTag("dependencies") ?: return@runWriteCommandAction
+                                            val dependenciesTag = documentElement.findFirstSubTag("dependencies")
+                                            val dependencyManagementTag = documentElement.findFirstSubTag("dependencyManagement")
+                                            val dmDependenciesTag = dependencyManagementTag?.findFirstSubTag("dependencies")
+                                            val buildTag = documentElement.findFirstSubTag("build")
+                                            val pluginsTag = buildTag?.findFirstSubTag("plugins")
+                                            val pluginManagementTag = buildTag?.findFirstSubTag("pluginManagement")
+                                            val pmPluginsTag = pluginManagementTag?.findFirstSubTag("plugins")
                                             val propertiesTag = documentElement.findFirstSubTag("properties")
                                             
                                             updates.forEach { update ->
-                                                dependenciesTag.findSubTags("dependency").forEach { depTag ->
-                                                    val g = depTag.findFirstSubTag("groupId")?.value?.text
-                                                    val a = depTag.findFirstSubTag("artifactId")?.value?.text
-                                                    
-                                                    if (g == update.groupId && a == update.artifactId) {
-                                                        val versionTag = depTag.findFirstSubTag("version")
-                                                        if (versionTag != null) {
-                                                            val versionText = versionTag.value.text
-                                                            if (versionText.startsWith("\${") && versionText.endsWith("}")) {
-                                                                val propertyName = versionText.substring(2, versionText.length - 1)
-                                                                val propertyTag = propertiesTag?.findFirstSubTag(propertyName)
-                                                                if (propertyTag != null) {
-                                                                    propertyTag.value.text = update.newVersion
-                                                                } else {
-                                                                    // Falls Property nicht in <properties> gefunden wurde, überschreiben wir doch den Tag
-                                                                    versionTag.value.text = update.newVersion
-                                                                }
-                                                            } else {
-                                                                versionTag.value.text = update.newVersion
-                                                            }
-                                                        } else {
-                                                            val newTag = depTag.createChildTag("version", null, update.newVersion, false)
-                                                            depTag.addSubTag(newTag, false)
+                                                if (update.type == "dependency") {
+                                                    // Search in <dependencies>
+                                                    dependenciesTag?.findSubTags("dependency")?.forEach { depTag ->
+                                                        val g = depTag.findFirstSubTag("groupId")?.value?.text
+                                                        val a = depTag.findFirstSubTag("artifactId")?.value?.text
+                                                        
+                                                        if (g == update.groupId && a == update.artifactId) {
+                                                            updateXmlTagVersion(depTag, update.newVersion, propertiesTag)
+                                                        }
+                                                    }
+                                                    // Search in <dependencyManagement><dependencies>
+                                                    dmDependenciesTag?.findSubTags("dependency")?.forEach { depTag ->
+                                                        val g = depTag.findFirstSubTag("groupId")?.value?.text
+                                                        val a = depTag.findFirstSubTag("artifactId")?.value?.text
+                                                        
+                                                        if (g == update.groupId && a == update.artifactId) {
+                                                            updateXmlTagVersion(depTag, update.newVersion, propertiesTag)
+                                                        }
+                                                    }
+                                                } else if (update.type == "plugin") {
+                                                    // Search in <build><plugins>
+                                                    pluginsTag?.findSubTags("plugin")?.forEach { pluginTag ->
+                                                        val g = pluginTag.findFirstSubTag("groupId")?.value?.text
+                                                        val a = pluginTag.findFirstSubTag("artifactId")?.value?.text
+                                                        
+                                                        if (g == update.groupId && a == update.artifactId) {
+                                                            updateXmlTagVersion(pluginTag, update.newVersion, propertiesTag)
+                                                        }
+                                                    }
+                                                    // Search in <build><pluginManagement><plugins>
+                                                    pmPluginsTag?.findSubTags("plugin")?.forEach { pluginTag ->
+                                                        val g = pluginTag.findFirstSubTag("groupId")?.value?.text
+                                                        val a = pluginTag.findFirstSubTag("artifactId")?.value?.text
+                                                        
+                                                        if (g == update.groupId && a == update.artifactId) {
+                                                            updateXmlTagVersion(pluginTag, update.newVersion, propertiesTag)
                                                         }
                                                     }
                                                 }
@@ -427,24 +603,12 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         mavenProject.dependencyTree.forEach { node ->
                             if (indicator.isCanceled) return@run
                             val dependency = node.artifact
-                            
-                            val groupId = dependency.groupId
-                            val artifactId = dependency.artifactId
-                            
-                            indicator.text2 = "$groupId:$artifactId"
-                            
-                            if (groupId != null && artifactId != null) {
-                                val currentVersion = dependency.version ?: ""
-                                val versions = fetchVersions(groupId, artifactId, currentVersion)
-                                if (versions.isNotEmpty()) {
-                                    val key = "$groupId:$artifactId"
-                                    availableVersions[key] = versions
-                                    // Pre-select the newest version if it's different from the current one
-                                    if (versions.first() != currentVersion) {
-                                        selectedVersions[key] = versions.first()
-                                    }
-                                }
-                            }
+                            checkArtifactUpdate(dependency.groupId, dependency.artifactId, dependency.version, indicator)
+                        }
+                        
+                        mavenProject.plugins.forEach { plugin ->
+                            if (indicator.isCanceled) return@run
+                            checkArtifactUpdate(plugin.groupId, plugin.artifactId, plugin.version, indicator)
                         }
                     }
 
@@ -473,12 +637,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                             depKeys.forEach { depKey ->
                                 availableVersions[depKey] = sortedCommonVersions
                                 if (sortedCommonVersions.isNotEmpty()) {
-                                    val mavenProject = projects.find { p -> p.dependencyTree.any { it.artifact.groupId == depKey.substringBefore(":") && it.artifact.artifactId == depKey.substringAfter(":") } }
-                                    val artifact = mavenProject?.dependencyTree?.find { it.artifact.groupId == depKey.substringBefore(":") && it.artifact.artifactId == depKey.substringAfter(":") }?.artifact
-                                    val currentVersion = artifact?.version ?: ""
-                                    if (sortedCommonVersions.first() != currentVersion) {
-                                        selectedVersions[depKey] = sortedCommonVersions.first()
-                                    }
+                                    selectedVersions[depKey] = sortedCommonVersions.first()
                                 }
                             }
                         }
@@ -487,6 +646,45 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     onFinished()
                 }
             })
+        }
+
+        private fun checkArtifactUpdate(groupId: String?, artifactId: String?, currentVersion: String?, indicator: ProgressIndicator) {
+            indicator.text2 = "$groupId:$artifactId"
+            
+            if (groupId != null && artifactId != null) {
+                val version = currentVersion ?: ""
+                val versions = fetchVersions(groupId, artifactId, version)
+                if (versions.isNotEmpty()) {
+                    val key = "$groupId:$artifactId"
+                    availableVersions[key] = versions
+                    // Pre-select the newest version if it's different from the current one
+                    if (versions.first() != version) {
+                        selectedVersions[key] = versions.first()
+                    }
+                }
+            }
+        }
+
+        private fun updateXmlTagVersion(tag: XmlTag, newVersion: String, propertiesTag: XmlTag?) {
+            val versionTag = tag.findFirstSubTag("version")
+            if (versionTag != null) {
+                // Use versionTag.value.trimmedText for recognition
+                val versionContent = versionTag.value.trimmedText
+                
+                if (versionContent.startsWith("\${") && versionContent.endsWith("}")) {
+                    val propertyName = versionContent.substring(2, versionContent.length - 1)
+                    val propertyTag = propertiesTag?.findFirstSubTag(propertyName)
+                    if (propertyTag != null) {
+                        propertyTag.value.text = newVersion
+                        return // Property updated, don't overwrite version tag
+                    }
+                }
+                // Fallback or direct update: overwrite version tag
+                versionTag.value.text = newVersion
+            } else {
+                val newTag = tag.createChildTag("version", null, newVersion, false)
+                tag.addSubTag(newTag, false)
+            }
         }
 
         private fun fetchVersions(groupId: String, artifactId: String, currentVersion: String): List<String> {
@@ -528,34 +726,57 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
         fun getContent(): JBPanel<JBPanel<*>> = content
 
-        private fun navigateToDependency(groupId: String, artifactId: String) {
+        private fun navigateToDependency(groupId: String, artifactId: String, type: String = "dependency") {
             val mavenProjectsManager = MavenProjectsManager.getInstance(project)
             val projects = mavenProjectsManager.projects
 
             projects.forEach { mavenProject ->
-                val dependency = mavenProject.dependencyTree.find { 
-                    it.artifact.groupId == groupId && it.artifact.artifactId == artifactId 
-                }
+                val pomFile = mavenProject.file
+                val psiFile = ApplicationManager.getApplication().runReadAction<XmlFile?> {
+                    PsiManager.getInstance(project).findFile(pomFile) as? XmlFile
+                } ?: return@forEach
                 
-                if (dependency != null) {
-                    val pomFile = mavenProject.file
-                    val psiFile = ApplicationManager.getApplication().runReadAction<XmlFile?> {
-                        PsiManager.getInstance(project).findFile(pomFile) as? XmlFile
-                    } ?: return@forEach
-                    
-                    val depTag = ApplicationManager.getApplication().runReadAction<XmlTag?> {
-                        val documentElement = psiFile.document?.rootTag
+                val targetTag = ApplicationManager.getApplication().runReadAction<XmlTag?> {
+                    val documentElement = psiFile.document?.rootTag
+                    if (type == "dependency") {
                         val dependenciesTag = documentElement?.findFirstSubTag("dependencies")
-                        
-                        dependenciesTag?.findSubTags("dependency")?.find { depTag ->
+                        val localDep = dependenciesTag?.findSubTags("dependency")?.find { depTag ->
                             val g = depTag.findFirstSubTag("groupId")?.value?.text
                             val a = depTag.findFirstSubTag("artifactId")?.value?.text
                             g == groupId && a == artifactId
                         }
+                        if (localDep != null) return@runReadAction localDep
+                        
+                        val dmTag = documentElement?.findFirstSubTag("dependencyManagement")
+                        val dmDepsTag = dmTag?.findFirstSubTag("dependencies")
+                        dmDepsTag?.findSubTags("dependency")?.find { depTag ->
+                            val g = depTag.findFirstSubTag("groupId")?.value?.text
+                            val a = depTag.findFirstSubTag("artifactId")?.value?.text
+                            g == groupId && a == artifactId
+                        }
+                    } else {
+                        val buildTag = documentElement?.findFirstSubTag("build")
+                        val pluginsTag = buildTag?.findFirstSubTag("plugins")
+                        val localPlugin = pluginsTag?.findSubTags("plugin")?.find { pluginTag ->
+                            val g = pluginTag.findFirstSubTag("groupId")?.value?.text
+                            val a = pluginTag.findFirstSubTag("artifactId")?.value?.text
+                            g == groupId && a == artifactId
+                        }
+                        if (localPlugin != null) return@runReadAction localPlugin
+                        
+                        val pmTag = buildTag?.findFirstSubTag("pluginManagement")
+                        val pmPluginsTag = pmTag?.findFirstSubTag("plugins")
+                        pmPluginsTag?.findSubTags("plugin")?.find { pluginTag ->
+                            val g = pluginTag.findFirstSubTag("groupId")?.value?.text
+                            val a = pluginTag.findFirstSubTag("artifactId")?.value?.text
+                            g == groupId && a == artifactId
+                        }
                     }
+                }
 
+                if (targetTag != null) {
                     ApplicationManager.getApplication().invokeLater {
-                        val offset = depTag?.textOffset ?: 0
+                        val offset = targetTag.textOffset
                         val descriptor = OpenFileDescriptor(project, pomFile, offset)
                         FileEditorManager.getInstance(project).openTextEditor(descriptor, true)
                     }
