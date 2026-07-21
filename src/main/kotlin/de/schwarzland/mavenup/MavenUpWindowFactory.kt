@@ -643,6 +643,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
             project.messageBus.connect().subscribe(MavenImportListener.TOPIC, object : MavenImportListener {
                 override fun importFinished(importedProjects: Collection<MavenProject>, newModules: List<com.intellij.openapi.module.Module>) {
                     ApplicationManager.getApplication().invokeLater {
+                        availableVersions.clear()
+                        selectedVersions.clear()
                         refreshAction(false)
                     }
                 }
