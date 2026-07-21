@@ -183,9 +183,18 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         if (selectedVersion != null) {
                             selectedItem = selectedVersion
                         }
+                        
+                        val currentVersion = table?.getValueAt(row, 3) as? String ?: ""
+                        val newestVersion = versions.firstOrNull() ?: ""
+                        if (currentVersion == newestVersion && currentVersion.isNotEmpty()) {
+                            foreground = com.intellij.ui.JBColor.GREEN
+                        }
+
                         if (isSelected) {
                             background = table?.selectionBackground
-                            foreground = table?.selectionForeground
+                            if (currentVersion != newestVersion) {
+                                foreground = table?.selectionForeground
+                            }
                         }
                     }
                 }
@@ -206,6 +215,12 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     @Suppress("UNCHECKED_CAST")
                     val versions = value as? List<String> ?: emptyList()
                     val combo = JComboBox(versions.toTypedArray())
+                    
+                    val currentVersion = table?.getValueAt(row, 3) as? String ?: ""
+                    val newestVersion = versions.firstOrNull() ?: ""
+                    if (currentVersion == newestVersion && currentVersion.isNotEmpty()) {
+                        combo.foreground = com.intellij.ui.JBColor.GREEN
+                    }
                     
                     val selectedVersion = if (currentKey != null) selectedVersions[currentKey!!] else null
                     if (selectedVersion != null) {
