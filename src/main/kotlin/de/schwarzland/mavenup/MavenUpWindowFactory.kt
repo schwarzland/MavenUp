@@ -7,6 +7,8 @@ import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBPanel
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.content.ContentFactory
+import org.jetbrains.idea.maven.project.MavenImportListener
+import org.jetbrains.idea.maven.project.MavenProject
 import org.jetbrains.idea.maven.project.MavenProjectsManager
 import com.intellij.ui.table.JBTable
 import javax.swing.table.DefaultTableModel
@@ -637,6 +639,14 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 })
             }
             add(buttonPanel, BorderLayout.SOUTH)
+
+            project.messageBus.connect().subscribe(MavenImportListener.TOPIC, object : MavenImportListener {
+                override fun importFinished(importedProjects: Collection<MavenProject>, newModules: List<com.intellij.openapi.module.Module>) {
+                    ApplicationManager.getApplication().invokeLater {
+                        refreshAction(false)
+                    }
+                }
+            })
         }
 
         private fun checkForUpdates(onFinished: () -> Unit) {
