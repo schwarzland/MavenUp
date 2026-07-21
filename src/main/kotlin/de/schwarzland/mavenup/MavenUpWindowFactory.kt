@@ -129,7 +129,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
             
             table.addMouseListener(object : MouseAdapter() {
                 override fun mouseClicked(e: MouseEvent) {
-                    if (e.clickCount == 2) {
+                    val settings = MavenUpSettings.getInstance(project)
+                    val requiredClickCount = if (settings.state.jumpOnSingleClick) 1 else 2
+                    
+                    if (e.clickCount == requiredClickCount) {
                         val row = table.rowAtPoint(e.point)
                         if (row >= 0) {
                             val rawGroupId = table.getValueAt(row, 0) as? String ?: ""

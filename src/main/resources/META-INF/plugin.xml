@@ -32,6 +32,9 @@
                     icon="AllIcons.Toolwindows.ToolWindowPalette"
                     anchor="right"
                     secondary="false"/>
+
+        <projectConfigurable parentId="tools" instance="de.schwarzland.mavenup.MavenUpConfigurable"
+                             id="de.schwarzland.mavenup.MavenUpConfigurable" displayName="MavenUp"/>
     </extensions>
 
 </idea-plugin>
