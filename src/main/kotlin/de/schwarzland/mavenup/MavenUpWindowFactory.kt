@@ -717,88 +717,80 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 true
             ) {
                 override fun run(indicator: ProgressIndicator) {
-                    val mavenProjectsManager = MavenProjectsManager.getInstance(project)
-                    val projects = mavenProjectsManager.projects
-
+                    val projects = MavenProjectsManager.getInstance(project).projects
                     projects.forEach { mavenProject ->
-                        val pomFile = mavenProject.file
-                        val psiFile = ApplicationManager.getApplication().runReadAction<XmlFile?> {
-                            PsiManager.getInstance(project).findFile(pomFile) as? XmlFile
-                        }
-
-                        val allKeysWithVersions = mutableMapOf<String, String>()
-
-                        // Collect from dependency tree
-                        mavenProject.dependencyTree.forEach { node ->
-                            val dep = node.artifact
-                            allKeysWithVersions["${dep.groupId}:${dep.artifactId}"] = dep.version ?: ""
-                        }
-
-                        // Collect from plugins
-                        mavenProject.plugins.forEach { plugin ->
-                            allKeysWithVersions["${plugin.groupId}:${plugin.artifactId}"] = plugin.version ?: ""
-                        }
-
-                        // Collect from PSI for managed or unused dependencies/plugins
-                        if (psiFile != null) {
-                            ApplicationManager.getApplication().runReadAction {
-                                val documentElement = psiFile.document?.rootTag
-
-                                // dependencies
-                                documentElement?.findFirstSubTag("dependencies")?.findSubTags("dependency")
-                                    ?.forEach { tag ->
-                                        val g = tag.findFirstSubTag("groupId")?.value?.text ?: ""
-                                        val a = tag.findFirstSubTag("artifactId")?.value?.text ?: ""
-                                        val v = tag.findFirstSubTag("version")?.value?.text ?: ""
-                                        if (g.isNotEmpty() && a.isNotEmpty() && !allKeysWithVersions.containsKey("$g:$a")) {
-                                            allKeysWithVersions["$g:$a"] = v
-                                        }
-                                    }
-
-                                // dependencyManagement
-                                documentElement?.findFirstSubTag("dependencyManagement")
-                                    ?.findFirstSubTag("dependencies")?.findSubTags("dependency")?.forEach { tag ->
-                                    val g = tag.findFirstSubTag("groupId")?.value?.text ?: ""
-                                    val a = tag.findFirstSubTag("artifactId")?.value?.text ?: ""
-                                    val v = tag.findFirstSubTag("version")?.value?.text ?: ""
-                                    if (g.isNotEmpty() && a.isNotEmpty() && !allKeysWithVersions.containsKey("$g:$a")) {
-                                        allKeysWithVersions["$g:$a"] = v
-                                    }
-                                }
-
-                                // build/plugins
-                                documentElement?.findFirstSubTag("build")?.findFirstSubTag("plugins")
-                                    ?.findSubTags("plugin")?.forEach { tag ->
-                                    val g = tag.findFirstSubTag("groupId")?.value?.text ?: ""
-                                    val a = tag.findFirstSubTag("artifactId")?.value?.text ?: ""
-                                    val v = tag.findFirstSubTag("version")?.value?.text ?: ""
-                                    if (g.isNotEmpty() && a.isNotEmpty() && !allKeysWithVersions.containsKey("$g:$a")) {
-                                        allKeysWithVersions["$g:$a"] = v
-                                    }
-                                }
-
-                                // build/pluginManagement
-                                documentElement?.findFirstSubTag("build")?.findFirstSubTag("pluginManagement")
-                                    ?.findFirstSubTag("plugins")?.findSubTags("plugin")?.forEach { tag ->
-                                    val g = tag.findFirstSubTag("groupId")?.value?.text ?: ""
-                                    val a = tag.findFirstSubTag("artifactId")?.value?.text ?: ""
-                                    val v = tag.findFirstSubTag("version")?.value?.text ?: ""
-                                    if (g.isNotEmpty() && a.isNotEmpty() && !allKeysWithVersions.containsKey("$g:$a")) {
-                                        allKeysWithVersions["$g:$a"] = v
-                                    }
-                                }
-                            }
-                        }
-
-                        allKeysWithVersions.forEach { (key, version) ->
-                            if (indicator.isCanceled) return@run
-                            val groupId = key.substringBefore(":")
-                            val artifactId = key.substringAfter(":")
-                            checkArtifactUpdate(groupId, artifactId, version, indicator)
-                        }
+                        processProjectUpdates(mavenProject, indicator)
                     }
 
-                    // Post-process grouped versions (intersection)
+                    postProcessPropertyUpdates()
+
+                    ApplicationManager.getApplication().invokeLater {
+                        onFinished()
+                    }
+                }
+
+                private fun processProjectUpdates(mavenProject: MavenProject, indicator: ProgressIndicator) {
+                    val allKeysWithVersions = mutableMapOf<String, String>()
+
+                    // Collect from dependency tree
+                    mavenProject.dependencyTree.forEach { node ->
+                        val dep = node.artifact
+                        allKeysWithVersions["${dep.groupId}:${dep.artifactId}"] = dep.version ?: ""
+                    }
+
+                    // Collect from plugins
+                    mavenProject.plugins.forEach { plugin ->
+                        allKeysWithVersions["${plugin.groupId}:${plugin.artifactId}"] = plugin.version ?: ""
+                    }
+
+                    // Collect from PSI for managed or unused dependencies/plugins
+                    collectFromPsi(mavenProject, allKeysWithVersions)
+
+                    allKeysWithVersions.forEach { (key, version) ->
+                        if (indicator.isCanceled) return
+                        val groupId = key.substringBefore(":")
+                        val artifactId = key.substringAfter(":")
+                        checkArtifactUpdate(groupId, artifactId, version, indicator)
+                    }
+                }
+
+                private fun collectFromPsi(mavenProject: MavenProject, allKeysWithVersions: MutableMap<String, String>) {
+                    val psiFile = ApplicationManager.getApplication().runReadAction<XmlFile?> {
+                        PsiManager.getInstance(project).findFile(mavenProject.file) as? XmlFile
+                    } ?: return
+
+                    ApplicationManager.getApplication().runReadAction {
+                        val rootTag = psiFile.document?.rootTag ?: return@runReadAction
+
+                        // dependencies
+                        collectTags(rootTag.findFirstSubTag("dependencies"), "dependency", allKeysWithVersions)
+
+                        // dependencyManagement
+                        val dmTag = rootTag.findFirstSubTag("dependencyManagement")
+                        collectTags(dmTag?.findFirstSubTag("dependencies"), "dependency", allKeysWithVersions)
+
+                        // build/plugins
+                        val buildTag = rootTag.findFirstSubTag("build")
+                        collectTags(buildTag?.findFirstSubTag("plugins"), "plugin", allKeysWithVersions)
+
+                        // build/pluginManagement
+                        val pmTag = buildTag?.findFirstSubTag("pluginManagement")
+                        collectTags(pmTag?.findFirstSubTag("plugins"), "plugin", allKeysWithVersions)
+                    }
+                }
+
+                private fun collectTags(parentTag: XmlTag?, tagName: String, allKeysWithVersions: MutableMap<String, String>) {
+                    parentTag?.findSubTags(tagName)?.forEach { tag ->
+                        val g = tag.findFirstSubTag("groupId")?.value?.text ?: ""
+                        val a = tag.findFirstSubTag("artifactId")?.value?.text ?: ""
+                        val v = tag.findFirstSubTag("version")?.value?.text ?: ""
+                        if (g.isNotEmpty() && a.isNotEmpty() && !allKeysWithVersions.containsKey("$g:$a")) {
+                            allKeysWithVersions["$g:$a"] = v
+                        }
+                    }
+                }
+
+                private fun postProcessPropertyUpdates() {
                     val propertyToDependencies = mutableMapOf<String, MutableList<String>>()
                     dependencyToProperty.forEach { (depKey, prop) ->
                         propertyToDependencies.getOrPut(prop) { mutableListOf() }.add(depKey)
@@ -806,30 +798,32 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
                     propertyToDependencies.forEach { (prop, depKeys) ->
                         if (depKeys.size > 1) {
-                            var commonVersions: List<String>? = null
-                            depKeys.forEach { depKey ->
-                                val versions = availableVersions[depKey] ?: emptyList()
-                                commonVersions = if (commonVersions == null) {
-                                    versions
-                                } else {
-                                    commonVersions!!.intersect(versions.toSet()).toList()
-                                }
-                            }
+                            intersectVersions(depKeys)
+                        }
+                    }
+                }
 
-                            val sortedCommonVersions = commonVersions?.sortedWith { v1, v2 ->
-                                ComparableVersion(v2).compareTo(ComparableVersion(v1))
-                            } ?: emptyList()
-
-                            depKeys.forEach { depKey ->
-                                availableVersions[depKey] = sortedCommonVersions
-                                if (sortedCommonVersions.isNotEmpty()) {
-                                    selectedVersions[depKey] = sortedCommonVersions.first()
-                                }
-                            }
+                private fun intersectVersions(depKeys: List<String>) {
+                    var commonVersions: List<String>? = null
+                    depKeys.forEach { depKey ->
+                        val versions = availableVersions[depKey] ?: emptyList()
+                        commonVersions = if (commonVersions == null) {
+                            versions
+                        } else {
+                            commonVersions!!.intersect(versions.toSet()).toList()
                         }
                     }
 
-                    onFinished()
+                    val sortedCommonVersions = commonVersions?.sortedWith { v1, v2 ->
+                        ComparableVersion(v2).compareTo(ComparableVersion(v1))
+                    } ?: emptyList()
+
+                    depKeys.forEach { depKey ->
+                        availableVersions[depKey] = sortedCommonVersions
+                        if (sortedCommonVersions.isNotEmpty()) {
+                            selectedVersions[depKey] = sortedCommonVersions.first()
+                        }
+                    }
                 }
             })
         }
