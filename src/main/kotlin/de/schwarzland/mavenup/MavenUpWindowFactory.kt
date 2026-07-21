@@ -627,15 +627,76 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     val projects = mavenProjectsManager.projects
                     
                     projects.forEach { mavenProject ->
-                        mavenProject.dependencyTree.forEach { node ->
-                            if (indicator.isCanceled) return@run
-                            val dependency = node.artifact
-                            checkArtifactUpdate(dependency.groupId, dependency.artifactId, dependency.version, indicator)
+                        val pomFile = mavenProject.file
+                        val psiFile = ApplicationManager.getApplication().runReadAction<XmlFile?> {
+                            PsiManager.getInstance(project).findFile(pomFile) as? XmlFile
                         }
                         
+                        val allKeysWithVersions = mutableMapOf<String, String>()
+                        
+                        // Collect from dependency tree
+                        mavenProject.dependencyTree.forEach { node ->
+                            val dep = node.artifact
+                            allKeysWithVersions["${dep.groupId}:${dep.artifactId}"] = dep.version ?: ""
+                        }
+                        
+                        // Collect from plugins
                         mavenProject.plugins.forEach { plugin ->
+                            allKeysWithVersions["${plugin.groupId}:${plugin.artifactId}"] = plugin.version ?: ""
+                        }
+                        
+                        // Collect from PSI for managed or unused dependencies/plugins
+                        if (psiFile != null) {
+                            ApplicationManager.getApplication().runReadAction {
+                                val documentElement = psiFile.document?.rootTag
+                                
+                                // dependencies
+                                documentElement?.findFirstSubTag("dependencies")?.findSubTags("dependency")?.forEach { tag ->
+                                    val g = tag.findFirstSubTag("groupId")?.value?.text ?: ""
+                                    val a = tag.findFirstSubTag("artifactId")?.value?.text ?: ""
+                                    val v = tag.findFirstSubTag("version")?.value?.text ?: ""
+                                    if (g.isNotEmpty() && a.isNotEmpty() && !allKeysWithVersions.containsKey("$g:$a")) {
+                                        allKeysWithVersions["$g:$a"] = v
+                                    }
+                                }
+                                
+                                // dependencyManagement
+                                documentElement?.findFirstSubTag("dependencyManagement")?.findFirstSubTag("dependencies")?.findSubTags("dependency")?.forEach { tag ->
+                                    val g = tag.findFirstSubTag("groupId")?.value?.text ?: ""
+                                    val a = tag.findFirstSubTag("artifactId")?.value?.text ?: ""
+                                    val v = tag.findFirstSubTag("version")?.value?.text ?: ""
+                                    if (g.isNotEmpty() && a.isNotEmpty() && !allKeysWithVersions.containsKey("$g:$a")) {
+                                        allKeysWithVersions["$g:$a"] = v
+                                    }
+                                }
+                                
+                                // build/plugins
+                                documentElement?.findFirstSubTag("build")?.findFirstSubTag("plugins")?.findSubTags("plugin")?.forEach { tag ->
+                                    val g = tag.findFirstSubTag("groupId")?.value?.text ?: ""
+                                    val a = tag.findFirstSubTag("artifactId")?.value?.text ?: ""
+                                    val v = tag.findFirstSubTag("version")?.value?.text ?: ""
+                                    if (g.isNotEmpty() && a.isNotEmpty() && !allKeysWithVersions.containsKey("$g:$a")) {
+                                        allKeysWithVersions["$g:$a"] = v
+                                    }
+                                }
+                                
+                                // build/pluginManagement
+                                documentElement?.findFirstSubTag("build")?.findFirstSubTag("pluginManagement")?.findFirstSubTag("plugins")?.findSubTags("plugin")?.forEach { tag ->
+                                    val g = tag.findFirstSubTag("groupId")?.value?.text ?: ""
+                                    val a = tag.findFirstSubTag("artifactId")?.value?.text ?: ""
+                                    val v = tag.findFirstSubTag("version")?.value?.text ?: ""
+                                    if (g.isNotEmpty() && a.isNotEmpty() && !allKeysWithVersions.containsKey("$g:$a")) {
+                                        allKeysWithVersions["$g:$a"] = v
+                                    }
+                                }
+                            }
+                        }
+                        
+                        allKeysWithVersions.forEach { (key, version) ->
                             if (indicator.isCanceled) return@run
-                            checkArtifactUpdate(plugin.groupId, plugin.artifactId, plugin.version, indicator)
+                            val groupId = key.substringBefore(":")
+                            val artifactId = key.substringAfter(":")
+                            checkArtifactUpdate(groupId, artifactId, version, indicator)
                         }
                     }
 
