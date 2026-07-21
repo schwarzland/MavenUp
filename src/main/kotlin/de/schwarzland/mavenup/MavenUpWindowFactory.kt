@@ -490,16 +490,27 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
                         (localDependencies.keys + managedDependencies.keys).forEach { key ->
                             val newVersion = selectedVersions[key]
-                            val currentVersion = resolvedDependencies[key]?.artifact?.version 
-                                ?: managedDependencies[key] 
-                                ?: localDependencies[key] 
+                            val resolvedVersion = resolvedDependencies[key]?.artifact?.version
+                            val managedVersion = managedDependencies[key]
+                            val localVersion = localDependencies[key]
+                            
+                            val currentVersion = resolvedVersion 
+                                ?: managedVersion 
+                                ?: localVersion 
                                 ?: ""
                             
                             if (newVersion != null && newVersion != currentVersion) {
+                                val isManaged = managedDependencies.containsKey(key)
+                                val type = if (isManaged) {
+                                    MyMessageBundle.message("toolwindow.MyToolWindow.type.managedDependency")
+                                } else {
+                                    "dependency"
+                                }
+                                
                                 updates.add(UpdateConfirmationDialog.DependencyUpdate(
                                     key.substringBefore(":"),
                                     key.substringAfter(":"),
-                                    "dependency",
+                                    type,
                                     currentVersion,
                                     newVersion
                                 ))
@@ -508,16 +519,23 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         
                         (localPlugins.keys + managedPlugins.keys).forEach { key ->
                             val newVersion = selectedVersions[key]
-                            val currentVersion = resolvedPlugins[key]?.version 
-                                ?: managedPlugins[key] 
-                                ?: localPlugins[key] 
+                            val resolvedVersion = resolvedPlugins[key]?.version
+                            val managedVersion = managedPlugins[key]
+                            val localVersion = localPlugins[key]
+                            
+                            val currentVersion = resolvedVersion 
+                                ?: managedVersion 
+                                ?: localVersion 
                                 ?: ""
                             
                             if (newVersion != null && newVersion != currentVersion) {
+                                val isManaged = managedPlugins.containsKey(key)
+                                val type = if (isManaged) "managed plugin" else "plugin"
+                                
                                 updates.add(UpdateConfirmationDialog.DependencyUpdate(
                                     key.substringBefore(":"),
                                     key.substringAfter(":"),
-                                    "plugin",
+                                    type,
                                     currentVersion,
                                     newVersion
                                 ))
@@ -548,45 +566,46 @@ class MavenUpWindowFactory : ToolWindowFactory {
                                             val propertiesTag = documentElement.findFirstSubTag("properties")
                                             
                                             updates.forEach { update ->
-                                                if (update.type == "dependency") {
-                                                    // Search in <dependencies>
-                                                    dependenciesTag?.findSubTags("dependency")?.forEach { depTag ->
-                                                        val g = depTag.findFirstSubTag("groupId")?.value?.text
-                                                        val a = depTag.findFirstSubTag("artifactId")?.value?.text
-                                                        
-                                                        if (g == update.groupId && a == update.artifactId) {
-                                                            updateXmlTagVersion(depTag, update.newVersion, propertiesTag)
-                                                        }
-                                                    }
-                                                    // Search in <dependencyManagement><dependencies>
-                                                    dmDependenciesTag?.findSubTags("dependency")?.forEach { depTag ->
-                                                        val g = depTag.findFirstSubTag("groupId")?.value?.text
-                                                        val a = depTag.findFirstSubTag("artifactId")?.value?.text
-                                                        
-                                                        if (g == update.groupId && a == update.artifactId) {
-                                                            updateXmlTagVersion(depTag, update.newVersion, propertiesTag)
-                                                        }
-                                                    }
-                                                } else if (update.type == "plugin") {
-                                                    // Search in <build><plugins>
-                                                    pluginsTag?.findSubTags("plugin")?.forEach { pluginTag ->
-                                                        val g = pluginTag.findFirstSubTag("groupId")?.value?.text
-                                                        val a = pluginTag.findFirstSubTag("artifactId")?.value?.text
-                                                        
-                                                        if (g == update.groupId && a == update.artifactId) {
-                                                            updateXmlTagVersion(pluginTag, update.newVersion, propertiesTag)
-                                                        }
-                                                    }
-                                                    // Search in <build><pluginManagement><plugins>
-                                                    pmPluginsTag?.findSubTags("plugin")?.forEach { pluginTag ->
-                                                        val g = pluginTag.findFirstSubTag("groupId")?.value?.text
-                                                        val a = pluginTag.findFirstSubTag("artifactId")?.value?.text
-                                                        
-                                                        if (g == update.groupId && a == update.artifactId) {
-                                                            updateXmlTagVersion(pluginTag, update.newVersion, propertiesTag)
-                                                        }
-                                                    }
-                                                }
+                                val managedDependencyType = MyMessageBundle.message("toolwindow.MyToolWindow.type.managedDependency")
+                                if (update.type == "dependency" || update.type == managedDependencyType) {
+                                    // Search in <dependencies>
+                                    dependenciesTag?.findSubTags("dependency")?.forEach { depTag ->
+                                        val g = depTag.findFirstSubTag("groupId")?.value?.text
+                                        val a = depTag.findFirstSubTag("artifactId")?.value?.text
+                                        
+                                        if (g == update.groupId && a == update.artifactId) {
+                                            updateXmlTagVersion(depTag, update.newVersion, propertiesTag)
+                                        }
+                                    }
+                                    // Search in <dependencyManagement><dependencies>
+                                    dmDependenciesTag?.findSubTags("dependency")?.forEach { depTag ->
+                                        val g = depTag.findFirstSubTag("groupId")?.value?.text
+                                        val a = depTag.findFirstSubTag("artifactId")?.value?.text
+                                        
+                                        if (g == update.groupId && a == update.artifactId) {
+                                            updateXmlTagVersion(depTag, update.newVersion, propertiesTag)
+                                        }
+                                    }
+                                } else if (update.type == "plugin" || update.type == "managed plugin") {
+                                    // Search in <build><plugins>
+                                    pluginsTag?.findSubTags("plugin")?.forEach { pluginTag ->
+                                        val g = pluginTag.findFirstSubTag("groupId")?.value?.text
+                                        val a = pluginTag.findFirstSubTag("artifactId")?.value?.text
+                                        
+                                        if (g == update.groupId && a == update.artifactId) {
+                                            updateXmlTagVersion(pluginTag, update.newVersion, propertiesTag)
+                                        }
+                                    }
+                                    // Search in <build><pluginManagement><plugins>
+                                    pmPluginsTag?.findSubTags("plugin")?.forEach { pluginTag ->
+                                        val g = pluginTag.findFirstSubTag("groupId")?.value?.text
+                                        val a = pluginTag.findFirstSubTag("artifactId")?.value?.text
+                                        
+                                        if (g == update.groupId && a == update.artifactId) {
+                                            updateXmlTagVersion(pluginTag, update.newVersion, propertiesTag)
+                                        }
+                                    }
+                                }
                                             }
                                         }
                                     }
