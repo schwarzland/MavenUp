@@ -33,6 +33,10 @@ import org.apache.maven.artifact.versioning.ComparableVersion
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.psi.PsiManager
 import com.intellij.openapi.vfs.LocalFileSystem
+import com.intellij.openapi.fileEditor.FileEditorManager
+import com.intellij.openapi.fileEditor.OpenFileDescriptor
+import java.awt.event.MouseAdapter
+import java.awt.event.MouseEvent
 import java.io.File
 
 /**
@@ -115,6 +119,21 @@ class MavenUpWindowFactory : ToolWindowFactory {
             }
 
             val table = JBTable(tableModel)
+            
+            table.addMouseListener(object : MouseAdapter() {
+                override fun mouseClicked(e: MouseEvent) {
+                    if (e.clickCount == 2) {
+                        val row = table.rowAtPoint(e.point)
+                        if (row >= 0) {
+                            val rawGroupId = table.getValueAt(row, 0) as? String ?: ""
+                            val groupId = if (rawGroupId.contains(" (")) rawGroupId.substringBefore(" (") else rawGroupId
+                            val artifactId = table.getValueAt(row, 1) as? String ?: ""
+                            
+                            navigateToDependency(groupId, artifactId)
+                        }
+                    }
+                }
+            })
             
             val refreshButton = JButton(MyMessageBundle.message("toolwindow.MyToolWindow.refresh.button"))
             val checkUpdatesButton = JButton(MyMessageBundle.message("toolwindow.MyToolWindow.checkUpdates.button"))
@@ -507,5 +526,41 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         fun getContent(): JBPanel<JBPanel<*>> = content
+
+        private fun navigateToDependency(groupId: String, artifactId: String) {
+            val mavenProjectsManager = MavenProjectsManager.getInstance(project)
+            val projects = mavenProjectsManager.projects
+
+            projects.forEach { mavenProject ->
+                val dependency = mavenProject.dependencyTree.find { 
+                    it.artifact.groupId == groupId && it.artifact.artifactId == artifactId 
+                }
+                
+                if (dependency != null) {
+                    val pomFile = mavenProject.file
+                    val psiFile = ApplicationManager.getApplication().runReadAction<XmlFile?> {
+                        PsiManager.getInstance(project).findFile(pomFile) as? XmlFile
+                    } ?: return@forEach
+                    
+                    val depTag = ApplicationManager.getApplication().runReadAction<XmlTag?> {
+                        val documentElement = psiFile.document?.rootTag
+                        val dependenciesTag = documentElement?.findFirstSubTag("dependencies")
+                        
+                        dependenciesTag?.findSubTags("dependency")?.find { depTag ->
+                            val g = depTag.findFirstSubTag("groupId")?.value?.text
+                            val a = depTag.findFirstSubTag("artifactId")?.value?.text
+                            g == groupId && a == artifactId
+                        }
+                    }
+
+                    ApplicationManager.getApplication().invokeLater {
+                        val offset = depTag?.textOffset ?: 0
+                        val descriptor = OpenFileDescriptor(project, pomFile, offset)
+                        FileEditorManager.getInstance(project).openTextEditor(descriptor, true)
+                    }
+                    return
+                }
+            }
+        }
     }
 }
