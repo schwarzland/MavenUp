@@ -115,8 +115,34 @@ class MavenUpWindowFactory : ToolWindowFactory {
             }
 
             val table = JBTable(tableModel)
+            
+            val refreshButton = JButton(MyMessageBundle.message("toolwindow.MyToolWindow.refresh.button"))
+            val checkUpdatesButton = JButton(MyMessageBundle.message("toolwindow.MyToolWindow.checkUpdates.button"))
+            val updateButton = JButton(MyMessageBundle.message("toolwindow.MyToolWindow.update.button"))
+
+            fun updateUpdateButtonState() {
+                val mavenProjectsManager = MavenProjectsManager.getInstance(project)
+                val projects = mavenProjectsManager.projects
+                var hasUpdate = false
+                
+                projects.forEach { mavenProject ->
+                    mavenProject.dependencyTree.forEach { node ->
+                        val dependency = node.artifact
+                        val key = "${dependency.groupId}:${dependency.artifactId}"
+                        val newVersion = selectedVersions[key]
+                        val currentVersion = dependency.version ?: ""
+                        
+                        if (newVersion != null && newVersion != currentVersion) {
+                            hasUpdate = true
+                        }
+                    }
+                }
+                updateButton.isEnabled = hasUpdate && !isUpdating
+            }
+            
+            updateUpdateButtonState()
                     
-                    // Force commit editor when focus lost
+            // Force commit editor when focus lost
                     table.putClientProperty("terminateEditOnFocusLost", true)
                     
                     // Custom Renderer and Editor for the "New Version" column
@@ -187,15 +213,12 @@ class MavenUpWindowFactory : ToolWindowFactory {
                             }
                         }
                     }
+                    updateUpdateButtonState()
                     val groupId = currentKey?.substringBefore(":")
                     val artifactId = currentKey?.substringAfter(":")
                     return availableVersions["$groupId:$artifactId"]
                 }
             }
-
-            val refreshButton = JButton(MyMessageBundle.message("toolwindow.MyToolWindow.refresh.button"))
-            val checkUpdatesButton = JButton(MyMessageBundle.message("toolwindow.MyToolWindow.checkUpdates.button"))
-            val updateButton = JButton(MyMessageBundle.message("toolwindow.MyToolWindow.update.button"))
 
             val refreshAction = object : (Boolean) -> Unit {
                 override fun invoke(checkUpdates: Boolean) {
@@ -205,6 +228,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     dependencyToProperty.clear()
                     val mavenProjectsManager = MavenProjectsManager.getInstance(project)
                     val projects = mavenProjectsManager.projects
+                    updateUpdateButtonState()
 
                     if (projects.isNotEmpty()) {
                         projects.forEach { mavenProject ->
@@ -258,6 +282,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         isUpdating = true
                         refreshButton.isEnabled = false
                         checkUpdatesButton.isEnabled = false
+                        updateButton.isEnabled = false
                         
                         checkForUpdates {
                             ApplicationManager.getApplication().invokeLater {
@@ -265,6 +290,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                                 refreshButton.isEnabled = true
                                 checkUpdatesButton.isEnabled = true
                                 this(false)
+                                updateUpdateButtonState()
                             }
                         }
                     }
