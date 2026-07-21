@@ -1,5 +1,39 @@
 # MavenUp
 
+### Projektbeschreibung: MavenUp
+
+`MavenUp` ist ein IntelliJ-Plugin zur effizienten Verwaltung und Aktualisierung von Maven-Abhängigkeiten direkt innerhalb der IDE.
+
+#### Hauptfunktionen
+- **Abhängigkeitsübersicht**: Ein Tool-Fenster auf der rechten Seite zeigt alle im Projekt deklarierten Abhängigkeiten und Plugins an.
+- **Unterstützung für Managed Dependencies**: Das Plugin erkennt und markiert Abhängigkeiten, die in `<dependencyManagement>` oder `<pluginManagement>` definiert sind (als "managed dependency" bzw. "managed plugin").
+- **Update-Prüfung**: Sucht nach verfügbaren neueren Versionen in konfigurierten Maven-Repositories.
+- **Version-Auswahl & Highlights**: Die neueste verfügbare Version wird in der Tabelle grün hervorgehoben, wenn sie bereits aktuell ist. Über eine ComboBox kann eine neue Version ausgewählt werden.
+- **Bulk-Update**: Ermöglicht das gleichzeitige Aktualisieren mehrerer Abhängigkeiten in der `pom.xml` über einen Bestätigungsdialog.
+- **Navigation**: Per Klick (konfigurierbar: Einzel- oder Doppelklick) springt der Editor direkt zur Definition der Abhängigkeit in der entsprechenden `pom.xml`.
+- **Automatische Synchronisation**: Aktualisiert die interne Liste automatisch nach einem Maven-Import ("Sync Maven Changes").
+
+#### Technische Architektur
+- **Sprache**: Geschrieben in Kotlin.
+- **Integration**: Nutzt die IntelliJ-Plattform-APIs für Maven (`org.jetbrains.idea.maven`), XML-Parsing via PSI (Program Structure Interface) und persistente Einstellungen.
+- **UI**: Basiert auf Swing-Komponenten unter Verwendung von IntelliJ-spezifischen Erweiterungen wie `ComboBox` und `JBTable`.
+- **Lokalisierung**: Alle Texte werden zentral über `MyMessageBundle.properties` verwaltet.
+
+#### Projektstruktur
+- `src/main/kotlin/de/schwarzland/mavenup/`: Enthält die Kernlogik.
+    - `MavenUpWindowFactory.kt`: Hauptklasse für das Tool-Fenster, UI-Logik und XML-Updates.
+    - `MavenUpSettings.kt` / `MavenUpConfigurable.kt`: Verwaltung der Benutzereinstellungen.
+    - `MyMessageBundle.kt`: Hilfsklasse für Lokalisierung.
+- `src/main/resources/META-INF/plugin.xml`: Plugin-Manifest mit Deklaration von Extensions (Tool Window, Configurable) und Abhängigkeiten.
+- `src/test/kotlin/de/schwarzland/mavenup/`: Beinhaltet automatisierte Tests zur Verifizierung der Funktionalität.
+- `build.gradle.kts`: Konfiguration des Build-Systems (IntelliJ Platform Gradle Plugin).
+
+#### Abhängigkeiten des Plugins
+- `com.intellij.java`
+- `com.intellij.modules.xml`
+- `org.jetbrains.idea.maven`
+
+
 MavenUp ist ein IntelliJ-Plugin, das speziell für Maven-Projekte entwickelt wurde.
 
 ## Anforderungen
