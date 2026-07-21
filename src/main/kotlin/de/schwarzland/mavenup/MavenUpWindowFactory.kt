@@ -76,6 +76,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
         override fun createCenterPanel(): JComponent {
             val panel = JBPanel<JBPanel<*>>(BorderLayout())
+            panel.preferredSize = java.awt.Dimension(600, 400)
             panel.add(JLabel(MyMessageBundle.message("toolwindow.MyToolWindow.update.confirm.message")), BorderLayout.NORTH)
 
             val tableModel = DefaultTableModel().apply {
