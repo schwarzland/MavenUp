@@ -115,7 +115,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
         )
     }
 
-    class MyToolWindow(private val project: Project) {
+    internal inner class MyToolWindow(private val project: Project) {
         private val availableVersions = mutableMapOf<String, List<String>>()
         private val selectedVersions = mutableMapOf<String, String>()
         private val dependencyToProperty = mutableMapOf<String, String>()
@@ -850,7 +850,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             }
         }
 
-        private fun updateXmlTagVersion(tag: XmlTag, newVersion: String, propertiesTag: XmlTag?) {
+        internal fun updateXmlTagVersion(tag: XmlTag, newVersion: String, propertiesTag: XmlTag?) {
             val versionTag = tag.findFirstSubTag("version")
             if (versionTag != null) {
                 // Use versionTag.value.trimmedText for recognition
@@ -919,7 +919,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             }
         }
 
-        private fun findDependency(rootTag: XmlTag?, groupId: String, artifactId: String, isManaged: Boolean): XmlTag? {
+        internal fun findDependency(rootTag: XmlTag?, groupId: String, artifactId: String, isManaged: Boolean): XmlTag? {
             if (!isManaged) {
                 val dependenciesTag = rootTag?.findFirstSubTag("dependencies")
                 val localDep = findTag(dependenciesTag, "dependency", groupId, artifactId)
