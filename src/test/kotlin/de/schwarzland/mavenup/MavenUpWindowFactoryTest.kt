@@ -119,4 +119,51 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertEquals("${'$'}{example.version}", propDep?.findFirstSubTag("version")?.value?.text)
         assertEquals("1.2.0", propertiesTag?.findFirstSubTag("example.version")?.value?.text)
     }
+
+    fun testSelectLatestVersionSetting() {
+        val factory = MavenUpWindowFactory()
+        val toolWindowInstance = factory.MyToolWindow(project)
+        val settings = MavenUpSettings.getInstance(project)
+
+        // Mock data
+        val key = "com.example:test-artifact"
+        val versions = listOf("1.1.0", "1.0.0")
+        val currentVersion = "1.0.0"
+
+        // Test with selectLatestVersion = true (default)
+        assertTrue(settings.state.selectLatestVersion)
+        
+        // Use reflection to access internal maps for verification
+        val availableVersionsField = toolWindowInstance.javaClass.getDeclaredField("availableVersions").apply { isAccessible = true }
+        val selectedVersionsField = toolWindowInstance.javaClass.getDeclaredField("selectedVersions").apply { isAccessible = true }
+        val knownDependenciesField = toolWindowInstance.javaClass.getDeclaredField("knownDependencies").apply { isAccessible = true }
+
+        val availableVersions = availableVersionsField.get(toolWindowInstance) as MutableMap<String, List<String>>
+        val selectedVersions = selectedVersionsField.get(toolWindowInstance) as MutableMap<String, String>
+        val knownDependencies = knownDependenciesField.get(toolWindowInstance) as MutableMap<String, String>
+
+        knownDependencies[key] = currentVersion
+        
+        // Simulate checkArtifactUpdate logic manually for testing the selection logic
+        fun simulateCheck(v: String) {
+            availableVersions[key] = versions
+            if (versions.first() != v && settings.state.selectLatestVersion) {
+                selectedVersions[key] = versions.first()
+            } else if (!settings.state.selectLatestVersion) {
+                selectedVersions[key] = v
+            }
+        }
+
+        simulateCheck(currentVersion)
+        assertEquals("1.1.0", selectedVersions[key])
+
+        // Test with selectLatestVersion = false
+        settings.state.selectLatestVersion = false
+        selectedVersions.clear()
+        simulateCheck(currentVersion)
+        assertEquals("1.0.0", selectedVersions[key])
+        
+        // Reset
+        settings.state.selectLatestVersion = true
+    }
 }

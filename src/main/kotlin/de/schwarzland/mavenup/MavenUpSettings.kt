@@ -7,7 +7,8 @@ import com.intellij.openapi.project.Project
 @State(name = "MavenUpSettings", storages = [Storage("mavenup_settings.xml")])
 class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
     data class State(
-        var jumpOnSingleClick: Boolean = false
+        var jumpOnSingleClick: Boolean = false,
+        var selectLatestVersion: Boolean = true
     )
 
     private var myState = State()

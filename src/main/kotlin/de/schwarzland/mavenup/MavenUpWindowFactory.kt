@@ -456,6 +456,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         checkUpdatesButton.isEnabled = false
                         updateButton.isEnabled = false
 
+                        availableVersions.clear()
+                        selectedVersions.clear()
                         checkForUpdates {
                             ApplicationManager.getApplication().invokeLater {
                                 isUpdating = false
@@ -820,8 +822,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
                     depKeys.forEach { depKey ->
                         availableVersions[depKey] = sortedCommonVersions
-                        if (sortedCommonVersions.isNotEmpty()) {
+                        if (sortedCommonVersions.isNotEmpty() && MavenUpSettings.getInstance(project).state.selectLatestVersion) {
                             selectedVersions[depKey] = sortedCommonVersions.first()
+                        } else if (sortedCommonVersions.isNotEmpty() && !MavenUpSettings.getInstance(project).state.selectLatestVersion) {
+                            selectedVersions[depKey] = knownDependencies[depKey] ?: ""
                         }
                     }
                 }
@@ -842,9 +846,11 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 if (versions.isNotEmpty()) {
                     val key = "$groupId:$artifactId"
                     availableVersions[key] = versions
-                    // Pre-select the newest version if it's different from the current one
-                    if (versions.first() != version) {
+                    // Pre-select the newest version if it's different from the current one and setting is enabled
+                    if (versions.first() != version && MavenUpSettings.getInstance(project).state.selectLatestVersion) {
                         selectedVersions[key] = versions.first()
+                    } else if (!MavenUpSettings.getInstance(project).state.selectLatestVersion) {
+                        selectedVersions[key] = version
                     }
                 }
             }
