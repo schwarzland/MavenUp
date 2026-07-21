@@ -450,8 +450,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 val url = URI(urlString).toURL()
                 val connection = url.openConnection() as HttpURLConnection
                 connection.requestMethod = "GET"
-                connection.connectTimeout = 5000
-                connection.readTimeout = 5000
+                connection.connectTimeout = 10000
+                connection.readTimeout = 10000
 
                 if (connection.responseCode == HttpURLConnection.HTTP_OK) {
                     val factory = DocumentBuilderFactory.newInstance()
