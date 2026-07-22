@@ -8,13 +8,21 @@
     <name>MavenUp</name>
 
     <!-- A displayed Vendor name or Organization ID displayed on the Plugins Page. -->
-    <vendor url="https://www.yourcompany.com">YourCompany</vendor>
+    <vendor url="https://www.schwarzland.de">schwarzland.de</vendor>
 
     <!-- Description of the plugin displayed on the Plugin Page and IDE Plugin Manager.
          Guidelines: https://plugins.jetbrains.com/docs/marketplace/best-practices-for-listing.html#plugin-description -->
     <description><![CDATA[
-        Enter short description for your plugin here.<br>
-        <em>most HTML tags may be used</em>
+        IntelliJ plugin for Maven projects to simplify dependency and plugin management. It provides a clear table view of all declared components and enables easy updates to newer versions.<br><br>
+        <b>Features:</b>
+        <ul>
+            <li><b>Dependency & Plugin Overview:</b> Displays all dependencies and plugins declared in Maven projects.</li>
+            <li><b>Dependency Management Support:</b> Automatically detects whether a dependency is managed directly or via <code>dependencyManagement</code>.</li>
+            <li><b>Maven Properties (Variables):</b> Shows Maven property names (e.g., <code>${spring.version}</code>) in a dedicated column.</li>
+            <li><b>Update Check:</b> Checks for newer versions in configured repositories at the click of a button.</li>
+            <li><b>Select & Update Versions:</b> Select new versions from a dropdown and automatically update the <code>pom.xml</code>.</li>
+            <li><b>Navigation:</b> Jump directly to the definition in the <code>pom.xml</code> via double-click (or optional single-click).</li>
+        </ul>
         ]]></description>
 
     <!-- Product and plugin compatibility requirements.

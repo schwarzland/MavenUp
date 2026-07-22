@@ -1,84 +1,38 @@
 # MavenUp
 
-### Projektbeschreibung: MavenUp
+MavenUp ist ein IntelliJ-Plugin, das speziell für Maven-Projekte entwickelt wurde, um die Verwaltung von Abhängigkeiten (Dependencies) und Plugins zu vereinfachen. Es bietet eine übersichtliche Tabellenansicht aller deklarierten Komponenten und ermöglicht die einfache Aktualisierung auf neuere Versionen.
 
-`MavenUp` ist ein IntelliJ-Plugin zur effizienten Verwaltung und Aktualisierung von Maven-Abhängigkeiten direkt innerhalb der IDE.
+## Funktionen
 
-#### Hauptfunktionen
-- **Abhängigkeitsübersicht**: Ein Tool-Fenster auf der rechten Seite zeigt alle im Projekt deklarierten Abhängigkeiten und Plugins an.
-- **Unterstützung für Managed Dependencies**: Das Plugin erkennt und markiert Abhängigkeiten, die in `<dependencyManagement>` oder `<pluginManagement>` definiert sind (als "managed dependency" bzw. "managed plugin").
-- **Update-Prüfung**: Sucht nach verfügbaren neueren Versionen in konfigurierten Maven-Repositories.
-- **Version-Auswahl & Highlights**: Die neueste verfügbare Version wird in der Tabelle grün hervorgehoben, wenn sie bereits aktuell ist. Über eine ComboBox kann eine neue Version ausgewählt werden.
-- **Bulk-Update**: Ermöglicht das gleichzeitige Aktualisieren mehrerer Abhängigkeiten in der `pom.xml` über einen Bestätigungsdialog.
-- **Navigation**: Per Klick (konfigurierbar: Einzel- oder Doppelklick) springt der Editor direkt zur Definition der Abhängigkeit in der entsprechenden `pom.xml`.
-- **Automatische Synchronisation**: Aktualisiert die interne Liste automatisch nach einem Maven-Import ("Sync Maven Changes").
+- **Übersicht der Abhängigkeiten & Plugins**: Anzeige aller in den Maven-Projekten deklarierten Dependencies und Plugins.
+- **Unterstützung für Dependency Management**: Erkennt automatisch, ob eine Abhängigkeit direkt oder über `dependencyManagement` gesteuert wird.
+- **Maven-Properties (Variablen)**: Wenn eine Version über eine Maven-Property (z.B. `${spring.version}`) definiert ist, wird der Name dieser Property in einer eigenen Spalte ("Property") angezeigt.
+- **Update-Check**: Prüft auf Knopfdruck, ob neuere Versionen für die verwendeten Bibliotheken in den konfigurierten Repositories verfügbar sind.
+- **Versionen auswählen & aktualisieren**: Ermöglicht die Auswahl einer neuen Version direkt aus einem Dropdown-Menü in der Tabelle und aktualisiert die `pom.xml` automatisch.
+- **Navigation**: Ein Doppelklick (oder optional Einzelklick) auf einen Tabelleneintrag springt direkt zur entsprechenden Definition in der `pom.xml`.
 
-#### Technische Architektur
-- **Sprache**: Geschrieben in Kotlin.
-- **Integration**: Nutzt die IntelliJ-Plattform-APIs für Maven (`org.jetbrains.idea.maven`), XML-Parsing via PSI (Program Structure Interface) und persistente Einstellungen.
-- **UI**: Basiert auf Swing-Komponenten unter Verwendung von IntelliJ-spezifischen Erweiterungen wie `ComboBox` und `JBTable`.
-- **Lokalisierung**: Alle Texte werden zentral über `MyMessageBundle.properties` verwaltet.
+## Benutzung
 
-#### Projektstruktur
-- `src/main/kotlin/de/schwarzland/mavenup/`: Enthält die Kernlogik.
-    - `MavenUpWindowFactory.kt`: Hauptklasse für das Tool-Fenster, UI-Logik und XML-Updates.
-    - `MavenUpSettings.kt` / `MavenUpConfigurable.kt`: Verwaltung der Benutzereinstellungen.
-    - `MyMessageBundle.kt`: Hilfsklasse für Lokalisierung.
-- `src/main/resources/META-INF/plugin.xml`: Plugin-Manifest mit Deklaration von Extensions (Tool Window, Configurable) und Abhängigkeiten.
-- `src/test/kotlin/de/schwarzland/mavenup/`: Beinhaltet automatisierte Tests zur Verifizierung der Funktionalität.
-- `build.gradle.kts`: Konfiguration des Build-Systems (IntelliJ Platform Gradle Plugin).
+Das Plugin öffnet ein Tool-Window namens **MavenUp** (meist am rechten oder unteren Rand der IDE).
 
-#### Abhängigkeiten des Plugins
-- `com.intellij.java`
-- `com.intellij.modules.xml`
-- `org.jetbrains.idea.maven`
+1. **Refresh**: Lädt die Projektdaten neu und befüllt die Tabelle.
+2. **Check for Updates**: Sucht online nach verfügbaren Versionen für alle gelisteten Einträge.
+3. **New Version**: In dieser Spalte kann nach dem Update-Check eine neuere Version gewählt werden.
+4. **Update**: Wendet die gewählten Versionsänderungen auf die entsprechenden `pom.xml`-Dateien an.
 
+## Einstellungen
 
-MavenUp ist ein IntelliJ-Plugin, das speziell für Maven-Projekte entwickelt wurde.
+Unter `Settings > Tools > MavenUp` können folgende Optionen konfiguriert werden:
+
+- **Jump to pom.xml on single click**: Ermöglicht die Navigation zur `pom.xml` mit einem einfachen statt eines Doppelklicks.
+- **Automatically select newest version**: Wählt nach einem Update-Check automatisch die jeweils neueste verfügbare Version in der Dropdown-Liste aus.
 
 ## Anforderungen
 - Das Plugin kann nur in Projekten verwendet werden, die als Maven-Projekte konfiguriert sind.
 
-[![Twitter Follow](https://img.shields.io/badge/follow-%40JBPlatform-1DA1F2?logo=twitter)](https://twitter.com/JBPlatform)
-[![Developers Forum](https://img.shields.io/badge/JetBrains%20Platform-Join-blue)][jb:forum]
+---
 
-## Plugin structure
-
-A generated project contains the following content structure:
-
-```
-.
-├── .run/                   Predefined Run/Debug Configurations
-├── build/                  Output build directory
-├── gradle
-│   ├── wrapper/            Gradle Wrapper
-│   ├── libs.versions.toml  Version catalog
-├── src                     Plugin sources
-│   ├── main
-│   │   ├── kotlin/         Kotlin production sources
-│   │   └── resources/      Resources - plugin.xml, icons, messages
-├── .gitignore              Git ignoring rules
-├── build.gradle.kts        Gradle build configuration
-├── gradle.properties       Gradle configuration properties
-├── gradlew                 *nix Gradle Wrapper script
-├── gradlew.bat             Windows Gradle Wrapper script
-├── README.md               README
-└── settings.gradle.kts     Gradle project settings
-```
-
-In addition to the configuration files, the most crucial part is the `src` directory, which contains our implementation
-and the manifest for our plugin – [plugin.xml][file:plugin.xml].
-
-> [!NOTE]
-> To use Java in your plugin, create the `/src/main/java` directory.
-
-## Plugin configuration file
-
-The plugin configuration file is a [plugin.xml][file:plugin.xml] file located in the `src/main/resources/META-INF`
-directory.
-It provides general information about the plugin, its dependencies, extensions, and listeners.
-
-You can read more about this file in the [Plugin Configuration File][docs:plugin.xml] section of our documentation.
+## Plugin Development
 
 If you're still not quite sure what this is all about, read [Introduction to IntelliJ Platform][docs:intro].
 
@@ -116,39 +70,16 @@ manually via UI.
 - [IntelliJ Platform Explorer][jb:ipe]
 - [JetBrains Marketplace Quality Guidelines][jb:quality-guidelines]
 - [IntelliJ Platform UI Guidelines][jb:ui-guidelines]
-- [JetBrains Marketplace Paid Plugins][jb:paid-plugins]
 - [IntelliJ SDK Code Samples][gh:code-samples]
 
 [docs]: https://plugins.jetbrains.com/docs/intellij
-
-[docs:intro]: https://plugins.jetbrains.com/docs/intellij/intellij-platform.html?from=IJPluginTemplate
-
-[docs:plugin.xml]: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html?from=IJPluginTemplate
-
-[docs:publishing]: https://plugins.jetbrains.com/docs/intellij/publishing-plugin.html?from=IJPluginTemplate
-
-[file:plugin.xml]: ./src/main/resources/META-INF/plugin.xml
-
 [gh:code-samples]: https://github.com/JetBrains/intellij-sdk-code-samples
-
 [gh:intellij-platform-gradle-plugin]: https://github.com/JetBrains/intellij-platform-gradle-plugin
-
 [gh:intellij-platform-gradle-plugin-docs]: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin.html
-
 [gh:intellij-platform-gradle-plugin-runIde]: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-tasks.html#runIde
-
 [gh:intellij-platform-gradle-plugin-verifyPlugin]: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-tasks.html#verifyPlugin
-
 [gradle:lifecycle-tasks]: https://docs.gradle.org/current/userguide/java_plugin.html#lifecycle_tasks
-
-[jb:github]: https://github.com/JetBrains/.github/blob/main/profile/README.md
-
 [jb:forum]: https://platform.jetbrains.com/
-
 [jb:quality-guidelines]: https://plugins.jetbrains.com/docs/marketplace/quality-guidelines.html
-
-[jb:paid-plugins]: https://plugins.jetbrains.com/docs/marketplace/paid-plugins-marketplace.html
-
 [jb:ipe]: https://jb.gg/ipe
-
 [jb:ui-guidelines]: https://jetbrains.github.io/ui
