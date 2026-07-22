@@ -30,7 +30,7 @@
     <extensions defaultExtensionNs="com.intellij">
         <toolWindow id="MavenUp" factoryClass="de.schwarzland.mavenup.MavenUpWindowFactory"
                     icon="AllIcons.Toolwindows.ToolWindowPalette"
-                    anchor="right"
+                    anchor="bottom"
                     secondary="false"/>
 
         <projectConfigurable parentId="tools" instance="de.schwarzland.mavenup.MavenUpConfigurable"

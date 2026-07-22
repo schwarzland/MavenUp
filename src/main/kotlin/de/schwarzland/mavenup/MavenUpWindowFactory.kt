@@ -124,10 +124,11 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
         private val content = JBPanel<JBPanel<*>>(BorderLayout()).apply {
             val tableModel = object : DefaultTableModel() {
-                override fun isCellEditable(row: Int, column: Int): Boolean = column == 4
+                override fun isCellEditable(row: Int, column: Int): Boolean = column == 5
             }.apply {
                 addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.groupId"))
                 addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.artifactId"))
+                addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.property"))
                 addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.type"))
                 addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.currentVersion"))
                 addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.newVersion"))
@@ -143,11 +144,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     if (e.clickCount == requiredClickCount) {
                         val row = table.rowAtPoint(e.point)
                         if (row >= 0) {
-                            val rawGroupId = table.getValueAt(row, 0) as? String ?: ""
-                            val groupId =
-                                if (rawGroupId.contains(" (")) rawGroupId.substringBefore(" (") else rawGroupId
+                            val groupId = table.getValueAt(row, 0) as? String ?: ""
                             val artifactId = table.getValueAt(row, 1) as? String ?: ""
-                            val type = table.getValueAt(row, 2) as? String ?: "dependency"
+                            val type = table.getValueAt(row, 3) as? String ?: "dependency"
 
                             navigateToDependency(groupId, artifactId, type)
                         }
@@ -176,12 +175,11 @@ class MavenUpWindowFactory : ToolWindowFactory {
             table.putClientProperty("terminateEditOnFocusLost", true)
 
             // Custom Renderer and Editor for the "New Version" column
-            table.columnModel.getColumn(4).cellRenderer = object : TableCellRenderer {
+            table.columnModel.getColumn(5).cellRenderer = object : TableCellRenderer {
                 override fun getTableCellRendererComponent(
                     table: JTable?, value: Any?, isSelected: Boolean, hasFocus: Boolean, row: Int, column: Int
                 ): Component {
-                    val rawGroupId = table?.getValueAt(row, 0) as? String ?: ""
-                    val groupId = if (rawGroupId.contains(" (")) rawGroupId.substringBefore(" (") else rawGroupId
+                    val groupId = table?.getValueAt(row, 0) as? String ?: ""
                     val artifactId = table?.getValueAt(row, 1) as? String ?: ""
                     val key = "$groupId:$artifactId"
 
@@ -196,7 +194,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                             selectedItem = selectedVersion
                         }
 
-                        val currentVersion = table?.getValueAt(row, 3) as? String ?: ""
+                        val currentVersion = table?.getValueAt(row, 4) as? String ?: ""
                         val newestVersion = versions.firstOrNull() ?: ""
                         if (currentVersion == newestVersion && currentVersion.isNotEmpty()) {
                             foreground = com.intellij.ui.JBColor.GREEN
@@ -212,15 +210,14 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 }
             }
 
-            table.columnModel.getColumn(4).cellEditor = object : AbstractTableCellEditor() {
+            table.columnModel.getColumn(5).cellEditor = object : AbstractTableCellEditor() {
                 private var currentComboBox: ComboBox<String>? = null
                 private var currentKey: String? = null
 
                 override fun getTableCellEditorComponent(
                     table: JTable?, value: Any?, isSelected: Boolean, row: Int, column: Int
                 ): Component {
-                    val rawGroupId = table?.getValueAt(row, 0) as? String ?: ""
-                    val groupId = if (rawGroupId.contains(" (")) rawGroupId.substringBefore(" (") else rawGroupId
+                    val groupId = table?.getValueAt(row, 0) as? String ?: ""
                     val artifactId = table?.getValueAt(row, 1) as? String ?: ""
                     currentKey = "$groupId:$artifactId"
 
@@ -237,6 +234,25 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     val selectedVersion = if (currentKey != null) selectedVersions[currentKey!!] else null
                     if (selectedVersion != null) {
                         combo.selectedItem = selectedVersion
+                    }
+
+                    combo.addActionListener {
+                        val selected = combo.selectedItem as? String
+                        val key = currentKey
+                        if (key != null && selected != null) {
+                            selectedVersions[key] = selected
+
+                            // Synchronize other dependencies using the same property
+                            val property = dependencyToProperty[key]
+                            if (property != null) {
+                                dependencyToProperty.forEach { (depKey, prop) ->
+                                    if (prop == property) {
+                                        selectedVersions[depKey] = selected
+                                    }
+                                }
+                            }
+                        }
+                        updateUpdateButtonState()
                     }
 
                     currentComboBox = combo
@@ -388,11 +404,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
                                 val versions = availableVersions[key] ?: emptyList()
 
-                                val displayGroupId = if (dependencyToProperty.containsKey(key)) {
-                                    "$groupId (${dependencyToProperty[key]})"
-                                } else {
-                                    groupId
-                                }
+                                val propertyName = dependencyToProperty[key] ?: ""
 
                                 val type = if (isManaged) {
                                     MyMessageBundle.message("toolwindow.MyToolWindow.type.managedDependency")
@@ -402,8 +414,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
                                 tableModel.addRow(
                                     arrayOf(
-                                        displayGroupId,
+                                        groupId,
                                         artifactId,
+                                        propertyName,
                                         type,
                                         currentVersion,
                                         versions
@@ -429,18 +442,15 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
                                 val versions = availableVersions[key] ?: emptyList()
 
-                                val displayGroupId = if (dependencyToProperty.containsKey(key)) {
-                                    "$groupId (${dependencyToProperty[key]})"
-                                } else {
-                                    groupId
-                                }
+                                val propertyName = dependencyToProperty[key] ?: ""
 
                                 val type = if (isManaged) MANAGED_PLUGIN else "plugin"
 
                                 tableModel.addRow(
                                     arrayOf(
-                                        displayGroupId,
+                                        groupId,
                                         artifactId,
+                                        propertyName,
                                         type,
                                         currentVersion,
                                         versions
@@ -611,7 +621,13 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
                                     ApplicationManager.getApplication().invokeLater {
                                         selectedVersions.clear()
+                                        availableVersions.clear()
                                         refreshAction(false)
+
+                                        for (row in 0 until tableModel.rowCount) {
+                                            tableModel.setValueAt("", row, 4)
+                                            tableModel.setValueAt(emptyList<String>(), row, 5)
+                                        }
                                     }
                                 }
                             })
