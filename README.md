@@ -83,3 +83,10 @@ manually via UI.
 [jb:quality-guidelines]: https://plugins.jetbrains.com/docs/marketplace/quality-guidelines.html
 [jb:ipe]: https://jb.gg/ipe
 [jb:ui-guidelines]: https://jetbrains.github.io/ui
+
+
+## Developer Stuff
+`git push` scheiterte mit den `/assets/*.png`weil die Git-Buffer-Size zu klein war. Lösung:
+```
+git config --global http.postBuffer 524288000
+```
