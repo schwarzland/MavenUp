@@ -750,106 +750,106 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         onFinished()
                     }
                 }
-
-                private fun processProjectUpdates(mavenProject: MavenProject, indicator: ProgressIndicator) {
-                    val allKeysWithVersions = mutableMapOf<String, String>()
-
-                    // Collect from dependency tree
-                    mavenProject.dependencyTree.forEach { node ->
-                        val dep = node.artifact
-                        allKeysWithVersions["${dep.groupId}:${dep.artifactId}"] = dep.version ?: ""
-                    }
-
-                    // Collect from plugins
-                    mavenProject.plugins.forEach { plugin ->
-                        allKeysWithVersions["${plugin.groupId}:${plugin.artifactId}"] = plugin.version ?: ""
-                    }
-
-                    // Collect from PSI for managed or unused dependencies/plugins
-                    collectFromPsi(mavenProject, allKeysWithVersions)
-
-                    allKeysWithVersions.forEach { (key, version) ->
-                        if (indicator.isCanceled) return
-                        val groupId = key.substringBefore(":")
-                        val artifactId = key.substringAfter(":")
-                        checkArtifactUpdate(groupId, artifactId, version, indicator)
-                    }
-                }
-
-                private fun collectFromPsi(mavenProject: MavenProject, allKeysWithVersions: MutableMap<String, String>) {
-                    val psiFile = ApplicationManager.getApplication().runReadAction<XmlFile?> {
-                        PsiManager.getInstance(project).findFile(mavenProject.file) as? XmlFile
-                    } ?: return
-
-                    ApplicationManager.getApplication().runReadAction {
-                        val rootTag = psiFile.document?.rootTag ?: return@runReadAction
-
-                        // dependencies
-                        collectTags(rootTag.findFirstSubTag("dependencies"), "dependency", allKeysWithVersions)
-
-                        // dependencyManagement
-                        val dmTag = rootTag.findFirstSubTag("dependencyManagement")
-                        collectTags(dmTag?.findFirstSubTag("dependencies"), "dependency", allKeysWithVersions)
-
-                        // build/plugins
-                        val buildTag = rootTag.findFirstSubTag("build")
-                        collectTags(buildTag?.findFirstSubTag("plugins"), "plugin", allKeysWithVersions)
-
-                        // build/pluginManagement
-                        val pmTag = buildTag?.findFirstSubTag("pluginManagement")
-                        collectTags(pmTag?.findFirstSubTag("plugins"), "plugin", allKeysWithVersions)
-                    }
-                }
-
-                private fun collectTags(parentTag: XmlTag?, tagName: String, allKeysWithVersions: MutableMap<String, String>) {
-                    parentTag?.findSubTags(tagName)?.forEach { tag ->
-                        val g = tag.findFirstSubTag("groupId")?.value?.text ?: ""
-                        val a = tag.findFirstSubTag("artifactId")?.value?.text ?: ""
-                        val v = tag.findFirstSubTag("version")?.value?.text ?: ""
-                        if (g.isNotEmpty() && a.isNotEmpty() && !allKeysWithVersions.containsKey("$g:$a")) {
-                            allKeysWithVersions["$g:$a"] = v
-                        }
-                    }
-                }
-
-                private fun postProcessPropertyUpdates() {
-                    val propertyToDependencies = mutableMapOf<String, MutableList<String>>()
-                    dependencyToProperty.forEach { (depKey, prop) ->
-                        propertyToDependencies.getOrPut(prop) { mutableListOf() }.add(depKey)
-                    }
-
-                    propertyToDependencies.forEach { (prop, depKeys) ->
-                        if (depKeys.size > 1) {
-                            intersectVersions(depKeys)
-                        }
-                    }
-                }
-
-                private fun intersectVersions(depKeys: List<String>) {
-                    var commonVersions: List<String>? = null
-                    depKeys.forEach { depKey ->
-                        val versions = availableVersions[depKey] ?: emptyList()
-                        commonVersions = if (commonVersions == null) {
-                            versions
-                        } else {
-                            commonVersions!!.intersect(versions.toSet()).toList()
-                        }
-                    }
-
-                    val sortedCommonVersions = commonVersions?.sortedWith { v1, v2 ->
-                        ComparableVersion(v2).compareTo(ComparableVersion(v1))
-                    } ?: emptyList()
-
-                    depKeys.forEach { depKey ->
-                        availableVersions[depKey] = sortedCommonVersions
-                        if (sortedCommonVersions.isNotEmpty() && MavenUpSettings.getInstance(project).state.selectLatestVersion) {
-                            selectedVersions[depKey] = sortedCommonVersions.first()
-                        } else if (sortedCommonVersions.isNotEmpty() && !MavenUpSettings.getInstance(project).state.selectLatestVersion) {
-                            selectedVersions[depKey] = knownDependencies[depKey] ?: ""
-                        }
-                    }
-                }
             })
+        }
+
+        private fun processProjectUpdates(mavenProject: MavenProject, indicator: ProgressIndicator) {
+            val allKeysWithVersions = mutableMapOf<String, String>()
+
+            // Collect from dependency tree
+            mavenProject.dependencyTree.forEach { node ->
+                val dep = node.artifact
+                allKeysWithVersions["${dep.groupId}:${dep.artifactId}"] = dep.version ?: ""
+            }
+
+            // Collect from plugins
+            mavenProject.plugins.forEach { plugin ->
+                allKeysWithVersions["${plugin.groupId}:${plugin.artifactId}"] = plugin.version ?: ""
+            }
+
+            // Collect from PSI for managed or unused dependencies/plugins
+            collectFromPsi(mavenProject, allKeysWithVersions)
+
+            allKeysWithVersions.forEach { (key, version) ->
+                if (indicator.isCanceled) return
+                val groupId = key.substringBefore(":")
+                val artifactId = key.substringAfter(":")
+                checkArtifactUpdate(groupId, artifactId, version, indicator)
+            }
+        }
+
+        private fun collectFromPsi(mavenProject: MavenProject, allKeysWithVersions: MutableMap<String, String>) {
+            val psiFile = ApplicationManager.getApplication().runReadAction<XmlFile?> {
+                PsiManager.getInstance(project).findFile(mavenProject.file) as? XmlFile
+            } ?: return
+
+            ApplicationManager.getApplication().runReadAction {
+                val rootTag = psiFile.document?.rootTag ?: return@runReadAction
+
+                // dependencies
+                collectTags(rootTag.findFirstSubTag("dependencies"), "dependency", allKeysWithVersions)
+
+                // dependencyManagement
+                val dmTag = rootTag.findFirstSubTag("dependencyManagement")
+                collectTags(dmTag?.findFirstSubTag("dependencies"), "dependency", allKeysWithVersions)
+
+                // build/plugins
+                val buildTag = rootTag.findFirstSubTag("build")
+                collectTags(buildTag?.findFirstSubTag("plugins"), "plugin", allKeysWithVersions)
+
+                // build/pluginManagement
+                val pmTag = buildTag?.findFirstSubTag("pluginManagement")
+                collectTags(pmTag?.findFirstSubTag("plugins"), "plugin", allKeysWithVersions)
+            }
+        }
+
+        private fun collectTags(parentTag: XmlTag?, tagName: String, allKeysWithVersions: MutableMap<String, String>) {
+            parentTag?.findSubTags(tagName)?.forEach { tag ->
+                val g = tag.findFirstSubTag("groupId")?.value?.text ?: ""
+                val a = tag.findFirstSubTag("artifactId")?.value?.text ?: ""
+                val v = tag.findFirstSubTag("version")?.value?.text ?: ""
+                if (g.isNotEmpty() && a.isNotEmpty() && !allKeysWithVersions.containsKey("$g:$a")) {
+                    allKeysWithVersions["$g:$a"] = v
+                }
+            }
+        }
+
+        private fun postProcessPropertyUpdates() {
+            val propertyToDependencies = mutableMapOf<String, MutableList<String>>()
+            dependencyToProperty.forEach { (depKey, prop) ->
+                propertyToDependencies.getOrPut(prop) { mutableListOf() }.add(depKey)
+            }
+
+            propertyToDependencies.forEach { (prop, depKeys) ->
+                if (depKeys.size > 1) {
+                    intersectVersions(depKeys)
+                }
+            }
+        }
+
+        private fun intersectVersions(depKeys: List<String>) {
+            var commonVersions: List<String>? = null
+            depKeys.forEach { depKey ->
+                val versions = availableVersions[depKey] ?: emptyList()
+                commonVersions = if (commonVersions == null) {
+                    versions
+                } else {
+                    commonVersions!!.intersect(versions.toSet()).toList()
+                }
+            }
+
+            val sortedCommonVersions = commonVersions?.sortedWith { v1, v2 ->
+                ComparableVersion(v2).compareTo(ComparableVersion(v1))
+            } ?: emptyList()
+
+            depKeys.forEach { depKey ->
+                availableVersions[depKey] = sortedCommonVersions
+                if (sortedCommonVersions.isNotEmpty() && MavenUpSettings.getInstance(project).state.selectLatestVersion) {
+                    selectedVersions[depKey] = sortedCommonVersions.first()
+                } else if (sortedCommonVersions.isNotEmpty() && !MavenUpSettings.getInstance(project).state.selectLatestVersion) {
+                    selectedVersions[depKey] = knownDependencies[depKey] ?: ""
+                }
+            }
         }
 
         private fun checkArtifactUpdate(
