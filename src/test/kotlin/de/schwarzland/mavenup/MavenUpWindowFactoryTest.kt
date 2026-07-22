@@ -163,7 +163,57 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         simulateCheck(currentVersion)
         assertEquals("1.0.0", selectedVersions[key])
         
-        // Reset
         settings.state.selectLatestVersion = true
+    }
+
+    fun testCollectDependenciesAndProperties() {
+        val pomContent = """
+            <project>
+                <properties>
+                    <my.version>1.2.3</my.version>
+                </properties>
+                <dependencies>
+                    <dependency>
+                        <groupId>com.example</groupId>
+                        <artifactId>with-prop</artifactId>
+                        <version>${"$"}{my.version}</version>
+                    </dependency>
+                    <dependency>
+                        <groupId>com.example</groupId>
+                        <artifactId>no-prop</artifactId>
+                        <version>1.0.0</version>
+                    </dependency>
+                </dependencies>
+            </project>
+        """.trimIndent()
+
+        val psiFile = myFixture.configureByText("pom.xml", pomContent) as XmlFile
+        val rootTag = psiFile.document?.rootTag
+        val dependenciesTag = rootTag?.findFirstSubTag("dependencies")
+
+        val factory = MavenUpWindowFactory()
+        val toolWindowInstance = factory.MyToolWindow(project)
+
+        val targetMap = mutableMapOf<String, String>()
+
+        // Use reflection to access private method and private map
+        val collectMethod = toolWindowInstance.javaClass.getDeclaredMethod(
+            "collectDependenciesAndProperties",
+            com.intellij.psi.xml.XmlTag::class.java,
+            String::class.java,
+            String::class.java,
+            MutableMap::class.java
+        ).apply { isAccessible = true }
+
+        val dependencyToPropertyField = toolWindowInstance.javaClass.getDeclaredField("dependencyToProperty").apply { isAccessible = true }
+        val dependencyToProperty = dependencyToPropertyField.get(toolWindowInstance) as MutableMap<String, String>
+
+        collectMethod.invoke(toolWindowInstance, rootTag, "dependencies", "dependency", targetMap)
+
+        assertEquals("${"$"}{my.version}", targetMap["com.example:with-prop"])
+        assertEquals("1.0.0", targetMap["com.example:no-prop"])
+        
+        assertEquals("my.version", dependencyToProperty["com.example:with-prop"])
+        assertNull(dependencyToProperty["com.example:no-prop"])
     }
 }
