@@ -38,6 +38,8 @@ import java.awt.event.MouseEvent
 
 private const val MANAGED_PLUGIN = "managed plugin"
 
+private const val TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY = "toolwindow.MyToolWindow.type.managedDependency"
+
 /**
  * Zusammenfassung
  * MyToolWindowFactory macht Folgendes:
@@ -225,7 +227,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     val versions = value as? List<String> ?: emptyList()
                     val combo = ComboBox(versions.toTypedArray())
 
-                    val currentVersion = table?.getValueAt(row, 3) as? String ?: ""
+                    val currentVersion = table?.getValueAt(row, 4) as? String ?: ""
                     val newestVersion = versions.firstOrNull() ?: ""
                     if (currentVersion == newestVersion && currentVersion.isNotEmpty()) {
                         combo.foreground = com.intellij.ui.JBColor.GREEN
@@ -407,7 +409,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                                 val propertyName = dependencyToProperty[key] ?: ""
 
                                 val type = if (isManaged) {
-                                    MyMessageBundle.message("toolwindow.MyToolWindow.type.managedDependency")
+                                    MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
                                 } else {
                                     "dependency"
                                 }
@@ -561,7 +563,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                             if (newVersion != null && newVersion != currentVersion) {
                                 val isManaged = managedDependencies.containsKey(key)
                                 val type = if (isManaged) {
-                                    MyMessageBundle.message("toolwindow.MyToolWindow.type.managedDependency")
+                                    MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
                                 } else {
                                     "dependency"
                                 }
@@ -678,7 +680,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 val propertiesTag = documentElement.findFirstSubTag("properties")
 
                 updates.forEach { update ->
-                    val managedDependencyType = MyMessageBundle.message("toolwindow.MyToolWindow.type.managedDependency")
+                    val managedDependencyType = MyMessageBundle.message(
+                        TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY
+                    )
                     if (update.type == "dependency" || update.type == managedDependencyType) {
                         updateDependencies(documentElement, update, propertiesTag)
                     } else if (update.type == "plugin" || update.type == MANAGED_PLUGIN) {
@@ -977,7 +981,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
                 val targetTag = ApplicationManager.getApplication().runReadAction<XmlTag?> {
                     val rootTag = psiFile.document?.rootTag
-                    val managedDepType = MyMessageBundle.message("toolwindow.MyToolWindow.type.managedDependency")
+                    val managedDepType = MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
                     val isManaged = type == managedDepType || type == MANAGED_PLUGIN
 
                     if (type == "dependency" || type == managedDepType) {
