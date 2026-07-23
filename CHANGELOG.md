@@ -2,6 +2,10 @@
 
 # MavenUp Changelog
 
+## [1.0.1]
+### Added
+- Add a new Plugin-Icon
+
 ## [1.0.0]
 ### Added
 - Initial release of MavenUp.
@@ -11,3 +15,4 @@
 - Easy update of pom.xml via dropdown selection.
 - Navigation to pom.xml (Single or Double Click).
 - Support for `dependencyManagement` and `pluginManagement`.
+
