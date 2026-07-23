@@ -7,7 +7,8 @@ MavenUp ist ein IntelliJ-Plugin, das speziell für Maven-Projekte entwickelt wur
 - **Übersicht der Abhängigkeiten & Plugins**: Anzeige aller in den Maven-Projekten deklarierten Dependencies und Plugins.
 - **Unterstützung für Dependency Management**: Erkennt automatisch, ob eine Abhängigkeit direkt oder über `dependencyManagement` gesteuert wird.
 - **Maven-Properties (Variablen)**: Wenn eine Version über eine Maven-Property (z.B. `${spring.version}`) definiert ist, wird der Name dieser Property in einer eigenen Spalte ("Property") angezeigt.
-- **Update-Check**: Prüft auf Knopfdruck, ob neuere Versionen für die verwendeten Bibliotheken in den konfigurierten Repositories verfügbar sind.
+- **Update-Check**: Prüft auf Knopfdruck, ob neuere Versionen für die verwendeten Bibliotheken in den konfigurierten Repositories verfügbar sind. Unterstützt werden dabei auch private Repositories (z.B. Nexus oder Artifactory), sofern diese in den Maven `settings.xml` hinterlegt sind.
+- **Fehlerbehandlung**: Protokolliert Fehler beim Einlesen der Maven-Konfiguration (Credentials/Repositories) und gibt Warnungen aus, falls Versionen für bestimmte Artefakte nicht geladen werden können.
 - **Versionen auswählen & aktualisieren**: Ermöglicht die Auswahl einer neuen Version direkt aus einem Dropdown-Menü in der Tabelle und aktualisiert die `pom.xml` automatisch.
 - **Navigation**: Ein Doppelklick (oder optional Einzelklick) auf einen Tabelleneintrag springt direkt zur entsprechenden Definition in der `pom.xml`.
 
@@ -19,6 +20,13 @@ Das Plugin öffnet ein Tool-Window namens **MavenUp** (meist am rechten oder unt
 2. **Check for Updates**: Sucht online nach verfügbaren Versionen für alle gelisteten Einträge.
 3. **New Version**: In dieser Spalte kann nach dem Update-Check eine neuere Version gewählt werden.
 4. **Update**: Wendet die gewählten Versionsänderungen auf die entsprechenden `pom.xml`-Dateien an.
+
+The plugin opens a tool window named **MavenUp** (usually located at the right or bottom edge of the IDE).
+
+1. **Refresh**: Reloads the project data and populates the table.
+2. **Check for Updates**: Searches online for available versions for all listed entries.
+3. **New Version**: In this column, a newer version can be selected after the update check.
+4. **Update**: Applies the selected version changes to the corresponding `pom.xml` files.
 
 ## Einstellungen
 

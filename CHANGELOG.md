@@ -5,6 +5,9 @@
 ## [1.0.1]
 ### Added
 - Add a new Plugin-Icon
+- Added support for private Maven repositories (e.g., Nexus, Artifactory)
+- Error logging for failed Maven settings file parsing (credentials and repositories).
+- Warning logging when fetching versions for an artifact from a repository fails.
 
 ## [1.0.0]
 ### Added
