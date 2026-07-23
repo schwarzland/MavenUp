@@ -1,44 +1,48 @@
 package de.schwarzland.mavenup
 
-import com.intellij.openapi.project.Project
-import com.intellij.openapi.ui.ComboBox
-import com.intellij.openapi.wm.ToolWindow
-import com.intellij.openapi.wm.ToolWindowFactory
-import com.intellij.ui.components.JBPanel
-import com.intellij.ui.components.JBScrollPane
-import com.intellij.ui.content.ContentFactory
-import org.jetbrains.idea.maven.project.MavenImportListener
-import org.jetbrains.idea.maven.project.MavenProject
-import org.jetbrains.idea.maven.project.MavenProjectsManager
-import com.intellij.ui.table.JBTable
-import javax.swing.table.DefaultTableModel
-import java.awt.BorderLayout
-import java.awt.Component
-import java.awt.FlowLayout
-import java.net.HttpURLConnection
-import java.net.URI
-import javax.swing.*
-import javax.swing.table.TableCellRenderer
-import javax.xml.parsers.DocumentBuilderFactory
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.command.WriteCommandAction
+import com.intellij.openapi.diagnostic.Logger
+import com.intellij.openapi.fileEditor.FileEditorManager
+import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
+import com.intellij.openapi.project.Project
+import com.intellij.openapi.ui.ComboBox
+import com.intellij.openapi.ui.DialogWrapper
+import com.intellij.openapi.wm.ToolWindow
+import com.intellij.openapi.wm.ToolWindowFactory
+import com.intellij.psi.PsiManager
 import com.intellij.psi.xml.XmlFile
 import com.intellij.psi.xml.XmlTag
-import com.intellij.openapi.ui.DialogWrapper
+import com.intellij.ui.components.JBPanel
+import com.intellij.ui.components.JBScrollPane
+import com.intellij.ui.content.ContentFactory
+import com.intellij.ui.table.JBTable
 import com.intellij.util.ui.AbstractTableCellEditor
 import org.apache.maven.artifact.versioning.ComparableVersion
-import com.intellij.openapi.command.WriteCommandAction
-import com.intellij.psi.PsiManager
-import com.intellij.openapi.fileEditor.FileEditorManager
-import com.intellij.openapi.fileEditor.OpenFileDescriptor
+import org.jetbrains.idea.maven.project.MavenImportListener
+import org.jetbrains.idea.maven.project.MavenProject
+import org.jetbrains.idea.maven.project.MavenProjectsManager
+import java.awt.BorderLayout
+import java.awt.Component
+import java.awt.FlowLayout
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
+import java.io.File
+import java.net.HttpURLConnection
+import java.net.URI
+import java.util.*
+import javax.swing.*
+import javax.swing.table.DefaultTableModel
+import javax.swing.table.TableCellRenderer
+import javax.xml.parsers.DocumentBuilderFactory
+
 
 private const val MANAGED_PLUGIN = "managed plugin"
-
 private const val TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY = "toolwindow.MyToolWindow.type.managedDependency"
+private val LOG = Logger.getInstance(MavenUpWindowFactory::class.java)
 
 /**
  * Zusammenfassung
@@ -183,7 +187,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     val currentVersion = table?.getValueAt(row, 4) as? String ?: ""
                     val newestVersion = versions.firstOrNull() ?: ""
                     if (currentVersion == newestVersion && currentVersion.isNotEmpty()) {
-                        foreground = com.intellij.ui.JBColor.GREEN
+                        foreground = com.intellij.ui.JBColor.BLUE
                     }
 
                     if (isSelected) {
@@ -213,7 +217,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     val currentVersion = table?.getValueAt(row, 4) as? String ?: ""
                     val newestVersion = versions.firstOrNull() ?: ""
                     if (currentVersion == newestVersion && currentVersion.isNotEmpty()) {
-                        combo.foreground = com.intellij.ui.JBColor.GREEN
+                        combo.foreground = com.intellij.ui.JBColor.BLUE
                     }
 
                     val selectedVersion = if (currentKey != null) selectedVersions[currentKey!!] else null
@@ -873,41 +877,113 @@ class MavenUpWindowFactory : ToolWindowFactory {
             }
         }
 
-        private fun fetchVersions(groupId: String, artifactId: String, currentVersion: String): List<String> {
-            try {
-                val urlString =
-                    "https://repo1.maven.org/maven2/${groupId.replace('.', '/')}/$artifactId/maven-metadata.xml"
-                val url = URI(urlString).toURL()
-                val connection = url.openConnection() as HttpURLConnection
-                connection.requestMethod = "GET"
-                connection.connectTimeout = 10000
-                connection.readTimeout = 10000
 
-                if (connection.responseCode == HttpURLConnection.HTTP_OK) {
-                    val factory = DocumentBuilderFactory.newInstance()
-                    val builder = factory.newDocumentBuilder()
-                    val doc = builder.parse(connection.inputStream)
+        private fun getMavenServerCredentials(): Map<String, Pair<String?, String?>> {
+            val credentials = mutableMapOf<String, Pair<String?, String?>>()
+            val generalSettings = MavenProjectsManager.getInstance(project).generalSettings
+            val userSettingsPath = generalSettings.userSettingsFile
 
-                    val versionNodes = doc.getElementsByTagName("version")
-                    val versions = mutableListOf<String>()
-                    val currentComparable = ComparableVersion(currentVersion)
-
-                    for (i in 0 until versionNodes.length) {
-                        val v = versionNodes.item(i).textContent
-                        if (ComparableVersion(v) >= currentComparable) {
-                            versions.add(v)
+            if (userSettingsPath.isNotBlank()) {
+                val userSettingsFile = File(userSettingsPath)
+                if (userSettingsFile.exists()) {
+                    try {
+                        val factory = DocumentBuilderFactory.newInstance()
+                        val builder = factory.newDocumentBuilder()
+                        val doc = builder.parse(userSettingsFile)
+                        val serverNodes = doc.getElementsByTagName("server")
+                        for (i in 0 until serverNodes.length) {
+                            val serverNode = serverNodes.item(i) as? org.w3c.dom.Element ?: continue
+                            val id = serverNode.getElementsByTagName("id").item(0)?.textContent
+                            val username = serverNode.getElementsByTagName("username").item(0)?.textContent
+                            val password = serverNode.getElementsByTagName("password").item(0)?.textContent
+                            if (id != null && id.isNotBlank()) {
+                                credentials[id] = Pair(username, password)
+                            }
                         }
-                    }
-
-                    // Sort versions descending (newest first)
-                    return versions.sortedWith { v1, v2 ->
-                        ComparableVersion(v2).compareTo(ComparableVersion(v1))
+                    } catch (e: Exception) {
+                        LOG.error("Failed to parse Maven settings file for credentials: ${userSettingsFile.path}", e)
                     }
                 }
-            } catch (_: Exception) {
-                // Log error or handle it
             }
-            return emptyList()
+            return credentials
+        }
+
+        private fun getMavenRepositoryInfos(): List<Pair<String?, String>> {
+            val infos = mutableListOf<Pair<String?, String>>(Pair("central", "https://repo1.maven.org/maven2"))
+
+            val generalSettings = MavenProjectsManager.getInstance(project).generalSettings
+            val userSettingsPath = generalSettings.userSettingsFile
+
+            if (userSettingsPath.isNotBlank()) {
+                val userSettingsFile = File(userSettingsPath)
+                if (userSettingsFile.exists()) {
+                    try {
+                        val factory = DocumentBuilderFactory.newInstance()
+                        val builder = factory.newDocumentBuilder()
+                        val doc = builder.parse(userSettingsFile)
+                        val repoNodes = doc.getElementsByTagName("repository")
+                        for (i in 0 until repoNodes.length) {
+                            val repoNode = repoNodes.item(i) as? org.w3c.dom.Element ?: continue
+                            val id = repoNode.getElementsByTagName("id").item(0)?.textContent
+                            val url = repoNode.getElementsByTagName("url").item(0)?.textContent
+                            if (url != null && url.isNotBlank()) {
+                                infos.add(Pair(id, url.trimEnd('/')))
+                            }
+                        }
+                    } catch (e: Exception) {
+                        LOG.error("Failed to parse Maven settings file for credentials: ${userSettingsFile.path}", e)
+                    }
+                }
+            }
+
+            return infos.distinctBy { it.second }
+        }
+
+        private fun fetchVersions(groupId: String, artifactId: String, currentVersion: String): List<String> {
+            val repositoryInfos = getMavenRepositoryInfos()
+            val serverCredentials = getMavenServerCredentials()
+            val allVersions = mutableSetOf<String>()
+            val currentComparable = ComparableVersion(currentVersion)
+
+            for (repoInfo in repositoryInfos) {
+                try {
+                    val urlString = "${repoInfo.second}/${groupId.replace('.', '/')}/$artifactId/maven-metadata.xml"
+                    val url = URI(urlString).toURL()
+                    val connection = url.openConnection() as HttpURLConnection
+                    connection.requestMethod = "GET"
+                    connection.connectTimeout = 10000
+                    connection.readTimeout = 10000
+
+                    // Authentifizierung hinzufügen, falls vorhanden
+                    val creds = repoInfo.first?.let { serverCredentials[it] }
+                    if (creds != null && creds.first != null && creds.second != null) {
+                        val auth = "${creds.first}:${creds.second}"
+                        val encodedAuth = Base64.getEncoder().encodeToString(auth.toByteArray(Charsets.UTF_8))
+                        connection.setRequestProperty("Authorization", "Basic $encodedAuth")
+                    }
+
+                    if (connection.responseCode == HttpURLConnection.HTTP_OK) {
+                        val factory = DocumentBuilderFactory.newInstance()
+                        val builder = factory.newDocumentBuilder()
+                        val doc = builder.parse(connection.inputStream)
+
+                        val versionNodes = doc.getElementsByTagName("version")
+                        for (i in 0 until versionNodes.length) {
+                            val v = versionNodes.item(i).textContent
+                            if (ComparableVersion(v) >= currentComparable) {
+                                allVersions.add(v)
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    // Dieses Repository überspringen, Nächstes versuchen
+                    LOG.warn("Failed to fetch versions for $groupId:$artifactId from ${repoInfo.second}", e)
+                }
+            }
+
+            return allVersions.sortedWith { v1, v2 ->
+                ComparableVersion(v2).compareTo(ComparableVersion(v1))
+            }
         }
 
         fun getContent(): JBPanel<JBPanel<*>> = content
