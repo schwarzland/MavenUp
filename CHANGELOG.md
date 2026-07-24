@@ -4,7 +4,7 @@
 
 ## [1.0.2]
 ### Fixed
-- Plugin becomes visible in Maven projects.
+- Enable tool window availability for Maven projects
 
 ## [1.0.1]
 ### Added
