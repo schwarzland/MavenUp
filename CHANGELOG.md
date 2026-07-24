@@ -2,6 +2,10 @@
 
 # MavenUp Changelog
 
+## [1.0.3]
+### Fixed
+- Refactor tool window initialization
+
 ## [1.0.2]
 ### Fixed
 - Enable tool window availability for Maven projects

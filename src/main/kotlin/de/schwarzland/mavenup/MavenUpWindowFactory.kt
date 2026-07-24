@@ -526,28 +526,11 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     importedProjects: Collection<MavenProject>,
                     newModules: List<com.intellij.openapi.module.Module>
                 ) {
-                    // Move this operation to a background task to avoid EDT violations
-                    ProgressManager.getInstance().run(object : Task.Backgroundable(
-                        project,
-                        "Updating...",
-                        false
-                    ) {
-                        override fun run(indicator: ProgressIndicator) {
-                            ApplicationManager.getApplication().invokeLater {
-                                availableVersions.clear()
-                                selectedVersions.clear()
-                                refreshAction(false)
-
-                                // Tool Window verfügbar machen, sobald Maven-Projekte vorhanden sind
-                                val tw = com.intellij.openapi.wm.ToolWindowManager
-                                    .getInstance(project)
-                                    .getToolWindow("MavenUp")
-                                if (tw != null && MavenProjectsManager.getInstance(project).hasProjects()) {
-                                    tw.setAvailable(true)
-                                }
-                            }
-                        }
-                    })
+                    ApplicationManager.getApplication().invokeLater {
+                        availableVersions.clear()
+                        selectedVersions.clear()
+                        refreshAction(false)
+                    }
                 }
             })
         }
@@ -1075,7 +1058,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
                         val targetTag = ApplicationManager.getApplication().runReadAction<XmlTag?> {
                             val rootTag = psiFile.document?.rootTag
-                            val managedDepType = MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
+                            val managedDepType =
+                                MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
                             val isManaged = type == managedDepType || type == MANAGED_PLUGIN
 
                             if (type == "dependency" || type == managedDepType) {

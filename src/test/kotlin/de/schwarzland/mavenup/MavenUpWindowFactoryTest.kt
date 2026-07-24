@@ -1,6 +1,5 @@
 package de.schwarzland.mavenup
 
-import de.schwarzland.mavenup.MavenUpWindowFactory
 import com.intellij.openapi.wm.RegisterToolWindowTask
 import com.intellij.openapi.wm.ToolWindowAnchor
 import com.intellij.openapi.wm.ToolWindowManager
@@ -166,6 +165,20 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         settings.state.selectLatestVersion = true
     }
 
+    fun testJumpOnSingleClickSetting() {
+        val settings = MavenUpSettings.getInstance(project)
+        
+        // Test default value
+        assertFalse("jumpOnSingleClick sollte standardmäßig false sein", settings.state.jumpOnSingleClick)
+        
+        // Test update
+        settings.state.jumpOnSingleClick = true
+        assertTrue("jumpOnSingleClick sollte nun true sein", settings.state.jumpOnSingleClick)
+        
+        // Reset
+        settings.state.jumpOnSingleClick = false
+    }
+
     fun testCollectDependenciesAndProperties() {
         val pomContent = """
             <project>
@@ -189,7 +202,6 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         val psiFile = myFixture.configureByText("pom.xml", pomContent) as XmlFile
         val rootTag = psiFile.document?.rootTag
-        val dependenciesTag = rootTag?.findFirstSubTag("dependencies")
 
         val factory = MavenUpWindowFactory()
         val toolWindowInstance = factory.MyToolWindow(project)
@@ -216,4 +228,53 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertEquals("my.version", dependencyToProperty["com.example:with-prop"])
         assertNull(dependencyToProperty["com.example:no-prop"])
     }
+    fun testFindPlugin() {
+        val pomContent = """
+            <project>
+                <build>
+                    <plugins>
+                        <plugin>
+                            <groupId>org.apache.maven.plugins</groupId>
+                            <artifactId>maven-compiler-plugin</artifactId>
+                            <version>3.8.1</version>
+                        </plugin>
+                    </plugins>
+                    <pluginManagement>
+                        <plugins>
+                            <plugin>
+                                <groupId>org.apache.maven.plugins</groupId>
+                                <artifactId>maven-surefire-plugin</artifactId>
+                                <version>3.0.0-M5</version>
+                            </plugin>
+                        </plugins>
+                    </pluginManagement>
+                </build>
+            </project>
+        """.trimIndent()
+
+        val psiFile = myFixture.configureByText("pom.xml", pomContent) as XmlFile
+        val rootTag = psiFile.document?.rootTag
+
+        val factory = MavenUpWindowFactory()
+        val toolWindowInstance = factory.MyToolWindow(project)
+
+        val findPluginMethod = toolWindowInstance.javaClass.getDeclaredMethod(
+            "findPlugin",
+            com.intellij.psi.xml.XmlTag::class.java,
+            String::class.java,
+            String::class.java,
+            Boolean::class.java
+        ).apply { isAccessible = true }
+
+        // Test normal plugin
+        val normalPlugin = findPluginMethod.invoke(toolWindowInstance, rootTag, "org.apache.maven.plugins", "maven-compiler-plugin", false) as? com.intellij.psi.xml.XmlTag
+        assertNotNull("Normaler Plugin sollte gefunden werden", normalPlugin)
+        assertEquals("maven-compiler-plugin", normalPlugin?.findFirstSubTag("artifactId")?.value?.text)
+
+        // Test managed plugin
+        val managedPlugin = findPluginMethod.invoke(toolWindowInstance, rootTag, "org.apache.maven.plugins", "maven-surefire-plugin", true) as? com.intellij.psi.xml.XmlTag
+        assertNotNull("Managed Plugin sollte gefunden werden", managedPlugin)
+        assertEquals("maven-surefire-plugin", managedPlugin?.findFirstSubTag("artifactId")?.value?.text)
+    }
+
 }
