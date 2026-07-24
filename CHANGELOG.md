@@ -6,6 +6,9 @@
 ### Fixed
 - Enable tool window availability for Maven projects
 
+### Added
+- Add Settings button to tool window and associated functionality
+
 ## [1.0.1]
 ### Added
 - Add a new Plugin-Icon
