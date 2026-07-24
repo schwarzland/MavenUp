@@ -526,19 +526,28 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     importedProjects: Collection<MavenProject>,
                     newModules: List<com.intellij.openapi.module.Module>
                 ) {
-                    ApplicationManager.getApplication().invokeLater {
-                        availableVersions.clear()
-                        selectedVersions.clear()
-                        refreshAction(false)
+                    // Move this operation to a background task to avoid EDT violations
+                    ProgressManager.getInstance().run(object : Task.Backgroundable(
+                        project,
+                        "Updating...",
+                        false
+                    ) {
+                        override fun run(indicator: ProgressIndicator) {
+                            ApplicationManager.getApplication().invokeLater {
+                                availableVersions.clear()
+                                selectedVersions.clear()
+                                refreshAction(false)
 
-                        // Tool Window verfügbar machen, sobald Maven-Projekte vorhanden sind
-                        val tw = com.intellij.openapi.wm.ToolWindowManager
-                            .getInstance(project)
-                            .getToolWindow("MavenUp")
-                        if (tw != null && MavenProjectsManager.getInstance(project).hasProjects()) {
-                            tw.setAvailable(true)
+                                // Tool Window verfügbar machen, sobald Maven-Projekte vorhanden sind
+                                val tw = com.intellij.openapi.wm.ToolWindowManager
+                                    .getInstance(project)
+                                    .getToolWindow("MavenUp")
+                                if (tw != null && MavenProjectsManager.getInstance(project).hasProjects()) {
+                                    tw.setAvailable(true)
+                                }
+                            }
                         }
-                    }
+                    })
                 }
             })
         }
@@ -1052,32 +1061,40 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private fun navigateToDependency(groupId: String, artifactId: String, type: String = "dependency") {
             val projects = MavenProjectsManager.getInstance(project).projects
 
-            for (mavenProject in projects) {
-                val pomFile = mavenProject.file
-                val psiFile = ApplicationManager.getApplication().runReadAction<XmlFile?> {
-                    PsiManager.getInstance(project).findFile(pomFile) as? XmlFile
-                } ?: continue
+            ProgressManager.getInstance().run(object : Task.Backgroundable(
+                project,
+                MyMessageBundle.message("toolwindow.MyToolWindow.refresh.button"),
+                false
+            ) {
+                override fun run(indicator: ProgressIndicator) {
+                    for (mavenProject in projects) {
+                        val pomFile = mavenProject.file
+                        val psiFile = ApplicationManager.getApplication().runReadAction<XmlFile?> {
+                            PsiManager.getInstance(project).findFile(pomFile) as? XmlFile
+                        } ?: continue
 
-                val targetTag = ApplicationManager.getApplication().runReadAction<XmlTag?> {
-                    val rootTag = psiFile.document?.rootTag
-                    val managedDepType = MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
-                    val isManaged = type == managedDepType || type == MANAGED_PLUGIN
+                        val targetTag = ApplicationManager.getApplication().runReadAction<XmlTag?> {
+                            val rootTag = psiFile.document?.rootTag
+                            val managedDepType = MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
+                            val isManaged = type == managedDepType || type == MANAGED_PLUGIN
 
-                    if (type == "dependency" || type == managedDepType) {
-                        findDependency(rootTag, groupId, artifactId, isManaged)
-                    } else {
-                        findPlugin(rootTag, groupId, artifactId, isManaged)
+                            if (type == "dependency" || type == managedDepType) {
+                                findDependency(rootTag, groupId, artifactId, isManaged)
+                            } else {
+                                findPlugin(rootTag, groupId, artifactId, isManaged)
+                            }
+                        }
+
+                        if (targetTag != null) {
+                            ApplicationManager.getApplication().invokeLater {
+                                val descriptor = OpenFileDescriptor(project, pomFile, targetTag.textOffset)
+                                FileEditorManager.getInstance(project).openTextEditor(descriptor, true)
+                            }
+                            return
+                        }
                     }
                 }
-
-                if (targetTag != null) {
-                    ApplicationManager.getApplication().invokeLater {
-                        val descriptor = OpenFileDescriptor(project, pomFile, targetTag.textOffset)
-                        FileEditorManager.getInstance(project).openTextEditor(descriptor, true)
-                    }
-                    return
-                }
-            }
+            })
         }
 
         private fun openSettings() {

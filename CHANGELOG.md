@@ -5,6 +5,7 @@
 ## [1.0.2]
 ### Fixed
 - Enable tool window availability for Maven projects
+- Move time-consuming operations to background tasks to prevent EDT violations and improve UI responsiveness
 
 ### Added
 - Add Settings button to tool window and associated functionality
