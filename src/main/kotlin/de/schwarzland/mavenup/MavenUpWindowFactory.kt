@@ -515,6 +515,14 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         availableVersions.clear()
                         selectedVersions.clear()
                         refreshAction(false)
+
+                        // Tool Window verfügbar machen, sobald Maven-Projekte vorhanden sind
+                        val tw = com.intellij.openapi.wm.ToolWindowManager
+                            .getInstance(project)
+                            .getToolWindow("MavenUp")
+                        if (tw != null && MavenProjectsManager.getInstance(project).hasProjects()) {
+                            tw.setAvailable(true)
+                        }
                     }
                 }
             })

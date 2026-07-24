@@ -2,6 +2,10 @@
 
 # MavenUp Changelog
 
+## [1.0.2]
+### Fixed
+- Plugin becomes visible in Maven projects.
+
 ## [1.0.1]
 ### Added
 - Add a new Plugin-Icon
