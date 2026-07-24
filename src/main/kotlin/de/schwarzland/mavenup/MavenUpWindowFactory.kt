@@ -21,6 +21,7 @@ import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.content.ContentFactory
 import com.intellij.ui.table.JBTable
 import com.intellij.util.ui.AbstractTableCellEditor
+import com.intellij.icons.AllIcons
 import org.apache.maven.artifact.versioning.ComparableVersion
 import org.jetbrains.idea.maven.project.MavenImportListener
 import org.jetbrains.idea.maven.project.MavenProject
@@ -163,6 +164,13 @@ class MavenUpWindowFactory : ToolWindowFactory {
             val refreshButton = JButton(MyMessageBundle.message("toolwindow.MyToolWindow.refresh.button"))
             val checkUpdatesButton = JButton(MyMessageBundle.message("toolwindow.MyToolWindow.checkUpdates.button"))
             val updateButton = JButton(MyMessageBundle.message("toolwindow.MyToolWindow.update.button"))
+            val settingsButton = JButton(AllIcons.General.Settings).apply {
+                toolTipText = MyMessageBundle.message("toolwindow.MyToolWindow.settings.button")
+                isBorderPainted = false
+                isContentAreaFilled = false
+                isFocusPainted = false
+                preferredSize = java.awt.Dimension(20, 20)
+            }
 
             // Force commit editor when focus lost
             table.putClientProperty("terminateEditOnFocusLost", true)
@@ -493,17 +501,24 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
             add(JBScrollPane(table), BorderLayout.CENTER)
 
-            val buttonPanel = JPanel(FlowLayout(FlowLayout.LEFT)).apply {
-                add(refreshButton.apply {
-                    addActionListener { refreshAction(false) }
-                })
-                add(checkUpdatesButton.apply {
-                    addActionListener { refreshAction(true) }
-                })
-                add(updateButton.apply {
-                    addActionListener { updateAction() }
-                })
+            val buttonPanel = JPanel(BorderLayout()).apply {
+                val leftButtonPanel = JPanel(FlowLayout(FlowLayout.LEFT)).apply {
+                    add(refreshButton.apply {
+                        addActionListener { refreshAction(false) }
+                    })
+                    add(checkUpdatesButton.apply {
+                        addActionListener { refreshAction(true) }
+                    })
+                    add(updateButton.apply {
+                        addActionListener { updateAction() }
+                    })
+                }
+                add(leftButtonPanel, BorderLayout.WEST)
+                add(settingsButton.apply {
+                    addActionListener { openSettings() }
+                }, BorderLayout.EAST)
             }
+
             add(buttonPanel, BorderLayout.SOUTH)
 
             project.messageBus.connect().subscribe(MavenImportListener.TOPIC, object : MavenImportListener {
@@ -1063,6 +1078,11 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     return
                 }
             }
+        }
+
+        private fun openSettings() {
+            com.intellij.openapi.options.ShowSettingsUtil.getInstance()
+                .showSettingsDialog(project, MavenUpConfigurable::class.java)
         }
     }
 }
