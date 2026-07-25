@@ -28,6 +28,7 @@
     <!-- Product and plugin compatibility requirements.
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-compatibility.html -->
     <depends>com.intellij.java</depends>
+    <depends>com.intellij.modules.platform</depends>
     <depends>com.intellij.modules.xml</depends>
     <depends>org.jetbrains.idea.maven</depends>
 
@@ -39,7 +40,8 @@
         <toolWindow id="MavenUp" factoryClass="de.schwarzland.mavenup.MavenUpWindowFactory"
                     icon="AllIcons.Toolwindows.ToolWindowPalette"
                     anchor="bottom"
-                    secondary="false"/>
+                    secondary="false"
+                    doNotActivateOnStart="true"/>
 
         <projectConfigurable parentId="tools" instance="de.schwarzland.mavenup.MavenUpConfigurable"
                              id="de.schwarzland.mavenup.MavenUpConfigurable" displayName="MavenUp"/>

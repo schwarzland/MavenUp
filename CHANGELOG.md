@@ -2,6 +2,10 @@
 
 # MavenUp Changelog
 
+## [1.0.4]
+### Fixed
+- Improved tool window visibility after plugin installation and updates in Maven projects
+
 ## [1.0.3]
 ### Fixed
 - Refactor tool window initialization

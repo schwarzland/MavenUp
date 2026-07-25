@@ -276,5 +276,4 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertNotNull("Managed Plugin sollte gefunden werden", managedPlugin)
         assertEquals("maven-surefire-plugin", managedPlugin?.findFirstSubTag("artifactId")?.value?.text)
     }
-
 }
