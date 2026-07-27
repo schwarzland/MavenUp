@@ -4,14 +4,25 @@ MavenUp ist ein IntelliJ-Plugin, das speziell für Maven-Projekte entwickelt wur
 
 ## Funktionen
 
-- **Übersicht der Abhängigkeiten & Plugins**: Anzeige aller in den Maven-Projekten deklarierten Dependencies und Plugins.
-- **Unterstützung für Dependency Management**: Erkennt automatisch, ob eine Abhängigkeit direkt oder über `dependencyManagement` gesteuert wird.
-- **Maven-Properties (Variablen)**: Wenn eine Version über eine Maven-Property (z.B. `${spring.version}`) definiert ist, wird der Name dieser Property in einer eigenen Spalte ("Property") angezeigt.
-- **Update-Check**: Prüft auf Knopfdruck, ob neuere Versionen für die verwendeten Bibliotheken in den konfigurierten Repositories verfügbar sind. Unterstützt werden dabei auch private Repositories (z.B. Nexus oder Artifactory), sofern diese in den Maven `settings.xml` hinterlegt sind.
-- **Credentials aus Variablen**: Repository-Credentials aus `settings.xml` können als Platzhalter hinterlegt werden und werden aufgelöst, z.B. `${env.ARTIFACTORY_USERNAME}` / `${env.ARTIFACTORY_PASSWORD}` sowie `${MY_VAR}` (System-Property, danach Environment-Variable).
-- **Fehlerbehandlung**: Protokolliert Fehler beim Einlesen der Maven-Konfiguration (Credentials/Repositories) und gibt Warnungen aus, falls Versionen für bestimmte Artefakte nicht geladen werden können.
-- **Versionen auswählen & aktualisieren**: Ermöglicht die Auswahl einer neuen Version direkt aus einem Dropdown-Menü in der Tabelle und aktualisiert die `pom.xml` automatisch.
-- **Navigation**: Ein Doppelklick (oder optional Einzelklick) auf einen Tabelleneintrag springt direkt zur entsprechenden Definition in der `pom.xml`.
+### Extern
+
+- **Tool-Window für Maven-Projekte**: MavenUp ist nur bei Maven-Projekten verfügbar und zeigt alle gefundenen Module/`pom.xml`-Dateien in einer gemeinsamen Tabelle.
+- **Übersicht für Dependencies und Plugins**: Erfasst normale Einträge sowie `dependencyManagement` und `pluginManagement` inklusive Typ-Kennzeichnung.
+- **Property-Erkennung und Property-Updates**: Erkennt Versionen aus Maven-Properties (z.B. `${spring.version}`), zeigt die Property in eigener Spalte und aktualisiert beim Schreiben die Property statt des einzelnen Tags.
+- **Update-Check über Repositories**: Prüft verfügbare Versionen in Maven Central und konfigurierten privaten Repositories (`settings.xml`), unterstützt Authentifizierung und dedupliziert identische Repository-URLs.
+- **Credentials aus Platzhaltern**: Löst Credentials aus `settings.xml` auf, z.B. `${env.ARTIFACTORY_USERNAME}` / `${env.ARTIFACTORY_PASSWORD}` sowie `${MY_VAR}` (System-Property, danach Environment-Variable).
+- **Versionsauswahl pro Zeile**: Bietet pro Dependency/Plugin ein Dropdown mit verfügbaren Versionen; die neueste Version kann optional automatisch vorausgewählt werden.
+- **Synchronisierte Auswahl bei gemeinsamer Property**: Wenn mehrere Dependencies dieselbe Maven-Property verwenden, wird eine geänderte Auswahl auf alle betroffenen Einträge synchronisiert.
+- **Sicheres Update mit Bestätigungsdialog**: Vor dem Schreiben zeigt MavenUp eine Zusammenfassung aller geplanten Änderungen (alt/neu, Typ, Koordinaten) und aktualisiert die `pom.xml` erst nach Bestätigung.
+- **Hintergrundverarbeitung für lange Aktionen**: Update-Check, Navigation und Schreiboperationen laufen im Hintergrund, damit die IDE responsiv bleibt.
+- **Navigation zur Definition in `pom.xml`**: Per Doppelklick (oder optional Einzelklick) springt MavenUp direkt zur passenden Dependency-/Plugin-Definition.
+- **Integrierte Einstellungen**: Über `Settings > Tools > MavenUp` konfigurierbar (u.a. Single-Click-Navigation, automatische Vorauswahl der neuesten Version).
+
+### Intern
+- **Gezielte Credential-Zuordnung**: Ordnet Credentials primär über Repository-ID zu, mit Fallback über Repository-URL und Hostname.
+- **Versionsauflösung mit Fallbacks**: Nutzt aufgelöste Maven-Versionen aus dem Projektmodell (Dependency Tree/Plugins), damit die aktuelle Version auch bei indirekter Verwaltung korrekt angezeigt und verglichen wird.
+- **Central-first mit Short-Circuit**: Fragt Maven Central priorisiert zuerst ab; ist die Abfrage dort erfolgreich, werden für dieselbe Dependency keine weiteren privaten Repositories mehr abgefragt.
+- **Fehler- und Warn-Logging**: Protokolliert Parsing-Fehler für `settings.xml`, nicht auflösbare Credential-Variablen sowie fehlgeschlagene Repository-Abfragen (inkl. HTTP-Status).
 
 ## Benutzung
 
@@ -38,7 +49,7 @@ Unter `Settings > Tools > MavenUp` können folgende Optionen konfiguriert werden
 - **Jump to pom.xml on single click**: Ermöglicht die Navigation zur `pom.xml` mit einem einfachen statt eines Doppelklicks.
 - **Automatically select newest version**: Wählt nach einem Update-Check automatisch die jeweils neueste verfügbare Version in der Dropdown-Liste aus.
 
-## Gradle Proxy-Konfiguration (lokal, nicht versioniert)
+## Gradle Proxy-Konfiguration
 
 Wenn der Zugriff auf Maven Central im Unternehmensnetzwerk nur über Proxy funktioniert, sollten Proxy-Settings **nicht** in der projektweiten `gradle.properties` gepflegt werden.  
 Verwende stattdessen die benutzerlokale Datei:
@@ -66,29 +77,32 @@ Danach einmal `gradlew --stop` ausführen, damit der Gradle-Daemon die neuen Ein
 Das Plugin besteht aus folgenden Komponenten:
 
 ### MavenUpStartupActivity
-Startup-Aktivität, die beim Öffnen eines IntelliJ-Projektes ausgeführt wird. Sie prüft, ob Maven-Projekte vorhanden sind und macht das MavenUp Tool Window entsprechend verfügbar:
-- Falls Maven-Projekte bereits importiert sind, wird das Tool Window sofort sichtbar gemacht
-- Falls der Maven-Import noch nicht abgeschlossen ist, wird auf den `MavenImportListener` gehört und das Tool Window wird verfügbar, sobald der Import fertig ist
+Startup-Aktivität (`ProjectActivity`), die beim Öffnen eines Projekts die Verfügbarkeit des Tool-Windows steuert:
+- wartet kurz auf einen initialisierten `MavenProjectsManager` (Race-Condition-Schutz nach IDE/Plugin-Updates),
+- macht das Tool-Window sofort verfügbar, wenn Maven-Projekte bereits vorhanden sind,
+- registriert andernfalls einen `MavenImportListener` und aktiviert das Tool-Window nach abgeschlossenem Maven-Import.
 
 ### MavenUpWindowFactory
-Die zentrale Komponente des Plugins, die das Tool Window und dessen UI verwaltet. Sie enthält:
-- **Tabelle**: Zeigt alle Abhängigkeiten und Plugins mit ihren Eigenschaften an (GroupId, ArtifactId, Property, Typ, aktuelle Version, verfügbare Versionen)
-- **Update-Check**: Sucht in allen konfigurierten Maven-Repositories nach verfügbaren Versionen
-- **Version-Management**: Ermöglicht die Auswahl neuer Versionen über Dropdown-Menüs
-- **POM-Updates**: Aktualisiert die `pom.xml`-Dateien mit den gewählten Versionen
-- **Repository-Support**: Unterstützt private Repositories mit Authentifizierung basierend auf `settings.xml` inklusive aufgelöster Variablen in Credentials (`${env.*}`, `${...}`)
-- **Navigation**: Direkter Sprung zur Abhängigkeitsdefinition in der `pom.xml` per Klick
+Zentrale Factory (`ToolWindowFactory`) mit der inneren UI-/Logik-Klasse `MyToolWindow`. Kernaufgaben:
+- **Datenmodell und Tabelle**: sammelt Dependencies/Plugins aus `pom.xml` und zeigt `groupId`, `artifactId`, Property, Typ, aktuelle Version und auswählbare Zielversionen.
+- **Scope-Unterstützung**: berücksichtigt lokale Einträge sowie `dependencyManagement` und `pluginManagement`.
+- **Versionsprüfung**: lädt Versionen aus Maven-Repositories (`maven-metadata.xml`) inkl. Authentifizierung über `settings.xml`.
+- **Repository-Strategie**: priorisiert Maven Central zuerst; bei erfolgreicher Central-Abfrage wird für dieselbe Dependency nicht weiter in privaten Repositories gesucht.
+- **Credential-Auflösung**: unterstützt Klartext sowie Platzhalter (`${env.*}`, `${...}` via System-Property/Environment) und Credential-Matching über ID, URL oder Host.
+- **Änderungsworkflow**: hält gewählte Zielversionen im Speicher, zeigt vor dem Schreiben einen Bestätigungsdialog und aktualisiert anschließend die betroffenen `pom.xml`-Einträge.
+- **Navigation**: springt zur konkreten Dependency-/Plugin-Definition in der passenden `pom.xml`.
+- **Nebenläufigkeit/UX**: führt langlaufende Aktionen (Update-Check, Navigation, Schreibvorgänge) als Hintergrund-Tasks aus.
 
 ### MavenUpSettings
-Persistente Einstellungen des Plugins auf Projektebene. Speichert Benutzereinstellungen wie:
+Projektbezogener Persistenz-Service (`PersistentStateComponent`), gespeichert in `mavenup_settings.xml`. Speichert u. a.:
 - `jumpOnSingleClick`: Aktiviert Navigation per Einzelklick
 - `selectLatestVersion`: Automatische Auswahl der neuesten Version
 
 ### MavenUpConfigurable
-UI-Komponente für die Einstellungen, integriert in die IntelliJ-Preferences unter `Settings > Tools > MavenUp`.
+Einstellungs-UI (`Configurable`) unter `Settings > Tools > MavenUp`; bindet die Checkboxen an `MavenUpSettings` (`isModified`/`apply`/`reset`).
 
 ### MyMessageBundle
-Zentrale Verwaltung aller UI-Texte und Labels (Internationalisierung). Ermöglicht einfache Übersetzungen und Pflege von Texten.
+I18n-Wrapper auf `messages.MyMessageBundle` für zentralisierte, lokalisierbare UI-Texte (`message(...)`, `lazyMessage(...)`).
 
 
 ---
