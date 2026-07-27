@@ -179,6 +179,12 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         settings.state.jumpOnSingleClick = false
     }
 
+    fun testUnstableVersionFilterSettingsDefaults() {
+        val settings = MavenUpSettings.getInstance(project)
+        assertFalse(settings.state.hideUnstableVersions)
+        assertEquals("rc,beta", settings.state.hiddenVersionQualifiers)
+    }
+
     fun testCollectDependenciesAndProperties() {
         val pomContent = """
             <project>
@@ -442,6 +448,56 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
             called
         )
         assertEquals(setOf("1.0.0"), versions)
+    }
+
+    fun testFilterVersionsBySettingsWhenDisabledKeepsAll() {
+        val settings = MavenUpSettings.getInstance(project)
+        val previousHide = settings.state.hideUnstableVersions
+        val previousQualifiers = settings.state.hiddenVersionQualifiers
+        settings.state.hideUnstableVersions = false
+        settings.state.hiddenVersionQualifiers = "rc,beta"
+
+        val factory = MavenUpWindowFactory()
+        val toolWindowInstance = factory.MyToolWindow(project)
+        val filterMethod = toolWindowInstance.javaClass.getDeclaredMethod(
+            "filterVersionsBySettings",
+            List::class.java
+        ).apply { isAccessible = true }
+
+        val input = listOf("2.0.0-RC1", "2.0.0-beta2", "2.0.0")
+        try {
+            @Suppress("UNCHECKED_CAST")
+            val filtered = filterMethod.invoke(toolWindowInstance, input) as List<String>
+            assertEquals(input, filtered)
+        } finally {
+            settings.state.hideUnstableVersions = previousHide
+            settings.state.hiddenVersionQualifiers = previousQualifiers
+        }
+    }
+
+    fun testFilterVersionsBySettingsRemovesConfiguredQualifiers() {
+        val settings = MavenUpSettings.getInstance(project)
+        val previousHide = settings.state.hideUnstableVersions
+        val previousQualifiers = settings.state.hiddenVersionQualifiers
+        settings.state.hideUnstableVersions = true
+        settings.state.hiddenVersionQualifiers = "rc,beta,milestone"
+
+        val factory = MavenUpWindowFactory()
+        val toolWindowInstance = factory.MyToolWindow(project)
+        val filterMethod = toolWindowInstance.javaClass.getDeclaredMethod(
+            "filterVersionsBySettings",
+            List::class.java
+        ).apply { isAccessible = true }
+
+        val input = listOf("2.0.0-RC1", "2.0.0-beta2", "2.0.0-MILESTONE-1", "2.0.0", "1.9.9")
+        try {
+            @Suppress("UNCHECKED_CAST")
+            val filtered = filterMethod.invoke(toolWindowInstance, input) as List<String>
+            assertEquals(listOf("2.0.0", "1.9.9"), filtered)
+        } finally {
+            settings.state.hideUnstableVersions = previousHide
+            settings.state.hiddenVersionQualifiers = previousQualifiers
+        }
     }
 
     fun testFindPlugin() {

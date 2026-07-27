@@ -12,6 +12,7 @@ MavenUp ist ein IntelliJ-Plugin, das speziell für Maven-Projekte entwickelt wur
 - **Update-Check über Repositories**: Prüft verfügbare Versionen in Maven Central und konfigurierten privaten Repositories (`settings.xml`), unterstützt Authentifizierung und dedupliziert identische Repository-URLs.
 - **Credentials aus Platzhaltern**: Löst Credentials aus `settings.xml` auf, z.B. `${env.ARTIFACTORY_USERNAME}` / `${env.ARTIFACTORY_PASSWORD}` sowie `${MY_VAR}` (System-Property, danach Environment-Variable).
 - **Versionsauswahl pro Zeile**: Bietet pro Dependency/Plugin ein Dropdown mit verfügbaren Versionen; die neueste Version kann optional automatisch vorausgewählt werden.
+- **Filter für instabile Versionen**: Optionales Ausblenden von Versionen mit konfigurierbaren Qualifiern (standardmäßig `rc,beta`), z.B. Release Candidates oder Beta-Versionen.
 - **Synchronisierte Auswahl bei gemeinsamer Property**: Wenn mehrere Dependencies dieselbe Maven-Property verwenden, wird eine geänderte Auswahl auf alle betroffenen Einträge synchronisiert.
 - **Sicheres Update mit Bestätigungsdialog**: Vor dem Schreiben zeigt MavenUp eine Zusammenfassung aller geplanten Änderungen (alt/neu, Typ, Koordinaten) und aktualisiert die `pom.xml` erst nach Bestätigung.
 - **Hintergrundverarbeitung für lange Aktionen**: Update-Check, Navigation und Schreiboperationen laufen im Hintergrund, damit die IDE responsiv bleibt.
@@ -48,6 +49,8 @@ Unter `Settings > Tools > MavenUp` können folgende Optionen konfiguriert werden
 
 - **Jump to pom.xml on single click**: Ermöglicht die Navigation zur `pom.xml` mit einem einfachen statt eines Doppelklicks.
 - **Automatically select newest version**: Wählt nach einem Update-Check automatisch die jeweils neueste verfügbare Version in der Dropdown-Liste aus.
+- **Hide unstable versions**: Blendet instabile Versionen (z.B. RC/Beta) aus den auswählbaren Update-Versionen aus.
+- **Hidden version qualifiers (comma-separated)**: Liste der auszublendenden Typen, z.B. `rc,beta,milestone`.
 
 ## Gradle Proxy-Konfiguration
 

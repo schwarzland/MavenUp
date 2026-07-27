@@ -4,13 +4,16 @@
 
 ## [1.1.0]
 ### Added
-- Auflösung von Credential-Platzhaltern aus Maven `settings.xml` beim Repository-Zugriff:
-  - `${env.VAR_NAME}` über Environment-Variablen
-  - `${VAR_NAME}` über System-Property, mit Fallback auf Environment-Variable
+- Resolution of credential placeholders from Maven `settings.xml` during repository access:
+  - `${env.VAR_NAME}` via environment variables
+  - `${VAR_NAME}` via system property, with fallback to environment variable
+- New configuration options to hide unstable dependency versions:
+  - Toggleable filter for unstable versions
+  - Freely configurable qualifier list (e.g. `rc,beta,milestone`)
 
 ### Fixed
-- Fehlende Warnung bei HTTP-Fehlern (z.B. 401/404) beim Abruf von `maven-metadata.xml` wird jetzt geloggt.
-- Reihenfolge der Repository-Abfrage präzisiert: Maven Central wird bevorzugt zuerst abgefragt; bei erfolgreicher Central-Abfrage werden keine privaten Repositories mehr für dieselbe Dependency angefragt.
+- Missing warning logs for HTTP errors (e.g. 401/404) during `maven-metadata.xml` retrieval are now emitted.
+- Repository query order refined: Maven Central is queried first; if the Central query succeeds, no private repositories are queried for the same dependency.
 
 ## [1.0.4]
 ### Fixed

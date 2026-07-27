@@ -1099,6 +1099,34 @@ class MavenUpWindowFactory : ToolWindowFactory {
             return allVersions
         }
 
+        private fun filterVersionsBySettings(versions: List<String>): List<String> {
+            val settings = MavenUpSettings.getInstance(project).state
+            if (!settings.hideUnstableVersions) {
+                return versions
+            }
+
+            val qualifiers = settings.hiddenVersionQualifiers
+                .split(",", ";")
+                .map { it.trim().lowercase(Locale.getDefault()) }
+                .filter { it.isNotEmpty() }
+                .distinct()
+
+            if (qualifiers.isEmpty()) {
+                return versions
+            }
+
+            return versions.filter { version ->
+                !qualifiers.any { qualifier -> versionHasQualifier(version, qualifier) }
+            }
+        }
+
+        private fun versionHasQualifier(version: String, qualifier: String): Boolean {
+            val qualifierPattern = Regex(
+                "(?i)(?:^|[._\\-]|\\d)${Regex.escape(qualifier)}(?:[._\\-]?\\d*)?(?:$|[._\\-])"
+            )
+            return qualifierPattern.containsMatchIn(version)
+        }
+
         private fun fetchVersions(groupId: String, artifactId: String, currentVersion: String): List<String> {
             val repositoryInfos = getMavenRepositoryInfos()
             val serverCredentials = getMavenServerCredentials()
@@ -1108,9 +1136,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
             ) { repoInfo ->
                 fetchVersionsFromRepository(repoInfo, groupId, artifactId, currentComparable, serverCredentials)
             }
-            return allVersions.sortedWith { v1, v2 ->
+            val sortedVersions = allVersions.sortedWith { v1, v2 ->
                 ComparableVersion(v2).compareTo(ComparableVersion(v1))
             }
+            return filterVersionsBySettings(sortedVersions)
         }
 
         fun getContent(): JBPanel<JBPanel<*>> = content

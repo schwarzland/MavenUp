@@ -8,7 +8,9 @@ import com.intellij.openapi.project.Project
 class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
     data class State(
         var jumpOnSingleClick: Boolean = false,
-        var selectLatestVersion: Boolean = true
+        var selectLatestVersion: Boolean = true,
+        var hideUnstableVersions: Boolean = false,
+        var hiddenVersionQualifiers: String = "rc,beta"
     )
 
     private var myState = State()
