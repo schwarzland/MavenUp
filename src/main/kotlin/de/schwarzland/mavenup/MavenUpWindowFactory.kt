@@ -1081,24 +1081,33 @@ class MavenUpWindowFactory : ToolWindowFactory {
             }
         }
 
-        private fun fetchVersions(groupId: String, artifactId: String, currentVersion: String): List<String> {
-            val repositoryInfos = getMavenRepositoryInfos()
-                .sortedBy { if (it.second == CENTRAL_REPOSITORY_URL) 0 else 1 }
-            val serverCredentials = getMavenServerCredentials()
+        private fun collectVersionsFromRepositories(
+            repositoryInfos: List<Pair<String?, String>>,
+            fetchVersionsForRepository: (Pair<String?, String>) -> Pair<Boolean, List<String>>
+        ): Set<String> {
             val allVersions = mutableSetOf<String>()
-            val currentComparable = ComparableVersion(currentVersion)
+            val orderedRepositoryInfos = repositoryInfos.sortedBy { if (it.second == CENTRAL_REPOSITORY_URL) 0 else 1 }
 
-            for (repoInfo in repositoryInfos) {
-                LOG.debug("Fetching versions for $groupId:$artifactId from ${repoInfo.second}")
-                val (requestSucceeded, versions) =
-                    fetchVersionsFromRepository(repoInfo, groupId, artifactId, currentComparable, serverCredentials)
+            for (repoInfo in orderedRepositoryInfos) {
+                val (requestSucceeded, versions) = fetchVersionsForRepository(repoInfo)
                 allVersions.addAll(versions)
                 if (repoInfo.second == CENTRAL_REPOSITORY_URL && requestSucceeded) {
                     break
                 }
             }
 
-            LOG.info("Finished fetching versions for $groupId:$artifactId: ${allVersions.joinToString(", ")}")
+            return allVersions
+        }
+
+        private fun fetchVersions(groupId: String, artifactId: String, currentVersion: String): List<String> {
+            val repositoryInfos = getMavenRepositoryInfos()
+            val serverCredentials = getMavenServerCredentials()
+            val currentComparable = ComparableVersion(currentVersion)
+            val allVersions = collectVersionsFromRepositories(
+                repositoryInfos
+            ) { repoInfo ->
+                fetchVersionsFromRepository(repoInfo, groupId, artifactId, currentComparable, serverCredentials)
+            }
             return allVersions.sortedWith { v1, v2 ->
                 ComparableVersion(v2).compareTo(ComparableVersion(v1))
             }

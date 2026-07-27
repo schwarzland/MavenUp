@@ -296,6 +296,154 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertEquals("plain-secret", resolved)
     }
 
+    fun testResolveCredentialValueWithMissingPropertyPlaceholderReturnsNull() {
+        val factory = MavenUpWindowFactory()
+        val toolWindowInstance = factory.MyToolWindow(project)
+        val resolveMethod = toolWindowInstance.javaClass.getDeclaredMethod(
+            "resolveCredentialValue",
+            String::class.java,
+            String::class.java,
+            String::class.java
+        ).apply { isAccessible = true }
+
+        val missingVar = "MAVENUP_TEST_MISSING_PROP_1234567890"
+        val resolved = resolveMethod.invoke(
+            toolWindowInstance,
+            "${'$'}{$missingVar}",
+            "test-server",
+            "username"
+        ) as String?
+
+        assertNull(resolved)
+    }
+
+    fun testResolveCredentialValueWithBlankInputReturnsNull() {
+        val factory = MavenUpWindowFactory()
+        val toolWindowInstance = factory.MyToolWindow(project)
+        val resolveMethod = toolWindowInstance.javaClass.getDeclaredMethod(
+            "resolveCredentialValue",
+            String::class.java,
+            String::class.java,
+            String::class.java
+        ).apply { isAccessible = true }
+
+        val resolved = resolveMethod.invoke(
+            toolWindowInstance,
+            "   ",
+            "test-server",
+            "username"
+        ) as String?
+
+        assertNull(resolved)
+    }
+
+    fun testFindServerCredentialsFallsBackToRepositoryUrl() {
+        val factory = MavenUpWindowFactory()
+        val toolWindowInstance = factory.MyToolWindow(project)
+        val findMethod = toolWindowInstance.javaClass.getDeclaredMethod(
+            "findServerCredentials",
+            Pair::class.java,
+            Map::class.java
+        ).apply { isAccessible = true }
+
+        val repo = Pair<String?, String>(null, "https://repo.example.org/maven")
+        val creds = mapOf<String, Pair<String?, String?>>(
+            "https://repo.example.org/maven" to Pair("user", "pass")
+        )
+
+        val resolved = findMethod.invoke(toolWindowInstance, repo, creds) as Pair<*, *>?
+        assertEquals("user", resolved?.first)
+        assertEquals("pass", resolved?.second)
+    }
+
+    fun testFindServerCredentialsFallsBackToHost() {
+        val factory = MavenUpWindowFactory()
+        val toolWindowInstance = factory.MyToolWindow(project)
+        val findMethod = toolWindowInstance.javaClass.getDeclaredMethod(
+            "findServerCredentials",
+            Pair::class.java,
+            Map::class.java
+        ).apply { isAccessible = true }
+
+        val repo = Pair<String?, String>(null, "https://repo.example.org/maven")
+        val creds = mapOf<String, Pair<String?, String?>>(
+            "repo.example.org" to Pair("host-user", "host-pass")
+        )
+
+        val resolved = findMethod.invoke(toolWindowInstance, repo, creds) as Pair<*, *>?
+        assertEquals("host-user", resolved?.first)
+        assertEquals("host-pass", resolved?.second)
+    }
+
+    fun testCollectVersionsFromRepositoriesPrioritizesCentralAndShortCircuitsOnSuccess() {
+        val factory = MavenUpWindowFactory()
+        val toolWindowInstance = factory.MyToolWindow(project)
+        val collectMethod = toolWindowInstance.javaClass.getDeclaredMethod(
+            "collectVersionsFromRepositories",
+            List::class.java,
+            kotlin.Function1::class.java
+        ).apply { isAccessible = true }
+
+        val repositories = listOf(
+            Pair<String?, String>("private-1", "https://private-1.example.org/maven"),
+            Pair<String?, String>("central", "https://repo1.maven.org/maven2"),
+            Pair<String?, String>("private-2", "https://private-2.example.org/maven")
+        )
+        val called = mutableListOf<String>()
+        val fetcher: (Pair<String?, String>) -> Pair<Boolean, List<String>> = { repo ->
+            called.add(repo.second)
+            if (repo.second == "https://repo1.maven.org/maven2") {
+                Pair(true, listOf("1.2.0"))
+            } else {
+                Pair(true, listOf("9.9.9"))
+            }
+        }
+
+        @Suppress("UNCHECKED_CAST")
+        val versions = collectMethod.invoke(toolWindowInstance, repositories, fetcher) as Set<String>
+
+        assertEquals(listOf("https://repo1.maven.org/maven2"), called)
+        assertEquals(setOf("1.2.0"), versions)
+    }
+
+    fun testCollectVersionsFromRepositoriesContinuesWhenCentralFails() {
+        val factory = MavenUpWindowFactory()
+        val toolWindowInstance = factory.MyToolWindow(project)
+        val collectMethod = toolWindowInstance.javaClass.getDeclaredMethod(
+            "collectVersionsFromRepositories",
+            List::class.java,
+            kotlin.Function1::class.java
+        ).apply { isAccessible = true }
+
+        val repositories = listOf(
+            Pair<String?, String>("private-1", "https://private-1.example.org/maven"),
+            Pair<String?, String>("central", "https://repo1.maven.org/maven2"),
+            Pair<String?, String>("private-2", "https://private-2.example.org/maven")
+        )
+        val called = mutableListOf<String>()
+        val fetcher: (Pair<String?, String>) -> Pair<Boolean, List<String>> = { repo ->
+            called.add(repo.second)
+            if (repo.second == "https://repo1.maven.org/maven2") {
+                Pair(false, emptyList())
+            } else {
+                Pair(true, listOf("1.0.0"))
+            }
+        }
+
+        @Suppress("UNCHECKED_CAST")
+        val versions = collectMethod.invoke(toolWindowInstance, repositories, fetcher) as Set<String>
+
+        assertEquals(
+            listOf(
+                "https://repo1.maven.org/maven2",
+                "https://private-1.example.org/maven",
+                "https://private-2.example.org/maven"
+            ),
+            called
+        )
+        assertEquals(setOf("1.0.0"), versions)
+    }
+
     fun testFindPlugin() {
         val pomContent = """
             <project>
