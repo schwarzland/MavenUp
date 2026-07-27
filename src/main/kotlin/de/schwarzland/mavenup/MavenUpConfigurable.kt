@@ -40,7 +40,10 @@ class MavenUpConfigurable(private val project: Project) : Configurable {
                     "       ${MyMessageBundle.message("settings.hiddenVersionQualifiers")}"
                 ).component
                 hiddenVersionQualifiersField = textField()
-                    .applyToComponent { text = settings.state.hiddenVersionQualifiers }
+                    .applyToComponent {
+                        text = settings.state.hiddenVersionQualifiers
+                        columns = 40
+                    }
                     .component
             }
 

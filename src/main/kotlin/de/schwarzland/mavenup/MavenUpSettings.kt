@@ -10,7 +10,7 @@ class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
         var jumpOnSingleClick: Boolean = false,
         var selectLatestVersion: Boolean = true,
         var hideUnstableVersions: Boolean = false,
-        var hiddenVersionQualifiers: String = "rc,beta"
+        var hiddenVersionQualifiers: String = "rc,beta,alpha,ea,milestone,preview,cr,nightly,snapshot"
     )
 
     private var myState = State()

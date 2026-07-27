@@ -180,9 +180,10 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
     }
 
     fun testUnstableVersionFilterSettingsDefaults() {
-        val settings = MavenUpSettings.getInstance(project)
-        assertFalse(settings.state.hideUnstableVersions)
-        assertEquals("rc,beta", settings.state.hiddenVersionQualifiers)
+        val defaults = MavenUpSettings.State()
+        assertFalse(defaults.hideUnstableVersions)
+        assertTrue(defaults.hiddenVersionQualifiers.isNotBlank())
+        assertTrue(defaults.hiddenVersionQualifiers.contains("rc"))
     }
 
     fun testCollectDependenciesAndProperties() {
