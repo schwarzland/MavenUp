@@ -43,6 +43,8 @@ import javax.xml.parsers.DocumentBuilderFactory
 
 private const val MANAGED_PLUGIN = "managed plugin"
 private const val TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY = "toolwindow.MyToolWindow.type.managedDependency"
+private const val CENTRAL_REPOSITORY_ID = "central"
+private const val CENTRAL_REPOSITORY_URL = "https://repo1.maven.org/maven2"
 private val LOG = Logger.getInstance(MavenUpWindowFactory::class.java)
 
 /**
@@ -928,7 +930,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         private fun getMavenRepositoryInfos(): List<Pair<String?, String>> {
-            val infos = mutableListOf<Pair<String?, String>>(Pair("central", "https://repo1.maven.org/maven2"))
+            val infos = mutableListOf<Pair<String?, String>>(Pair(CENTRAL_REPOSITORY_ID, CENTRAL_REPOSITORY_URL))
 
             val generalSettings = MavenProjectsManager.getInstance(project).generalSettings
             val userSettingsPath = generalSettings.userSettingsFile
@@ -1002,14 +1004,14 @@ class MavenUpWindowFactory : ToolWindowFactory {
             groupId: String,
             artifactId: String,
             repositoryUrl: String
-        ): List<String> {
+        ): Pair<Boolean, List<String>> {
             val responseCode = connection.responseCode
             if (responseCode != HttpURLConnection.HTTP_OK) {
                 LOG.warn(
                     "Failed to fetch versions for $groupId:$artifactId from $repositoryUrl. " +
                         "HTTP $responseCode ${connection.responseMessage}"
                 )
-                return emptyList()
+                return Pair(false, emptyList())
             }
 
             val versions = mutableListOf<String>()
@@ -1023,7 +1025,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     versions.add(version)
                 }
             }
-            return versions
+            return Pair(true, versions)
         }
 
         private fun fetchVersionsFromRepository(
@@ -1032,29 +1034,35 @@ class MavenUpWindowFactory : ToolWindowFactory {
             artifactId: String,
             currentComparable: ComparableVersion,
             serverCredentials: Map<String, Pair<String?, String?>>
-        ): List<String> {
+        ): Pair<Boolean, List<String>> {
             return try {
                 val connection = createMetadataConnection(repositoryInfo.second, groupId, artifactId)
                 applyCredentials(connection, repositoryInfo, serverCredentials)
                 readVersionsFromConnection(connection, currentComparable, groupId, artifactId, repositoryInfo.second)
             } catch (e: Exception) {
                 LOG.warn("Failed to fetch versions for $groupId:$artifactId from ${repositoryInfo.second}", e)
-                emptyList()
+                Pair(false, emptyList())
             }
         }
 
         private fun fetchVersions(groupId: String, artifactId: String, currentVersion: String): List<String> {
             val repositoryInfos = getMavenRepositoryInfos()
+                .sortedBy { if (it.second == CENTRAL_REPOSITORY_URL) 0 else 1 }
             val serverCredentials = getMavenServerCredentials()
             val allVersions = mutableSetOf<String>()
             val currentComparable = ComparableVersion(currentVersion)
 
             for (repoInfo in repositoryInfos) {
-                allVersions.addAll(
+                LOG.debug("Fetching versions for $groupId:$artifactId from ${repoInfo.second}")
+                val (requestSucceeded, versions) =
                     fetchVersionsFromRepository(repoInfo, groupId, artifactId, currentComparable, serverCredentials)
-                )
+                allVersions.addAll(versions)
+                if (repoInfo.second == CENTRAL_REPOSITORY_URL && requestSucceeded) {
+                    break
+                }
             }
 
+            LOG.info("Finished fetching versions for $groupId:$artifactId: ${allVersions.joinToString(", ")}")
             return allVersions.sortedWith { v1, v2 ->
                 ComparableVersion(v2).compareTo(ComparableVersion(v1))
             }
