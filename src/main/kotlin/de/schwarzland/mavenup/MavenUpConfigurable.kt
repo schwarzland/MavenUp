@@ -6,11 +6,13 @@ import com.intellij.ui.components.JBCheckBox
 import com.intellij.ui.dsl.builder.panel
 import javax.swing.JTextField
 import javax.swing.JComponent
+import javax.swing.JLabel
 
 class MavenUpConfigurable(private val project: Project) : Configurable {
     private var jumpOnSingleClickCheckBox: JBCheckBox? = null
     private var selectLatestVersionCheckBox: JBCheckBox? = null
     private var hideUnstableVersionsCheckBox: JBCheckBox? = null
+    private var hiddenVersionQualifiersLabel: JLabel? = null
     private var hiddenVersionQualifiersField: JTextField? = null
 
     override fun getDisplayName(): String = "MavenUp"
@@ -33,15 +35,18 @@ class MavenUpConfigurable(private val project: Project) : Configurable {
                     .applyToComponent { isSelected = settings.state.hideUnstableVersions }
                     .component
             }
-            row("      ${MyMessageBundle.message("settings.hiddenVersionQualifiers")}") {
+            row {
+                hiddenVersionQualifiersLabel = label(
+                    "       ${MyMessageBundle.message("settings.hiddenVersionQualifiers")}"
+                ).component
                 hiddenVersionQualifiersField = textField()
                     .applyToComponent { text = settings.state.hiddenVersionQualifiers }
                     .component
             }
 
-            hiddenVersionQualifiersField?.isEnabled = settings.state.hideUnstableVersions
+            updateHiddenQualifierControlsEnabled(settings.state.hideUnstableVersions)
             hideUnstableVersionsCheckBox?.addActionListener {
-                hiddenVersionQualifiersField?.isEnabled = hideUnstableVersionsCheckBox?.isSelected == true
+                updateHiddenQualifierControlsEnabled(hideUnstableVersionsCheckBox?.isSelected == true)
             }
         }
     }
@@ -68,6 +73,11 @@ class MavenUpConfigurable(private val project: Project) : Configurable {
         selectLatestVersionCheckBox?.isSelected = settings.state.selectLatestVersion
         hideUnstableVersionsCheckBox?.isSelected = settings.state.hideUnstableVersions
         hiddenVersionQualifiersField?.text = settings.state.hiddenVersionQualifiers
-        hiddenVersionQualifiersField?.isEnabled = settings.state.hideUnstableVersions
+        updateHiddenQualifierControlsEnabled(settings.state.hideUnstableVersions)
+    }
+
+    private fun updateHiddenQualifierControlsEnabled(enabled: Boolean) {
+        hiddenVersionQualifiersLabel?.isEnabled = enabled
+        hiddenVersionQualifiersField?.isEnabled = enabled
     }
 }
