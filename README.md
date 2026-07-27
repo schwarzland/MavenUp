@@ -8,6 +8,7 @@ MavenUp ist ein IntelliJ-Plugin, das speziell für Maven-Projekte entwickelt wur
 - **Unterstützung für Dependency Management**: Erkennt automatisch, ob eine Abhängigkeit direkt oder über `dependencyManagement` gesteuert wird.
 - **Maven-Properties (Variablen)**: Wenn eine Version über eine Maven-Property (z.B. `${spring.version}`) definiert ist, wird der Name dieser Property in einer eigenen Spalte ("Property") angezeigt.
 - **Update-Check**: Prüft auf Knopfdruck, ob neuere Versionen für die verwendeten Bibliotheken in den konfigurierten Repositories verfügbar sind. Unterstützt werden dabei auch private Repositories (z.B. Nexus oder Artifactory), sofern diese in den Maven `settings.xml` hinterlegt sind.
+- **Credentials aus Variablen**: Repository-Credentials aus `settings.xml` können als Platzhalter hinterlegt werden und werden aufgelöst, z.B. `${env.ARTIFACTORY_USERNAME}` / `${env.ARTIFACTORY_PASSWORD}` sowie `${MY_VAR}` (System-Property, danach Environment-Variable).
 - **Fehlerbehandlung**: Protokolliert Fehler beim Einlesen der Maven-Konfiguration (Credentials/Repositories) und gibt Warnungen aus, falls Versionen für bestimmte Artefakte nicht geladen werden können.
 - **Versionen auswählen & aktualisieren**: Ermöglicht die Auswahl einer neuen Version direkt aus einem Dropdown-Menü in der Tabelle und aktualisiert die `pom.xml` automatisch.
 - **Navigation**: Ein Doppelklick (oder optional Einzelklick) auf einen Tabelleneintrag springt direkt zur entsprechenden Definition in der `pom.xml`.
@@ -75,7 +76,7 @@ Die zentrale Komponente des Plugins, die das Tool Window und dessen UI verwaltet
 - **Update-Check**: Sucht in allen konfigurierten Maven-Repositories nach verfügbaren Versionen
 - **Version-Management**: Ermöglicht die Auswahl neuer Versionen über Dropdown-Menüs
 - **POM-Updates**: Aktualisiert die `pom.xml`-Dateien mit den gewählten Versionen
-- **Repository-Support**: Unterstützt private Repositories mit Authentifizierung basierend auf `settings.xml`
+- **Repository-Support**: Unterstützt private Repositories mit Authentifizierung basierend auf `settings.xml` inklusive aufgelöster Variablen in Credentials (`${env.*}`, `${...}`)
 - **Navigation**: Direkter Sprung zur Abhängigkeitsdefinition in der `pom.xml` per Klick
 
 ### MavenUpSettings

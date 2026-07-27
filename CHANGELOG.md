@@ -4,7 +4,13 @@
 
 ## [1.1.0]
 ### Added
-- t.b.d.
+- Auflösung von Credential-Platzhaltern aus Maven `settings.xml` beim Repository-Zugriff:
+  - `${env.VAR_NAME}` über Environment-Variablen
+  - `${VAR_NAME}` über System-Property, mit Fallback auf Environment-Variable
+
+### Fixed
+- Fehlende Warnung bei HTTP-Fehlern (z.B. 401/404) beim Abruf von `maven-metadata.xml` wird jetzt geloggt.
+- Reihenfolge der Repository-Abfrage präzisiert: Maven Central wird bevorzugt zuerst abgefragt; bei erfolgreicher Central-Abfrage werden keine privaten Repositories mehr für dieselbe Dependency angefragt.
 
 ## [1.0.4]
 ### Fixed
@@ -38,4 +44,3 @@
 - Easy update of pom.xml via dropdown selection.
 - Navigation to pom.xml (Single or Double Click).
 - Support for `dependencyManagement` and `pluginManagement`.
-

@@ -899,6 +899,34 @@ class MavenUpWindowFactory : ToolWindowFactory {
             return rawId?.trim()?.takeIf { it.isNotEmpty() }
         }
 
+        private fun resolveCredentialValue(rawValue: String?, serverId: String, fieldName: String): String? {
+            val value = rawValue?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+            val envPlaceholder = Regex("""^\$\{env\.([^}]+)}$""").matchEntire(value)
+            if (envPlaceholder != null) {
+                val envName = envPlaceholder.groupValues[1]
+                return System.getenv(envName).also {
+                    if (it == null) {
+                        LOG.warn("Could not resolve $fieldName for Maven server '$serverId': missing env var '$envName'")
+                    }
+                }
+            }
+
+            val propertyPlaceholder = Regex("""^\$\{([^}]+)}$""").matchEntire(value)
+            if (propertyPlaceholder != null) {
+                val key = propertyPlaceholder.groupValues[1]
+                return System.getProperty(key) ?: System.getenv(key).also {
+                    if (it == null) {
+                        LOG.warn(
+                            "Could not resolve $fieldName for Maven server '$serverId': " +
+                                "missing system property/env var '$key'"
+                        )
+                    }
+                }
+            }
+
+            return value
+        }
+
         private fun getMavenServerCredentials(): Map<String, Pair<String?, String?>> {
             val credentials = mutableMapOf<String, Pair<String?, String?>>()
             val generalSettings = MavenProjectsManager.getInstance(project).generalSettings
@@ -915,9 +943,17 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         for (i in 0 until serverNodes.length) {
                             val serverNode = serverNodes.item(i) as? org.w3c.dom.Element ?: continue
                             val id = normalizeSettingsId(serverNode.getElementsByTagName("id").item(0)?.textContent)
-                            val username = serverNode.getElementsByTagName("username").item(0)?.textContent
-                            val password = serverNode.getElementsByTagName("password").item(0)?.textContent
                             if (id != null) {
+                                val username = resolveCredentialValue(
+                                    serverNode.getElementsByTagName("username").item(0)?.textContent,
+                                    id,
+                                    "username"
+                                )
+                                val password = resolveCredentialValue(
+                                    serverNode.getElementsByTagName("password").item(0)?.textContent,
+                                    id,
+                                    "password"
+                                )
                                 credentials[id] = Pair(username, password)
                             }
                         }
