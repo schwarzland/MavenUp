@@ -10,6 +10,7 @@
 - New configuration options to hide unstable dependency versions:
   - Toggleable filter for unstable versions
   - Freely configurable qualifier list (e.g. `rc,beta,milestone`)
+- Added `FEATURES.MD` with an English overview of all plugin features.
 
 ### Fixed
 - Missing warning logs for HTTP errors (e.g. 401/404) during `maven-metadata.xml` retrieval are now emitted.
