@@ -49,7 +49,7 @@ Unter `Settings > Tools > MavenUp` können folgende Optionen konfiguriert werden
 - **Jump to pom.xml on single click**: Ermöglicht die Navigation zur `pom.xml` mit einem einfachen statt eines Doppelklicks.
 - **Automatically select newest version**: Wählt nach einem Update-Check automatisch die jeweils neueste verfügbare Version in der Dropdown-Liste aus.
 - **Hide unstable versions**: Blendet instabile Versionen (z.B. RC/Beta) aus den auswählbaren Update-Versionen aus.
-- **Hidden version qualifiers (comma-separated)**: Liste der auszublendenden Typen, z.B. `rc,beta,milestone`.
+- **Hidden version qualifiers (comma-separated)**: Liste der auszublendenden Typen, z.B. `rc,beta,milestone` (eingerückt dargestellt und nur aktiv, wenn der Filter eingeschaltet ist).
 
 ## Gradle Proxy-Konfiguration
 

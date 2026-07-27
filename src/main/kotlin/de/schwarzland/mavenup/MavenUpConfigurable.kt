@@ -33,10 +33,15 @@ class MavenUpConfigurable(private val project: Project) : Configurable {
                     .applyToComponent { isSelected = settings.state.hideUnstableVersions }
                     .component
             }
-            row(MyMessageBundle.message("settings.hiddenVersionQualifiers")) {
+            row("      ${MyMessageBundle.message("settings.hiddenVersionQualifiers")}") {
                 hiddenVersionQualifiersField = textField()
                     .applyToComponent { text = settings.state.hiddenVersionQualifiers }
                     .component
+            }
+
+            hiddenVersionQualifiersField?.isEnabled = settings.state.hideUnstableVersions
+            hideUnstableVersionsCheckBox?.addActionListener {
+                hiddenVersionQualifiersField?.isEnabled = hideUnstableVersionsCheckBox?.isSelected == true
             }
         }
     }
@@ -63,5 +68,6 @@ class MavenUpConfigurable(private val project: Project) : Configurable {
         selectLatestVersionCheckBox?.isSelected = settings.state.selectLatestVersion
         hideUnstableVersionsCheckBox?.isSelected = settings.state.hideUnstableVersions
         hiddenVersionQualifiersField?.text = settings.state.hiddenVersionQualifiers
+        hiddenVersionQualifiersField?.isEnabled = settings.state.hideUnstableVersions
     }
 }
