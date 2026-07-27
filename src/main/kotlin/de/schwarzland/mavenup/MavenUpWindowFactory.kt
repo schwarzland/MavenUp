@@ -893,6 +893,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
 
+        private fun normalizeSettingsId(rawId: String?): String? {
+            return rawId?.trim()?.takeIf { it.isNotEmpty() }
+        }
+
         private fun getMavenServerCredentials(): Map<String, Pair<String?, String?>> {
             val credentials = mutableMapOf<String, Pair<String?, String?>>()
             val generalSettings = MavenProjectsManager.getInstance(project).generalSettings
@@ -908,10 +912,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         val serverNodes = doc.getElementsByTagName("server")
                         for (i in 0 until serverNodes.length) {
                             val serverNode = serverNodes.item(i) as? org.w3c.dom.Element ?: continue
-                            val id = serverNode.getElementsByTagName("id").item(0)?.textContent
+                            val id = normalizeSettingsId(serverNode.getElementsByTagName("id").item(0)?.textContent)
                             val username = serverNode.getElementsByTagName("username").item(0)?.textContent
                             val password = serverNode.getElementsByTagName("password").item(0)?.textContent
-                            if (id != null && id.isNotBlank()) {
+                            if (id != null) {
                                 credentials[id] = Pair(username, password)
                             }
                         }
@@ -939,19 +943,104 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         val repoNodes = doc.getElementsByTagName("repository")
                         for (i in 0 until repoNodes.length) {
                             val repoNode = repoNodes.item(i) as? org.w3c.dom.Element ?: continue
-                            val id = repoNode.getElementsByTagName("id").item(0)?.textContent
+                            val id = normalizeSettingsId(repoNode.getElementsByTagName("id").item(0)?.textContent)
                             val url = repoNode.getElementsByTagName("url").item(0)?.textContent
                             if (url != null && url.isNotBlank()) {
-                                infos.add(Pair(id, url.trimEnd('/')))
+                                infos.add(Pair(id, url.trim().trimEnd('/')))
                             }
                         }
                     } catch (e: Exception) {
-                        LOG.error("Failed to parse Maven settings file for credentials: ${userSettingsFile.path}", e)
+                        LOG.error("Failed to parse Maven settings file for repositories: ${userSettingsFile.path}", e)
                     }
                 }
             }
 
-            return infos.distinctBy { it.second }
+            return infos
+                .groupBy { it.second }
+                .values
+                .map { repositoriesWithSameUrl ->
+                    repositoriesWithSameUrl.firstOrNull { it.first != null } ?: repositoriesWithSameUrl.first()
+                }
+        }
+
+        private fun findServerCredentials(
+            repositoryInfo: Pair<String?, String>,
+            serverCredentials: Map<String, Pair<String?, String?>>
+        ): Pair<String?, String?>? {
+            repositoryInfo.first?.let { serverCredentials[it] }?.let { return it }
+            serverCredentials[repositoryInfo.second]?.let { return it }
+            val host = URI(repositoryInfo.second).host ?: return null
+            return serverCredentials[host]
+        }
+
+        private fun createMetadataConnection(repositoryUrl: String, groupId: String, artifactId: String): HttpURLConnection {
+            val urlString = "$repositoryUrl/${groupId.replace('.', '/')}/$artifactId/maven-metadata.xml"
+            val url = URI(urlString).toURL()
+            return (url.openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                connectTimeout = 10000
+                readTimeout = 10000
+            }
+        }
+
+        private fun applyCredentials(
+            connection: HttpURLConnection,
+            repositoryInfo: Pair<String?, String>,
+            serverCredentials: Map<String, Pair<String?, String?>>
+        ) {
+            val creds = findServerCredentials(repositoryInfo, serverCredentials)
+            if (creds != null && creds.first != null && creds.second != null) {
+                val auth = "${creds.first}:${creds.second}"
+                val encodedAuth = Base64.getEncoder().encodeToString(auth.toByteArray(Charsets.UTF_8))
+                connection.setRequestProperty("Authorization", "Basic $encodedAuth")
+            }
+        }
+
+        private fun readVersionsFromConnection(
+            connection: HttpURLConnection,
+            currentComparable: ComparableVersion,
+            groupId: String,
+            artifactId: String,
+            repositoryUrl: String
+        ): List<String> {
+            val responseCode = connection.responseCode
+            if (responseCode != HttpURLConnection.HTTP_OK) {
+                LOG.warn(
+                    "Failed to fetch versions for $groupId:$artifactId from $repositoryUrl. " +
+                        "HTTP $responseCode ${connection.responseMessage}"
+                )
+                return emptyList()
+            }
+
+            val versions = mutableListOf<String>()
+            val factory = DocumentBuilderFactory.newInstance()
+            val builder = factory.newDocumentBuilder()
+            val doc = builder.parse(connection.inputStream)
+            val versionNodes = doc.getElementsByTagName("version")
+            for (i in 0 until versionNodes.length) {
+                val version = versionNodes.item(i).textContent
+                if (ComparableVersion(version) >= currentComparable) {
+                    versions.add(version)
+                }
+            }
+            return versions
+        }
+
+        private fun fetchVersionsFromRepository(
+            repositoryInfo: Pair<String?, String>,
+            groupId: String,
+            artifactId: String,
+            currentComparable: ComparableVersion,
+            serverCredentials: Map<String, Pair<String?, String?>>
+        ): List<String> {
+            return try {
+                val connection = createMetadataConnection(repositoryInfo.second, groupId, artifactId)
+                applyCredentials(connection, repositoryInfo, serverCredentials)
+                readVersionsFromConnection(connection, currentComparable, groupId, artifactId, repositoryInfo.second)
+            } catch (e: Exception) {
+                LOG.warn("Failed to fetch versions for $groupId:$artifactId from ${repositoryInfo.second}", e)
+                emptyList()
+            }
         }
 
         private fun fetchVersions(groupId: String, artifactId: String, currentVersion: String): List<String> {
@@ -961,39 +1050,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
             val currentComparable = ComparableVersion(currentVersion)
 
             for (repoInfo in repositoryInfos) {
-                try {
-                    val urlString = "${repoInfo.second}/${groupId.replace('.', '/')}/$artifactId/maven-metadata.xml"
-                    val url = URI(urlString).toURL()
-                    val connection = url.openConnection() as HttpURLConnection
-                    connection.requestMethod = "GET"
-                    connection.connectTimeout = 10000
-                    connection.readTimeout = 10000
-
-                    // Authentifizierung hinzufügen, falls vorhanden
-                    val creds = repoInfo.first?.let { serverCredentials[it] }
-                    if (creds != null && creds.first != null && creds.second != null) {
-                        val auth = "${creds.first}:${creds.second}"
-                        val encodedAuth = Base64.getEncoder().encodeToString(auth.toByteArray(Charsets.UTF_8))
-                        connection.setRequestProperty("Authorization", "Basic $encodedAuth")
-                    }
-
-                    if (connection.responseCode == HttpURLConnection.HTTP_OK) {
-                        val factory = DocumentBuilderFactory.newInstance()
-                        val builder = factory.newDocumentBuilder()
-                        val doc = builder.parse(connection.inputStream)
-
-                        val versionNodes = doc.getElementsByTagName("version")
-                        for (i in 0 until versionNodes.length) {
-                            val v = versionNodes.item(i).textContent
-                            if (ComparableVersion(v) >= currentComparable) {
-                                allVersions.add(v)
-                            }
-                        }
-                    }
-                } catch (e: Exception) {
-                    // Dieses Repository überspringen
-                    LOG.warn("Failed to fetch versions for $groupId:$artifactId from ${repoInfo.second}", e)
-                }
+                allVersions.addAll(
+                    fetchVersionsFromRepository(repoInfo, groupId, artifactId, currentComparable, serverCredentials)
+                )
             }
 
             return allVersions.sortedWith { v1, v2 ->
