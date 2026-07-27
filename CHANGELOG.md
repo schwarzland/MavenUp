@@ -2,6 +2,10 @@
 
 # MavenUp Changelog
 
+## [1.1.0]
+### Added
+- t.b.d.
+
 ## [1.0.4]
 ### Fixed
 - Improved tool window visibility after plugin installation and updates in Maven projects

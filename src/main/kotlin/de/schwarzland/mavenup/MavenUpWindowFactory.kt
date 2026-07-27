@@ -991,7 +991,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         }
                     }
                 } catch (e: Exception) {
-                    // Dieses Repository überspringen, Nächstes versuchen
+                    // Dieses Repository überspringen
                     LOG.warn("Failed to fetch versions for $groupId:$artifactId from ${repoInfo.second}", e)
                 }
             }

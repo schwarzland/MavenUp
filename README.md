@@ -37,6 +37,28 @@ Unter `Settings > Tools > MavenUp` können folgende Optionen konfiguriert werden
 - **Jump to pom.xml on single click**: Ermöglicht die Navigation zur `pom.xml` mit einem einfachen statt eines Doppelklicks.
 - **Automatically select newest version**: Wählt nach einem Update-Check automatisch die jeweils neueste verfügbare Version in der Dropdown-Liste aus.
 
+## Gradle Proxy-Konfiguration (lokal, nicht versioniert)
+
+Wenn der Zugriff auf Maven Central im Unternehmensnetzwerk nur über Proxy funktioniert, sollten Proxy-Settings **nicht** in der projektweiten `gradle.properties` gepflegt werden.  
+Verwende stattdessen die benutzerlokale Datei:
+
+`C:\Users\<DEIN_USER>\.gradle\gradle.properties`
+
+Beispiel:
+```properties
+systemProp.java.net.useSystemProxies=true
+org.gradle.jvmargs=-Djava.net.useSystemProxies=true -Djava.net.preferIPv4Stack=true
+
+# Falls ein fester Proxy erforderlich ist:
+# systemProp.http.proxyHost=<proxy-host>
+# systemProp.http.proxyPort=<proxy-port>
+# systemProp.https.proxyHost=<proxy-host>
+# systemProp.https.proxyPort=<proxy-port>
+# systemProp.http.nonProxyHosts=localhost|127.0.0.1|*.local
+```
+
+Danach einmal `gradlew --stop` ausführen, damit der Gradle-Daemon die neuen Einstellungen übernimmt.
+
 
 ## Architektur
 
