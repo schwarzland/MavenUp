@@ -280,10 +280,14 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 }
             }
 
-            val refreshAction: (Boolean) -> Unit = refreshAction@{ checkUpdates ->
-                if (isUpdating) return@refreshAction
+            fun refreshAction(checkUpdates: Boolean, clearNewVersions: Boolean) {
+                if (isUpdating) return
 
                 tableModel.setRowCount(0)
+                if (clearNewVersions) {
+                    availableVersions.clear()
+                    selectedVersions.clear()
+                }
                 dependencyToProperty.clear()
                 knownDependencies.clear()
                 val mavenProjectsManager = MavenProjectsManager.getInstance(project)
@@ -339,7 +343,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 }
 
                 if (checkUpdates) {
-                    performUpdateCheck(refreshButton, checkUpdatesButton, updateButton)
+                    performUpdateCheck(refreshButton, checkUpdatesButton, updateButton) {
+                        refreshAction(false, false)
+                    }
                 }
             }
 
@@ -485,7 +491,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                                     ApplicationManager.getApplication().invokeLater {
                                         selectedVersions.clear()
                                         availableVersions.clear()
-                                        refreshAction(false)
+                                        refreshAction(false, true)
 
                                         for (row in 0 until tableModel.rowCount) {
                                             tableModel.setValueAt("", row, 4)
@@ -499,17 +505,17 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 }
             }
 
-            refreshAction(false)
+            refreshAction(false, true)
 
             add(JBScrollPane(table), BorderLayout.CENTER)
 
             val buttonPanel = JPanel(BorderLayout()).apply {
                 val leftButtonPanel = JPanel(FlowLayout(FlowLayout.LEFT)).apply {
                     add(refreshButton.apply {
-                        addActionListener { refreshAction(false) }
+                        addActionListener { refreshAction(false, true) }
                     })
                     add(checkUpdatesButton.apply {
-                        addActionListener { refreshAction(true) }
+                        addActionListener { refreshAction(true, true) }
                     })
                     add(updateButton.apply {
                         addActionListener { updateAction() }
@@ -531,7 +537,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     ApplicationManager.getApplication().invokeLater {
                         availableVersions.clear()
                         selectedVersions.clear()
-                        refreshAction(false)
+                        refreshAction(false, true)
                     }
                 }
             })
@@ -631,7 +637,12 @@ class MavenUpWindowFactory : ToolWindowFactory {
             }
         }
 
-        private fun performUpdateCheck(refreshButton: JButton, checkUpdatesButton: JButton, updateButton: JButton) {
+        private fun performUpdateCheck(
+            refreshButton: JButton,
+            checkUpdatesButton: JButton,
+            updateButton: JButton,
+            refreshAfterCheck: () -> Unit
+        ) {
             isUpdating = true
             refreshButton.isEnabled = false
             checkUpdatesButton.isEnabled = false
@@ -644,9 +655,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     isUpdating = false
                     refreshButton.isEnabled = true
                     checkUpdatesButton.isEnabled = true
-                    // In original code, it was 'this(false)'.
-                    // Trigger refresh without update check
-                    refreshButton.doClick()
+                    refreshAfterCheck()
                     updateUpdateButtonState(updateButton)
                 }
             }

@@ -25,13 +25,14 @@ Eine vollständige, englische Feature-Liste steht in `FEATURES.MD`.
 - **Versionsauflösung mit Fallbacks**: Nutzt aufgelöste Maven-Versionen aus dem Projektmodell (Dependency Tree/Plugins), damit die aktuelle Version auch bei indirekter Verwaltung korrekt angezeigt und verglichen wird.
 - **Central-first mit Short-Circuit**: Fragt Maven Central priorisiert zuerst ab; ist die Abfrage dort erfolgreich, werden für dieselbe Dependency keine weiteren privaten Repositories mehr abgefragt.
 - **Fehler- und Warn-Logging**: Protokolliert Parsing-Fehler für `settings.xml`, nicht auflösbare Credential-Variablen sowie fehlgeschlagene Repository-Abfragen (inkl. HTTP-Status).
+- **Expliziter Refresh-Flow**: Der interne Refresh unterscheidet klar zwischen „New Version zurücksetzen“ (manueller Refresh) und „New Version behalten“ (Refresh nach Update-Check).
 
 ## Benutzung
 
 ### German
 Das Plugin öffnet ein Tool-Window namens **MavenUp** (meist am rechten oder unteren Rand der IDE).
 
-1. **Refresh**: Lädt die Projektdaten neu und befüllt die Tabelle.
+1. **Refresh**: Lädt die Projektdaten neu, befüllt die Tabelle und setzt die Spalte **New Version** zurück. (Beim **Check for Updates** bleiben die neu geladenen Werte erhalten.)
 2. **Check for Updates**: Sucht online nach verfügbaren Versionen für alle gelisteten Einträge.
 3. **New Version**: In dieser Spalte kann nach dem Update-Check eine neuere Version gewählt werden.
 4. **Update**: Wendet die gewählten Versionsänderungen auf die entsprechenden `pom.xml`-Dateien an.

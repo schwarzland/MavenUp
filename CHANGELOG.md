@@ -18,6 +18,9 @@
 - Dependencies and plugins without `groupId` are now ignored and no longer shown in the list.
 - The "Hidden version qualifiers" setting is now visually indented, and both its label and input field are automatically disabled when "Hide unstable versions" is turned off.
 - The "Hidden version qualifiers" input field is now wider, so longer qualifier lists are easier to read and edit.
+- Refresh now also clears the "New Version" column state.
+- Fixed refresh/update interaction: "Check for Updates" now keeps populated "New Version" values instead of clearing them.
+- Internal refactor: replaced the implicit one-shot refresh flag with an explicit refresh mode (`clear` vs `keep`) for better maintainability.
 
 ## [1.0.4]
 ### Fixed
