@@ -556,7 +556,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
         ) {
             val wrapperTag = parentTag?.findFirstSubTag(wrapperTagName) ?: parentTag
             wrapperTag?.findSubTags(itemTagName)?.forEach { tag ->
-                val g = tag.findFirstSubTag("groupId")?.value?.text ?: ""
+                val g = tag.findFirstSubTag("groupId")?.value?.text?.trim().orEmpty()
+                if (g.isEmpty()) return@forEach
                 val a = tag.findFirstSubTag("artifactId")?.value?.text ?: ""
                 val v = tag.findFirstSubTag("version")?.value?.text ?: ""
                 val key = "$g:$a"

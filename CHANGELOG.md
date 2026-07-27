@@ -14,6 +14,7 @@
 ### Fixed
 - Missing warning logs for HTTP errors (e.g. 401/404) during `maven-metadata.xml` retrieval are now emitted.
 - Repository query order refined: Maven Central is queried first; if the Central query succeeds, no private repositories are queried for the same dependency.
+- Dependencies and plugins without `groupId` are now ignored and no longer shown in the list.
 
 ## [1.0.4]
 ### Fixed

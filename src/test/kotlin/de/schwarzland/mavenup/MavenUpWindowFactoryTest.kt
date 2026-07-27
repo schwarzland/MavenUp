@@ -202,6 +202,10 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
                         <artifactId>no-prop</artifactId>
                         <version>1.0.0</version>
                     </dependency>
+                    <dependency>
+                        <artifactId>missing-group</artifactId>
+                        <version>9.9.9</version>
+                    </dependency>
                 </dependencies>
             </project>
         """.trimIndent()
@@ -230,9 +234,51 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         assertEquals("${"$"}{my.version}", targetMap["com.example:with-prop"])
         assertEquals("1.0.0", targetMap["com.example:no-prop"])
+        assertNull(targetMap[":missing-group"])
         
         assertEquals("my.version", dependencyToProperty["com.example:with-prop"])
         assertNull(dependencyToProperty["com.example:no-prop"])
+    }
+
+    fun testCollectPluginsWithoutGroupIdAreSkipped() {
+        val pomContent = """
+            <project>
+                <build>
+                    <plugins>
+                        <plugin>
+                            <groupId>org.example</groupId>
+                            <artifactId>valid-plugin</artifactId>
+                            <version>1.0.0</version>
+                        </plugin>
+                        <plugin>
+                            <artifactId>missing-group-plugin</artifactId>
+                            <version>2.0.0</version>
+                        </plugin>
+                    </plugins>
+                </build>
+            </project>
+        """.trimIndent()
+
+        val psiFile = myFixture.configureByText("pom.xml", pomContent) as XmlFile
+        val rootTag = psiFile.document?.rootTag
+        val buildTag = rootTag?.findFirstSubTag("build")
+
+        val factory = MavenUpWindowFactory()
+        val toolWindowInstance = factory.MyToolWindow(project)
+        val targetMap = mutableMapOf<String, String>()
+
+        val collectMethod = toolWindowInstance.javaClass.getDeclaredMethod(
+            "collectDependenciesAndProperties",
+            com.intellij.psi.xml.XmlTag::class.java,
+            String::class.java,
+            String::class.java,
+            MutableMap::class.java
+        ).apply { isAccessible = true }
+
+        collectMethod.invoke(toolWindowInstance, buildTag, "plugins", "plugin", targetMap)
+
+        assertEquals("1.0.0", targetMap["org.example:valid-plugin"])
+        assertNull(targetMap[":missing-group-plugin"])
     }
 
     fun testResolveCredentialValueWithSystemPropertyPlaceholder() {

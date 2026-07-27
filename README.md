@@ -4,10 +4,9 @@ MavenUp ist ein IntelliJ-Plugin, das speziell für Maven-Projekte entwickelt wur
 
 ## Funktionen
 
-### Extern
-
 - **Tool-Window für Maven-Projekte**: MavenUp ist nur bei Maven-Projekten verfügbar und zeigt alle gefundenen Module/`pom.xml`-Dateien in einer gemeinsamen Tabelle.
 - **Übersicht für Dependencies und Plugins**: Erfasst normale Einträge sowie `dependencyManagement` und `pluginManagement` inklusive Typ-Kennzeichnung.
+- **Validierung beim Einlesen**: Dependencies und Plugins ohne `groupId` werden beim Einsammeln übersprungen und nicht in der Liste angezeigt.
 - **Property-Erkennung und Property-Updates**: Erkennt Versionen aus Maven-Properties (z.B. `${spring.version}`), zeigt die Property in eigener Spalte und aktualisiert beim Schreiben die Property statt des einzelnen Tags.
 - **Update-Check über Repositories**: Prüft verfügbare Versionen in Maven Central und konfigurierten privaten Repositories (`settings.xml`), unterstützt Authentifizierung und dedupliziert identische Repository-URLs.
 - **Credentials aus Platzhaltern**: Löst Credentials aus `settings.xml` auf, z.B. `${env.ARTIFACTORY_USERNAME}` / `${env.ARTIFACTORY_PASSWORD}` sowie `${MY_VAR}` (System-Property, danach Environment-Variable).
