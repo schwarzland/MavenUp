@@ -228,6 +228,74 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertEquals("my.version", dependencyToProperty["com.example:with-prop"])
         assertNull(dependencyToProperty["com.example:no-prop"])
     }
+
+    fun testResolveCredentialValueWithSystemPropertyPlaceholder() {
+        val factory = MavenUpWindowFactory()
+        val toolWindowInstance = factory.MyToolWindow(project)
+        val resolveMethod = toolWindowInstance.javaClass.getDeclaredMethod(
+            "resolveCredentialValue",
+            String::class.java,
+            String::class.java,
+            String::class.java
+        ).apply { isAccessible = true }
+
+        val key = "mavenup.test.credential"
+        val expected = "secret-value"
+        try {
+            System.setProperty(key, expected)
+            val resolved = resolveMethod.invoke(
+                toolWindowInstance,
+                "${'$'}{$key}",
+                "test-server",
+                "username"
+            ) as String?
+            assertEquals(expected, resolved)
+        } finally {
+            System.clearProperty(key)
+        }
+    }
+
+    fun testResolveCredentialValueWithMissingEnvPlaceholderReturnsNull() {
+        val factory = MavenUpWindowFactory()
+        val toolWindowInstance = factory.MyToolWindow(project)
+        val resolveMethod = toolWindowInstance.javaClass.getDeclaredMethod(
+            "resolveCredentialValue",
+            String::class.java,
+            String::class.java,
+            String::class.java
+        ).apply { isAccessible = true }
+
+        val missingVar = "MAVENUP_TEST_MISSING_ENV_1234567890"
+        val resolved = resolveMethod.invoke(
+            toolWindowInstance,
+            "${'$'}{env.$missingVar}",
+            "test-server",
+            "password"
+        ) as String?
+
+        assertNull(resolved)
+    }
+
+    fun testResolveCredentialValueWithPlainTextKeepsValue() {
+        val factory = MavenUpWindowFactory()
+        val toolWindowInstance = factory.MyToolWindow(project)
+        val resolveMethod = toolWindowInstance.javaClass.getDeclaredMethod(
+            "resolveCredentialValue",
+            String::class.java,
+            String::class.java,
+            String::class.java
+        ).apply { isAccessible = true }
+
+        val resolved = resolveMethod.invoke(
+            toolWindowInstance,
+            " plain-secret ",
+            "test-server",
+            "username"
+        ) as String?
+
+        assertEquals("plain-secret", resolved)
+    }
+
     fun testFindPlugin() {
         val pomContent = """
             <project>
