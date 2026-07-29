@@ -20,3 +20,5 @@ This document lists the key features of the MavenUp IntelliJ plugin.
 - **Input validation for displayed entries**: Skips dependencies and plugins without `groupId` so invalid entries are not shown.
 - **Logging and diagnostics**: Logs parsing errors, credential resolution issues, and repository request failures (including HTTP status).
 - **Project-level plugin settings**: Supports configurable behavior in `Settings > Tools > MavenUp` (click behavior, auto-select latest, unstable-version filtering).
+- **Vulnerability check via OSV.dev**: A dedicated "Check Vulnerabilities" button explicitly queries [OSV.dev](https://osv.dev) for known vulnerabilities of the current version of each dependency and plugin.
+- **Vulnerability count column**: Displays the number of vulnerabilities found for the current version; stays empty until a vulnerability check has been run.

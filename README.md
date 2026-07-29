@@ -19,6 +19,7 @@ Eine vollständige, englische Feature-Liste steht in `FEATURES.MD`.
 - **Hintergrundverarbeitung für lange Aktionen**: Update-Check, Navigation und Schreiboperationen laufen im Hintergrund, damit die IDE responsiv bleibt.
 - **Navigation zur Definition in `pom.xml`**: Per Doppelklick (oder optional Einzelklick) springt MavenUp direkt zur passenden Dependency-/Plugin-Definition.
 - **Integrierte Einstellungen**: Über `Settings > Tools > MavenUp` konfigurierbar (u.a. Single-Click-Navigation, automatische Vorauswahl der neuesten Version).
+- **Vulnerability-Check über OSV.dev**: Über den Button **Check Vulnerabilities** wird für die aktuelle Version jeder Dependency/jedes Plugin explizit geprüft, ob bekannte Sicherheitslücken existieren (Quelle: [OSV.dev](https://osv.dev)). Die Anzahl wird in der Spalte **Vulnerabilities** angezeigt; solange kein Check durchgeführt wurde, bleibt die Spalte leer.
 
 ### Intern
 - **Gezielte Credential-Zuordnung**: Ordnet Credentials primär über Repository-ID zu, mit Fallback über Repository-URL und Hostname.
@@ -36,6 +37,7 @@ Das Plugin öffnet ein Tool-Window namens **MavenUp** (meist am rechten oder unt
 2. **Check for Updates**: Sucht online nach verfügbaren Versionen für alle gelisteten Einträge.
 3. **New Version**: In dieser Spalte kann nach dem Update-Check eine neuere Version gewählt werden.
 4. **Update**: Wendet die gewählten Versionsänderungen auf die entsprechenden `pom.xml`-Dateien an.
+5. **Check Vulnerabilities**: Ermittelt explizit über OSV.dev die Anzahl bekannter Sicherheitslücken für die aktuelle Version jeder Dependency/jedes Plugins und zeigt sie in der Spalte **Vulnerabilities** an. Solange kein Check ausgeführt wurde, bleibt die Spalte leer.
 
 ### English
 The plugin opens a tool window named **MavenUp** (usually located at the right or bottom edge of the IDE).
@@ -44,6 +46,7 @@ The plugin opens a tool window named **MavenUp** (usually located at the right o
 2. **Check for Updates**: Searches online for available versions for all listed entries.
 3. **New Version**: In this column, a newer version can be selected after the update check.
 4. **Update**: Applies the selected version changes to the corresponding `pom.xml` files.
+5. **Check Vulnerabilities**: Explicitly queries OSV.dev for the number of known vulnerabilities of the current version of every dependency/plugin and shows it in the **Vulnerabilities** column. The column stays empty until a check has been run.
 
 ## Einstellungen
 

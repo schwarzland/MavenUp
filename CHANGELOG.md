@@ -2,6 +2,9 @@
 
 # MavenUp Changelog
 ## [1.2.0]
+### Added
+- New **Check Vulnerabilities** button that queries [OSV.dev](https://osv.dev) for known vulnerabilities of the current version of every listed dependency and plugin.
+- New **Vulnerabilities** table column showing the number of vulnerabilities found for the current version. The column stays empty until the check has been run explicitly.
 
 ## [1.1.0]
 ### Added

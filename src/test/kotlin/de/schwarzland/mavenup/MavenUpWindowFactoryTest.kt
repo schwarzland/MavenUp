@@ -595,4 +595,78 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertNotNull("Managed Plugin sollte gefunden werden", managedPlugin)
         assertEquals("maven-surefire-plugin", managedPlugin?.findFirstSubTag("artifactId")?.value?.text)
     }
+
+    fun testBuildVulnerabilityQueryProducesOsvCompatibleJson() {
+        val factory = MavenUpWindowFactory()
+        val toolWindowInstance = factory.MyToolWindow(project)
+        val buildMethod = toolWindowInstance.javaClass.getDeclaredMethod(
+            "buildVulnerabilityQuery",
+            String::class.java,
+            String::class.java,
+            String::class.java
+        ).apply { isAccessible = true }
+
+        val query = buildMethod.invoke(
+            toolWindowInstance,
+            "com.fasterxml.jackson.core",
+            "jackson-databind",
+            "2.9.8"
+        ) as com.google.gson.JsonObject
+
+        assertEquals("2.9.8", query.get("version").asString)
+        val packageObject = query.getAsJsonObject("package")
+        assertEquals("com.fasterxml.jackson.core:jackson-databind", packageObject.get("name").asString)
+        assertEquals("Maven", packageObject.get("ecosystem").asString)
+    }
+
+    fun testParseVulnerabilityCountsMapsResultsInOrder() {
+        val factory = MavenUpWindowFactory()
+        val toolWindowInstance = factory.MyToolWindow(project)
+        val parseMethod = toolWindowInstance.javaClass.getDeclaredMethod(
+            "parseVulnerabilityCounts",
+            String::class.java,
+            List::class.java
+        ).apply { isAccessible = true }
+
+        val responseBody = """
+            {"results":[{"vulns":[{"id":"GHSA-1"},{"id":"GHSA-2"}]},{}]}
+        """.trimIndent()
+        val keys = listOf("g:a:1.0", "g:b:2.0")
+
+        @Suppress("UNCHECKED_CAST")
+        val counts = parseMethod.invoke(toolWindowInstance, responseBody, keys) as Map<String, Int>
+
+        assertEquals(2, counts["g:a:1.0"])
+        assertEquals(0, counts["g:b:2.0"])
+    }
+
+    fun testParseVulnerabilityCountsHandlesMissingResults() {
+        val factory = MavenUpWindowFactory()
+        val toolWindowInstance = factory.MyToolWindow(project)
+        val parseMethod = toolWindowInstance.javaClass.getDeclaredMethod(
+            "parseVulnerabilityCounts",
+            String::class.java,
+            List::class.java
+        ).apply { isAccessible = true }
+
+        @Suppress("UNCHECKED_CAST")
+        val counts = parseMethod.invoke(toolWindowInstance, "{}", listOf("g:a:1.0")) as Map<String, Int>
+
+        assertTrue("Ohne 'results' sollte eine leere Map zurückgegeben werden", counts.isEmpty())
+    }
+
+    fun testFetchVulnerabilityCountsReturnsEmptyMapForEmptyInput() {
+        val factory = MavenUpWindowFactory()
+        val toolWindowInstance = factory.MyToolWindow(project)
+        val fetchMethod = toolWindowInstance.javaClass.getDeclaredMethod(
+            "fetchVulnerabilityCounts",
+            List::class.java,
+            com.intellij.openapi.progress.ProgressIndicator::class.java
+        ).apply { isAccessible = true }
+
+        @Suppress("UNCHECKED_CAST")
+        val counts = fetchMethod.invoke(toolWindowInstance, emptyList<Triple<String, String, String>>(), null) as Map<String, Int>
+
+        assertTrue("Für eine leere Abhängigkeitsliste sollten keine Netzwerkaufrufe erfolgen", counts.isEmpty())
+    }
 }

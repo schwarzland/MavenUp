@@ -22,6 +22,10 @@ import com.intellij.ui.content.ContentFactory
 import com.intellij.ui.table.JBTable
 import com.intellij.util.ui.AbstractTableCellEditor
 import com.intellij.icons.AllIcons
+import com.google.gson.Gson
+import com.google.gson.JsonArray
+import com.google.gson.JsonObject
+import com.google.gson.JsonParser
 import org.apache.maven.artifact.versioning.ComparableVersion
 import org.jetbrains.idea.maven.project.MavenImportListener
 import org.jetbrains.idea.maven.project.MavenProject
@@ -45,6 +49,9 @@ private const val MANAGED_PLUGIN = "managed plugin"
 private const val TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY = "toolwindow.MyToolWindow.type.managedDependency"
 private const val CENTRAL_REPOSITORY_ID = "central"
 private const val CENTRAL_REPOSITORY_URL = "https://repo1.maven.org/maven2"
+private const val OSV_BATCH_QUERY_URL = "https://api.osv.dev/v1/querybatch"
+private const val OSV_ECOSYSTEM_MAVEN = "Maven"
+private const val OSV_BATCH_CHUNK_SIZE = 1000
 private val LOG = Logger.getInstance(MavenUpWindowFactory::class.java)
 
 /**
@@ -129,6 +136,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private val selectedVersions = mutableMapOf<String, String>()
         private val dependencyToProperty = mutableMapOf<String, String>()
         private val knownDependencies = mutableMapOf<String, String>() // key to current version
+        private val vulnerabilityCounts = mutableMapOf<String, Int>() // "group:artifact:version" to vulnerability count
         private var isUpdating = false
 
         private val content = JBPanel<JBPanel<*>>(BorderLayout()).apply {
@@ -141,6 +149,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.type"))
                 addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.currentVersion"))
                 addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.newVersion"))
+                addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.vulnerabilities"))
             }
 
             val table = JBTable(tableModel)
@@ -165,6 +174,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
             val refreshButton = JButton(MyMessageBundle.message("toolwindow.MyToolWindow.refresh.button"))
             val checkUpdatesButton = JButton(MyMessageBundle.message("toolwindow.MyToolWindow.checkUpdates.button"))
+            val checkVulnerabilitiesButton =
+                JButton(MyMessageBundle.message("toolwindow.MyToolWindow.checkVulnerabilities.button"))
             val updateButton = JButton(MyMessageBundle.message("toolwindow.MyToolWindow.update.button"))
             val settingsButton = JButton(AllIcons.General.Settings).apply {
                 toolTipText = MyMessageBundle.message("toolwindow.MyToolWindow.settings.button")
@@ -505,6 +516,25 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 }
             }
 
+            val checkVulnerabilitiesAction = {
+                if (!isUpdating) {
+                    isUpdating = true
+                    refreshButton.isEnabled = false
+                    checkUpdatesButton.isEnabled = false
+                    checkVulnerabilitiesButton.isEnabled = false
+                    updateButton.isEnabled = false
+
+                    performVulnerabilityCheck {
+                        isUpdating = false
+                        refreshButton.isEnabled = true
+                        checkUpdatesButton.isEnabled = true
+                        checkVulnerabilitiesButton.isEnabled = true
+                        refreshAction(false, false)
+                        updateUpdateButtonState(updateButton)
+                    }
+                }
+            }
+
             refreshAction(false, true)
 
             add(JBScrollPane(table), BorderLayout.CENTER)
@@ -516,6 +546,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     })
                     add(checkUpdatesButton.apply {
                         addActionListener { refreshAction(true, true) }
+                    })
+                    add(checkVulnerabilitiesButton.apply {
+                        addActionListener { checkVulnerabilitiesAction() }
                     })
                     add(updateButton.apply {
                         addActionListener { updateAction() }
@@ -604,8 +637,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 } else {
                     "dependency"
                 }
+                val vulnerabilityCount = vulnerabilityCounts["$key:$currentVersion"]?.toString() ?: ""
 
-                tableModel.addRow(arrayOf(groupId, artifactId, propertyName, type, currentVersion, versions))
+                tableModel.addRow(arrayOf(groupId, artifactId, propertyName, type, currentVersion, versions, vulnerabilityCount))
             }
         }
 
@@ -632,8 +666,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 val versions = availableVersions[key] ?: emptyList()
                 val propertyName = dependencyToProperty[key] ?: ""
                 val type = if (isManaged) MANAGED_PLUGIN else "plugin"
+                val vulnerabilityCount = vulnerabilityCounts["$key:$currentVersion"]?.toString() ?: ""
 
-                tableModel.addRow(arrayOf(groupId, artifactId, propertyName, type, currentVersion, versions))
+                tableModel.addRow(arrayOf(groupId, artifactId, propertyName, type, currentVersion, versions, vulnerabilityCount))
             }
         }
 
@@ -737,6 +772,95 @@ class MavenUpWindowFactory : ToolWindowFactory {
             if (g == update.groupId && a == update.artifactId) {
                 updateXmlTagVersion(tag, update.newVersion, propertiesTag)
             }
+        }
+
+        private fun performVulnerabilityCheck(onFinished: () -> Unit) {
+            ProgressManager.getInstance().run(object : Task.Backgroundable(
+                project,
+                MyMessageBundle.message("toolwindow.MyToolWindow.checkVulnerabilities.progress"),
+                true
+            ) {
+                override fun run(indicator: ProgressIndicator) {
+                    val dependencies = knownDependencies.entries
+                        .filter { it.value.isNotEmpty() }
+                        .map { (key, version) -> Triple(key.substringBefore(":"), key.substringAfter(":"), version) }
+
+                    val counts = fetchVulnerabilityCounts(dependencies, indicator)
+                    vulnerabilityCounts.putAll(counts)
+
+                    ApplicationManager.getApplication().invokeLater {
+                        onFinished()
+                    }
+                }
+            })
+        }
+
+        private fun buildVulnerabilityQuery(groupId: String, artifactId: String, version: String): JsonObject {
+            val packageObject = JsonObject().apply {
+                addProperty("name", "$groupId:$artifactId")
+                addProperty("ecosystem", OSV_ECOSYSTEM_MAVEN)
+            }
+            return JsonObject().apply {
+                add("package", packageObject)
+                addProperty("version", version)
+            }
+        }
+
+        private fun parseVulnerabilityCounts(responseBody: String, keys: List<String>): Map<String, Int> {
+            val counts = mutableMapOf<String, Int>()
+            val results = JsonParser.parseString(responseBody).asJsonObject.getAsJsonArray("results")
+                ?: return counts
+
+            for (i in 0 until minOf(results.size(), keys.size)) {
+                val vulns = results[i].asJsonObject.getAsJsonArray("vulns")
+                counts[keys[i]] = vulns?.size() ?: 0
+            }
+            return counts
+        }
+
+        private fun fetchVulnerabilityCountsForChunk(chunk: List<Triple<String, String, String>>): Map<String, Int> {
+            val keys = chunk.map { (groupId, artifactId, version) -> "$groupId:$artifactId:$version" }
+            val queries = JsonArray().apply {
+                chunk.forEach { (groupId, artifactId, version) -> add(buildVulnerabilityQuery(groupId, artifactId, version)) }
+            }
+            val requestBody = JsonObject().apply { add("queries", queries) }
+
+            return try {
+                val connection = (URI(OSV_BATCH_QUERY_URL).toURL().openConnection() as HttpURLConnection).apply {
+                    requestMethod = "POST"
+                    connectTimeout = 10000
+                    readTimeout = 20000
+                    doOutput = true
+                    setRequestProperty("Content-Type", "application/json; charset=utf-8")
+                }
+                connection.outputStream.use { it.write(Gson().toJson(requestBody).toByteArray(Charsets.UTF_8)) }
+
+                val responseCode = connection.responseCode
+                if (responseCode == HttpURLConnection.HTTP_OK) {
+                    val responseBody = connection.inputStream.bufferedReader().use { it.readText() }
+                    parseVulnerabilityCounts(responseBody, keys)
+                } else {
+                    LOG.warn("Failed to fetch vulnerabilities from OSV.dev. HTTP $responseCode ${connection.responseMessage}")
+                    emptyMap()
+                }
+            } catch (e: Exception) {
+                LOG.warn("Failed to fetch vulnerabilities from OSV.dev", e)
+                emptyMap()
+            }
+        }
+
+        private fun fetchVulnerabilityCounts(
+            dependencies: List<Triple<String, String, String>>,
+            indicator: ProgressIndicator? = null
+        ): Map<String, Int> {
+            if (dependencies.isEmpty()) return emptyMap()
+
+            val counts = mutableMapOf<String, Int>()
+            dependencies.chunked(OSV_BATCH_CHUNK_SIZE).forEach { chunk ->
+                if (indicator?.isCanceled == true) return counts
+                counts.putAll(fetchVulnerabilityCountsForChunk(chunk))
+            }
+            return counts
         }
 
         private fun checkForUpdates(onFinished: () -> Unit) {

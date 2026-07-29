@@ -22,6 +22,7 @@
             <li><b>Update Check:</b> Checks for newer versions in configured repositories at the click of a button.</li>
             <li><b>Select & Update Versions:</b> Select new versions from a dropdown and automatically update the <code>pom.xml</code>.</li>
             <li><b>Navigation:</b> Jump directly to the definition in the <code>pom.xml</code> via double-click (or optional single-click).</li>
+            <li><b>Vulnerability Check:</b> Explicitly check the current version of every dependency and plugin for known vulnerabilities via OSV.dev; the result count is shown in a dedicated column and stays empty until checked.</li>
         </ul>
         ]]></description>
 
