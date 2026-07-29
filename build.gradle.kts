@@ -20,3 +20,11 @@ dependencies {
         bundledPlugin("org.jetbrains.idea.maven")
     }
 }
+
+// Der Vue-Plugin wird von MavenUp nicht benötigt. In der Test-Sandbox verursacht dessen
+// Initialisierung (VueLspServerSupportProvider) sporadisch TestLoggerAssertionErrors, wenn
+// die gebündelte Plugin-Distribution des Test-Environments unvollständig ist. Da MavenUp keine
+// Abhängigkeit zu Vue hat, wird es für Testläufe deaktiviert, um flakige Fehlschläge zu vermeiden.
+tasks.named<org.jetbrains.intellij.platform.gradle.tasks.PrepareSandboxTask>("prepareTestSandbox") {
+    disabledPlugins.add("org.jetbrains.plugins.vue")
+}

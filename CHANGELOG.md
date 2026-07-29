@@ -6,6 +6,26 @@
 - Refactored internal project structure into dedicated `model`, `service`, and `ui` packages without changing plugin behavior.
 - Moved external API requests for dependency version lookup and vulnerability checks from UI code into dedicated service-layer classes.
 
+### Fixed
+- Updated unit tests that still used reflection to call `resolveCredentialValue`, `findServerCredentials`,
+  `collectVersionsFromRepositories`, `filterVersionsBySettings`, `buildVulnerabilityQuery`,
+  `parseVulnerabilityCounts`, and `fetchVulnerabilityCountsForChunk` on `MavenUpWindowFactory.MyToolWindow`.
+  These methods were moved to `DependencyApiService`/`VulnerabilityApiService` during the package refactor, which
+  made the reflective lookups fail with `NoSuchMethodException`. The tests were rewritten to call the public
+  service methods directly.
+- Disabled the bundled Vue.js plugin (`org.jetbrains.plugins.vue`) in the test sandbox via `prepareTestSandbox`,
+  which fixed a sporadic `TestLoggerAssertionError` unrelated to MavenUp's own code that could fail
+  `MavenUpWindowFactoryTest` depending on test execution order.
+
+### Added
+- Additional unit test coverage for `DependencyApiService` (credential resolution edge cases, server credential
+  fallbacks, repository version collection, version filtering, qualifier detection) and
+  `VulnerabilityApiService` (result-order parsing, size mismatches, empty input, HTTP error handling, end-to-end
+  chunk fetch).
+- New `MavenUpConfigurableTest` covering display name, reset, change detection (`isModified`), and `apply`
+  behavior of the settings UI.
+- New `DependencyUpdate` equality/copy test.
+
 ## [1.2.0]
 ### Added
 - New **Check Vulnerabilities** button that queries [OSV.dev](https://osv.dev) for known vulnerabilities of the current version of every listed dependency and plugin.

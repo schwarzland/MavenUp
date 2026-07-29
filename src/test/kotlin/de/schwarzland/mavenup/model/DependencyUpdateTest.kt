@@ -20,4 +20,16 @@ class DependencyUpdateTest {
         assertEquals("1.0.0", update.oldVersion)
         assertEquals("1.1.0", update.newVersion)
     }
+
+    @Test
+    fun testDependencyUpdateEqualityIsValueBased() {
+        val first = DependencyUpdate("org.example", "demo", "dependency", "1.0.0", "1.1.0")
+        val second = DependencyUpdate("org.example", "demo", "dependency", "1.0.0", "1.1.0")
+        val different = first.copy(newVersion = "1.2.0")
+
+        assertEquals(first, second)
+        assertEquals(first.hashCode(), second.hashCode())
+        assertEquals("1.2.0", different.newVersion)
+        assert(first != different)
+    }
 }
