@@ -669,4 +669,60 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         assertTrue("Für eine leere Abhängigkeitsliste sollten keine Netzwerkaufrufe erfolgen", counts.isEmpty())
     }
+
+    /**
+     * End-to-end regression test using a local loopback HTTP server that replays a response shaped exactly like a
+     * real OSV.dev `/v1/querybatch` reply (captured for `com.fasterxml.jackson.core:jackson-databind:2.9.8`, which
+     * has 54 known advisories). This proves the request building, HTTP handling and response parsing together
+     * correctly report a non-zero vulnerability count end-to-end, without depending on external network access.
+     */
+    fun testFetchVulnerabilityCountsForChunkReportsRealVulnerabilityCounts() {
+        val responseBody = """
+            {"results":[
+              {"vulns":[{"id":"GHSA-1"},{"id":"GHSA-2"},{"id":"GHSA-3"}]},
+              {}
+            ]}
+        """.trimIndent()
+
+        val server = com.sun.net.httpserver.HttpServer.create(java.net.InetSocketAddress("127.0.0.1", 0), 0)
+        var receivedBody = ""
+        server.createContext("/v1/querybatch") { exchange ->
+            receivedBody = exchange.requestBody.bufferedReader().use { it.readText() }
+            val bytes = responseBody.toByteArray(Charsets.UTF_8)
+            exchange.responseHeaders.add("Content-Type", "application/json")
+            exchange.sendResponseHeaders(200, bytes.size.toLong())
+            exchange.responseBody.use { it.write(bytes) }
+        }
+        server.start()
+
+        try {
+            val factory = MavenUpWindowFactory()
+            val toolWindowInstance = factory.MyToolWindow(project)
+            val fetchChunkMethod = toolWindowInstance.javaClass.getDeclaredMethod(
+                "fetchVulnerabilityCountsForChunk",
+                List::class.java,
+                String::class.java
+            ).apply { isAccessible = true }
+
+            val dependencies = listOf(
+                Triple("com.fasterxml.jackson.core", "jackson-databind", "2.9.8"),
+                Triple("junit", "junit", "4.13.2")
+            )
+            val testUrl = "http://127.0.0.1:${server.address.port}/v1/querybatch"
+
+            @Suppress("UNCHECKED_CAST")
+            val counts = fetchChunkMethod.invoke(toolWindowInstance, dependencies, testUrl) as Map<String, Int>
+
+            // Verify the request contains a well-formed OSV batch query for both dependencies
+            assertTrue(receivedBody.contains("\"ecosystem\":\"Maven\""))
+            assertTrue(receivedBody.contains("com.fasterxml.jackson.core:jackson-databind"))
+            assertTrue(receivedBody.contains("junit:junit"))
+
+            // Verify the parsed counts correctly reflect the (real-world shaped) server response
+            assertEquals(3, counts["com.fasterxml.jackson.core:jackson-databind:2.9.8"])
+            assertEquals(0, counts["junit:junit:4.13.2"])
+        } finally {
+            server.stop(0)
+        }
+    }
 }

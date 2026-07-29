@@ -818,7 +818,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
             return counts
         }
 
-        private fun fetchVulnerabilityCountsForChunk(chunk: List<Triple<String, String, String>>): Map<String, Int> {
+        private fun fetchVulnerabilityCountsForChunk(
+            chunk: List<Triple<String, String, String>>,
+            queryUrl: String = OSV_BATCH_QUERY_URL
+        ): Map<String, Int> {
             val keys = chunk.map { (groupId, artifactId, version) -> "$groupId:$artifactId:$version" }
             val queries = JsonArray().apply {
                 chunk.forEach { (groupId, artifactId, version) -> add(buildVulnerabilityQuery(groupId, artifactId, version)) }
@@ -826,7 +829,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             val requestBody = JsonObject().apply { add("queries", queries) }
 
             return try {
-                val connection = (URI(OSV_BATCH_QUERY_URL).toURL().openConnection() as HttpURLConnection).apply {
+                val connection = (URI(queryUrl).toURL().openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"
                     connectTimeout = 10000
                     readTimeout = 20000
@@ -838,13 +841,26 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 val responseCode = connection.responseCode
                 if (responseCode == HttpURLConnection.HTTP_OK) {
                     val responseBody = connection.inputStream.bufferedReader().use { it.readText() }
-                    parseVulnerabilityCounts(responseBody, keys)
+                    val counts = parseVulnerabilityCounts(responseBody, keys)
+                    LOG.info(
+                        "Vulnerability check for ${chunk.size} dependencies via $queryUrl returned " +
+                            "${counts.values.count { it > 0 }} with known vulnerabilities."
+                    )
+                    counts
                 } else {
-                    LOG.warn("Failed to fetch vulnerabilities from OSV.dev. HTTP $responseCode ${connection.responseMessage}")
+                    val errorBody = try {
+                        connection.errorStream?.bufferedReader()?.use { it.readText() }
+                    } catch (e: Exception) {
+                        null
+                    }
+                    LOG.warn(
+                        "Failed to fetch vulnerabilities from $queryUrl for ${chunk.size} dependencies. " +
+                            "HTTP $responseCode ${connection.responseMessage}. Body: $errorBody"
+                    )
                     emptyMap()
                 }
             } catch (e: Exception) {
-                LOG.warn("Failed to fetch vulnerabilities from OSV.dev", e)
+                LOG.warn("Failed to fetch vulnerabilities from $queryUrl for ${chunk.size} dependencies", e)
                 emptyMap()
             }
         }

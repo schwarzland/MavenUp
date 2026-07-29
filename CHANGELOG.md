@@ -6,6 +6,9 @@
 - New **Check Vulnerabilities** button that queries [OSV.dev](https://osv.dev) for known vulnerabilities of the current version of every listed dependency and plugin.
 - New **Vulnerabilities** table column showing the number of vulnerabilities found for the current version. The column stays empty until the check has been run explicitly.
 
+### Fixed
+- Added diagnostic logging (request size, number of matches, HTTP error body) for the OSV.dev vulnerability lookup so failures can be diagnosed via `idea.log` instead of silently appearing as "0".
+
 ## [1.1.0]
 ### Added
 - Resolution of credential placeholders from Maven `settings.xml` during repository access:
