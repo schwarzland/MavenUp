@@ -1,6 +1,7 @@
 <!-- Keep a Changelog guide -> https://keepachangelog.com -->
 
 # MavenUp Changelog
+## [1.2.0]
 
 ## [1.1.0]
 ### Added
