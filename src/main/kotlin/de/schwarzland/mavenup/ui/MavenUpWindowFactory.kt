@@ -44,7 +44,6 @@ import javax.swing.table.TableCellRenderer
 
 private const val MANAGED_PLUGIN = "managed plugin"
 private const val TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY = "toolwindow.MyToolWindow.type.managedDependency"
-private const val OSV_BATCH_QUERY_URL = "https://api.osv.dev/v1/querybatch"
 private val LOG = Logger.getInstance(MavenUpWindowFactory::class.java)
 
 /**
