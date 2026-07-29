@@ -23,3 +23,4 @@ This document lists the key features of the MavenUp IntelliJ plugin.
 - **Vulnerability check via OSV.dev**: A dedicated "Check Vulnerabilities" button explicitly queries [OSV.dev](https://osv.dev) for known vulnerabilities of the current version of each dependency and plugin.
 - **Vulnerability count column**: Displays the number of vulnerabilities found for the current version; stays empty until a vulnerability check has been run.
 - **Layered internal architecture**: Code is organized into explicit `model`, `service`, and `ui` packages to keep responsibilities separated and maintainable.
+- **Service-based API access**: External OSV and Maven metadata API requests are handled through dedicated service-layer components instead of UI classes.

@@ -2,7 +2,9 @@ package de.schwarzland.mavenup.ui
 
 import de.schwarzland.mavenup.MyMessageBundle
 import de.schwarzland.mavenup.model.DependencyUpdate
+import de.schwarzland.mavenup.service.DependencyApiService
 import de.schwarzland.mavenup.service.MavenUpSettings
+import de.schwarzland.mavenup.service.VulnerabilityApiService
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.diagnostic.Logger
@@ -25,10 +27,7 @@ import com.intellij.ui.content.ContentFactory
 import com.intellij.ui.table.JBTable
 import com.intellij.util.ui.AbstractTableCellEditor
 import com.intellij.icons.AllIcons
-import com.google.gson.Gson
-import com.google.gson.JsonArray
 import com.google.gson.JsonObject
-import com.google.gson.JsonParser
 import org.apache.maven.artifact.versioning.ComparableVersion
 import org.jetbrains.idea.maven.project.MavenImportListener
 import org.jetbrains.idea.maven.project.MavenProject
@@ -38,23 +37,14 @@ import java.awt.Component
 import java.awt.FlowLayout
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
-import java.io.File
-import java.net.HttpURLConnection
-import java.net.URI
-import java.util.*
 import javax.swing.*
 import javax.swing.table.DefaultTableModel
 import javax.swing.table.TableCellRenderer
-import javax.xml.parsers.DocumentBuilderFactory
 
 
 private const val MANAGED_PLUGIN = "managed plugin"
 private const val TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY = "toolwindow.MyToolWindow.type.managedDependency"
-private const val CENTRAL_REPOSITORY_ID = "central"
-private const val CENTRAL_REPOSITORY_URL = "https://repo1.maven.org/maven2"
 private const val OSV_BATCH_QUERY_URL = "https://api.osv.dev/v1/querybatch"
-private const val OSV_ECOSYSTEM_MAVEN = "Maven"
-private const val OSV_BATCH_CHUNK_SIZE = 1000
 private val LOG = Logger.getInstance(MavenUpWindowFactory::class.java)
 
 /**
@@ -128,6 +118,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
     }
 
     internal inner class MyToolWindow(private val project: Project) {
+        private val vulnerabilityApiService = VulnerabilityApiService()
+        private val dependencyApiService = DependencyApiService(project)
         private val availableVersions = mutableMapOf<String, List<String>>()
         private val selectedVersions = mutableMapOf<String, String>()
         private val dependencyToProperty = mutableMapOf<String, String>()
@@ -797,114 +789,11 @@ class MavenUpWindowFactory : ToolWindowFactory {
             })
         }
 
-        private fun buildVulnerabilityQuery(groupId: String, artifactId: String, version: String): JsonObject {
-            val packageObject = JsonObject().apply {
-                addProperty("name", "$groupId:$artifactId")
-                addProperty("ecosystem", OSV_ECOSYSTEM_MAVEN)
-            }
-            return JsonObject().apply {
-                add("package", packageObject)
-                addProperty("version", version)
-            }
-        }
-
-        private fun parseVulnerabilityCounts(responseBody: String, keys: List<String>): Map<String, Int> {
-            val counts = mutableMapOf<String, Int>()
-            val responseJson = JsonParser.parseString(responseBody).asJsonObject
-            val results = responseJson.getAsJsonArray("results")
-            if (results == null) {
-                LOG.warn(
-                    "OSV response does not contain 'results'. " +
-                        "Requested ${keys.size} entries. Response keys: ${responseJson.keySet()}"
-                )
-                return counts
-            }
-            if (results.size() != keys.size) {
-                LOG.warn(
-                    "OSV response size mismatch. Requested ${keys.size} entries, received ${results.size()} results."
-                )
-            }
-
-            for (i in 0 until minOf(results.size(), keys.size)) {
-                val vulns = results[i].asJsonObject.getAsJsonArray("vulns")
-                counts[keys[i]] = vulns?.size() ?: 0
-            }
-            return counts
-        }
-
-        private fun fetchVulnerabilityCountsForChunk(
-            chunk: List<Triple<String, String, String>>,
-            queryUrl: String = OSV_BATCH_QUERY_URL
-        ): Map<String, Int> {
-            val keys = chunk.map { (groupId, artifactId, version) -> "$groupId:$artifactId:$version" }
-            val queries = JsonArray().apply {
-                chunk.forEach { (groupId, artifactId, version) -> add(buildVulnerabilityQuery(groupId, artifactId, version)) }
-            }
-            val requestBody = JsonObject().apply { add("queries", queries) }
-
-            return try {
-                val requestJson = Gson().toJson(requestBody)
-                val chunkPreview = chunk.take(3).joinToString { "${it.first}:${it.second}:${it.third}" }
-                LOG.info(
-                    "Querying vulnerabilities for chunk size=${chunk.size}, url=$queryUrl, " +
-                        "requestBytes=${requestJson.toByteArray(Charsets.UTF_8).size}, preview=$chunkPreview"
-                )
-
-                val connection = (URI(queryUrl).toURL().openConnection() as HttpURLConnection).apply {
-                    requestMethod = "POST"
-                    connectTimeout = 10000
-                    readTimeout = 20000
-                    doOutput = true
-                    setRequestProperty("Content-Type", "application/json; charset=utf-8")
-                }
-                connection.outputStream.use { it.write(requestJson.toByteArray(Charsets.UTF_8)) }
-
-                val responseCode = connection.responseCode
-                if (responseCode == HttpURLConnection.HTTP_OK) {
-                    val responseBody = connection.inputStream.bufferedReader().use { it.readText() }
-                    val counts = parseVulnerabilityCounts(responseBody, keys)
-                    LOG.info(
-                        "Vulnerability check for ${chunk.size} dependencies via $queryUrl returned " +
-                            "${counts.values.count { it > 0 }} with known vulnerabilities."
-                    )
-                    counts
-                } else {
-                    val errorBody = try {
-                        connection.errorStream?.bufferedReader()?.use { it.readText() }
-                    } catch (e: Exception) {
-                        null
-                    }
-                    LOG.warn(
-                        "Failed to fetch vulnerabilities from $queryUrl for ${chunk.size} dependencies. " +
-                            "HTTP $responseCode ${connection.responseMessage}. Body: $errorBody"
-                    )
-                    emptyMap()
-                }
-            } catch (e: Exception) {
-                LOG.warn("Failed to fetch vulnerabilities from $queryUrl for ${chunk.size} dependencies", e)
-                emptyMap()
-            }
-        }
-
         private fun fetchVulnerabilityCounts(
             dependencies: List<Triple<String, String, String>>,
             indicator: ProgressIndicator? = null
         ): Map<String, Int> {
-            if (dependencies.isEmpty()) return emptyMap()
-
-            val counts = mutableMapOf<String, Int>()
-            val chunks = dependencies.chunked(OSV_BATCH_CHUNK_SIZE)
-            chunks.forEachIndexed { index, chunk ->
-                if (indicator?.isCanceled == true) {
-                    LOG.warn(
-                        "Vulnerability check canceled after processing $index of ${chunks.size} chunks."
-                    )
-                    return counts
-                }
-                LOG.info("Processing vulnerability chunk ${index + 1}/${chunks.size} (size=${chunk.size}).")
-                counts.putAll(fetchVulnerabilityCountsForChunk(chunk))
-            }
-            return counts
+            return vulnerabilityApiService.fetchVulnerabilityCounts(dependencies, indicator)
         }
 
         private fun checkForUpdates(onFinished: () -> Unit) {
@@ -1072,252 +961,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
             }
         }
 
-
-        private fun normalizeSettingsId(rawId: String?): String? {
-            return rawId?.trim()?.takeIf { it.isNotEmpty() }
-        }
-
-        private fun resolveCredentialValue(rawValue: String?, serverId: String, fieldName: String): String? {
-            val value = rawValue?.trim()?.takeIf { it.isNotEmpty() } ?: return null
-            val envPlaceholder = Regex("""^\$\{env\.([^}]+)}$""").matchEntire(value)
-            if (envPlaceholder != null) {
-                val envName = envPlaceholder.groupValues[1]
-                return System.getenv(envName).also {
-                    if (it == null) {
-                        LOG.warn("Could not resolve $fieldName for Maven server '$serverId': missing env var '$envName'")
-                    }
-                }
-            }
-
-            val propertyPlaceholder = Regex("""^\$\{([^}]+)}$""").matchEntire(value)
-            if (propertyPlaceholder != null) {
-                val key = propertyPlaceholder.groupValues[1]
-                return System.getProperty(key) ?: System.getenv(key).also {
-                    if (it == null) {
-                        LOG.warn(
-                            "Could not resolve $fieldName for Maven server '$serverId': " +
-                                "missing system property/env var '$key'"
-                        )
-                    }
-                }
-            }
-
-            return value
-        }
-
-        private fun getMavenServerCredentials(): Map<String, Pair<String?, String?>> {
-            val credentials = mutableMapOf<String, Pair<String?, String?>>()
-            val generalSettings = MavenProjectsManager.getInstance(project).generalSettings
-            val userSettingsPath = generalSettings.userSettingsFile
-
-            if (userSettingsPath.isNotBlank()) {
-                val userSettingsFile = File(userSettingsPath)
-                if (userSettingsFile.exists()) {
-                    try {
-                        val factory = DocumentBuilderFactory.newInstance()
-                        val builder = factory.newDocumentBuilder()
-                        val doc = builder.parse(userSettingsFile)
-                        val serverNodes = doc.getElementsByTagName("server")
-                        for (i in 0 until serverNodes.length) {
-                            val serverNode = serverNodes.item(i) as? org.w3c.dom.Element ?: continue
-                            val id = normalizeSettingsId(serverNode.getElementsByTagName("id").item(0)?.textContent)
-                            if (id != null) {
-                                val username = resolveCredentialValue(
-                                    serverNode.getElementsByTagName("username").item(0)?.textContent,
-                                    id,
-                                    "username"
-                                )
-                                val password = resolveCredentialValue(
-                                    serverNode.getElementsByTagName("password").item(0)?.textContent,
-                                    id,
-                                    "password"
-                                )
-                                credentials[id] = Pair(username, password)
-                            }
-                        }
-                    } catch (e: Exception) {
-                        LOG.error("Failed to parse Maven settings file for credentials: ${userSettingsFile.path}", e)
-                    }
-                }
-            }
-            return credentials
-        }
-
-        private fun getMavenRepositoryInfos(): List<Pair<String?, String>> {
-            val infos = mutableListOf<Pair<String?, String>>(Pair(CENTRAL_REPOSITORY_ID, CENTRAL_REPOSITORY_URL))
-
-            val generalSettings = MavenProjectsManager.getInstance(project).generalSettings
-            val userSettingsPath = generalSettings.userSettingsFile
-
-            if (userSettingsPath.isNotBlank()) {
-                val userSettingsFile = File(userSettingsPath)
-                if (userSettingsFile.exists()) {
-                    try {
-                        val factory = DocumentBuilderFactory.newInstance()
-                        val builder = factory.newDocumentBuilder()
-                        val doc = builder.parse(userSettingsFile)
-                        val repoNodes = doc.getElementsByTagName("repository")
-                        for (i in 0 until repoNodes.length) {
-                            val repoNode = repoNodes.item(i) as? org.w3c.dom.Element ?: continue
-                            val id = normalizeSettingsId(repoNode.getElementsByTagName("id").item(0)?.textContent)
-                            val url = repoNode.getElementsByTagName("url").item(0)?.textContent
-                            if (url != null && url.isNotBlank()) {
-                                infos.add(Pair(id, url.trim().trimEnd('/')))
-                            }
-                        }
-                    } catch (e: Exception) {
-                        LOG.error("Failed to parse Maven settings file for repositories: ${userSettingsFile.path}", e)
-                    }
-                }
-            }
-
-            return infos
-                .groupBy { it.second }
-                .values
-                .map { repositoriesWithSameUrl ->
-                    repositoriesWithSameUrl.firstOrNull { it.first != null } ?: repositoriesWithSameUrl.first()
-                }
-        }
-
-        private fun findServerCredentials(
-            repositoryInfo: Pair<String?, String>,
-            serverCredentials: Map<String, Pair<String?, String?>>
-        ): Pair<String?, String?>? {
-            repositoryInfo.first?.let { serverCredentials[it] }?.let { return it }
-            serverCredentials[repositoryInfo.second]?.let { return it }
-            val host = URI(repositoryInfo.second).host ?: return null
-            return serverCredentials[host]
-        }
-
-        private fun createMetadataConnection(repositoryUrl: String, groupId: String, artifactId: String): HttpURLConnection {
-            val urlString = "$repositoryUrl/${groupId.replace('.', '/')}/$artifactId/maven-metadata.xml"
-            val url = URI(urlString).toURL()
-            return (url.openConnection() as HttpURLConnection).apply {
-                requestMethod = "GET"
-                connectTimeout = 10000
-                readTimeout = 10000
-            }
-        }
-
-        private fun applyCredentials(
-            connection: HttpURLConnection,
-            repositoryInfo: Pair<String?, String>,
-            serverCredentials: Map<String, Pair<String?, String?>>
-        ) {
-            val creds = findServerCredentials(repositoryInfo, serverCredentials)
-            if (creds != null && creds.first != null && creds.second != null) {
-                val auth = "${creds.first}:${creds.second}"
-                val encodedAuth = Base64.getEncoder().encodeToString(auth.toByteArray(Charsets.UTF_8))
-                connection.setRequestProperty("Authorization", "Basic $encodedAuth")
-            }
-        }
-
-        private fun readVersionsFromConnection(
-            connection: HttpURLConnection,
-            currentComparable: ComparableVersion,
-            groupId: String,
-            artifactId: String,
-            repositoryUrl: String
-        ): Pair<Boolean, List<String>> {
-            val responseCode = connection.responseCode
-            if (responseCode != HttpURLConnection.HTTP_OK) {
-                LOG.warn(
-                    "Failed to fetch versions for $groupId:$artifactId from $repositoryUrl. " +
-                        "HTTP $responseCode ${connection.responseMessage}"
-                )
-                return Pair(false, emptyList())
-            }
-
-            val versions = mutableListOf<String>()
-            val factory = DocumentBuilderFactory.newInstance()
-            val builder = factory.newDocumentBuilder()
-            val doc = builder.parse(connection.inputStream)
-            val versionNodes = doc.getElementsByTagName("version")
-            for (i in 0 until versionNodes.length) {
-                val version = versionNodes.item(i).textContent
-                if (ComparableVersion(version) >= currentComparable) {
-                    versions.add(version)
-                }
-            }
-            return Pair(true, versions)
-        }
-
-        private fun fetchVersionsFromRepository(
-            repositoryInfo: Pair<String?, String>,
-            groupId: String,
-            artifactId: String,
-            currentComparable: ComparableVersion,
-            serverCredentials: Map<String, Pair<String?, String?>>
-        ): Pair<Boolean, List<String>> {
-            return try {
-                val connection = createMetadataConnection(repositoryInfo.second, groupId, artifactId)
-                applyCredentials(connection, repositoryInfo, serverCredentials)
-                readVersionsFromConnection(connection, currentComparable, groupId, artifactId, repositoryInfo.second)
-            } catch (e: Exception) {
-                LOG.warn("Failed to fetch versions for $groupId:$artifactId from ${repositoryInfo.second}", e)
-                Pair(false, emptyList())
-            }
-        }
-
-        private fun collectVersionsFromRepositories(
-            repositoryInfos: List<Pair<String?, String>>,
-            fetchVersionsForRepository: (Pair<String?, String>) -> Pair<Boolean, List<String>>
-        ): Set<String> {
-            val allVersions = mutableSetOf<String>()
-            val orderedRepositoryInfos = repositoryInfos.sortedBy { if (it.second == CENTRAL_REPOSITORY_URL) 0 else 1 }
-
-            for (repoInfo in orderedRepositoryInfos) {
-                val (requestSucceeded, versions) = fetchVersionsForRepository(repoInfo)
-                allVersions.addAll(versions)
-                if (repoInfo.second == CENTRAL_REPOSITORY_URL && requestSucceeded) {
-                    break
-                }
-            }
-
-            return allVersions
-        }
-
-        private fun filterVersionsBySettings(versions: List<String>): List<String> {
-            val settings = MavenUpSettings.getInstance(project).state
-            if (!settings.hideUnstableVersions) {
-                return versions
-            }
-
-            val qualifiers = settings.hiddenVersionQualifiers
-                .split(",", ";")
-                .map { it.trim().lowercase(Locale.getDefault()) }
-                .filter { it.isNotEmpty() }
-                .distinct()
-
-            if (qualifiers.isEmpty()) {
-                return versions
-            }
-
-            return versions.filter { version ->
-                !qualifiers.any { qualifier -> versionHasQualifier(version, qualifier) }
-            }
-        }
-
-        private fun versionHasQualifier(version: String, qualifier: String): Boolean {
-            val qualifierPattern = Regex(
-                "(?i)(?:^|[._\\-]|\\d)${Regex.escape(qualifier)}(?:[._\\-]?\\d*)?(?:$|[._\\-])"
-            )
-            return qualifierPattern.containsMatchIn(version)
-        }
-
         private fun fetchVersions(groupId: String, artifactId: String, currentVersion: String): List<String> {
-            val repositoryInfos = getMavenRepositoryInfos()
-            val serverCredentials = getMavenServerCredentials()
-            val currentComparable = ComparableVersion(currentVersion)
-            val allVersions = collectVersionsFromRepositories(
-                repositoryInfos
-            ) { repoInfo ->
-                fetchVersionsFromRepository(repoInfo, groupId, artifactId, currentComparable, serverCredentials)
-            }
-            val sortedVersions = allVersions.sortedWith { v1, v2 ->
-                ComparableVersion(v2).compareTo(ComparableVersion(v1))
-            }
-            return filterVersionsBySettings(sortedVersions)
+            return dependencyApiService.fetchVersions(groupId, artifactId, currentVersion)
         }
 
         fun getContent(): JBPanel<JBPanel<*>> = content

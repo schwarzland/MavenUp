@@ -4,6 +4,7 @@
 ## [Unreleased]
 ### Changed
 - Refactored internal project structure into dedicated `model`, `service`, and `ui` packages without changing plugin behavior.
+- Moved external API requests for dependency version lookup and vulnerability checks from UI code into dedicated service-layer classes.
 
 ## [1.2.0]
 ### Added

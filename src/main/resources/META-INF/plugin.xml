@@ -24,6 +24,7 @@
             <li><b>Navigation:</b> Jump directly to the definition in the <code>pom.xml</code> via double-click (or optional single-click).</li>
             <li><b>Vulnerability Check:</b> Explicitly check the current version of every dependency and plugin for known vulnerabilities via OSV.dev; the result count is shown in a dedicated column and stays empty until checked.</li>
             <li><b>Maintainable Architecture:</b> Internally structured into dedicated model, service, and UI layers.</li>
+            <li><b>Service-based API Integration:</b> External metadata and vulnerability requests are handled in dedicated service classes.</li>
         </ul>
         ]]></description>
 

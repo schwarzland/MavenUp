@@ -90,6 +90,7 @@ Das Plugin ist jetzt klar in drei Schichten gegliedert:
 ### Service (`de.schwarzland.mavenup.service`)
 - `MavenUpStartupActivity`: steuert die Verfügbarkeit des Tool-Windows beim Projektstart.
 - `MavenUpSettings`: projektbezogener Persistenz-Service (`PersistentStateComponent`) in `mavenup_settings.xml`.
+- `DependencyApiService` und `VulnerabilityApiService`: kapseln externe API-Abfragen für Versionen und Vulnerabilities außerhalb der UI.
 
 ### UI (`de.schwarzland.mavenup.ui`)
 - `MavenUpWindowFactory`: Tool-Window-Factory und UI-Interaktion für Tabelle, Update- und Vulnerability-Workflows.
