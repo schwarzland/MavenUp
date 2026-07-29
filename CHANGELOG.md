@@ -8,6 +8,7 @@
 
 ### Fixed
 - Added diagnostic logging (request size, number of matches, HTTP error body) for the OSV.dev vulnerability lookup so failures can be diagnosed via `idea.log` instead of silently appearing as "0".
+- Expanded vulnerability lookup logging with start/finish summaries, chunk progress, request previews, cancellation logging, and response-size mismatch warnings.
 
 ## [1.1.0]
 ### Added

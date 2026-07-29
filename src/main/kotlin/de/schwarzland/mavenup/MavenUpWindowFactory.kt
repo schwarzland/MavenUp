@@ -784,9 +784,15 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     val dependencies = knownDependencies.entries
                         .filter { it.value.isNotEmpty() }
                         .map { (key, version) -> Triple(key.substringBefore(":"), key.substringAfter(":"), version) }
+                    LOG.info("Starting vulnerability check for ${dependencies.size} dependencies/plugins.")
 
                     val counts = fetchVulnerabilityCounts(dependencies, indicator)
                     vulnerabilityCounts.putAll(counts)
+                    val vulnerableEntries = counts.values.count { it > 0 }
+                    LOG.info(
+                        "Finished vulnerability check. " +
+                            "Results for ${counts.size} entries, $vulnerableEntries entries with known vulnerabilities."
+                    )
 
                     ApplicationManager.getApplication().invokeLater {
                         onFinished()
@@ -808,8 +814,20 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
         private fun parseVulnerabilityCounts(responseBody: String, keys: List<String>): Map<String, Int> {
             val counts = mutableMapOf<String, Int>()
-            val results = JsonParser.parseString(responseBody).asJsonObject.getAsJsonArray("results")
-                ?: return counts
+            val responseJson = JsonParser.parseString(responseBody).asJsonObject
+            val results = responseJson.getAsJsonArray("results")
+            if (results == null) {
+                LOG.warn(
+                    "OSV response does not contain 'results'. " +
+                        "Requested ${keys.size} entries. Response keys: ${responseJson.keySet()}"
+                )
+                return counts
+            }
+            if (results.size() != keys.size) {
+                LOG.warn(
+                    "OSV response size mismatch. Requested ${keys.size} entries, received ${results.size()} results."
+                )
+            }
 
             for (i in 0 until minOf(results.size(), keys.size)) {
                 val vulns = results[i].asJsonObject.getAsJsonArray("vulns")
@@ -829,6 +847,13 @@ class MavenUpWindowFactory : ToolWindowFactory {
             val requestBody = JsonObject().apply { add("queries", queries) }
 
             return try {
+                val requestJson = Gson().toJson(requestBody)
+                val chunkPreview = chunk.take(3).joinToString { "${it.first}:${it.second}:${it.third}" }
+                LOG.info(
+                    "Querying vulnerabilities for chunk size=${chunk.size}, url=$queryUrl, " +
+                        "requestBytes=${requestJson.toByteArray(Charsets.UTF_8).size}, preview=$chunkPreview"
+                )
+
                 val connection = (URI(queryUrl).toURL().openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"
                     connectTimeout = 10000
@@ -836,7 +861,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     doOutput = true
                     setRequestProperty("Content-Type", "application/json; charset=utf-8")
                 }
-                connection.outputStream.use { it.write(Gson().toJson(requestBody).toByteArray(Charsets.UTF_8)) }
+                connection.outputStream.use { it.write(requestJson.toByteArray(Charsets.UTF_8)) }
 
                 val responseCode = connection.responseCode
                 if (responseCode == HttpURLConnection.HTTP_OK) {
@@ -872,8 +897,15 @@ class MavenUpWindowFactory : ToolWindowFactory {
             if (dependencies.isEmpty()) return emptyMap()
 
             val counts = mutableMapOf<String, Int>()
-            dependencies.chunked(OSV_BATCH_CHUNK_SIZE).forEach { chunk ->
-                if (indicator?.isCanceled == true) return counts
+            val chunks = dependencies.chunked(OSV_BATCH_CHUNK_SIZE)
+            chunks.forEachIndexed { index, chunk ->
+                if (indicator?.isCanceled == true) {
+                    LOG.warn(
+                        "Vulnerability check canceled after processing $index of ${chunks.size} chunks."
+                    )
+                    return counts
+                }
+                LOG.info("Processing vulnerability chunk ${index + 1}/${chunks.size} (size=${chunk.size}).")
                 counts.putAll(fetchVulnerabilityCountsForChunk(chunk))
             }
             return counts
