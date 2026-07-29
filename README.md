@@ -2,7 +2,7 @@
 
 MavenUp ist ein IntelliJ-Plugin, das speziell für Maven-Projekte entwickelt wurde, um die Verwaltung von Abhängigkeiten (Dependencies) und Plugins zu vereinfachen. Es bietet eine übersichtliche Tabellenansicht aller deklarierten Komponenten und ermöglicht die einfache Aktualisierung auf neuere Versionen.
 
-Eine vollständige, englische Feature-Liste steht in `FEATURES.MD`.
+Eine vollständige, englische Feature-Liste steht in `FEATURES.md`.
 
 ## Funktionen
 
@@ -82,35 +82,19 @@ Danach einmal `gradlew --stop` ausführen, damit der Gradle-Daemon die neuen Ein
 
 ## Architektur
 
-Das Plugin besteht aus folgenden Komponenten:
+Das Plugin ist jetzt klar in drei Schichten gegliedert:
 
-### MavenUpStartupActivity
-Startup-Aktivität (`ProjectActivity`), die beim Öffnen eines Projekts die Verfügbarkeit des Tool-Windows steuert:
-- wartet kurz auf einen initialisierten `MavenProjectsManager` (Race-Condition-Schutz nach IDE/Plugin-Updates),
-- macht das Tool-Window sofort verfügbar, wenn Maven-Projekte bereits vorhanden sind,
-- registriert andernfalls einen `MavenImportListener` und aktiviert das Tool-Window nach abgeschlossenem Maven-Import.
+### Datenmodell (`de.schwarzland.mavenup.model`)
+- Enthält schlanke DTOs für den UI-/Service-Datenaustausch, z. B. `DependencyUpdate`.
 
-### MavenUpWindowFactory
-Zentrale Factory (`ToolWindowFactory`) mit der inneren UI-/Logik-Klasse `MyToolWindow`. Kernaufgaben:
-- **Datenmodell und Tabelle**: sammelt Dependencies/Plugins aus `pom.xml` und zeigt `groupId`, `artifactId`, Property, Typ, aktuelle Version und auswählbare Zielversionen.
-- **Scope-Unterstützung**: berücksichtigt lokale Einträge sowie `dependencyManagement` und `pluginManagement`.
-- **Versionsprüfung**: lädt Versionen aus Maven-Repositories (`maven-metadata.xml`) inkl. Authentifizierung über `settings.xml`.
-- **Repository-Strategie**: priorisiert Maven Central zuerst; bei erfolgreicher Central-Abfrage wird für dieselbe Dependency nicht weiter in privaten Repositories gesucht.
-- **Credential-Auflösung**: unterstützt Klartext sowie Platzhalter (`${env.*}`, `${...}` via System-Property/Environment) und Credential-Matching über ID, URL oder Host.
-- **Änderungsworkflow**: hält gewählte Zielversionen im Speicher, zeigt vor dem Schreiben einen Bestätigungsdialog und aktualisiert anschließend die betroffenen `pom.xml`-Einträge.
-- **Navigation**: springt zur konkreten Dependency-/Plugin-Definition in der passenden `pom.xml`.
-- **Nebenläufigkeit/UX**: führt langlaufende Aktionen (Update-Check, Navigation, Schreibvorgänge) als Hintergrund-Tasks aus.
+### Service (`de.schwarzland.mavenup.service`)
+- `MavenUpStartupActivity`: steuert die Verfügbarkeit des Tool-Windows beim Projektstart.
+- `MavenUpSettings`: projektbezogener Persistenz-Service (`PersistentStateComponent`) in `mavenup_settings.xml`.
 
-### MavenUpSettings
-Projektbezogener Persistenz-Service (`PersistentStateComponent`), gespeichert in `mavenup_settings.xml`. Speichert u. a.:
-- `jumpOnSingleClick`: Aktiviert Navigation per Einzelklick
-- `selectLatestVersion`: Automatische Auswahl der neuesten Version
-
-### MavenUpConfigurable
-Einstellungs-UI (`Configurable`) unter `Settings > Tools > MavenUp`; bindet die Checkboxen an `MavenUpSettings` (`isModified`/`apply`/`reset`).
-
-### MyMessageBundle
-I18n-Wrapper auf `messages.MyMessageBundle` für zentralisierte, lokalisierbare UI-Texte (`message(...)`, `lazyMessage(...)`).
+### UI (`de.schwarzland.mavenup.ui`)
+- `MavenUpWindowFactory`: Tool-Window-Factory und UI-Interaktion für Tabelle, Update- und Vulnerability-Workflows.
+- `MavenUpConfigurable`: Einstellungs-UI unter `Settings > Tools > MavenUp`, gebunden an `MavenUpSettings`.
+- `MyMessageBundle` (weiterhin im Basispaket): zentralisierte i18n-Texte für die UI.
 
 
 ---

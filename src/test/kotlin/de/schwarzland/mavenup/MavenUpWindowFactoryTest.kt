@@ -1,5 +1,7 @@
 package de.schwarzland.mavenup
 
+import de.schwarzland.mavenup.service.MavenUpSettings
+import de.schwarzland.mavenup.ui.MavenUpWindowFactory
 import com.intellij.openapi.wm.RegisterToolWindowTask
 import com.intellij.openapi.wm.ToolWindowAnchor
 import com.intellij.openapi.wm.ToolWindowManager

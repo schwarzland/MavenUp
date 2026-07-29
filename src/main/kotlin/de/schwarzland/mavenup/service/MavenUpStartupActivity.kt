@@ -1,4 +1,4 @@
-package de.schwarzland.mavenup
+package de.schwarzland.mavenup.service
 
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.Logger

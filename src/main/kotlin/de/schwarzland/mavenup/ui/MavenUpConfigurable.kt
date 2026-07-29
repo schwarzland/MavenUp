@@ -1,5 +1,7 @@
-package de.schwarzland.mavenup
+package de.schwarzland.mavenup.ui
 
+import de.schwarzland.mavenup.MyMessageBundle
+import de.schwarzland.mavenup.service.MavenUpSettings
 import com.intellij.openapi.options.Configurable
 import com.intellij.openapi.project.Project
 import com.intellij.ui.components.JBCheckBox

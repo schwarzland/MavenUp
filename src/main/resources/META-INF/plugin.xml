@@ -23,6 +23,7 @@
             <li><b>Select & Update Versions:</b> Select new versions from a dropdown and automatically update the <code>pom.xml</code>.</li>
             <li><b>Navigation:</b> Jump directly to the definition in the <code>pom.xml</code> via double-click (or optional single-click).</li>
             <li><b>Vulnerability Check:</b> Explicitly check the current version of every dependency and plugin for known vulnerabilities via OSV.dev; the result count is shown in a dedicated column and stays empty until checked.</li>
+            <li><b>Maintainable Architecture:</b> Internally structured into dedicated model, service, and UI layers.</li>
         </ul>
         ]]></description>
 
@@ -38,16 +39,16 @@
     <!-- Extensions defined by the plugin.
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
     <extensions defaultExtensionNs="com.intellij">
-        <toolWindow id="MavenUp" factoryClass="de.schwarzland.mavenup.MavenUpWindowFactory"
+        <toolWindow id="MavenUp" factoryClass="de.schwarzland.mavenup.ui.MavenUpWindowFactory"
                     icon="AllIcons.Toolwindows.ToolWindowPalette"
                     anchor="bottom"
                     secondary="false"
                     doNotActivateOnStart="true"/>
 
-        <projectConfigurable parentId="tools" instance="de.schwarzland.mavenup.MavenUpConfigurable"
-                             id="de.schwarzland.mavenup.MavenUpConfigurable" displayName="MavenUp"/>
+        <projectConfigurable parentId="tools" instance="de.schwarzland.mavenup.ui.MavenUpConfigurable"
+                             id="de.schwarzland.mavenup.ui.MavenUpConfigurable" displayName="MavenUp"/>
 
-        <postStartupActivity implementation="de.schwarzland.mavenup.MavenUpStartupActivity"/>
+        <postStartupActivity implementation="de.schwarzland.mavenup.service.MavenUpStartupActivity"/>
     </extensions>
 
 </idea-plugin>

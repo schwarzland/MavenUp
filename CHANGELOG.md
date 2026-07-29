@@ -1,6 +1,10 @@
 <!-- Keep a Changelog guide -> https://keepachangelog.com -->
 
 # MavenUp Changelog
+## [Unreleased]
+### Changed
+- Refactored internal project structure into dedicated `model`, `service`, and `ui` packages without changing plugin behavior.
+
 ## [1.2.0]
 ### Added
 - New **Check Vulnerabilities** button that queries [OSV.dev](https://osv.dev) for known vulnerabilities of the current version of every listed dependency and plugin.

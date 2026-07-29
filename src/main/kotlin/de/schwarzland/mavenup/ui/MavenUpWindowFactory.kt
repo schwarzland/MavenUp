@@ -1,5 +1,8 @@
-package de.schwarzland.mavenup
+package de.schwarzland.mavenup.ui
 
+import de.schwarzland.mavenup.MyMessageBundle
+import de.schwarzland.mavenup.model.DependencyUpdate
+import de.schwarzland.mavenup.service.MavenUpSettings
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.diagnostic.Logger
@@ -122,13 +125,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
             return panel
         }
 
-        data class DependencyUpdate(
-            val groupId: String,
-            val artifactId: String,
-            val type: String,
-            val oldVersion: String,
-            val newVersion: String
-        )
     }
 
     internal inner class MyToolWindow(private val project: Project) {
@@ -365,7 +361,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 if (!isUpdating && selectedVersions.isNotEmpty()) {
                     val mavenProjectsManager = MavenProjectsManager.getInstance(project)
                     val projects = mavenProjectsManager.projects
-                    val updates = mutableListOf<UpdateConfirmationDialog.DependencyUpdate>()
+                    val updates = mutableListOf<DependencyUpdate>()
 
                     projects.forEach { mavenProject ->
                         val pomFile = mavenProject.file
@@ -447,7 +443,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                                 }
 
                                 updates.add(
-                                    UpdateConfirmationDialog.DependencyUpdate(
+                                    DependencyUpdate(
                                         key.substringBefore(":"),
                                         key.substringAfter(":"),
                                         type,
@@ -474,7 +470,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                                 val type = if (isManaged) MANAGED_PLUGIN else "plugin"
 
                                 updates.add(
-                                    UpdateConfirmationDialog.DependencyUpdate(
+                                    DependencyUpdate(
                                         key.substringBefore(":"),
                                         key.substringAfter(":"),
                                         type,
@@ -698,7 +694,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
         private fun applyUpdateToPom(
             mavenProject: MavenProject,
-            updates: List<UpdateConfirmationDialog.DependencyUpdate>
+            updates: List<DependencyUpdate>
         ) {
             val pomFile = mavenProject.file
             val psiFile = ApplicationManager.getApplication().runReadAction<XmlFile?> {
@@ -724,7 +720,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
         private fun updateDependencies(
             documentElement: XmlTag,
-            update: UpdateConfirmationDialog.DependencyUpdate,
+            update: DependencyUpdate,
             propertiesTag: XmlTag?
         ) {
             val dependenciesTag = documentElement.findFirstSubTag("dependencies")
@@ -743,7 +739,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
         private fun updatePlugins(
             documentElement: XmlTag,
-            update: UpdateConfirmationDialog.DependencyUpdate,
+            update: DependencyUpdate,
             propertiesTag: XmlTag?
         ) {
             val buildTag = documentElement.findFirstSubTag("build")
@@ -763,7 +759,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
         private fun updateIfMatch(
             tag: XmlTag,
-            update: UpdateConfirmationDialog.DependencyUpdate,
+            update: DependencyUpdate,
             propertiesTag: XmlTag?
         ) {
             val g = tag.findFirstSubTag("groupId")?.value?.text
