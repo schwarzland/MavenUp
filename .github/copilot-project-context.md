@@ -25,6 +25,7 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   OSS-Index-Aktivierung/Benutzername, Transitiv-Scan). Das OSS-Index-Token liegt ausschließlich
   im IntelliJ Password Safe.
 - **MavenUpConfigurable**: Settings-UI unter `Settings > Tools > MavenUp`.
+  Die OSS-Index-Sektion verlinkt auf die Sonatype-Kontoeinstellungen zur Token-Erzeugung.
 - **VulnerabilityApiService**: OSV-Batchabfrage plus Detailanreicherung und Filterung
   zurückgezogener Advisories.
 - **OssIndexApiService / OssIndexCredentialService**: optionale Sonatype-Abfrage über Maven-purl

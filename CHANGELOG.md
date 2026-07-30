@@ -3,6 +3,7 @@
 # MavenUp Changelog
 ## [Unreleased]
 ### Added
+- Added a link in the OSS Index settings that opens the Sonatype account page for creating or copying an API token.
 - Added optional Sonatype OSS Index enrichment for Maven vulnerability checks, with credentials stored securely in IntelliJ Password Safe.
 - Added resolved transitive dependencies to vulnerability scans by default.
 - Added detailed vulnerability results with advisory IDs, aliases, severity/CVSS, summaries, sources, references, and a dedicated details dialog.

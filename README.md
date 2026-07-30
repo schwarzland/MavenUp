@@ -60,7 +60,7 @@ Unter `Settings > Tools > MavenUp` können folgende Optionen konfiguriert werden
 - **Hide unstable versions**: Blendet instabile Versionen (z.B. RC/Beta) aus den auswählbaren Update-Versionen aus.
 - **Hidden version qualifiers (comma-separated)**: Liste der auszublendenden Typen, z.B. `rc,beta,milestone` (eingerückt dargestellt; Label und Feld sind nur aktiv, wenn der Filter eingeschaltet ist; größeres Eingabefeld für längere Listen).
 - **Include resolved transitive dependencies**: Nimmt standardmäßig den aufgelösten Maven-Dependency-Tree in den Vulnerability-Check auf.
-- **Use Sonatype OSS Index as an additional source**: Aktiviert die optionale zweite Datenquelle. Benutzername/E-Mail und API-Token sind optional; das Token wird ausschließlich im IntelliJ Password Safe gespeichert und nicht in `mavenup_settings.xml`.
+- **Use Sonatype OSS Index as an additional source**: Aktiviert die optionale zweite Datenquelle. Benutzername/E-Mail und API-Token sind optional; das Token wird ausschließlich im IntelliJ Password Safe gespeichert und nicht in `mavenup_settings.xml`. Ein Link in der Konfiguration öffnet die Sonatype-Kontoeinstellungen zum Erzeugen oder Kopieren eines Tokens.
 
 ## Gradle Proxy-Konfiguration
 

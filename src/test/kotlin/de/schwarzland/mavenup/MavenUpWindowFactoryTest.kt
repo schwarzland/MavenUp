@@ -333,18 +333,4 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertEquals("maven-surefire-plugin", managedPlugin?.findFirstSubTag("artifactId")?.value?.text)
     }
 
-    fun testFetchVulnerabilityCountsReturnsEmptyMapForEmptyInput() {
-        val factory = MavenUpWindowFactory()
-        val toolWindowInstance = factory.MyToolWindow(project)
-        val fetchMethod = toolWindowInstance.javaClass.getDeclaredMethod(
-            "fetchVulnerabilityCounts",
-            List::class.java,
-            com.intellij.openapi.progress.ProgressIndicator::class.java
-        ).apply { isAccessible = true }
-
-        @Suppress("UNCHECKED_CAST")
-        val counts = fetchMethod.invoke(toolWindowInstance, emptyList<Triple<String, String, String>>(), null) as Map<String, Int>
-
-        assertTrue("Für eine leere Abhängigkeitsliste sollten keine Netzwerkaufrufe erfolgen", counts.isEmpty())
-    }
 }

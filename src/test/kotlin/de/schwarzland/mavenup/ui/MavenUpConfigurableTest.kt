@@ -19,6 +19,10 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
         assertEquals("MavenUp", configurable.displayName)
     }
 
+    fun testOssIndexAccountLinkTargetsTokenSettings() {
+        assertEquals("https://ossindex.sonatype.org/user/settings", OSS_INDEX_ACCOUNT_URL)
+    }
+
     fun testResetLoadsCurrentSettingsIntoComponent() {
         val settings = MavenUpSettings.getInstance(project)
         settings.state.jumpOnSingleClick = true

@@ -12,6 +12,8 @@ import javax.swing.JLabel
 import javax.swing.JPasswordField
 import javax.swing.JTextField
 
+internal const val OSS_INDEX_ACCOUNT_URL = "https://ossindex.sonatype.org"
+
 class MavenUpConfigurable(private val project: Project) : Configurable {
     private val credentialService = OssIndexCredentialService()
     private var jumpOnSingleClickCheckBox: JBCheckBox? = null
@@ -88,6 +90,12 @@ class MavenUpConfigurable(private val project: Project) : Configurable {
                 }
                 row {
                     comment(MyMessageBundle.message("settings.ossIndex.hint"))
+                }
+                row {
+                    browserLink(
+                        MyMessageBundle.message("settings.ossIndex.accountLink"),
+                        OSS_INDEX_ACCOUNT_URL
+                    )
                 }
             }
 
