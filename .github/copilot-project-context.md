@@ -29,7 +29,8 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   Die OSS-Index-Sektion verlinkt auf die Sonatype-Kontoeinstellungen zur Token-Erzeugung. Das Token
   wird außerhalb des EDT aus dem Password Safe geladen und für `isModified()` im UI-Modell gecacht.
 - **VulnerabilityApiService**: OSV-Batchabfrage plus Detailanreicherung und Filterung
-  zurückgezogener Advisories.
+  zurückgezogener Advisories. Umfangreiche Komponenten- und Versionslisten werden nur gekürzt auf
+  DEBUG-Ebene protokolliert, um starkes Wachstum der von der IDE überwachten `idea.log` zu vermeiden.
 - **OssIndexApiService / OssIndexCredentialService**: optionale Sonatype-Abfrage über Maven-purl
   und sichere Zugangsdatenablage.
 - **VulnerabilityMerger / VulnerabilityAdvisory**: normalisiertes Security-Datenmodell und

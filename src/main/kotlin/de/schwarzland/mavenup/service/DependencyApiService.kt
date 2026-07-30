@@ -184,7 +184,11 @@ class DependencyApiService(private val project: Project) {
         }
         LOG.info(
             "Fetched ${versions.size} versions for $groupId:$artifactId from $repositoryUrl. " +
-                "Current version: $currentComparable, Versions: ${versions.joinToString(", ")}"
+                "Current version: $currentComparable"
+        )
+        LOG.debug(
+            "Fetched versions for $groupId:$artifactId: " +
+                summarizeForDebugLog(versions)
         )
         return Pair(true, versions)
     }

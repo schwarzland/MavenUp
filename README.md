@@ -26,7 +26,7 @@ Eine vollständige, englische Feature-Liste steht in `FEATURES.md`.
 - **Gezielte Credential-Zuordnung**: Ordnet Credentials primär über Repository-ID zu, mit Fallback über Repository-URL und Hostname.
 - **Versionsauflösung mit Fallbacks**: Nutzt aufgelöste Maven-Versionen aus dem Projektmodell (Dependency Tree/Plugins), damit die aktuelle Version auch bei indirekter Verwaltung korrekt angezeigt und verglichen wird.
 - **Central-first mit Short-Circuit**: Fragt Maven Central priorisiert zuerst ab; ist die Abfrage dort erfolgreich, werden für dieselbe Dependency keine weiteren privaten Repositories mehr abgefragt.
-- **Fehler- und Warn-Logging**: Protokolliert Parsing-Fehler für `settings.xml`, nicht auflösbare Credential-Variablen sowie fehlgeschlagene Repository-Abfragen (inkl. HTTP-Status).
+- **Kompaktes Diagnose-Logging**: Protokolliert Parsing-Fehler für `settings.xml`, nicht auflösbare Credential-Variablen sowie fehlgeschlagene Repository-Abfragen (inkl. HTTP-Status). Umfangreiche Versions- und Komponentenlisten erscheinen ausschließlich gekürzt auf DEBUG-Ebene, damit `idea.log` klein und responsiv bleibt.
 - **Expliziter Refresh-Flow**: Der interne Refresh unterscheidet klar zwischen „New Version zurücksetzen“ (manueller Refresh) und „New Version behalten“ (Refresh nach Update-Check).
 
 ## Benutzung

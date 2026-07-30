@@ -26,6 +26,7 @@
             <li><b>Detailed Security Findings:</b> Shows deduplicated advisory IDs, aliases, severity/CVSS, summaries, sources, and references while filtering withdrawn advisories and safely retaining advisories with newer CVSS versions.</li>
             <li><b>Secure and Responsive Credentials:</b> Stores optional OSS Index credentials in IntelliJ Password Safe, loads them outside the UI thread, and links to the Sonatype account page for obtaining a token.</li>
             <li><b>Responsive Refresh:</b> Collects Maven project and PSI data through non-blocking background read actions before updating the UI.</li>
+            <li><b>Compact Diagnostics:</b> Keeps INFO logs concise and limits detailed version and component lists to truncated DEBUG output.</li>
             <li><b>Maintainable Architecture:</b> Internally structured into dedicated model, service, and UI layers.</li>
             <li><b>Service-based API Integration:</b> External metadata and multi-source vulnerability requests are handled in dedicated service classes.</li>
         </ul>
