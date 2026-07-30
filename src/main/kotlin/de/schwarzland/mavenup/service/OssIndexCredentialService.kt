@@ -19,10 +19,6 @@ class OssIndexCredentialService(
 
     fun retrieve(): Credentials? = passwordSafe.get(CREDENTIAL_ATTRIBUTES)
 
-    fun clear() {
-        passwordSafe.set(CREDENTIAL_ATTRIBUTES, null)
-    }
-
     private companion object {
         val CREDENTIAL_ATTRIBUTES = CredentialAttributes(
             generateServiceName("MavenUp", "Sonatype OSS Index")

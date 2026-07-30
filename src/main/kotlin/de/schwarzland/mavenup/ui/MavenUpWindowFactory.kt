@@ -33,7 +33,6 @@ import com.intellij.ui.content.ContentFactory
 import com.intellij.ui.table.JBTable
 import com.intellij.util.ui.AbstractTableCellEditor
 import com.intellij.icons.AllIcons
-import com.google.gson.JsonObject
 import org.apache.maven.artifact.versioning.ComparableVersion
 import org.jetbrains.idea.maven.project.MavenImportListener
 import org.jetbrains.idea.maven.project.MavenProject
@@ -880,13 +879,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     }
                 }
             })
-        }
-
-        private fun fetchVulnerabilityCounts(
-            dependencies: List<Triple<String, String, String>>,
-            indicator: ProgressIndicator? = null
-        ): Map<String, Int> {
-            return vulnerabilityApiService.fetchVulnerabilityCounts(dependencies, indicator)
         }
 
         internal fun collectResolvedDependencies(
