@@ -20,7 +20,9 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   Credential-Auflösung, Update-Schreibvorgang mit Bestätigungsdialog, Navigation zur
   pom.xml-Definition sowie Multi-Source-Vulnerability-Checks für direkte und transitive
   Dependencies in Hintergrund-Tasks. Die Tabellenspalte **Vulnerabilities (Current)** steht direkt
-  hinter **Current Version**, da die Befunde die aktuell verwendete Version betreffen.
+  hinter **Current Version** und ordnet transitive Befunde über den Maven-Dependency-Tree der
+  jeweiligen direkten Dependency zu. Sie zeigt Gesamtzahl, transitive Anzahl und höchste Severity;
+  der zeilenbezogene Detaildialog markiert die zugehörigen transitiven Komponenten.
   Maven-/PSI-Daten für Refreshes werden über eine
   nicht blockierende Read-Action außerhalb des EDT erfasst. Während Refresh oder Update-Check
   laufen, bleibt der Vulnerability-Check deaktiviert, um konkurrierende Hintergrundaktionen zu vermeiden.

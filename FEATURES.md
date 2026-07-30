@@ -22,12 +22,12 @@ This document lists the key features of the MavenUp IntelliJ plugin.
 - **Compact logging and diagnostics**: Logs parsing errors, credential resolution issues, and repository request failures (including HTTP status), while limiting verbose version and component lists to truncated DEBUG messages.
 - **Project-level plugin settings**: Supports configurable behavior in `Settings > Tools > MavenUp` (click behavior, auto-select latest, unstable-version filtering).
 - **Multi-source vulnerability check**: Uses [OSV.dev](https://osv.dev) as the primary source and can optionally enrich results with Maven-focused findings from [Sonatype OSS Index](https://ossindex.sonatype.org/).
-- **Resolved transitive dependency coverage**: Includes the resolved Maven dependency tree by default, while keeping transitive findings out of the update table.
+- **Resolved transitive dependency coverage**: Includes the resolved Maven dependency tree by default and associates transitive findings with the direct dependency that introduced them.
 - **Detailed vulnerability intelligence**: Retrieves advisory identifiers, aliases, summaries, severity/CVSS information, references, and source attribution; unsupported CVSS versions fall back to source severity without dropping the advisory.
 - **Cross-source deduplication**: Merges matching CVE, GHSA, OSV, and Sonatype findings by intersecting advisory identifiers and aliases.
 - **Withdrawn advisory filtering**: Excludes withdrawn OSV advisories from results.
-- **Severity-aware current-version vulnerability column**: Displays **Vulnerabilities (Current)** directly after **Current Version**, showing the deduplicated finding count and highest known severity for the currently used version; stays empty until a check has been run.
-- **Vulnerability details dialog**: Shows findings for individual components or the complete scan, including transitive component markers and browser-accessible references.
+- **Severity-aware current-version vulnerability column**: Displays **Vulnerabilities (Current)** directly after **Current Version**, showing the total finding count, transitive finding count, and highest known severity for the direct dependency and its resolved transitive dependencies; stays empty until a check has been run.
+- **Vulnerability details dialog**: Shows direct and related transitive findings for an individual dependency, or the complete scan, including transitive component markers and browser-accessible references.
 - **Validated OSS Index authentication**: Requires both username/email and API token when OSS Index is enabled, visibly marks both fields as required, and skips OSS Index requests when stored credentials are incomplete.
 - **Secure and responsive OSS Index credentials**: Stores the required API token in IntelliJ Password Safe instead of project settings and loads it outside the Event Dispatch Thread.
 - **OSS Index token guidance**: Provides a direct settings link to the Sonatype account page where users can create or copy their API token.

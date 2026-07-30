@@ -19,7 +19,7 @@ import javax.swing.JLabel
 import javax.swing.JPasswordField
 import javax.swing.JTextField
 
-internal const val OSS_INDEX_ACCOUNT_URL = "https://ossindex.sonatype.org/user/settings"
+internal const val OSS_INDEX_ACCOUNT_URL = "https://ossindex.sonatype.org"
 
 class MavenUpConfigurable internal constructor(
     private val project: Project,

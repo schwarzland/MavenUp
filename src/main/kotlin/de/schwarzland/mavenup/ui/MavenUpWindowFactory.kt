@@ -76,6 +76,79 @@ internal data class RefreshSnapshot(
     val dependencyProperties: Map<String, String>
 )
 
+internal data class VulnerabilityCell(
+    val advisoriesByCoordinate: Map<String, List<VulnerabilityAdvisory>>,
+    val transitiveCoordinates: Set<String>
+) {
+    val allAdvisories: List<VulnerabilityAdvisory>
+        get() = advisoriesByCoordinate.values.flatten()
+
+    val transitiveAdvisoryCount: Int
+        get() = advisoriesByCoordinate
+            .filterKeys { it in transitiveCoordinates }
+            .values
+            .sumOf { it.size }
+
+    fun detailFindings(): Map<String, List<VulnerabilityAdvisory>> =
+        advisoriesByCoordinate.mapKeys { (coordinate, _) ->
+            if (coordinate in transitiveCoordinates) "$coordinate (transitive)" else coordinate
+        }
+}
+
+internal fun buildVulnerabilityCell(
+    directCoordinate: String,
+    vulnerabilityAdvisories: Map<String, List<VulnerabilityAdvisory>>,
+    transitiveCoordinates: Set<String>
+): VulnerabilityCell {
+    val findings = linkedMapOf<String, List<VulnerabilityAdvisory>>()
+    vulnerabilityAdvisories[directCoordinate]
+        ?.takeIf { it.isNotEmpty() }
+        ?.let { findings[directCoordinate] = it }
+    transitiveCoordinates.sorted().forEach { coordinate ->
+        vulnerabilityAdvisories[coordinate]
+            ?.takeIf { it.isNotEmpty() }
+            ?.let { findings[coordinate] = it }
+    }
+    return VulnerabilityCell(findings, transitiveCoordinates)
+}
+
+internal fun vulnerabilitySummary(cell: VulnerabilityCell): String {
+    val advisories = cell.allAdvisories
+    if (advisories.isEmpty()) return ""
+    val severity = worstSeverity(advisories)
+    val attributes = buildList {
+        if (cell.transitiveAdvisoryCount > 0) add("${cell.transitiveAdvisoryCount} transitive")
+        if (severity != VulnerabilitySeverity.UNKNOWN) add(severity.name)
+    }
+    return if (attributes.isEmpty()) {
+        advisories.size.toString()
+    } else {
+        "${advisories.size} (${attributes.joinToString()})"
+    }
+}
+
+private fun worstSeverity(advisories: List<VulnerabilityAdvisory>): VulnerabilitySeverity =
+    advisories.maxByOrNull { it.severity.rank }?.severity ?: VulnerabilitySeverity.UNKNOWN
+
+private data class VulnerabilityScanTargets(
+    val dependencies: Set<Triple<String, String, String>>,
+    val transitiveCoordinates: Set<String>,
+    val transitiveDependenciesByDirect: Map<String, Set<String>>
+)
+
+private fun artifactNodeCoordinate(node: MavenArtifactNode): Triple<String, String, String>? {
+    val artifact = node.artifact
+    val version = artifact.version.orEmpty()
+    return if (artifact.groupId.isNotEmpty() && artifact.artifactId.isNotEmpty() && version.isNotEmpty()) {
+        Triple(artifact.groupId, artifact.artifactId, version)
+    } else {
+        null
+    }
+}
+
+private fun coordinateString(coordinate: Triple<String, String, String>): String =
+    "${coordinate.first}:${coordinate.second}:${coordinate.third}"
+
 internal fun canCheckVulnerabilities(isRefreshing: Boolean, isUpdating: Boolean): Boolean {
     return !isRefreshing && !isUpdating
 }
@@ -162,6 +235,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private val knownTypes = mutableMapOf<String, String>()
         private val vulnerabilityAdvisories = mutableMapOf<String, List<VulnerabilityAdvisory>>()
         private val transitiveCoordinates = mutableSetOf<String>()
+        private val transitiveDependenciesByDirect = mutableMapOf<String, Set<String>>()
         private var isUpdating = false
         private var isRefreshing = false
         private var refreshGeneration = 0
@@ -187,15 +261,13 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     val column = table.columnAtPoint(e.point)
                     if (row < 0) return
                     if (column == VULNERABILITIES_COLUMN && e.clickCount == 1) {
-                        @Suppress("UNCHECKED_CAST")
-                        val advisories = table.getValueAt(row, VULNERABILITIES_COLUMN)
-                            as? List<VulnerabilityAdvisory> ?: emptyList()
-                        if (advisories.isNotEmpty()) {
+                        val cell = table.getValueAt(row, VULNERABILITIES_COLUMN) as? VulnerabilityCell
+                        if (cell != null && cell.allAdvisories.isNotEmpty()) {
                             val coordinate = listOf(GROUP_ID_COLUMN, ARTIFACT_ID_COLUMN, CURRENT_VERSION_COLUMN)
                                 .joinToString(":") { table.getValueAt(row, it).toString() }
                             VulnerabilityDetailDialog(
                                 project,
-                                mapOf(coordinate to advisories),
+                                cell.detailFindings(),
                                 "$coordinate - ${MyMessageBundle.message("vulnerability.details.title")}"
                             ).show()
                         }
@@ -344,9 +416,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
             table.columnModel.getColumn(VULNERABILITIES_COLUMN).cellRenderer =
                 TableCellRenderer { currentTable, value, isSelected, _, _, _ ->
-                    @Suppress("UNCHECKED_CAST")
-                    val advisories = value as? List<VulnerabilityAdvisory> ?: emptyList()
-                    JLabel(vulnerabilitySummary(advisories)).apply {
+                    val cell = value as? VulnerabilityCell ?: VulnerabilityCell(emptyMap(), emptySet())
+                    val advisories = cell.allAdvisories
+                    JLabel(vulnerabilitySummary(cell)).apply {
                         isOpaque = true
                         border = BorderFactory.createEmptyBorder(0, 6, 0, 6)
                         toolTipText = if (advisories.isEmpty()) {
@@ -400,7 +472,11 @@ class MavenUpWindowFactory : ToolWindowFactory {
                                     row.propertyName,
                                     row.type,
                                     row.currentVersion,
-                                    vulnerabilityAdvisories["${row.key}:${row.currentVersion}"].orEmpty(),
+                                    buildVulnerabilityCell(
+                                        "${row.key}:${row.currentVersion}",
+                                        vulnerabilityAdvisories,
+                                        transitiveDependenciesByDirect["${row.key}:${row.currentVersion}"].orEmpty()
+                                    ),
                                     availableVersions[row.key].orEmpty()
                                 )
                             )
@@ -785,16 +861,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     val directDependencies = knownDependencies.entries
                         .filter { it.value.isNotEmpty() }
                         .map { (key, version) -> Triple(key.substringBefore(":"), key.substringAfter(":"), version) }
-                    val dependencies = LinkedHashSet(directDependencies)
-                    val discoveredTransitiveCoordinates = mutableSetOf<String>()
-                    if (MavenUpSettings.getInstance(project).state.checkTransitiveDependencies) {
-                        collectResolvedDependencies(MavenProjectsManager.getInstance(project).projects)
-                            .forEach { dependency ->
-                                dependencies.add(dependency)
-                                val coordinate = "${dependency.first}:${dependency.second}:${dependency.third}"
-                                if (dependency !in directDependencies) discoveredTransitiveCoordinates.add(coordinate)
-                            }
-                    }
+                    val scanTargets = collectVulnerabilityScanTargets(directDependencies)
+                    val dependencies = scanTargets.dependencies
                     LOG.info("Starting vulnerability check for ${dependencies.size} dependencies/plugins.")
 
                     val osvResults = vulnerabilityApiService.fetchVulnerabilityAdvisories(dependencies.toList(), indicator)
@@ -840,7 +908,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         vulnerabilityAdvisories.clear()
                         vulnerabilityAdvisories.putAll(results)
                         transitiveCoordinates.clear()
-                        transitiveCoordinates.addAll(discoveredTransitiveCoordinates)
+                        transitiveCoordinates.addAll(scanTargets.transitiveCoordinates)
+                        transitiveDependenciesByDirect.clear()
+                        transitiveDependenciesByDirect.putAll(scanTargets.transitiveDependenciesByDirect)
                         ossIndexError?.let {
                             Messages.showWarningDialog(
                                 project,
@@ -854,24 +924,61 @@ class MavenUpWindowFactory : ToolWindowFactory {
             })
         }
 
+        private fun collectVulnerabilityScanTargets(
+            directDependencies: List<Triple<String, String, String>>
+        ): VulnerabilityScanTargets {
+            val dependencies = LinkedHashSet(directDependencies)
+            if (!MavenUpSettings.getInstance(project).state.checkTransitiveDependencies) {
+                return VulnerabilityScanTargets(dependencies, emptySet(), emptyMap())
+            }
+
+            val transitiveCoordinates = linkedSetOf<String>()
+            val transitiveDependenciesByDirect = linkedMapOf<String, Set<String>>()
+            collectResolvedDependencyRelations(MavenProjectsManager.getInstance(project).projects)
+                .forEach { (directDependency, transitiveDependencies) ->
+                    dependencies.add(directDependency)
+                    dependencies.addAll(transitiveDependencies)
+                    transitiveDependenciesByDirect[coordinateString(directDependency)] =
+                        transitiveDependencies.mapTo(linkedSetOf(), ::coordinateString)
+                    transitiveDependencies
+                        .filterNotTo(linkedSetOf()) { it in directDependencies }
+                        .mapTo(transitiveCoordinates, ::coordinateString)
+                }
+            return VulnerabilityScanTargets(
+                dependencies,
+                transitiveCoordinates,
+                transitiveDependenciesByDirect
+            )
+        }
+
+        @Suppress("unused")
         internal fun collectResolvedDependencies(
             projects: Collection<MavenProject>
-        ): Set<Triple<String, String, String>> {
-            val dependencies = linkedSetOf<Triple<String, String, String>>()
+        ): Set<Triple<String, String, String>> = collectResolvedDependencyRelations(projects)
+            .flatMapTo(linkedSetOf()) { (directDependency, transitiveDependencies) ->
+                listOf(directDependency) + transitiveDependencies
+            }
 
-            fun collect(nodes: Collection<MavenArtifactNode>) {
-                nodes.forEach { node ->
-                    val artifact = node.artifact
-                    val version = artifact.version.orEmpty()
-                    if (artifact.groupId.isNotEmpty() && artifact.artifactId.isNotEmpty() && version.isNotEmpty()) {
-                        dependencies.add(Triple(artifact.groupId, artifact.artifactId, version))
-                    }
-                    collect(node.dependencies)
+        internal fun collectResolvedDependencyRelations(
+            projects: Collection<MavenProject>
+        ): Map<Triple<String, String, String>, Set<Triple<String, String, String>>> {
+            val dependenciesByDirect = linkedMapOf<Triple<String, String, String>, MutableSet<Triple<String, String, String>>>()
+
+            fun collectTransitive(node: MavenArtifactNode, target: MutableSet<Triple<String, String, String>>) {
+                node.dependencies.forEach { dependency ->
+                    artifactNodeCoordinate(dependency)?.let(target::add)
+                    collectTransitive(dependency, target)
                 }
             }
 
-            projects.forEach { collect(it.dependencyTree) }
-            return dependencies
+            projects.forEach { project ->
+                project.dependencyTree.forEach { root ->
+                    val directDependency = artifactNodeCoordinate(root) ?: return@forEach
+                    val transitiveDependencies = dependenciesByDirect.getOrPut(directDependency) { linkedSetOf() }
+                    collectTransitive(root, transitiveDependencies)
+                }
+            }
+            return dependenciesByDirect
         }
 
         private fun showAllVulnerabilityDetails() {
@@ -882,19 +989,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 }
             if (findings.isNotEmpty()) VulnerabilityDetailDialog(project, findings).show()
         }
-
-        private fun vulnerabilitySummary(advisories: List<VulnerabilityAdvisory>): String {
-            if (advisories.isEmpty()) return ""
-            val severity = worstSeverity(advisories)
-            return if (severity == VulnerabilitySeverity.UNKNOWN) {
-                advisories.size.toString()
-            } else {
-                "${advisories.size} (${severity.name})"
-            }
-        }
-
-        private fun worstSeverity(advisories: List<VulnerabilityAdvisory>): VulnerabilitySeverity =
-            advisories.maxByOrNull { it.severity.rank }?.severity ?: VulnerabilitySeverity.UNKNOWN
 
         private fun vulnerabilityColor(
             severity: VulnerabilitySeverity,

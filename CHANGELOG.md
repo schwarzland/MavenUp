@@ -17,6 +17,7 @@
 - New `DependencyUpdate` equality/copy test.
 
 ### Changed
+- Transitive vulnerability findings are now included in the **Vulnerabilities (Current)** cell of their direct dependency, marked with a transitive count, and included in that row's detail view.
 - Moved the **Vulnerabilities (Current)** column directly behind **Current Version** to make clear that findings apply to the currently used component version.
 - Sonatype OSS Index now requires username/email and API token when enabled because its API authentication uses both values; the settings UI visibly marks both fields as required.
 - Refactored internal project structure into dedicated `model`, `service`, and `ui` packages without changing plugin behavior.

@@ -1,9 +1,13 @@
 package de.schwarzland.mavenup
 
+import de.schwarzland.mavenup.model.VulnerabilityAdvisory
+import de.schwarzland.mavenup.model.VulnerabilitySeverity
 import de.schwarzland.mavenup.service.MavenUpSettings
 import de.schwarzland.mavenup.ui.MavenUpWindowFactory
 import de.schwarzland.mavenup.ui.RefreshSnapshot
+import de.schwarzland.mavenup.ui.buildVulnerabilityCell
 import de.schwarzland.mavenup.ui.canCheckVulnerabilities
+import de.schwarzland.mavenup.ui.vulnerabilitySummary
 import com.intellij.openapi.wm.RegisterToolWindowTask
 import com.intellij.openapi.wm.ToolWindowAnchor
 import com.intellij.openapi.wm.ToolWindowManager
@@ -34,6 +38,39 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertEquals("New Version", table.model.getColumnName(6))
         assertFalse(table.model.isCellEditable(0, 5))
         assertTrue(table.model.isCellEditable(0, 6))
+    }
+
+    fun testTransitiveVulnerabilitiesAreIncludedAndMarkedInDependencyCell() {
+        val directCoordinate = "com.example:direct:1.0.0"
+        val transitiveCoordinate = "com.example:transitive:2.0.0"
+        val directAdvisory = VulnerabilityAdvisory(
+            id = "CVE-DIRECT",
+            severity = VulnerabilitySeverity.MEDIUM,
+            sources = setOf("OSV")
+        )
+        val transitiveAdvisory = VulnerabilityAdvisory(
+            id = "CVE-TRANSITIVE",
+            severity = VulnerabilitySeverity.HIGH,
+            sources = setOf("OSV")
+        )
+
+        val cell = buildVulnerabilityCell(
+            directCoordinate,
+            mapOf(
+                directCoordinate to listOf(directAdvisory),
+                transitiveCoordinate to listOf(transitiveAdvisory)
+            ),
+            setOf(transitiveCoordinate)
+        )
+
+        assertEquals(2, cell.allAdvisories.size)
+        assertEquals(1, cell.transitiveAdvisoryCount)
+        assertEquals("2 (1 transitive, HIGH)", vulnerabilitySummary(cell))
+        assertEquals(listOf(directAdvisory), cell.detailFindings()[directCoordinate])
+        assertEquals(
+            listOf(transitiveAdvisory),
+            cell.detailFindings()["$transitiveCoordinate (transitive)"]
+        )
     }
 
     fun testShouldBeAvailableOnlyWhenMavenProjectsExist() {

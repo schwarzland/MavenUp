@@ -29,7 +29,7 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
     }
 
     fun testOssIndexAccountLinkTargetsTokenSettings() {
-        assertEquals("https://ossindex.sonatype.org/user/settings", OSS_INDEX_ACCOUNT_URL)
+        assertEquals("https://ossindex.sonatype.org", OSS_INDEX_ACCOUNT_URL)
     }
 
     fun testResetLoadsCurrentSettingsIntoComponent() {
