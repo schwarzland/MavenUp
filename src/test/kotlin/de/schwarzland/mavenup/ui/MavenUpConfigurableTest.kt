@@ -1,7 +1,15 @@
 package de.schwarzland.mavenup.ui
 
 import de.schwarzland.mavenup.service.MavenUpSettings
+import de.schwarzland.mavenup.service.OssIndexCredentialStore
+import com.intellij.credentialStore.Credentials
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import com.intellij.util.ui.UIUtil
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
+import javax.swing.SwingUtilities
 
 class MavenUpConfigurableTest : BasePlatformTestCase() {
 
@@ -55,6 +63,44 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
         checkBox.isSelected = true
 
         assertTrue("Änderung der Checkbox sollte isModified() true machen", configurable.isModified)
+    }
+
+    fun testCredentialLookupRunsOutsideEdtAndIsModifiedDoesNotReloadIt() {
+        val lookupCompleted = CountDownLatch(1)
+        val lookupRanOnEdt = AtomicBoolean(true)
+        val lookupCount = AtomicInteger()
+        val credentialStore = object : OssIndexCredentialStore {
+            override fun store(username: String, token: String) = Unit
+
+            override fun retrieve(): Credentials? {
+                lookupRanOnEdt.set(SwingUtilities.isEventDispatchThread())
+                lookupCount.incrementAndGet()
+                lookupCompleted.countDown()
+                return Credentials("user@example.test", "secret-token")
+            }
+        }
+        val configurable = MavenUpConfigurable(project, credentialStore)
+        configurable.createComponent()
+        configurable.reset()
+
+        assertFalse(configurable.isModified)
+        assertTrue("Credential lookup did not complete", lookupCompleted.await(5, TimeUnit.SECONDS))
+        assertFalse("Credential lookup must not run on the EDT", lookupRanOnEdt.get())
+        val tokenField = configurable.javaClass.getDeclaredField("ossIndexTokenField")
+            .apply { isAccessible = true }
+            .get(configurable) as javax.swing.JPasswordField
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
+        while (tokenField.password.concatToString() != "secret-token" && System.nanoTime() < deadline) {
+            UIUtil.dispatchAllInvocationEvents()
+            Thread.sleep(10)
+        }
+
+        assertEquals("secret-token", tokenField.password.concatToString())
+        assertFalse(configurable.isModified)
+        tokenField.text = "changed-token"
+
+        assertTrue(configurable.isModified)
+        assertEquals("isModified() must use the cached token", 1, lookupCount.get())
     }
 
     fun testApplyPersistsComponentValuesToSettings() {

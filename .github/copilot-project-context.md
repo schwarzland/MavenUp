@@ -19,13 +19,15 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   Datenmodell/Tabelle, Versionsprüfung (`maven-metadata.xml`), Central-first-Strategie,
   Credential-Auflösung, Update-Schreibvorgang mit Bestätigungsdialog, Navigation zur
   pom.xml-Definition sowie Multi-Source-Vulnerability-Checks für direkte und transitive
-  Dependencies in Hintergrund-Tasks.
+  Dependencies in Hintergrund-Tasks. Maven-/PSI-Daten für Refreshes werden über eine
+  nicht blockierende Read-Action außerhalb des EDT erfasst.
 - **MavenUpSettings**: `PersistentStateComponent`, gespeichert in `mavenup_settings.xml`
   (`jumpOnSingleClick`, `selectLatestVersion`, Filter für instabile Versionen/Qualifier,
   OSS-Index-Aktivierung/Benutzername, Transitiv-Scan). Das OSS-Index-Token liegt ausschließlich
   im IntelliJ Password Safe.
 - **MavenUpConfigurable**: Settings-UI unter `Settings > Tools > MavenUp`.
-  Die OSS-Index-Sektion verlinkt auf die Sonatype-Kontoeinstellungen zur Token-Erzeugung.
+  Die OSS-Index-Sektion verlinkt auf die Sonatype-Kontoeinstellungen zur Token-Erzeugung. Das Token
+  wird außerhalb des EDT aus dem Password Safe geladen und für `isModified()` im UI-Modell gecacht.
 - **VulnerabilityApiService**: OSV-Batchabfrage plus Detailanreicherung und Filterung
   zurückgezogener Advisories.
 - **OssIndexApiService / OssIndexCredentialService**: optionale Sonatype-Abfrage über Maven-purl

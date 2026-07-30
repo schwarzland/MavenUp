@@ -2,12 +2,16 @@ package de.schwarzland.mavenup
 
 import de.schwarzland.mavenup.service.MavenUpSettings
 import de.schwarzland.mavenup.ui.MavenUpWindowFactory
+import de.schwarzland.mavenup.ui.RefreshSnapshot
 import com.intellij.openapi.wm.RegisterToolWindowTask
 import com.intellij.openapi.wm.ToolWindowAnchor
 import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.psi.xml.XmlFile
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.openapi.command.WriteCommandAction
+import com.intellij.openapi.application.ReadAction
+import com.intellij.util.concurrency.AppExecutorUtil
+import java.util.concurrent.TimeUnit
 
 class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
@@ -35,6 +39,47 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         } finally {
             ToolWindowManager.getInstance(project).unregisterToolWindow("TestWindow")
         }
+    }
+
+    fun testRefreshSnapshotCollectionRunsOutsideEdt() {
+        val toolWindowInstance = MavenUpWindowFactory().MyToolWindow(project)
+
+        val snapshot: RefreshSnapshot = ReadAction.nonBlocking<RefreshSnapshot> {
+            toolWindowInstance.collectRefreshSnapshot("managed dependency")
+        }.submit(AppExecutorUtil.getAppExecutorService()).get(5, TimeUnit.SECONDS)
+
+        assertNotNull(snapshot)
+        assertTrue(snapshot.rows.isEmpty())
+    }
+
+    fun testSelectedUpdatesUseCachedRefreshData() {
+        val toolWindowInstance = MavenUpWindowFactory().MyToolWindow(project)
+        val key = "com.example:example-core"
+        val fields = toolWindowInstance.javaClass
+        @Suppress("UNCHECKED_CAST")
+        val selectedVersions = fields.getDeclaredField("selectedVersions")
+            .apply { isAccessible = true }
+            .get(toolWindowInstance) as MutableMap<String, String>
+        @Suppress("UNCHECKED_CAST")
+        val knownDependencies = fields.getDeclaredField("knownDependencies")
+            .apply { isAccessible = true }
+            .get(toolWindowInstance) as MutableMap<String, String>
+        @Suppress("UNCHECKED_CAST")
+        val knownTypes = fields.getDeclaredField("knownTypes")
+            .apply { isAccessible = true }
+            .get(toolWindowInstance) as MutableMap<String, String>
+
+        selectedVersions[key] = "2.0.0"
+        knownDependencies[key] = "1.0.0"
+        knownTypes[key] = "dependency"
+
+        val updates = toolWindowInstance.collectSelectedUpdates()
+
+        assertEquals(1, updates.size)
+        assertEquals("com.example", updates.single().groupId)
+        assertEquals("example-core", updates.single().artifactId)
+        assertEquals("1.0.0", updates.single().oldVersion)
+        assertEquals("2.0.0", updates.single().newVersion)
     }
 
     fun testFindDependency() {

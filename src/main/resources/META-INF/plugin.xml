@@ -24,7 +24,8 @@
             <li><b>Navigation:</b> Jump directly to the definition in the <code>pom.xml</code> via double-click (or optional single-click).</li>
             <li><b>Multi-Source Vulnerability Check:</b> Checks direct components and resolved transitive dependencies through OSV.dev, with optional Maven-focused enrichment from Sonatype OSS Index.</li>
             <li><b>Detailed Security Findings:</b> Shows deduplicated advisory IDs, aliases, severity/CVSS, summaries, sources, and references while filtering withdrawn advisories and safely retaining advisories with newer CVSS versions.</li>
-            <li><b>Secure Credentials:</b> Stores optional OSS Index credentials in IntelliJ Password Safe and links to the Sonatype account page for obtaining a token.</li>
+            <li><b>Secure and Responsive Credentials:</b> Stores optional OSS Index credentials in IntelliJ Password Safe, loads them outside the UI thread, and links to the Sonatype account page for obtaining a token.</li>
+            <li><b>Responsive Refresh:</b> Collects Maven project and PSI data through non-blocking background read actions before updating the UI.</li>
             <li><b>Maintainable Architecture:</b> Internally structured into dedicated model, service, and UI layers.</li>
             <li><b>Service-based API Integration:</b> External metadata and multi-source vulnerability requests are handled in dedicated service classes.</li>
         </ul>

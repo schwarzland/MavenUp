@@ -5,10 +5,16 @@ import com.intellij.credentialStore.Credentials
 import com.intellij.credentialStore.generateServiceName
 import com.intellij.ide.passwordSafe.PasswordSafe
 
+interface OssIndexCredentialStore {
+    fun store(username: String, token: String)
+
+    fun retrieve(): Credentials?
+}
+
 class OssIndexCredentialService(
     private val passwordSafe: PasswordSafe = PasswordSafe.instance
-) {
-    fun store(username: String, token: String) {
+) : OssIndexCredentialStore {
+    override fun store(username: String, token: String) {
         val credentials = if (username.isBlank() && token.isBlank()) {
             null
         } else {
@@ -17,7 +23,7 @@ class OssIndexCredentialService(
         passwordSafe.set(CREDENTIAL_ATTRIBUTES, credentials)
     }
 
-    fun retrieve(): Credentials? = passwordSafe.get(CREDENTIAL_ATTRIBUTES)
+    override fun retrieve(): Credentials? = passwordSafe.get(CREDENTIAL_ATTRIBUTES)
 
     private companion object {
         val CREDENTIAL_ATTRIBUTES = CredentialAttributes(

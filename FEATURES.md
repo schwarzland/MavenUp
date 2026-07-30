@@ -16,7 +16,7 @@ This document lists the key features of the MavenUp IntelliJ plugin.
 - **Shared-property synchronization**: Synchronizes version selection across entries that use the same Maven property.
 - **Safe update workflow**: Shows a confirmation dialog before applying changes to `pom.xml`.
 - **Navigation to source in `pom.xml`**: Jumps directly to the matching dependency/plugin entry (single or double click, configurable).
-- **Background execution for long operations**: Runs update checks, navigation tasks, and write operations in background tasks to keep the IDE responsive.
+- **Background execution for long operations**: Collects Maven/PSI refresh data through non-blocking background read actions and also runs update checks, navigation tasks, and write operations outside the UI thread.
 - **Input validation for displayed entries**: Skips dependencies and plugins without `groupId` so invalid entries are not shown.
 - **Logging and diagnostics**: Logs parsing errors, credential resolution issues, and repository request failures (including HTTP status).
 - **Project-level plugin settings**: Supports configurable behavior in `Settings > Tools > MavenUp` (click behavior, auto-select latest, unstable-version filtering).
@@ -27,7 +27,7 @@ This document lists the key features of the MavenUp IntelliJ plugin.
 - **Withdrawn advisory filtering**: Excludes withdrawn OSV advisories from results.
 - **Severity-aware vulnerability column**: Displays the deduplicated finding count and highest known severity; stays empty until a check has been run.
 - **Vulnerability details dialog**: Shows findings for individual components or the complete scan, including transitive component markers and browser-accessible references.
-- **Secure OSS Index credentials**: Stores the optional API token in IntelliJ Password Safe instead of project settings.
+- **Secure and responsive OSS Index credentials**: Stores the optional API token in IntelliJ Password Safe instead of project settings and loads it outside the Event Dispatch Thread.
 - **OSS Index token guidance**: Provides a direct settings link to the Sonatype account page where users can create or copy their API token.
 - **Layered internal architecture**: Code is organized into explicit `model`, `service`, and `ui` packages to keep responsibilities separated and maintainable.
 - **Service-based API access**: External OSV, OSS Index, and Maven metadata API requests are handled through dedicated service-layer components instead of UI classes.

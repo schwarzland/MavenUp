@@ -3,10 +3,16 @@ package de.schwarzland.mavenup.ui
 import de.schwarzland.mavenup.MyMessageBundle
 import de.schwarzland.mavenup.service.MavenUpSettings
 import de.schwarzland.mavenup.service.OssIndexCredentialService
+import de.schwarzland.mavenup.service.OssIndexCredentialStore
+import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.application.ModalityState
+import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.options.Configurable
 import com.intellij.openapi.project.Project
+import com.intellij.util.concurrency.AppExecutorUtil
 import com.intellij.ui.components.JBCheckBox
 import com.intellij.ui.dsl.builder.panel
+import java.util.concurrent.CompletableFuture
 import javax.swing.JComponent
 import javax.swing.JLabel
 import javax.swing.JPasswordField
@@ -14,8 +20,12 @@ import javax.swing.JTextField
 
 internal const val OSS_INDEX_ACCOUNT_URL = "https://ossindex.sonatype.org"
 
-class MavenUpConfigurable(private val project: Project) : Configurable {
-    private val credentialService = OssIndexCredentialService()
+class MavenUpConfigurable internal constructor(
+    private val project: Project,
+    private val credentialService: OssIndexCredentialStore
+) : Configurable {
+    constructor(project: Project) : this(project, OssIndexCredentialService())
+
     private var jumpOnSingleClickCheckBox: JBCheckBox? = null
     private var selectLatestVersionCheckBox: JBCheckBox? = null
     private var hideUnstableVersionsCheckBox: JBCheckBox? = null
@@ -27,6 +37,10 @@ class MavenUpConfigurable(private val project: Project) : Configurable {
     private var ossIndexUsernameField: JTextField? = null
     private var ossIndexTokenLabel: JLabel? = null
     private var ossIndexTokenField: JPasswordField? = null
+    private var storedToken = ""
+    private var credentialsLoaded = false
+    private var credentialLoadGeneration = 0
+    private var credentialLoadFuture: CompletableFuture<*>? = null
 
     override fun getDisplayName(): String = "MavenUp"
 
@@ -83,9 +97,6 @@ class MavenUpConfigurable(private val project: Project) : Configurable {
                 row {
                     ossIndexTokenLabel = label(MyMessageBundle.message("settings.ossIndex.token")).component
                     ossIndexTokenField = cell(JPasswordField(30))
-                        .applyToComponent {
-                            text = credentialService.retrieve()?.getPasswordAsString().orEmpty()
-                        }
                         .component
                 }
                 row {
@@ -119,7 +130,7 @@ class MavenUpConfigurable(private val project: Project) : Configurable {
                 checkTransitiveDependenciesCheckBox?.isSelected != settings.state.checkTransitiveDependencies ||
                 ossIndexEnabledCheckBox?.isSelected != settings.state.ossIndexEnabled ||
                 ossIndexUsernameField?.text?.trim() != settings.state.ossIndexUsername ||
-                currentToken() != credentialService.retrieve()?.getPasswordAsString().orEmpty()
+                credentialsLoaded && currentToken() != storedToken
     }
 
     override fun apply() {
@@ -131,7 +142,10 @@ class MavenUpConfigurable(private val project: Project) : Configurable {
         settings.state.checkTransitiveDependencies = checkTransitiveDependenciesCheckBox?.isSelected ?: true
         settings.state.ossIndexEnabled = ossIndexEnabledCheckBox?.isSelected ?: false
         settings.state.ossIndexUsername = ossIndexUsernameField?.text?.trim().orEmpty()
-        credentialService.store(settings.state.ossIndexUsername, currentToken())
+        if (credentialsLoaded) {
+            storedToken = currentToken()
+            credentialService.store(settings.state.ossIndexUsername, storedToken)
+        }
     }
 
     override fun reset() {
@@ -143,9 +157,57 @@ class MavenUpConfigurable(private val project: Project) : Configurable {
         checkTransitiveDependenciesCheckBox?.isSelected = settings.state.checkTransitiveDependencies
         ossIndexEnabledCheckBox?.isSelected = settings.state.ossIndexEnabled
         ossIndexUsernameField?.text = settings.state.ossIndexUsername
-        ossIndexTokenField?.text = credentialService.retrieve()?.getPasswordAsString().orEmpty()
+        credentialsLoaded = false
+        storedToken = ""
+        ossIndexTokenField?.text = ""
         updateHiddenQualifierControlsEnabled(settings.state.hideUnstableVersions)
         updateOssIndexControlsEnabled(settings.state.ossIndexEnabled)
+        loadCredentials()
+    }
+
+    override fun disposeUIResources() {
+        credentialLoadGeneration++
+        credentialLoadFuture?.cancel(true)
+        credentialLoadFuture = null
+        jumpOnSingleClickCheckBox = null
+        selectLatestVersionCheckBox = null
+        hideUnstableVersionsCheckBox = null
+        hiddenVersionQualifiersLabel = null
+        hiddenVersionQualifiersField = null
+        checkTransitiveDependenciesCheckBox = null
+        ossIndexEnabledCheckBox = null
+        ossIndexUsernameLabel = null
+        ossIndexUsernameField = null
+        ossIndexTokenLabel = null
+        ossIndexTokenField = null
+    }
+
+    private fun loadCredentials() {
+        val generation = ++credentialLoadGeneration
+        credentialLoadFuture?.cancel(true)
+        credentialLoadFuture = CompletableFuture.supplyAsync(
+            { credentialService.retrieve() },
+            AppExecutorUtil.getAppExecutorService()
+        ).whenComplete { credentials, error ->
+            ApplicationManager.getApplication().invokeLater(
+                {
+                    if (generation != credentialLoadGeneration) {
+                        return@invokeLater
+                    }
+                    credentialLoadFuture = null
+                    if (error != null) {
+                        LOG.warn("Unable to load OSS Index credentials from Password Safe", error)
+                        return@invokeLater
+                    }
+                    storedToken = credentials?.getPasswordAsString().orEmpty()
+                    credentialsLoaded = true
+                    ossIndexTokenField?.text = storedToken
+                    updateOssIndexControlsEnabled(ossIndexEnabledCheckBox?.isSelected == true)
+                },
+                ModalityState.any(),
+                project.disposed
+            )
+        }
     }
 
     private fun updateHiddenQualifierControlsEnabled(enabled: Boolean) {
@@ -156,9 +218,13 @@ class MavenUpConfigurable(private val project: Project) : Configurable {
     private fun updateOssIndexControlsEnabled(enabled: Boolean) {
         ossIndexUsernameLabel?.isEnabled = enabled
         ossIndexUsernameField?.isEnabled = enabled
-        ossIndexTokenLabel?.isEnabled = enabled
-        ossIndexTokenField?.isEnabled = enabled
+        ossIndexTokenLabel?.isEnabled = enabled && credentialsLoaded
+        ossIndexTokenField?.isEnabled = enabled && credentialsLoaded
     }
 
     private fun currentToken(): String = ossIndexTokenField?.password?.concatToString().orEmpty()
+
+    private companion object {
+        val LOG = Logger.getInstance(MavenUpConfigurable::class.java)
+    }
 }

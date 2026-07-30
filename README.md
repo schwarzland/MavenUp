@@ -16,7 +16,7 @@ Eine vollständige, englische Feature-Liste steht in `FEATURES.md`.
 - **Filter für instabile Versionen**: Optionales Ausblenden von Versionen mit konfigurierbaren Qualifiern (standardmäßig `rc,beta`), z.B. Release Candidates oder Beta-Versionen.
 - **Synchronisierte Auswahl bei gemeinsamer Property**: Wenn mehrere Dependencies dieselbe Maven-Property verwenden, wird eine geänderte Auswahl auf alle betroffenen Einträge synchronisiert.
 - **Sicheres Update mit Bestätigungsdialog**: Vor dem Schreiben zeigt MavenUp eine Zusammenfassung aller geplanten Änderungen (alt/neu, Typ, Koordinaten) und aktualisiert die `pom.xml` erst nach Bestätigung.
-- **Hintergrundverarbeitung für lange Aktionen**: Update-Check, Navigation und Schreiboperationen laufen im Hintergrund, damit die IDE responsiv bleibt.
+- **Hintergrundverarbeitung für lange Aktionen**: Projekt-/PSI-Datenerfassung beim Refresh, Update-Check, Navigation und Schreiboperationen laufen im Hintergrund, damit die IDE responsiv bleibt.
 - **Navigation zur Definition in `pom.xml`**: Per Doppelklick (oder optional Einzelklick) springt MavenUp direkt zur passenden Dependency-/Plugin-Definition.
 - **Integrierte Einstellungen**: Über `Settings > Tools > MavenUp` konfigurierbar (u.a. Single-Click-Navigation, automatische Vorauswahl der neuesten Version).
 - **Multi-Source-Vulnerability-Check**: **Check Vulnerabilities** prüft direkte Komponenten und standardmäßig auch aufgelöste transitive Dependencies über [OSV.dev](https://osv.dev). Optional ergänzt [Sonatype OSS Index](https://ossindex.sonatype.org/) Maven-spezifische Befunde.
@@ -60,7 +60,7 @@ Unter `Settings > Tools > MavenUp` können folgende Optionen konfiguriert werden
 - **Hide unstable versions**: Blendet instabile Versionen (z.B. RC/Beta) aus den auswählbaren Update-Versionen aus.
 - **Hidden version qualifiers (comma-separated)**: Liste der auszublendenden Typen, z.B. `rc,beta,milestone` (eingerückt dargestellt; Label und Feld sind nur aktiv, wenn der Filter eingeschaltet ist; größeres Eingabefeld für längere Listen).
 - **Include resolved transitive dependencies**: Nimmt standardmäßig den aufgelösten Maven-Dependency-Tree in den Vulnerability-Check auf.
-- **Use Sonatype OSS Index as an additional source**: Aktiviert die optionale zweite Datenquelle. Benutzername/E-Mail und API-Token sind optional; das Token wird ausschließlich im IntelliJ Password Safe gespeichert und nicht in `mavenup_settings.xml`. Ein Link in der Konfiguration öffnet die Sonatype-Kontoeinstellungen zum Erzeugen oder Kopieren eines Tokens.
+- **Use Sonatype OSS Index as an additional source**: Aktiviert die optionale zweite Datenquelle. Benutzername/E-Mail und API-Token sind optional; das Token wird ausschließlich im IntelliJ Password Safe gespeichert, außerhalb des Event Dispatch Thread geladen und nicht in `mavenup_settings.xml` abgelegt. Ein Link in der Konfiguration öffnet die Sonatype-Kontoeinstellungen zum Erzeugen oder Kopieren eines Tokens.
 
 ## Gradle Proxy-Konfiguration
 
@@ -100,9 +100,9 @@ Das Plugin ist jetzt klar in drei Schichten gegliedert:
 - Unterstützte CVSS-Vektoren aus OSV werden mit `us.springett:cvss-calculator` in vergleichbare Basisscores umgerechnet. Bei noch nicht unterstützten CVSS-Versionen bleibt der Befund erhalten und nutzt den Schweregrad der Quelle.
 
 ### UI (`de.schwarzland.mavenup.ui`)
-- `MavenUpWindowFactory`: Tool-Window-Factory und UI-Interaktion für Tabelle, Update- und Vulnerability-Workflows.
+- `MavenUpWindowFactory`: Tool-Window-Factory und UI-Interaktion für Tabelle, Update- und Vulnerability-Workflows; Refresh-Daten werden per nicht blockierender Read-Action außerhalb des EDT erfasst.
 - `VulnerabilityDetailDialog`: zeigt direkte und transitive Security-Befunde mit Quellen und Referenzen.
-- `MavenUpConfigurable`: Einstellungs-UI unter `Settings > Tools > MavenUp`, gebunden an `MavenUpSettings`.
+- `MavenUpConfigurable`: Einstellungs-UI unter `Settings > Tools > MavenUp`, gebunden an `MavenUpSettings`; Password-Safe-Zugriffe werden im Hintergrund geladen und für die Änderungserkennung zwischengespeichert.
 - `MyMessageBundle` (weiterhin im Basispaket): zentralisierte i18n-Texte für die UI.
 
 

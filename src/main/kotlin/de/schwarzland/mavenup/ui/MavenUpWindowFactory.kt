@@ -11,6 +11,8 @@ import de.schwarzland.mavenup.service.OssIndexCredentialService
 import de.schwarzland.mavenup.service.VulnerabilityApiService
 import de.schwarzland.mavenup.service.VulnerabilityMerger
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.application.ModalityState
+import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.fileEditor.FileEditorManager
@@ -31,6 +33,7 @@ import com.intellij.ui.components.JBPanel
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.content.ContentFactory
 import com.intellij.ui.table.JBTable
+import com.intellij.util.concurrency.AppExecutorUtil
 import com.intellij.util.ui.AbstractTableCellEditor
 import com.intellij.icons.AllIcons
 import org.apache.maven.artifact.versioning.ComparableVersion
@@ -51,6 +54,21 @@ import javax.swing.table.TableCellRenderer
 private const val MANAGED_PLUGIN = "managed plugin"
 private const val TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY = "toolwindow.MyToolWindow.type.managedDependency"
 private val LOG = Logger.getInstance(MavenUpWindowFactory::class.java)
+
+internal data class RefreshRow(
+    val groupId: String,
+    val artifactId: String,
+    val propertyName: String,
+    val type: String,
+    val currentVersion: String
+) {
+    val key: String = "$groupId:$artifactId"
+}
+
+internal data class RefreshSnapshot(
+    val rows: List<RefreshRow>,
+    val dependencyProperties: Map<String, String>
+)
 
 /**
  * Zusammenfassung
@@ -131,9 +149,11 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private val selectedVersions = mutableMapOf<String, String>()
         private val dependencyToProperty = mutableMapOf<String, String>()
         private val knownDependencies = mutableMapOf<String, String>() // key to current version
+        private val knownTypes = mutableMapOf<String, String>()
         private val vulnerabilityAdvisories = mutableMapOf<String, List<VulnerabilityAdvisory>>()
         private val transitiveCoordinates = mutableSetOf<String>()
         private var isUpdating = false
+        private var refreshGeneration = 0
 
         private val content = JBPanel<JBPanel<*>>(BorderLayout()).apply {
             val tableModel = object : DefaultTableModel() {
@@ -329,6 +349,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             fun refreshAction(checkUpdates: Boolean, clearNewVersions: Boolean) {
                 if (isUpdating) return
 
+                val generation = ++refreshGeneration
                 tableModel.setRowCount(0)
                 if (clearNewVersions) {
                     availableVersions.clear()
@@ -336,190 +357,50 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 }
                 dependencyToProperty.clear()
                 knownDependencies.clear()
-                val mavenProjectsManager = MavenProjectsManager.getInstance(project)
-                val projects = mavenProjectsManager.projects
+                knownTypes.clear()
                 updateUpdateButtonState(updateButton)
 
-                if (projects.isNotEmpty()) {
-                    projects.forEach { mavenProject ->
-                        val pomFile = mavenProject.file
-                        val psiFile = ApplicationManager.getApplication().runReadAction<XmlFile?> {
-                            PsiManager.getInstance(project).findFile(pomFile) as? XmlFile
+                val managedDependencyType =
+                    MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
+                ReadAction.nonBlocking<RefreshSnapshot> {
+                    collectRefreshSnapshot(managedDependencyType)
+                }.expireWith(project)
+                    .finishOnUiThread(ModalityState.any()) { snapshot ->
+                        if (generation != refreshGeneration) {
+                            return@finishOnUiThread
                         }
 
-                        val localDependencies = mutableMapOf<String, String>()
-                        val managedDependencies = mutableMapOf<String, String>()
-                        val localPlugins = mutableMapOf<String, String>()
-                        val managedPlugins = mutableMapOf<String, String>()
-
-                        if (psiFile != null) {
-                            ApplicationManager.getApplication().runReadAction {
-                                val documentElement = psiFile.document?.rootTag
-
-                                // Collect local dependencies and their properties
-                                collectDependenciesAndProperties(
-                                    documentElement,
-                                    "dependencies",
-                                    "dependency",
-                                    localDependencies
+                        dependencyToProperty.putAll(snapshot.dependencyProperties)
+                        snapshot.rows.forEach { row ->
+                            knownDependencies[row.key] = row.currentVersion
+                            knownTypes[row.key] = row.type
+                            tableModel.addRow(
+                                arrayOf(
+                                    row.groupId,
+                                    row.artifactId,
+                                    row.propertyName,
+                                    row.type,
+                                    row.currentVersion,
+                                    availableVersions[row.key].orEmpty(),
+                                    vulnerabilityAdvisories["${row.key}:${row.currentVersion}"].orEmpty()
                                 )
+                            )
+                        }
+                        updateUpdateButtonState(updateButton)
 
-                                // Collect dependencyManagement dependencies
-                                val dmTag = documentElement?.findFirstSubTag("dependencyManagement")
-                                collectDependenciesAndProperties(
-                                    dmTag,
-                                    "dependencies",
-                                    "dependency",
-                                    managedDependencies
-                                )
-
-                                // Collect local plugins and their properties
-                                val buildTag = documentElement?.findFirstSubTag("build")
-                                collectDependenciesAndProperties(buildTag, "plugins", "plugin", localPlugins)
-
-                                // Collect pluginManagement plugins
-                                val pmTag = buildTag?.findFirstSubTag("pluginManagement")
-                                collectDependenciesAndProperties(pmTag, "plugins", "plugin", managedPlugins)
+                        if (checkUpdates) {
+                            performUpdateCheck(refreshButton, checkUpdatesButton, updateButton) {
+                                refreshAction(false, false)
                             }
                         }
-
-                        addDependenciesToTable(tableModel, mavenProject, localDependencies, managedDependencies)
-                        addPluginsToTable(tableModel, mavenProject, localPlugins, managedPlugins)
                     }
-                }
-
-                if (checkUpdates) {
-                    performUpdateCheck(refreshButton, checkUpdatesButton, updateButton) {
-                        refreshAction(false, false)
-                    }
-                }
+                    .submit(AppExecutorUtil.getAppExecutorService())
             }
 
 
             val updateAction = {
                 if (!isUpdating && selectedVersions.isNotEmpty()) {
-                    val mavenProjectsManager = MavenProjectsManager.getInstance(project)
-                    val projects = mavenProjectsManager.projects
-                    val updates = mutableListOf<DependencyUpdate>()
-
-                    projects.forEach { mavenProject ->
-                        val pomFile = mavenProject.file
-                        val psiFile = ApplicationManager.getApplication().runReadAction<XmlFile?> {
-                            PsiManager.getInstance(project).findFile(pomFile) as? XmlFile
-                        }
-
-                        val localDependencies = mutableMapOf<String, String>() // key to version
-                        val managedDependencies = mutableMapOf<String, String>()
-                        val localPlugins = mutableMapOf<String, String>()
-                        val managedPlugins = mutableMapOf<String, String>()
-
-                        if (psiFile != null) {
-                            ApplicationManager.getApplication().runReadAction {
-                                val documentElement = psiFile.document?.rootTag
-
-                                // Collect local dependencies
-                                val dependenciesTag = documentElement?.findFirstSubTag("dependencies")
-                                dependenciesTag?.findSubTags("dependency")?.forEach { depTag ->
-                                    val g = depTag.findFirstSubTag("groupId")?.value?.text ?: ""
-                                    val a = depTag.findFirstSubTag("artifactId")?.value?.text ?: ""
-                                    val v = depTag.findFirstSubTag("version")?.value?.text ?: ""
-                                    localDependencies["$g:$a"] = v
-                                }
-
-                                // Collect dependencyManagement dependencies
-                                val dmTag = documentElement?.findFirstSubTag("dependencyManagement")
-                                val dmDepsTag = dmTag?.findFirstSubTag("dependencies")
-                                dmDepsTag?.findSubTags("dependency")?.forEach { depTag ->
-                                    val g = depTag.findFirstSubTag("groupId")?.value?.text ?: ""
-                                    val a = depTag.findFirstSubTag("artifactId")?.value?.text ?: ""
-                                    val v = depTag.findFirstSubTag("version")?.value?.text ?: ""
-                                    managedDependencies["$g:$a"] = v
-                                }
-
-                                // Collect local plugins
-                                val buildTag = documentElement?.findFirstSubTag("build")
-                                val pluginsTag = buildTag?.findFirstSubTag("plugins")
-                                pluginsTag?.findSubTags("plugin")?.forEach { pluginTag ->
-                                    val g = pluginTag.findFirstSubTag("groupId")?.value?.text ?: ""
-                                    val a = pluginTag.findFirstSubTag("artifactId")?.value?.text ?: ""
-                                    val v = pluginTag.findFirstSubTag("version")?.value?.text ?: ""
-                                    localPlugins["$g:$a"] = v
-                                }
-
-                                // Collect pluginManagement plugins
-                                val pmTag = buildTag?.findFirstSubTag("pluginManagement")
-                                val pmPluginsTag = pmTag?.findFirstSubTag("plugins")
-                                pmPluginsTag?.findSubTags("plugin")?.forEach { pluginTag ->
-                                    val g = pluginTag.findFirstSubTag("groupId")?.value?.text ?: ""
-                                    val a = pluginTag.findFirstSubTag("artifactId")?.value?.text ?: ""
-                                    val v = pluginTag.findFirstSubTag("version")?.value?.text ?: ""
-                                    managedPlugins["$g:$a"] = v
-                                }
-                            }
-                        }
-
-                        val resolvedDependencies =
-                            mavenProject.dependencyTree.associateBy { "${it.artifact.groupId}:${it.artifact.artifactId}" }
-                        val resolvedPlugins = mavenProject.plugins.associateBy { "${it.groupId}:${it.artifactId}" }
-
-                        (localDependencies.keys + managedDependencies.keys).forEach { key ->
-                            val newVersion = selectedVersions[key]
-                            val resolvedVersion = resolvedDependencies[key]?.artifact?.version
-                            val managedVersion = managedDependencies[key]
-                            val localVersion = localDependencies[key]
-
-                            val currentVersion = resolvedVersion
-                                ?: managedVersion
-                                ?: localVersion
-                                ?: ""
-
-                            if (newVersion != null && newVersion != currentVersion) {
-                                val isManaged = managedDependencies.containsKey(key)
-                                val type = if (isManaged) {
-                                    MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
-                                } else {
-                                    "dependency"
-                                }
-
-                                updates.add(
-                                    DependencyUpdate(
-                                        key.substringBefore(":"),
-                                        key.substringAfter(":"),
-                                        type,
-                                        currentVersion,
-                                        newVersion
-                                    )
-                                )
-                            }
-                        }
-
-                        (localPlugins.keys + managedPlugins.keys).forEach { key ->
-                            val newVersion = selectedVersions[key]
-                            val resolvedVersion = resolvedPlugins[key]?.version
-                            val managedVersion = managedPlugins[key]
-                            val localVersion = localPlugins[key]
-
-                            val currentVersion = resolvedVersion
-                                ?: managedVersion
-                                ?: localVersion
-                                ?: ""
-
-                            if (newVersion != null && newVersion != currentVersion) {
-                                val isManaged = managedPlugins.containsKey(key)
-                                val type = if (isManaged) MANAGED_PLUGIN else "plugin"
-
-                                updates.add(
-                                    DependencyUpdate(
-                                        key.substringBefore(":"),
-                                        key.substringAfter(":"),
-                                        type,
-                                        currentVersion,
-                                        newVersion
-                                    )
-                                )
-                            }
-                        }
-                    }
+                    val updates = collectSelectedUpdates()
 
                     if (updates.isNotEmpty()) {
                         val dialog = UpdateConfirmationDialog(project, updates)
@@ -530,7 +411,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                                 true
                             ) {
                                 override fun run(indicator: ProgressIndicator) {
-                                    projects.forEach { mavenProject ->
+                                    MavenProjectsManager.getInstance(project).projects.forEach { mavenProject ->
                                         applyUpdateToPom(mavenProject, updates)
                                     }
 
@@ -627,11 +508,44 @@ class MavenUpWindowFactory : ToolWindowFactory {
             updateButton.isEnabled = hasUpdate && !isUpdating
         }
 
+        internal fun collectSelectedUpdates(): List<DependencyUpdate> {
+            return selectedVersions.mapNotNull { (key, newVersion) ->
+                val currentVersion = knownDependencies[key] ?: return@mapNotNull null
+                val type = knownTypes[key] ?: return@mapNotNull null
+                if (newVersion == currentVersion) return@mapNotNull null
+
+                DependencyUpdate(
+                    key.substringBefore(":"),
+                    key.substringAfter(":"),
+                    type,
+                    currentVersion,
+                    newVersion
+                )
+            }
+        }
+
+        @Suppress("unused")
         private fun collectDependenciesAndProperties(
             parentTag: XmlTag?,
             wrapperTagName: String,
             itemTagName: String,
             targetMap: MutableMap<String, String>
+        ) {
+            collectDependenciesAndProperties(
+                parentTag,
+                wrapperTagName,
+                itemTagName,
+                targetMap,
+                dependencyToProperty
+            )
+        }
+
+        private fun collectDependenciesAndProperties(
+            parentTag: XmlTag?,
+            wrapperTagName: String,
+            itemTagName: String,
+            targetMap: MutableMap<String, String>,
+            propertyTargetMap: MutableMap<String, String>
         ) {
             val wrapperTag = parentTag?.findFirstSubTag(wrapperTagName) ?: parentTag
             wrapperTag?.findSubTags(itemTagName)?.forEach { tag ->
@@ -644,72 +558,89 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
                 val versionText = tag.findFirstSubTag("version")?.value?.trimmedText
                 if (versionText != null && versionText.startsWith("\${") && versionText.endsWith("}")) {
-                    dependencyToProperty[key] = versionText.substring(2, versionText.length - 1)
+                    propertyTargetMap[key] = versionText.substring(2, versionText.length - 1)
                 }
             }
         }
 
-        private fun addDependenciesToTable(
-            tableModel: DefaultTableModel,
-            mavenProject: MavenProject,
-            localDependencies: Map<String, String>,
-            managedDependencies: Map<String, String>
-        ) {
-            val allDependencyKeys = localDependencies.keys + managedDependencies.keys
-            val resolvedDependencies =
-                mavenProject.dependencyTree.associateBy { "${it.artifact.groupId}:${it.artifact.artifactId}" }
+        internal fun collectRefreshSnapshot(managedDependencyType: String): RefreshSnapshot {
+            check(!ApplicationManager.getApplication().isDispatchThread) {
+                "Refresh data must not be collected on the Event Dispatch Thread"
+            }
 
-            allDependencyKeys.forEach { key ->
-                val isManaged = managedDependencies.containsKey(key)
-                val groupId = key.substringBefore(":")
-                val artifactId = key.substringAfter(":")
+            val rows = mutableListOf<RefreshRow>()
+            val properties = mutableMapOf<String, String>()
+            MavenProjectsManager.getInstance(project).projects.forEach { mavenProject ->
+                val psiFile = PsiManager.getInstance(project).findFile(mavenProject.file) as? XmlFile
+                val localDependencies = mutableMapOf<String, String>()
+                val managedDependencies = mutableMapOf<String, String>()
+                val localPlugins = mutableMapOf<String, String>()
+                val managedPlugins = mutableMapOf<String, String>()
 
-                val currentVersion = resolvedDependencies[key]?.artifact?.version
-                    ?: managedDependencies[key]
-                    ?: localDependencies[key]
-                    ?: ""
-
-                knownDependencies[key] = currentVersion
-                val versions = availableVersions[key] ?: emptyList()
-                val propertyName = dependencyToProperty[key] ?: ""
-                val type = if (isManaged) {
-                    MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
-                } else {
-                    "dependency"
+                if (psiFile != null) {
+                    val documentElement = psiFile.document?.rootTag
+                    collectDependenciesAndProperties(
+                        documentElement,
+                        "dependencies",
+                        "dependency",
+                        localDependencies,
+                        properties
+                    )
+                    val dependencyManagement = documentElement?.findFirstSubTag("dependencyManagement")
+                    collectDependenciesAndProperties(
+                        dependencyManagement,
+                        "dependencies",
+                        "dependency",
+                        managedDependencies,
+                        properties
+                    )
+                    val buildTag = documentElement?.findFirstSubTag("build")
+                    collectDependenciesAndProperties(buildTag, "plugins", "plugin", localPlugins, properties)
+                    val pluginManagement = buildTag?.findFirstSubTag("pluginManagement")
+                    collectDependenciesAndProperties(
+                        pluginManagement,
+                        "plugins",
+                        "plugin",
+                        managedPlugins,
+                        properties
+                    )
                 }
-                val advisories = vulnerabilityAdvisories["$key:$currentVersion"].orEmpty()
 
-                tableModel.addRow(arrayOf(groupId, artifactId, propertyName, type, currentVersion, versions, advisories))
+                val resolvedDependencies =
+                    mavenProject.dependencyTree.associateBy { "${it.artifact.groupId}:${it.artifact.artifactId}" }
+                (localDependencies.keys + managedDependencies.keys).forEach { key ->
+                    rows.add(
+                        RefreshRow(
+                            groupId = key.substringBefore(":"),
+                            artifactId = key.substringAfter(":"),
+                            propertyName = properties[key].orEmpty(),
+                            type = if (managedDependencies.containsKey(key)) managedDependencyType else "dependency",
+                            currentVersion = resolvedDependencies[key]?.artifact?.version
+                                ?: managedDependencies[key]
+                                ?: localDependencies[key]
+                                ?: ""
+                        )
+                    )
+                }
+
+                val resolvedPlugins = mavenProject.plugins.associateBy { "${it.groupId}:${it.artifactId}" }
+                (localPlugins.keys + managedPlugins.keys).forEach { key ->
+                    rows.add(
+                        RefreshRow(
+                            groupId = key.substringBefore(":"),
+                            artifactId = key.substringAfter(":"),
+                            propertyName = properties[key].orEmpty(),
+                            type = if (managedPlugins.containsKey(key)) MANAGED_PLUGIN else "plugin",
+                            currentVersion = resolvedPlugins[key]?.version
+                                ?: managedPlugins[key]
+                                ?: localPlugins[key]
+                                ?: ""
+                        )
+                    )
+                }
             }
-        }
 
-        private fun addPluginsToTable(
-            tableModel: DefaultTableModel,
-            mavenProject: MavenProject,
-            localPlugins: Map<String, String>,
-            managedPlugins: Map<String, String>
-        ) {
-            val allPluginKeys = localPlugins.keys + managedPlugins.keys
-            val resolvedPlugins = mavenProject.plugins.associateBy { "${it.groupId}:${it.artifactId}" }
-
-            allPluginKeys.forEach { key ->
-                val isManaged = managedPlugins.containsKey(key)
-                val groupId = key.substringBefore(":")
-                val artifactId = key.substringAfter(":")
-
-                val currentVersion = resolvedPlugins[key]?.version
-                    ?: managedPlugins[key]
-                    ?: localPlugins[key]
-                    ?: ""
-
-                knownDependencies[key] = currentVersion
-                val versions = availableVersions[key] ?: emptyList()
-                val propertyName = dependencyToProperty[key] ?: ""
-                val type = if (isManaged) MANAGED_PLUGIN else "plugin"
-                val advisories = vulnerabilityAdvisories["$key:$currentVersion"].orEmpty()
-
-                tableModel.addRow(arrayOf(groupId, artifactId, propertyName, type, currentVersion, versions, advisories))
-            }
+            return RefreshSnapshot(rows, properties)
         }
 
         private fun performUpdateCheck(
@@ -1144,15 +1075,13 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         private fun navigateToDependency(groupId: String, artifactId: String, type: String = "dependency") {
-            val projects = MavenProjectsManager.getInstance(project).projects
-
             ProgressManager.getInstance().run(object : Task.Backgroundable(
                 project,
                 MyMessageBundle.message("toolwindow.MyToolWindow.refresh.button"),
                 false
             ) {
                 override fun run(indicator: ProgressIndicator) {
-                    for (mavenProject in projects) {
+                    for (mavenProject in MavenProjectsManager.getInstance(project).projects) {
                         val pomFile = mavenProject.file
                         val psiFile = ApplicationManager.getApplication().runReadAction<XmlFile?> {
                             PsiManager.getInstance(project).findFile(pomFile) as? XmlFile

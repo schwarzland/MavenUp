@@ -23,6 +23,8 @@
 - CVSS v2/v3 vector scores are normalized with the CVSS Calculator library for consistent severity display.
 
 ### Fixed
+- Maven project and PSI data for tool-window refreshes are now collected in a non-blocking background read action, preventing workspace file-index updates from running on the Event Dispatch Thread after Maven imports or manual refreshes.
+- OSS Index credentials are now loaded outside the Event Dispatch Thread and cached for settings change detection, preventing IntelliJ slow-operation violations when opening or checking the MavenUp settings page.
 - Prevented a `NullPointerException` when OSV returns CVSS 4.0 vectors that are not supported by the bundled CVSS calculator; MavenUp now keeps the advisory and falls back to its source severity.
 - Withdrawn OSV advisories are no longer included in vulnerability results.
 - Updated unit tests that still used reflection to call `resolveCredentialValue`, `findServerCredentials`,
