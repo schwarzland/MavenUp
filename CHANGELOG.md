@@ -1,10 +1,10 @@
 <!-- Keep a Changelog guide -> https://keepachangelog.com -->
 
 # MavenUp Changelog
-## [Unreleased]
+## [1.2.0]
 ### Added
 - Added a link in the OSS Index settings that opens the Sonatype account page for creating or copying an API token.
-- Added optional Sonatype OSS Index enrichment for Maven vulnerability checks, with credentials stored securely in IntelliJ Password Safe.
+- Added a **Check Vulnerabilities** action that queries OSV.dev and optionally enriches results with Sonatype OSS Index data, with credentials stored securely in IntelliJ Password Safe.
 - Added resolved transitive dependencies to vulnerability scans by default.
 - Added detailed vulnerability results with advisory IDs, aliases, severity/CVSS, summaries, sources, references, and a dedicated details dialog.
 - Added cross-source advisory deduplication and severity-aware vulnerability table cells.
@@ -17,6 +17,7 @@
 - New `DependencyUpdate` equality/copy test.
 
 ### Changed
+- Refocused the plugin description on user-visible capabilities while keeping internal implementation details concise.
 - Transitive vulnerability findings are now included in the **Vulnerabilities (Current)** cell of their direct dependency, marked with a transitive count, and included in that row's detail view.
 - Moved the **Vulnerabilities (Current)** column directly behind **Current Version** to make clear that findings apply to the currently used component version.
 - Sonatype OSS Index now requires username/email and API token when enabled because its API authentication uses both values; the settings UI visibly marks both fields as required.
@@ -28,6 +29,7 @@
 ### Fixed
 - Disabled **Check Vulnerabilities** while a refresh or update check is running to prevent overlapping background operations.
 - OSS Index requests are no longer sent when the configured username/email or API token is missing; OSV checks continue and the user receives a configuration warning.
+- Improved OSV diagnostic logging with request and chunk summaries, response-size mismatch warnings, HTTP error bodies, and cancellation details.
 - Reduced high-volume INFO logging for repository versions and OSV batch coordinates; detailed lists are now truncated and emitted only at DEBUG level to prevent excessive `idea.log` growth and UI freezes while the IDE monitors the log file.
 - Maven project and PSI data for tool-window refreshes are now collected in a non-blocking background read action, preventing workspace file-index updates from running on the Event Dispatch Thread after Maven imports or manual refreshes.
 - OSS Index credentials are now loaded outside the Event Dispatch Thread and cached for settings change detection, preventing IntelliJ slow-operation violations when opening or checking the MavenUp settings page.
@@ -42,15 +44,6 @@
 - Disabled the bundled Vue.js plugin (`org.jetbrains.plugins.vue`) in the test sandbox via `prepareTestSandbox`,
   which fixed a sporadic `TestLoggerAssertionError` unrelated to MavenUp's own code that could fail
   `MavenUpWindowFactoryTest` depending on test execution order.
-
-## [1.2.0]
-### Added
-- New **Check Vulnerabilities** button that queries [OSV.dev](https://osv.dev) for known vulnerabilities of the current version of every listed dependency and plugin.
-- New **Vulnerabilities** table column showing the number of vulnerabilities found for the current version. The column stays empty until the check has been run explicitly.
-
-### Fixed
-- Added diagnostic logging (request size, number of matches, HTTP error body) for the OSV.dev vulnerability lookup so failures can be diagnosed via `idea.log` instead of silently appearing as "0".
-- Expanded vulnerability lookup logging with start/finish summaries, chunk progress, request previews, cancellation logging, and response-size mismatch warnings.
 
 ## [1.1.0]
 ### Added
