@@ -2,11 +2,27 @@
 
 # MavenUp Changelog
 ## [Unreleased]
+### Added
+- Added optional Sonatype OSS Index enrichment for Maven vulnerability checks, with credentials stored securely in IntelliJ Password Safe.
+- Added resolved transitive dependencies to vulnerability scans by default.
+- Added detailed vulnerability results with advisory IDs, aliases, severity/CVSS, summaries, sources, references, and a dedicated details dialog.
+- Added cross-source advisory deduplication and severity-aware vulnerability table cells.
+- Additional unit test coverage for `DependencyApiService` (credential resolution edge cases, server credential
+  fallbacks, repository version collection, version filtering, qualifier detection) and
+  `VulnerabilityApiService` (result-order parsing, size mismatches, empty input, HTTP error handling, end-to-end
+  chunk fetch).
+- New `MavenUpConfigurableTest` covering display name, reset, change detection (`isModified`), and `apply`
+  behavior of the settings UI.
+- New `DependencyUpdate` equality/copy test.
+
 ### Changed
 - Refactored internal project structure into dedicated `model`, `service`, and `ui` packages without changing plugin behavior.
 - Moved external API requests for dependency version lookup and vulnerability checks from UI code into dedicated service-layer classes.
+- OSV batch results are now enriched with full advisory metadata instead of being reduced to counts.
+- CVSS v2/v3 vector scores are normalized with the CVSS Calculator library for consistent severity display.
 
 ### Fixed
+- Withdrawn OSV advisories are no longer included in vulnerability results.
 - Updated unit tests that still used reflection to call `resolveCredentialValue`, `findServerCredentials`,
   `collectVersionsFromRepositories`, `filterVersionsBySettings`, `buildVulnerabilityQuery`,
   `parseVulnerabilityCounts`, and `fetchVulnerabilityCountsForChunk` on `MavenUpWindowFactory.MyToolWindow`.
@@ -16,15 +32,6 @@
 - Disabled the bundled Vue.js plugin (`org.jetbrains.plugins.vue`) in the test sandbox via `prepareTestSandbox`,
   which fixed a sporadic `TestLoggerAssertionError` unrelated to MavenUp's own code that could fail
   `MavenUpWindowFactoryTest` depending on test execution order.
-
-### Added
-- Additional unit test coverage for `DependencyApiService` (credential resolution edge cases, server credential
-  fallbacks, repository version collection, version filtering, qualifier detection) and
-  `VulnerabilityApiService` (result-order parsing, size mismatches, empty input, HTTP error handling, end-to-end
-  chunk fetch).
-- New `MavenUpConfigurableTest` covering display name, reset, change detection (`isModified`), and `apply`
-  behavior of the settings UI.
-- New `DependencyUpdate` equality/copy test.
 
 ## [1.2.0]
 ### Added

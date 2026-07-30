@@ -22,9 +22,11 @@
             <li><b>Update Check:</b> Checks for newer versions in configured repositories at the click of a button.</li>
             <li><b>Select & Update Versions:</b> Select new versions from a dropdown and automatically update the <code>pom.xml</code>.</li>
             <li><b>Navigation:</b> Jump directly to the definition in the <code>pom.xml</code> via double-click (or optional single-click).</li>
-            <li><b>Vulnerability Check:</b> Explicitly check the current version of every dependency and plugin for known vulnerabilities via OSV.dev; the result count is shown in a dedicated column and stays empty until checked.</li>
+            <li><b>Multi-Source Vulnerability Check:</b> Checks direct components and resolved transitive dependencies through OSV.dev, with optional Maven-focused enrichment from Sonatype OSS Index.</li>
+            <li><b>Detailed Security Findings:</b> Shows deduplicated advisory IDs, aliases, severity/CVSS, summaries, sources, and references while filtering withdrawn advisories.</li>
+            <li><b>Secure Credentials:</b> Stores optional OSS Index credentials in IntelliJ Password Safe.</li>
             <li><b>Maintainable Architecture:</b> Internally structured into dedicated model, service, and UI layers.</li>
-            <li><b>Service-based API Integration:</b> External metadata and vulnerability requests are handled in dedicated service classes.</li>
+            <li><b>Service-based API Integration:</b> External metadata and multi-source vulnerability requests are handled in dedicated service classes.</li>
         </ul>
         ]]></description>
 

@@ -20,7 +20,13 @@ This document lists the key features of the MavenUp IntelliJ plugin.
 - **Input validation for displayed entries**: Skips dependencies and plugins without `groupId` so invalid entries are not shown.
 - **Logging and diagnostics**: Logs parsing errors, credential resolution issues, and repository request failures (including HTTP status).
 - **Project-level plugin settings**: Supports configurable behavior in `Settings > Tools > MavenUp` (click behavior, auto-select latest, unstable-version filtering).
-- **Vulnerability check via OSV.dev**: A dedicated "Check Vulnerabilities" button explicitly queries [OSV.dev](https://osv.dev) for known vulnerabilities of the current version of each dependency and plugin.
-- **Vulnerability count column**: Displays the number of vulnerabilities found for the current version; stays empty until a vulnerability check has been run.
+- **Multi-source vulnerability check**: Uses [OSV.dev](https://osv.dev) as the primary source and can optionally enrich results with Maven-focused findings from [Sonatype OSS Index](https://ossindex.sonatype.org/).
+- **Resolved transitive dependency coverage**: Includes the resolved Maven dependency tree by default, while keeping transitive findings out of the update table.
+- **Detailed vulnerability intelligence**: Retrieves advisory identifiers, aliases, summaries, severity/CVSS information, references, and source attribution.
+- **Cross-source deduplication**: Merges matching CVE, GHSA, OSV, and Sonatype findings by intersecting advisory identifiers and aliases.
+- **Withdrawn advisory filtering**: Excludes withdrawn OSV advisories from results.
+- **Severity-aware vulnerability column**: Displays the deduplicated finding count and highest known severity; stays empty until a check has been run.
+- **Vulnerability details dialog**: Shows findings for individual components or the complete scan, including transitive component markers and browser-accessible references.
+- **Secure OSS Index credentials**: Stores the optional API token in IntelliJ Password Safe instead of project settings.
 - **Layered internal architecture**: Code is organized into explicit `model`, `service`, and `ui` packages to keep responsibilities separated and maintainable.
-- **Service-based API access**: External OSV and Maven metadata API requests are handled through dedicated service-layer components instead of UI classes.
+- **Service-based API access**: External OSV, OSS Index, and Maven metadata API requests are handled through dedicated service-layer components instead of UI classes.

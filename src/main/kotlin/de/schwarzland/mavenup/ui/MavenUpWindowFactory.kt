@@ -2,9 +2,14 @@ package de.schwarzland.mavenup.ui
 
 import de.schwarzland.mavenup.MyMessageBundle
 import de.schwarzland.mavenup.model.DependencyUpdate
+import de.schwarzland.mavenup.model.VulnerabilityAdvisory
+import de.schwarzland.mavenup.model.VulnerabilitySeverity
 import de.schwarzland.mavenup.service.DependencyApiService
 import de.schwarzland.mavenup.service.MavenUpSettings
+import de.schwarzland.mavenup.service.OssIndexApiService
+import de.schwarzland.mavenup.service.OssIndexCredentialService
 import de.schwarzland.mavenup.service.VulnerabilityApiService
+import de.schwarzland.mavenup.service.VulnerabilityMerger
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.diagnostic.Logger
@@ -16,6 +21,7 @@ import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.ComboBox
 import com.intellij.openapi.ui.DialogWrapper
+import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
 import com.intellij.psi.PsiManager
@@ -32,6 +38,7 @@ import org.apache.maven.artifact.versioning.ComparableVersion
 import org.jetbrains.idea.maven.project.MavenImportListener
 import org.jetbrains.idea.maven.project.MavenProject
 import org.jetbrains.idea.maven.project.MavenProjectsManager
+import org.jetbrains.idea.maven.model.MavenArtifactNode
 import java.awt.BorderLayout
 import java.awt.Component
 import java.awt.FlowLayout
@@ -118,12 +125,15 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
     internal inner class MyToolWindow(private val project: Project) {
         private val vulnerabilityApiService = VulnerabilityApiService()
+        private val ossIndexApiService = OssIndexApiService()
+        private val ossIndexCredentialService = OssIndexCredentialService()
         private val dependencyApiService = DependencyApiService(project)
         private val availableVersions = mutableMapOf<String, List<String>>()
         private val selectedVersions = mutableMapOf<String, String>()
         private val dependencyToProperty = mutableMapOf<String, String>()
         private val knownDependencies = mutableMapOf<String, String>() // key to current version
-        private val vulnerabilityCounts = mutableMapOf<String, Int>() // "group:artifact:version" to vulnerability count
+        private val vulnerabilityAdvisories = mutableMapOf<String, List<VulnerabilityAdvisory>>()
+        private val transitiveCoordinates = mutableSetOf<String>()
         private var isUpdating = false
 
         private val content = JBPanel<JBPanel<*>>(BorderLayout()).apply {
@@ -143,18 +153,33 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
             table.addMouseListener(object : MouseAdapter() {
                 override fun mouseClicked(e: MouseEvent) {
+                    val row = table.rowAtPoint(e.point)
+                    val column = table.columnAtPoint(e.point)
+                    if (row < 0) return
+                    if (column == 6 && e.clickCount == 1) {
+                        @Suppress("UNCHECKED_CAST")
+                        val advisories = table.getValueAt(row, 6) as? List<VulnerabilityAdvisory> ?: emptyList()
+                        if (advisories.isNotEmpty()) {
+                            val coordinate = listOf(0, 1, 4)
+                                .joinToString(":") { table.getValueAt(row, it).toString() }
+                            VulnerabilityDetailDialog(
+                                project,
+                                mapOf(coordinate to advisories),
+                                "$coordinate - ${MyMessageBundle.message("vulnerability.details.title")}"
+                            ).show()
+                        }
+                        return
+                    }
+
                     val settings = MavenUpSettings.getInstance(project)
                     val requiredClickCount = if (settings.state.jumpOnSingleClick) 1 else 2
 
                     if (e.clickCount == requiredClickCount) {
-                        val row = table.rowAtPoint(e.point)
-                        if (row >= 0) {
-                            val groupId = table.getValueAt(row, 0) as? String ?: ""
-                            val artifactId = table.getValueAt(row, 1) as? String ?: ""
-                            val type = table.getValueAt(row, 3) as? String ?: "dependency"
+                        val groupId = table.getValueAt(row, 0) as? String ?: ""
+                        val artifactId = table.getValueAt(row, 1) as? String ?: ""
+                        val type = table.getValueAt(row, 3) as? String ?: "dependency"
 
-                            navigateToDependency(groupId, artifactId, type)
-                        }
+                        navigateToDependency(groupId, artifactId, type)
                     }
                 }
             })
@@ -163,6 +188,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
             val checkUpdatesButton = JButton(MyMessageBundle.message("toolwindow.MyToolWindow.checkUpdates.button"))
             val checkVulnerabilitiesButton =
                 JButton(MyMessageBundle.message("toolwindow.MyToolWindow.checkVulnerabilities.button"))
+            val vulnerabilityDetailsButton =
+                JButton(MyMessageBundle.message("toolwindow.MyToolWindow.vulnerabilityDetails.button")).apply {
+                    isEnabled = false
+                }
             val updateButton = JButton(MyMessageBundle.message("toolwindow.MyToolWindow.update.button"))
             val settingsButton = JButton(AllIcons.General.Settings).apply {
                 toolTipText = MyMessageBundle.message("toolwindow.MyToolWindow.settings.button")
@@ -275,6 +304,26 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     val groupId = currentKey?.substringBefore(":")
                     val artifactId = currentKey?.substringAfter(":")
                     return availableVersions["$groupId:$artifactId"]
+                }
+            }
+
+            table.columnModel.getColumn(6).cellRenderer = TableCellRenderer { currentTable, value, isSelected, _, _, _ ->
+                @Suppress("UNCHECKED_CAST")
+                val advisories = value as? List<VulnerabilityAdvisory> ?: emptyList()
+                JLabel(vulnerabilitySummary(advisories)).apply {
+                    isOpaque = true
+                    border = BorderFactory.createEmptyBorder(0, 6, 0, 6)
+                    toolTipText = if (advisories.isEmpty()) {
+                        null
+                    } else {
+                        MyMessageBundle.message("vulnerability.details.title")
+                    }
+                    background = if (isSelected) {
+                        currentTable.selectionBackground
+                    } else {
+                        vulnerabilityColor(worstSeverity(advisories), currentTable.background)
+                    }
+                    foreground = if (isSelected) currentTable.selectionForeground else currentTable.foreground
                 }
             }
 
@@ -509,6 +558,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     refreshButton.isEnabled = false
                     checkUpdatesButton.isEnabled = false
                     checkVulnerabilitiesButton.isEnabled = false
+                    vulnerabilityDetailsButton.isEnabled = false
                     updateButton.isEnabled = false
 
                     performVulnerabilityCheck {
@@ -517,6 +567,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         checkUpdatesButton.isEnabled = true
                         checkVulnerabilitiesButton.isEnabled = true
                         refreshAction(false, false)
+                        vulnerabilityDetailsButton.isEnabled = vulnerabilityAdvisories.values.any { it.isNotEmpty() }
                         updateUpdateButtonState(updateButton)
                     }
                 }
@@ -536,6 +587,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     })
                     add(checkVulnerabilitiesButton.apply {
                         addActionListener { checkVulnerabilitiesAction() }
+                    })
+                    add(vulnerabilityDetailsButton.apply {
+                        addActionListener { showAllVulnerabilityDetails() }
                     })
                     add(updateButton.apply {
                         addActionListener { updateAction() }
@@ -624,9 +678,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 } else {
                     "dependency"
                 }
-                val vulnerabilityCount = vulnerabilityCounts["$key:$currentVersion"]?.toString() ?: ""
+                val advisories = vulnerabilityAdvisories["$key:$currentVersion"].orEmpty()
 
-                tableModel.addRow(arrayOf(groupId, artifactId, propertyName, type, currentVersion, versions, vulnerabilityCount))
+                tableModel.addRow(arrayOf(groupId, artifactId, propertyName, type, currentVersion, versions, advisories))
             }
         }
 
@@ -653,9 +707,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 val versions = availableVersions[key] ?: emptyList()
                 val propertyName = dependencyToProperty[key] ?: ""
                 val type = if (isManaged) MANAGED_PLUGIN else "plugin"
-                val vulnerabilityCount = vulnerabilityCounts["$key:$currentVersion"]?.toString() ?: ""
+                val advisories = vulnerabilityAdvisories["$key:$currentVersion"].orEmpty()
 
-                tableModel.addRow(arrayOf(groupId, artifactId, propertyName, type, currentVersion, versions, vulnerabilityCount))
+                tableModel.addRow(arrayOf(groupId, artifactId, propertyName, type, currentVersion, versions, advisories))
             }
         }
 
@@ -768,20 +822,60 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 true
             ) {
                 override fun run(indicator: ProgressIndicator) {
-                    val dependencies = knownDependencies.entries
+                    val directDependencies = knownDependencies.entries
                         .filter { it.value.isNotEmpty() }
                         .map { (key, version) -> Triple(key.substringBefore(":"), key.substringAfter(":"), version) }
+                    val dependencies = LinkedHashSet(directDependencies)
+                    val discoveredTransitiveCoordinates = mutableSetOf<String>()
+                    if (MavenUpSettings.getInstance(project).state.checkTransitiveDependencies) {
+                        collectResolvedDependencies(MavenProjectsManager.getInstance(project).projects)
+                            .forEach { dependency ->
+                                dependencies.add(dependency)
+                                val coordinate = "${dependency.first}:${dependency.second}:${dependency.third}"
+                                if (dependency !in directDependencies) discoveredTransitiveCoordinates.add(coordinate)
+                            }
+                    }
                     LOG.info("Starting vulnerability check for ${dependencies.size} dependencies/plugins.")
 
-                    val counts = fetchVulnerabilityCounts(dependencies, indicator)
-                    vulnerabilityCounts.putAll(counts)
-                    val vulnerableEntries = counts.values.count { it > 0 }
+                    val osvResults = vulnerabilityApiService.fetchVulnerabilityAdvisories(dependencies.toList(), indicator)
+                    val settings = MavenUpSettings.getInstance(project).state
+                    var ossIndexError: String? = null
+                    val ossIndexResults = if (settings.ossIndexEnabled && !indicator.isCanceled) {
+                        try {
+                            val credentials = ossIndexCredentialService.retrieve()
+                            ossIndexApiService.fetchVulnerabilityAdvisories(
+                                dependencies.toList(),
+                                settings.ossIndexUsername.ifBlank { credentials?.userName.orEmpty() },
+                                credentials?.getPasswordAsString(),
+                                indicator
+                            )
+                        } catch (exception: Exception) {
+                            LOG.warn("OSS Index vulnerability check failed", exception)
+                            ossIndexError = exception.message ?: exception.javaClass.simpleName
+                            emptyMap()
+                        }
+                    } else {
+                        emptyMap()
+                    }
+                    val results = VulnerabilityMerger.merge(osvResults, ossIndexResults)
+                    val vulnerableEntries = results.values.count { it.isNotEmpty() }
                     LOG.info(
                         "Finished vulnerability check. " +
-                            "Results for ${counts.size} entries, $vulnerableEntries entries with known vulnerabilities."
+                            "Results for ${results.size} entries, $vulnerableEntries entries with known vulnerabilities."
                     )
 
                     ApplicationManager.getApplication().invokeLater {
+                        vulnerabilityAdvisories.clear()
+                        vulnerabilityAdvisories.putAll(results)
+                        transitiveCoordinates.clear()
+                        transitiveCoordinates.addAll(discoveredTransitiveCoordinates)
+                        ossIndexError?.let {
+                            Messages.showWarningDialog(
+                                project,
+                                it,
+                                MyMessageBundle.message("vulnerability.ossIndex.error.title")
+                            )
+                        }
                         onFinished()
                     }
                 }
@@ -793,6 +887,59 @@ class MavenUpWindowFactory : ToolWindowFactory {
             indicator: ProgressIndicator? = null
         ): Map<String, Int> {
             return vulnerabilityApiService.fetchVulnerabilityCounts(dependencies, indicator)
+        }
+
+        internal fun collectResolvedDependencies(
+            projects: Collection<MavenProject>
+        ): Set<Triple<String, String, String>> {
+            val dependencies = linkedSetOf<Triple<String, String, String>>()
+
+            fun collect(nodes: Collection<MavenArtifactNode>) {
+                nodes.forEach { node ->
+                    val artifact = node.artifact
+                    val version = artifact.version.orEmpty()
+                    if (artifact.groupId.isNotEmpty() && artifact.artifactId.isNotEmpty() && version.isNotEmpty()) {
+                        dependencies.add(Triple(artifact.groupId, artifact.artifactId, version))
+                    }
+                    collect(node.dependencies)
+                }
+            }
+
+            projects.forEach { collect(it.dependencyTree) }
+            return dependencies
+        }
+
+        private fun showAllVulnerabilityDetails() {
+            val findings = vulnerabilityAdvisories
+                .filterValues { it.isNotEmpty() }
+                .mapKeys { (coordinate, _) ->
+                    if (coordinate in transitiveCoordinates) "$coordinate (transitive)" else coordinate
+                }
+            if (findings.isNotEmpty()) VulnerabilityDetailDialog(project, findings).show()
+        }
+
+        private fun vulnerabilitySummary(advisories: List<VulnerabilityAdvisory>): String {
+            if (advisories.isEmpty()) return ""
+            val severity = worstSeverity(advisories)
+            return if (severity == VulnerabilitySeverity.UNKNOWN) {
+                advisories.size.toString()
+            } else {
+                "${advisories.size} (${severity.name})"
+            }
+        }
+
+        private fun worstSeverity(advisories: List<VulnerabilityAdvisory>): VulnerabilitySeverity =
+            advisories.maxByOrNull { it.severity.rank }?.severity ?: VulnerabilitySeverity.UNKNOWN
+
+        private fun vulnerabilityColor(
+            severity: VulnerabilitySeverity,
+            defaultColor: java.awt.Color
+        ): java.awt.Color = when (severity) {
+            VulnerabilitySeverity.CRITICAL -> com.intellij.ui.JBColor(0xFFB3B3, 0x6E2C2C)
+            VulnerabilitySeverity.HIGH -> com.intellij.ui.JBColor(0xFFD5A3, 0x714A21)
+            VulnerabilitySeverity.MEDIUM -> com.intellij.ui.JBColor(0xFFF0A6, 0x665A21)
+            VulnerabilitySeverity.LOW -> com.intellij.ui.JBColor(0xC7E3FF, 0x294E6B)
+            VulnerabilitySeverity.UNKNOWN -> defaultColor
         }
 
         private fun checkForUpdates(onFinished: () -> Unit) {

@@ -25,6 +25,9 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
         settings.state.selectLatestVersion = false
         settings.state.hideUnstableVersions = true
         settings.state.hiddenVersionQualifiers = "rc,beta"
+        settings.state.checkTransitiveDependencies = false
+        settings.state.ossIndexEnabled = true
+        settings.state.ossIndexUsername = "user@example.test"
 
         val configurable = MavenUpConfigurable(project)
         configurable.createComponent()
@@ -56,6 +59,9 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
         settings.state.selectLatestVersion = true
         settings.state.hideUnstableVersions = false
         settings.state.hiddenVersionQualifiers = "rc"
+        settings.state.checkTransitiveDependencies = true
+        settings.state.ossIndexEnabled = false
+        settings.state.ossIndexUsername = ""
 
         val configurable = MavenUpConfigurable(project)
         configurable.createComponent()
@@ -71,9 +77,21 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
         val jumpCheckBox = jumpCheckBoxField.get(configurable) as com.intellij.ui.components.JBCheckBox
         jumpCheckBox.isSelected = true
 
+        val ossIndexEnabledField = configurable.javaClass.getDeclaredField("ossIndexEnabledCheckBox")
+            .apply { isAccessible = true }
+        val ossIndexEnabled = ossIndexEnabledField.get(configurable) as com.intellij.ui.components.JBCheckBox
+        ossIndexEnabled.isSelected = true
+
+        val ossIndexUsernameField = configurable.javaClass.getDeclaredField("ossIndexUsernameField")
+            .apply { isAccessible = true }
+        val ossIndexUsername = ossIndexUsernameField.get(configurable) as javax.swing.JTextField
+        ossIndexUsername.text = "user@example.test"
+
         configurable.apply()
 
         assertTrue(settings.state.jumpOnSingleClick)
         assertEquals("rc,beta,milestone", settings.state.hiddenVersionQualifiers)
+        assertTrue(settings.state.ossIndexEnabled)
+        assertEquals("user@example.test", settings.state.ossIndexUsername)
     }
 }

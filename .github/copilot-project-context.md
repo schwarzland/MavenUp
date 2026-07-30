@@ -18,14 +18,25 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
 - **MavenUpWindowFactory**: Zentrale `ToolWindowFactory` + `MyToolWindow`.
   Datenmodell/Tabelle, Versionsprüfung (`maven-metadata.xml`), Central-first-Strategie,
   Credential-Auflösung, Update-Schreibvorgang mit Bestätigungsdialog, Navigation zur
-  pom.xml-Definition, Hintergrund-Tasks für lange Aktionen.
+  pom.xml-Definition sowie Multi-Source-Vulnerability-Checks für direkte und transitive
+  Dependencies in Hintergrund-Tasks.
 - **MavenUpSettings**: `PersistentStateComponent`, gespeichert in `mavenup_settings.xml`
-  (`jumpOnSingleClick`, `selectLatestVersion`, Filter für instabile Versionen/Qualifier).
+  (`jumpOnSingleClick`, `selectLatestVersion`, Filter für instabile Versionen/Qualifier,
+  OSS-Index-Aktivierung/Benutzername, Transitiv-Scan). Das OSS-Index-Token liegt ausschließlich
+  im IntelliJ Password Safe.
 - **MavenUpConfigurable**: Settings-UI unter `Settings > Tools > MavenUp`.
+- **VulnerabilityApiService**: OSV-Batchabfrage plus Detailanreicherung und Filterung
+  zurückgezogener Advisories.
+- **OssIndexApiService / OssIndexCredentialService**: optionale Sonatype-Abfrage über Maven-purl
+  und sichere Zugangsdatenablage.
+- **VulnerabilityMerger / VulnerabilityAdvisory**: normalisiertes Security-Datenmodell und
+  quellenübergreifende Deduplizierung anhand von IDs/Aliasen; CVSS-Vektoren werden über
+  `us.springett:cvss-calculator` normalisiert.
+- **VulnerabilityDetailDialog**: Detailansicht für direkte und transitive Befunde.
 - **MyMessageBundle**: I18n-Wrapper (`messages.MyMessageBundle`).
 
-Tests: `src/test/kotlin/de/schwarzland/mavenup/` (`MavenUpStartupActivityTest`,
-`MavenUpWindowFactoryTest`).
+Tests: `src/test/kotlin/de/schwarzland/mavenup/` mit Plattformtests sowie reinen Service-/Modelltests
+für OSV, OSS Index und Advisory-Deduplizierung.
 
 ## Doku- und Prozesspflichten
 Siehe `.github/copilot-instructions.md` für die verbindliche Arbeitsanweisung

@@ -19,7 +19,8 @@ Eine vollständige, englische Feature-Liste steht in `FEATURES.md`.
 - **Hintergrundverarbeitung für lange Aktionen**: Update-Check, Navigation und Schreiboperationen laufen im Hintergrund, damit die IDE responsiv bleibt.
 - **Navigation zur Definition in `pom.xml`**: Per Doppelklick (oder optional Einzelklick) springt MavenUp direkt zur passenden Dependency-/Plugin-Definition.
 - **Integrierte Einstellungen**: Über `Settings > Tools > MavenUp` konfigurierbar (u.a. Single-Click-Navigation, automatische Vorauswahl der neuesten Version).
-- **Vulnerability-Check über OSV.dev**: Über den Button **Check Vulnerabilities** wird für die aktuelle Version jeder Dependency/jedes Plugin explizit geprüft, ob bekannte Sicherheitslücken existieren (Quelle: [OSV.dev](https://osv.dev)). Die Anzahl wird in der Spalte **Vulnerabilities** angezeigt; solange kein Check durchgeführt wurde, bleibt die Spalte leer.
+- **Multi-Source-Vulnerability-Check**: **Check Vulnerabilities** prüft direkte Komponenten und standardmäßig auch aufgelöste transitive Dependencies über [OSV.dev](https://osv.dev). Optional ergänzt [Sonatype OSS Index](https://ossindex.sonatype.org/) Maven-spezifische Befunde.
+- **Detaillierte Security-Befunde**: Die Tabelle zeigt Anzahl und höchsten Schweregrad. **Vulnerability Details** zeigt IDs, Aliase, CVSS, Beschreibung, Quellen und Referenzen. Zurückgezogene Advisories werden ignoriert und Mehrfachmeldungen anhand ihrer IDs/Aliase zusammengeführt.
 
 ### Intern
 - **Gezielte Credential-Zuordnung**: Ordnet Credentials primär über Repository-ID zu, mit Fallback über Repository-URL und Hostname.
@@ -37,7 +38,8 @@ Das Plugin öffnet ein Tool-Window namens **MavenUp** (meist am rechten oder unt
 2. **Check for Updates**: Sucht online nach verfügbaren Versionen für alle gelisteten Einträge.
 3. **New Version**: In dieser Spalte kann nach dem Update-Check eine neuere Version gewählt werden.
 4. **Update**: Wendet die gewählten Versionsänderungen auf die entsprechenden `pom.xml`-Dateien an.
-5. **Check Vulnerabilities**: Ermittelt explizit über OSV.dev die Anzahl bekannter Sicherheitslücken für die aktuelle Version jeder Dependency/jedes Plugins und zeigt sie in der Spalte **Vulnerabilities** an. Solange kein Check ausgeführt wurde, bleibt die Spalte leer.
+5. **Check Vulnerabilities**: Prüft direkte Komponenten und, sofern aktiviert, transitive Dependencies über OSV.dev sowie optional OSS Index. Die Spalte **Vulnerabilities** zeigt Anzahl und höchsten Schweregrad.
+6. **Vulnerability Details**: Öffnet alle Befunde inklusive Quellen, IDs/Aliasen, CVSS, Beschreibung und Referenzen. Ein Klick auf eine befüllte Vulnerability-Zelle öffnet die Details der jeweiligen Komponente.
 
 ### English
 The plugin opens a tool window named **MavenUp** (usually located at the right or bottom edge of the IDE).
@@ -46,7 +48,8 @@ The plugin opens a tool window named **MavenUp** (usually located at the right o
 2. **Check for Updates**: Searches online for available versions for all listed entries.
 3. **New Version**: In this column, a newer version can be selected after the update check.
 4. **Update**: Applies the selected version changes to the corresponding `pom.xml` files.
-5. **Check Vulnerabilities**: Explicitly queries OSV.dev for the number of known vulnerabilities of the current version of every dependency/plugin and shows it in the **Vulnerabilities** column. The column stays empty until a check has been run.
+5. **Check Vulnerabilities**: Checks direct components and, when enabled, resolved transitive dependencies through OSV.dev and optionally Sonatype OSS Index. The **Vulnerabilities** column shows the count and highest severity.
+6. **Vulnerability Details**: Opens detailed findings with sources, IDs/aliases, CVSS, summaries, and references. Clicking a populated vulnerability cell opens details for that component.
 
 ## Einstellungen
 
@@ -56,6 +59,8 @@ Unter `Settings > Tools > MavenUp` können folgende Optionen konfiguriert werden
 - **Automatically select newest version**: Wählt nach einem Update-Check automatisch die jeweils neueste verfügbare Version in der Dropdown-Liste aus.
 - **Hide unstable versions**: Blendet instabile Versionen (z.B. RC/Beta) aus den auswählbaren Update-Versionen aus.
 - **Hidden version qualifiers (comma-separated)**: Liste der auszublendenden Typen, z.B. `rc,beta,milestone` (eingerückt dargestellt; Label und Feld sind nur aktiv, wenn der Filter eingeschaltet ist; größeres Eingabefeld für längere Listen).
+- **Include resolved transitive dependencies**: Nimmt standardmäßig den aufgelösten Maven-Dependency-Tree in den Vulnerability-Check auf.
+- **Use Sonatype OSS Index as an additional source**: Aktiviert die optionale zweite Datenquelle. Benutzername/E-Mail und API-Token sind optional; das Token wird ausschließlich im IntelliJ Password Safe gespeichert und nicht in `mavenup_settings.xml`.
 
 ## Gradle Proxy-Konfiguration
 
@@ -85,15 +90,18 @@ Danach einmal `gradlew --stop` ausführen, damit der Gradle-Daemon die neuen Ein
 Das Plugin ist jetzt klar in drei Schichten gegliedert:
 
 ### Datenmodell (`de.schwarzland.mavenup.model`)
-- Enthält schlanke DTOs für den UI-/Service-Datenaustausch, z. B. `DependencyUpdate`.
+- Enthält schlanke DTOs für den UI-/Service-Datenaustausch, z. B. `DependencyUpdate` und `VulnerabilityAdvisory`.
 
 ### Service (`de.schwarzland.mavenup.service`)
 - `MavenUpStartupActivity`: steuert die Verfügbarkeit des Tool-Windows beim Projektstart.
-- `MavenUpSettings`: projektbezogener Persistenz-Service (`PersistentStateComponent`) in `mavenup_settings.xml`.
-- `DependencyApiService` und `VulnerabilityApiService`: kapseln externe API-Abfragen für Versionen und Vulnerabilities außerhalb der UI.
+- `MavenUpSettings`: projektbezogener Persistenz-Service (`PersistentStateComponent`) in `mavenup_settings.xml`; OSS-Index-Tokens werden getrennt über `OssIndexCredentialService` im Password Safe gespeichert.
+- `DependencyApiService`, `VulnerabilityApiService` und `OssIndexApiService`: kapseln externe API-Abfragen für Versionen und Vulnerabilities außerhalb der UI.
+- `VulnerabilityMerger`: dedupliziert Befunde aus mehreren Quellen anhand von Advisory-IDs und Aliasen.
+- CVSS-Vektoren aus OSV werden mit `us.springett:cvss-calculator` in vergleichbare Basisscores umgerechnet.
 
 ### UI (`de.schwarzland.mavenup.ui`)
 - `MavenUpWindowFactory`: Tool-Window-Factory und UI-Interaktion für Tabelle, Update- und Vulnerability-Workflows.
+- `VulnerabilityDetailDialog`: zeigt direkte und transitive Security-Befunde mit Quellen und Referenzen.
 - `MavenUpConfigurable`: Einstellungs-UI unter `Settings > Tools > MavenUp`, gebunden an `MavenUpSettings`.
 - `MyMessageBundle` (weiterhin im Basispaket): zentralisierte i18n-Texte für die UI.
 
