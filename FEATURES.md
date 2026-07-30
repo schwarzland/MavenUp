@@ -27,7 +27,8 @@ This document lists the key features of the MavenUp IntelliJ plugin.
 - **Withdrawn advisory filtering**: Excludes withdrawn OSV advisories from results.
 - **Severity-aware vulnerability column**: Displays the deduplicated finding count and highest known severity; stays empty until a check has been run.
 - **Vulnerability details dialog**: Shows findings for individual components or the complete scan, including transitive component markers and browser-accessible references.
-- **Secure and responsive OSS Index credentials**: Stores the optional API token in IntelliJ Password Safe instead of project settings and loads it outside the Event Dispatch Thread.
+- **Validated OSS Index authentication**: Requires both username/email and API token when OSS Index is enabled, visibly marks both fields as required, and skips OSS Index requests when stored credentials are incomplete.
+- **Secure and responsive OSS Index credentials**: Stores the required API token in IntelliJ Password Safe instead of project settings and loads it outside the Event Dispatch Thread.
 - **OSS Index token guidance**: Provides a direct settings link to the Sonatype account page where users can create or copy their API token.
 - **Layered internal architecture**: Code is organized into explicit `model`, `service`, and `ui` packages to keep responsibilities separated and maintainable.
 - **Service-based API access**: External OSV, OSS Index, and Maven metadata API requests are handled through dedicated service-layer components instead of UI classes.

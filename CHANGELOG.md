@@ -17,12 +17,14 @@
 - New `DependencyUpdate` equality/copy test.
 
 ### Changed
+- Sonatype OSS Index now requires username/email and API token when enabled because its API authentication uses both values; the settings UI visibly marks both fields as required.
 - Refactored internal project structure into dedicated `model`, `service`, and `ui` packages without changing plugin behavior.
 - Moved external API requests for dependency version lookup and vulnerability checks from UI code into dedicated service-layer classes.
 - OSV batch results are now enriched with full advisory metadata instead of being reduced to counts.
 - CVSS v2/v3 vector scores are normalized with the CVSS Calculator library for consistent severity display.
 
 ### Fixed
+- OSS Index requests are no longer sent when the configured username/email or API token is missing; OSV checks continue and the user receives a configuration warning.
 - Reduced high-volume INFO logging for repository versions and OSV batch coordinates; detailed lists are now truncated and emitted only at DEBUG level to prevent excessive `idea.log` growth and UI freezes while the IDE monitors the log file.
 - Maven project and PSI data for tool-window refreshes are now collected in a non-blocking background read action, preventing workspace file-index updates from running on the Event Dispatch Thread after Maven imports or manual refreshes.
 - OSS Index credentials are now loaded outside the Event Dispatch Thread and cached for settings change detection, preventing IntelliJ slow-operation violations when opening or checking the MavenUp settings page.

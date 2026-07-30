@@ -8,6 +8,7 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.options.Configurable
+import com.intellij.openapi.options.ConfigurationException
 import com.intellij.openapi.project.Project
 import com.intellij.util.concurrency.AppExecutorUtil
 import com.intellij.ui.components.JBCheckBox
@@ -18,7 +19,7 @@ import javax.swing.JLabel
 import javax.swing.JPasswordField
 import javax.swing.JTextField
 
-internal const val OSS_INDEX_ACCOUNT_URL = "https://ossindex.sonatype.org"
+internal const val OSS_INDEX_ACCOUNT_URL = "https://ossindex.sonatype.org/user/settings"
 
 class MavenUpConfigurable internal constructor(
     private val project: Project,
@@ -135,15 +136,22 @@ class MavenUpConfigurable internal constructor(
 
     override fun apply() {
         val settings = MavenUpSettings.getInstance(project)
+        val ossIndexEnabled = ossIndexEnabledCheckBox?.isSelected ?: false
+        val ossIndexUsername = ossIndexUsernameField?.text?.trim().orEmpty()
+        val ossIndexToken = currentToken()
+        if (ossIndexEnabled && credentialsLoaded && (ossIndexUsername.isBlank() || ossIndexToken.isBlank())) {
+            throw ConfigurationException(MyMessageBundle.message("settings.ossIndex.credentialsRequired"))
+        }
+
         settings.state.jumpOnSingleClick = jumpOnSingleClickCheckBox?.isSelected ?: false
         settings.state.selectLatestVersion = selectLatestVersionCheckBox?.isSelected ?: true
         settings.state.hideUnstableVersions = hideUnstableVersionsCheckBox?.isSelected ?: false
         settings.state.hiddenVersionQualifiers = hiddenVersionQualifiersField?.text?.trim().orEmpty()
         settings.state.checkTransitiveDependencies = checkTransitiveDependenciesCheckBox?.isSelected ?: true
-        settings.state.ossIndexEnabled = ossIndexEnabledCheckBox?.isSelected ?: false
-        settings.state.ossIndexUsername = ossIndexUsernameField?.text?.trim().orEmpty()
+        settings.state.ossIndexEnabled = ossIndexEnabled
+        settings.state.ossIndexUsername = ossIndexUsername
         if (credentialsLoaded) {
-            storedToken = currentToken()
+            storedToken = ossIndexToken
             credentialService.store(settings.state.ossIndexUsername, storedToken)
         }
     }
@@ -197,6 +205,8 @@ class MavenUpConfigurable internal constructor(
                     credentialLoadFuture = null
                     if (error != null) {
                         LOG.warn("Unable to load OSS Index credentials from Password Safe", error)
+                        credentialsLoaded = true
+                        updateOssIndexControlsEnabled(ossIndexEnabledCheckBox?.isSelected == true)
                         return@invokeLater
                     }
                     storedToken = credentials?.getPasswordAsString().orEmpty()
@@ -216,6 +226,13 @@ class MavenUpConfigurable internal constructor(
     }
 
     private fun updateOssIndexControlsEnabled(enabled: Boolean) {
+        ossIndexUsernameLabel?.text = MyMessageBundle.message(
+            if (enabled) "settings.ossIndex.usernameRequired" else "settings.ossIndex.username"
+        )
+        ossIndexTokenLabel?.text = MyMessageBundle.message(
+            if (enabled) "settings.ossIndex.tokenRequired" else "settings.ossIndex.token"
+        )
+        ossIndexEnabledCheckBox?.isEnabled = credentialsLoaded
         ossIndexUsernameLabel?.isEnabled = enabled
         ossIndexUsernameField?.isEnabled = enabled
         ossIndexTokenLabel?.isEnabled = enabled && credentialsLoaded

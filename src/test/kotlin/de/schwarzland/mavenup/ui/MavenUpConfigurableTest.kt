@@ -3,6 +3,7 @@ package de.schwarzland.mavenup.ui
 import de.schwarzland.mavenup.service.MavenUpSettings
 import de.schwarzland.mavenup.service.OssIndexCredentialStore
 import com.intellij.credentialStore.Credentials
+import com.intellij.openapi.options.ConfigurationException
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.util.ui.UIUtil
 import java.util.concurrent.CountDownLatch
@@ -113,9 +114,14 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
         settings.state.ossIndexEnabled = false
         settings.state.ossIndexUsername = ""
 
-        val configurable = MavenUpConfigurable(project)
+        val credentialStore = object : OssIndexCredentialStore {
+            override fun store(username: String, token: String) = Unit
+            override fun retrieve(): Credentials = Credentials("user@example.test", "secret-token")
+        }
+        val configurable = MavenUpConfigurable(project, credentialStore)
         configurable.createComponent()
         configurable.reset()
+        waitForToken(configurable, "secret-token")
 
         val hiddenFieldField = configurable.javaClass.getDeclaredField("hiddenVersionQualifiersField")
             .apply { isAccessible = true }
@@ -144,4 +150,95 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
         assertTrue(settings.state.ossIndexEnabled)
         assertEquals("user@example.test", settings.state.ossIndexUsername)
     }
+
+    fun testEnabledOssIndexMarksCredentialsRequiredAndRejectsMissingToken() {
+        val credentialStore = object : OssIndexCredentialStore {
+            override fun store(username: String, token: String) = Unit
+            override fun retrieve(): Credentials? = null
+        }
+        val configurable = MavenUpConfigurable(project, credentialStore)
+        configurable.createComponent()
+        configurable.reset()
+        waitForCredentialsLoaded(configurable)
+
+        val enabledCheckBox = configurable.field<com.intellij.ui.components.JBCheckBox>(
+            "ossIndexEnabledCheckBox"
+        )
+        enabledCheckBox.doClick()
+        configurable.field<javax.swing.JTextField>("ossIndexUsernameField").text = "user@example.test"
+
+        assertEquals(
+            "OSS Index username/email (required)",
+            configurable.field<javax.swing.JLabel>("ossIndexUsernameLabel").text
+        )
+        assertEquals(
+            "OSS Index API token (required)",
+            configurable.field<javax.swing.JLabel>("ossIndexTokenLabel").text
+        )
+
+        try {
+            configurable.apply()
+            fail("Applying enabled OSS Index settings without a token should fail")
+        } catch (exception: ConfigurationException) {
+            assertEquals(
+                "Username/email and API token are required when Sonatype OSS Index is enabled.",
+                exception.message
+            )
+        }
+    }
+
+    fun testApplyDoesNotBlockOtherSettingsWhileExistingCredentialsLoad() {
+        val loadStarted = CountDownLatch(1)
+        val releaseLoad = CountDownLatch(1)
+        val credentialStore = object : OssIndexCredentialStore {
+            override fun store(username: String, token: String) = Unit
+            override fun retrieve(): Credentials {
+                loadStarted.countDown()
+                assertTrue(releaseLoad.await(5, TimeUnit.SECONDS))
+                return Credentials("user@example.test", "secret-token")
+            }
+        }
+        val settings = MavenUpSettings.getInstance(project)
+        settings.state.ossIndexEnabled = true
+        settings.state.ossIndexUsername = "user@example.test"
+        val configurable = MavenUpConfigurable(project, credentialStore)
+
+        try {
+            configurable.createComponent()
+            configurable.reset()
+            assertTrue(loadStarted.await(5, TimeUnit.SECONDS))
+            configurable.field<com.intellij.ui.components.JBCheckBox>("jumpOnSingleClickCheckBox").isSelected = true
+
+            configurable.apply()
+
+            assertTrue(settings.state.jumpOnSingleClick)
+            assertTrue(settings.state.ossIndexEnabled)
+        } finally {
+            releaseLoad.countDown()
+        }
+    }
+
+    private fun waitForToken(configurable: MavenUpConfigurable, expectedToken: String) {
+        val tokenField = configurable.field<javax.swing.JPasswordField>("ossIndexTokenField")
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
+        while (tokenField.password.concatToString() != expectedToken && System.nanoTime() < deadline) {
+            UIUtil.dispatchAllInvocationEvents()
+            Thread.sleep(10)
+        }
+        assertEquals(expectedToken, tokenField.password.concatToString())
+    }
+
+    private fun waitForCredentialsLoaded(configurable: MavenUpConfigurable) {
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
+        while (!configurable.field<Boolean>("credentialsLoaded") && System.nanoTime() < deadline) {
+            UIUtil.dispatchAllInvocationEvents()
+            Thread.sleep(10)
+        }
+        assertTrue(configurable.field<Boolean>("credentialsLoaded"))
+    }
+
+    private inline fun <reified T> MavenUpConfigurable.field(name: String): T =
+        javaClass.getDeclaredField(name)
+            .apply { isAccessible = true }
+            .get(this) as T
 }

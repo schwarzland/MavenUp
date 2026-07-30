@@ -23,11 +23,13 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   nicht blockierende Read-Action außerhalb des EDT erfasst.
 - **MavenUpSettings**: `PersistentStateComponent`, gespeichert in `mavenup_settings.xml`
   (`jumpOnSingleClick`, `selectLatestVersion`, Filter für instabile Versionen/Qualifier,
-  OSS-Index-Aktivierung/Benutzername, Transitiv-Scan). Das OSS-Index-Token liegt ausschließlich
-  im IntelliJ Password Safe.
+  OSS-Index-Aktivierung/Benutzername, Transitiv-Scan). Für die HTTP-Basic-Authentifizierung
+  sind OSS-Index-Benutzername und Token gemeinsam erforderlich. Das Token liegt ausschließlich
+  im IntelliJ Password Safe; bei unvollständigen Credentials wird keine OSS-Index-Abfrage gesendet.
 - **MavenUpConfigurable**: Settings-UI unter `Settings > Tools > MavenUp`.
-  Die OSS-Index-Sektion verlinkt auf die Sonatype-Kontoeinstellungen zur Token-Erzeugung. Das Token
-  wird außerhalb des EDT aus dem Password Safe geladen und für `isModified()` im UI-Modell gecacht.
+  Die OSS-Index-Sektion kennzeichnet Benutzername und Token bei Aktivierung als Pflichtfelder und
+  verlinkt auf die Sonatype-Kontoeinstellungen zur Token-Erzeugung. Das Token wird außerhalb des EDT
+  aus dem Password Safe geladen und für `isModified()` im UI-Modell gecacht.
 - **VulnerabilityApiService**: OSV-Batchabfrage plus Detailanreicherung und Filterung
   zurückgezogener Advisories. Umfangreiche Komponenten- und Versionslisten werden nur gekürzt auf
   DEBUG-Ebene protokolliert, um starkes Wachstum der von der IDE überwachten `idea.log` zu vermeiden.

@@ -49,6 +49,10 @@ class OssIndexApiService {
         reportUrl: String = OSS_INDEX_REPORT_URL
     ): Map<String, List<VulnerabilityAdvisory>> {
         if (chunk.isEmpty()) return emptyMap()
+        if (username.isNullOrBlank() || token.isNullOrBlank()) {
+            OSS_INDEX_LOG.warn("Skipping OSS Index request because username/email or API token is missing.")
+            return emptyMap()
+        }
 
         val coordinateToKey = chunk.associate { (groupId, artifactId, version) ->
             buildPackageUrl(groupId, artifactId, version) to "$groupId:$artifactId:$version"
@@ -63,11 +67,9 @@ class OssIndexApiService {
             readTimeout = 20000
             doOutput = true
             setRequestProperty("Content-Type", "application/json; charset=utf-8")
-            if (!username.isNullOrBlank() && !token.isNullOrBlank()) {
-                val value = Base64.getEncoder()
-                    .encodeToString("$username:$token".toByteArray(StandardCharsets.UTF_8))
-                setRequestProperty("Authorization", "Basic $value")
-            }
+            val value = Base64.getEncoder()
+                .encodeToString("$username:$token".toByteArray(StandardCharsets.UTF_8))
+            setRequestProperty("Authorization", "Basic $value")
         }
 
         connection.outputStream.use { it.write(requestJson.toByteArray(StandardCharsets.UTF_8)) }
@@ -95,6 +97,10 @@ class OssIndexApiService {
         indicator: ProgressIndicator? = null
     ): Map<String, List<VulnerabilityAdvisory>> {
         if (dependencies.isEmpty()) return emptyMap()
+        if (username.isNullOrBlank() || token.isNullOrBlank()) {
+            OSS_INDEX_LOG.warn("Skipping OSS Index request because username/email or API token is missing.")
+            return emptyMap()
+        }
 
         val results = mutableMapOf<String, List<VulnerabilityAdvisory>>()
         val chunks = dependencies.chunked(OSS_INDEX_BATCH_SIZE)

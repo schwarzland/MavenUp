@@ -5,6 +5,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.net.InetSocketAddress
+import java.util.concurrent.atomic.AtomicInteger
 
 class OssIndexApiServiceTest {
     private val service = OssIndexApiService()
@@ -74,8 +75,50 @@ class OssIndexApiServiceTest {
             )
 
             assertTrue(receivedBody.contains("pkg:maven/com.example/demo@1.0"))
-            assertTrue(authorization.startsWith("Basic "))
+            assertEquals(
+                "Basic " + java.util.Base64.getEncoder().encodeToString(
+                    "user@example.test:secret".toByteArray()
+                ),
+                authorization
+            )
             assertTrue(result.getValue("com.example:demo:1.0").isEmpty())
+        } finally {
+            server.stop(0)
+        }
+    }
+
+    @Test
+    fun testFetchChunkSkipsRequestWithoutCompleteCredentials() {
+        val requestCount = AtomicInteger()
+        val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+        server.createContext("/api/v3/component-report") { exchange ->
+            requestCount.incrementAndGet()
+            exchange.sendResponseHeaders(500, -1)
+            exchange.close()
+        }
+        server.start()
+
+        try {
+            val reportUrl = "http://127.0.0.1:${server.address.port}/api/v3/component-report"
+            val dependencies = listOf(Triple("com.example", "demo", "1.0"))
+
+            assertTrue(
+                service.fetchVulnerabilityAdvisoriesForChunk(
+                    dependencies,
+                    "user@example.test",
+                    "",
+                    reportUrl
+                ).isEmpty()
+            )
+            assertTrue(
+                service.fetchVulnerabilityAdvisoriesForChunk(
+                    dependencies,
+                    "",
+                    "secret",
+                    reportUrl
+                ).isEmpty()
+            )
+            assertEquals(0, requestCount.get())
         } finally {
             server.stop(0)
         }
