@@ -31,7 +31,8 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   und sichere Zugangsdatenablage.
 - **VulnerabilityMerger / VulnerabilityAdvisory**: normalisiertes Security-Datenmodell und
   quellenübergreifende Deduplizierung anhand von IDs/Aliasen; CVSS-Vektoren werden über
-  `us.springett:cvss-calculator` normalisiert.
+  `us.springett:cvss-calculator` normalisiert, bei nicht unterstützten CVSS-Versionen wird auf
+  den Schweregrad der Quelle zurückgefallen.
 - **VulnerabilityDetailDialog**: Detailansicht für direkte und transitive Befunde.
 - **MyMessageBundle**: I18n-Wrapper (`messages.MyMessageBundle`).
 

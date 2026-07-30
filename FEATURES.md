@@ -22,7 +22,7 @@ This document lists the key features of the MavenUp IntelliJ plugin.
 - **Project-level plugin settings**: Supports configurable behavior in `Settings > Tools > MavenUp` (click behavior, auto-select latest, unstable-version filtering).
 - **Multi-source vulnerability check**: Uses [OSV.dev](https://osv.dev) as the primary source and can optionally enrich results with Maven-focused findings from [Sonatype OSS Index](https://ossindex.sonatype.org/).
 - **Resolved transitive dependency coverage**: Includes the resolved Maven dependency tree by default, while keeping transitive findings out of the update table.
-- **Detailed vulnerability intelligence**: Retrieves advisory identifiers, aliases, summaries, severity/CVSS information, references, and source attribution.
+- **Detailed vulnerability intelligence**: Retrieves advisory identifiers, aliases, summaries, severity/CVSS information, references, and source attribution; unsupported CVSS versions fall back to source severity without dropping the advisory.
 - **Cross-source deduplication**: Merges matching CVE, GHSA, OSV, and Sonatype findings by intersecting advisory identifiers and aliases.
 - **Withdrawn advisory filtering**: Excludes withdrawn OSV advisories from results.
 - **Severity-aware vulnerability column**: Displays the deduplicated finding count and highest known severity; stays empty until a check has been run.

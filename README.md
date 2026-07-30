@@ -97,7 +97,7 @@ Das Plugin ist jetzt klar in drei Schichten gegliedert:
 - `MavenUpSettings`: projektbezogener Persistenz-Service (`PersistentStateComponent`) in `mavenup_settings.xml`; OSS-Index-Tokens werden getrennt über `OssIndexCredentialService` im Password Safe gespeichert.
 - `DependencyApiService`, `VulnerabilityApiService` und `OssIndexApiService`: kapseln externe API-Abfragen für Versionen und Vulnerabilities außerhalb der UI.
 - `VulnerabilityMerger`: dedupliziert Befunde aus mehreren Quellen anhand von Advisory-IDs und Aliasen.
-- CVSS-Vektoren aus OSV werden mit `us.springett:cvss-calculator` in vergleichbare Basisscores umgerechnet.
+- Unterstützte CVSS-Vektoren aus OSV werden mit `us.springett:cvss-calculator` in vergleichbare Basisscores umgerechnet. Bei noch nicht unterstützten CVSS-Versionen bleibt der Befund erhalten und nutzt den Schweregrad der Quelle.
 
 ### UI (`de.schwarzland.mavenup.ui`)
 - `MavenUpWindowFactory`: Tool-Window-Factory und UI-Interaktion für Tabelle, Update- und Vulnerability-Workflows.

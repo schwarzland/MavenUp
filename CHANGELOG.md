@@ -22,6 +22,7 @@
 - CVSS v2/v3 vector scores are normalized with the CVSS Calculator library for consistent severity display.
 
 ### Fixed
+- Prevented a `NullPointerException` when OSV returns CVSS 4.0 vectors that are not supported by the bundled CVSS calculator; MavenUp now keeps the advisory and falls back to its source severity.
 - Withdrawn OSV advisories are no longer included in vulnerability results.
 - Updated unit tests that still used reflection to call `resolveCredentialValue`, `findServerCredentials`,
   `collectVersionsFromRepositories`, `filterVersionsBySettings`, `buildVulnerabilityQuery`,
