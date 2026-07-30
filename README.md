@@ -21,7 +21,7 @@ Eine vollständige, englische Feature-Liste steht in `FEATURES.md`.
 - **Navigation zur Definition in `pom.xml`**: Per Doppelklick (oder optional Einzelklick) springt MavenUp direkt zur passenden Dependency-/Plugin-Definition.
 - **Integrierte Einstellungen**: Über `Settings > Tools > MavenUp` konfigurierbar (u.a. Single-Click-Navigation, automatische Vorauswahl der neuesten Version).
 - **Multi-Source-Vulnerability-Check**: **Check Vulnerabilities** prüft direkte Komponenten und standardmäßig auch aufgelöste transitive Dependencies über [OSV.dev](https://osv.dev). Optional ergänzt [Sonatype OSS Index](https://ossindex.sonatype.org/) Maven-spezifische Befunde.
-- **Detaillierte Security-Befunde**: Die Tabelle zeigt Anzahl und höchsten Schweregrad. **Vulnerability Details** zeigt IDs, Aliase, CVSS, Beschreibung, Quellen und Referenzen. Zurückgezogene Advisories werden ignoriert und Mehrfachmeldungen anhand ihrer IDs/Aliase zusammengeführt.
+- **Detaillierte Security-Befunde**: Direkt hinter **Current Version** zeigt **Vulnerabilities (Current)** Anzahl und höchsten Schweregrad für die aktuell verwendete Version. **Vulnerability Details** zeigt IDs, Aliase, CVSS, Beschreibung, Quellen und Referenzen. Zurückgezogene Advisories werden ignoriert und Mehrfachmeldungen anhand ihrer IDs/Aliase zusammengeführt.
 
 ### Intern
 - **Gezielte Credential-Zuordnung**: Ordnet Credentials primär über Repository-ID zu, mit Fallback über Repository-URL und Hostname.
@@ -39,7 +39,7 @@ Das Plugin öffnet ein Tool-Window namens **MavenUp** (meist am rechten oder unt
 2. **Check for Updates**: Sucht online nach verfügbaren Versionen für alle gelisteten Einträge; **Check Vulnerabilities** bleibt bis zum Abschluss deaktiviert.
 3. **New Version**: In dieser Spalte kann nach dem Update-Check eine neuere Version gewählt werden.
 4. **Update**: Wendet die gewählten Versionsänderungen auf die entsprechenden `pom.xml`-Dateien an.
-5. **Check Vulnerabilities**: Prüft direkte Komponenten und, sofern aktiviert, transitive Dependencies über OSV.dev sowie optional OSS Index. Die Spalte **Vulnerabilities** zeigt Anzahl und höchsten Schweregrad.
+5. **Check Vulnerabilities**: Prüft direkte Komponenten und, sofern aktiviert, transitive Dependencies über OSV.dev sowie optional OSS Index. Die direkt hinter **Current Version** angeordnete Spalte **Vulnerabilities (Current)** zeigt Anzahl und höchsten Schweregrad für die aktuell verwendete Version.
 6. **Vulnerability Details**: Öffnet alle Befunde inklusive Quellen, IDs/Aliasen, CVSS, Beschreibung und Referenzen. Ein Klick auf eine befüllte Vulnerability-Zelle öffnet die Details der jeweiligen Komponente.
 
 ### English
@@ -49,7 +49,7 @@ The plugin opens a tool window named **MavenUp** (usually located at the right o
 2. **Check for Updates**: Searches online for available versions for all listed entries; **Check Vulnerabilities** remains disabled until completion.
 3. **New Version**: In this column, a newer version can be selected after the update check.
 4. **Update**: Applies the selected version changes to the corresponding `pom.xml` files.
-5. **Check Vulnerabilities**: Checks direct components and, when enabled, resolved transitive dependencies through OSV.dev and optionally Sonatype OSS Index. The **Vulnerabilities** column shows the count and highest severity.
+5. **Check Vulnerabilities**: Checks direct components and, when enabled, resolved transitive dependencies through OSV.dev and optionally Sonatype OSS Index. The **Vulnerabilities (Current)** column appears directly after **Current Version** and shows the count and highest severity for the currently used version.
 6. **Vulnerability Details**: Opens detailed findings with sources, IDs/aliases, CVSS, summaries, and references. Clicking a populated vulnerability cell opens details for that component.
 
 ## Einstellungen

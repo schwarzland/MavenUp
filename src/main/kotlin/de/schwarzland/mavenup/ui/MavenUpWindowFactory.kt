@@ -53,6 +53,12 @@ import javax.swing.table.TableCellRenderer
 
 private const val MANAGED_PLUGIN = "managed plugin"
 private const val TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY = "toolwindow.MyToolWindow.type.managedDependency"
+private const val GROUP_ID_COLUMN = 0
+private const val ARTIFACT_ID_COLUMN = 1
+private const val TYPE_COLUMN = 3
+private const val CURRENT_VERSION_COLUMN = 4
+private const val VULNERABILITIES_COLUMN = 5
+private const val NEW_VERSION_COLUMN = 6
 private val LOG = Logger.getInstance(MavenUpWindowFactory::class.java)
 
 internal data class RefreshRow(
@@ -162,15 +168,15 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
         private val content = JBPanel<JBPanel<*>>(BorderLayout()).apply {
             val tableModel = object : DefaultTableModel() {
-                override fun isCellEditable(row: Int, column: Int): Boolean = column == 5
+                override fun isCellEditable(row: Int, column: Int): Boolean = column == NEW_VERSION_COLUMN
             }.apply {
                 addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.groupId"))
                 addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.artifactId"))
                 addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.property"))
                 addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.type"))
                 addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.currentVersion"))
-                addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.newVersion"))
                 addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.vulnerabilities"))
+                addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.newVersion"))
             }
 
             val table = JBTable(tableModel)
@@ -180,11 +186,12 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     val row = table.rowAtPoint(e.point)
                     val column = table.columnAtPoint(e.point)
                     if (row < 0) return
-                    if (column == 6 && e.clickCount == 1) {
+                    if (column == VULNERABILITIES_COLUMN && e.clickCount == 1) {
                         @Suppress("UNCHECKED_CAST")
-                        val advisories = table.getValueAt(row, 6) as? List<VulnerabilityAdvisory> ?: emptyList()
+                        val advisories = table.getValueAt(row, VULNERABILITIES_COLUMN)
+                            as? List<VulnerabilityAdvisory> ?: emptyList()
                         if (advisories.isNotEmpty()) {
-                            val coordinate = listOf(0, 1, 4)
+                            val coordinate = listOf(GROUP_ID_COLUMN, ARTIFACT_ID_COLUMN, CURRENT_VERSION_COLUMN)
                                 .joinToString(":") { table.getValueAt(row, it).toString() }
                             VulnerabilityDetailDialog(
                                 project,
@@ -199,9 +206,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     val requiredClickCount = if (settings.state.jumpOnSingleClick) 1 else 2
 
                     if (e.clickCount == requiredClickCount) {
-                        val groupId = table.getValueAt(row, 0) as? String ?: ""
-                        val artifactId = table.getValueAt(row, 1) as? String ?: ""
-                        val type = table.getValueAt(row, 3) as? String ?: "dependency"
+                        val groupId = table.getValueAt(row, GROUP_ID_COLUMN) as? String ?: ""
+                        val artifactId = table.getValueAt(row, ARTIFACT_ID_COLUMN) as? String ?: ""
+                        val type = table.getValueAt(row, TYPE_COLUMN) as? String ?: "dependency"
 
                         navigateToDependency(groupId, artifactId, type)
                     }
@@ -232,53 +239,54 @@ class MavenUpWindowFactory : ToolWindowFactory {
             table.putClientProperty("terminateEditOnFocusLost", true)
 
             // Custom Renderer and Editor for the "New Version" column
-            table.columnModel.getColumn(5).cellRenderer = TableCellRenderer { table, value, isSelected, _, row, _ ->
-                val groupId = table?.getValueAt(row, 0) as? String ?: ""
-                val artifactId = table?.getValueAt(row, 1) as? String ?: ""
-                val key = "$groupId:$artifactId"
+            table.columnModel.getColumn(NEW_VERSION_COLUMN).cellRenderer =
+                TableCellRenderer { table, value, isSelected, _, row, _ ->
+                    val groupId = table?.getValueAt(row, GROUP_ID_COLUMN) as? String ?: ""
+                    val artifactId = table?.getValueAt(row, ARTIFACT_ID_COLUMN) as? String ?: ""
+                    val key = "$groupId:$artifactId"
 
-                @Suppress("UNCHECKED_CAST")
-                val versions = value as? List<String> ?: emptyList()
-                if (versions.isEmpty()) return@TableCellRenderer JLabel("")
+                    @Suppress("UNCHECKED_CAST")
+                    val versions = value as? List<String> ?: emptyList()
+                    if (versions.isEmpty()) return@TableCellRenderer JLabel("")
 
-                val selectedVersion = selectedVersions[key]
+                    val selectedVersion = selectedVersions[key]
 
-                ComboBox(versions.toTypedArray()).apply {
-                    if (selectedVersion != null) {
-                        selectedItem = selectedVersion
-                    }
+                    ComboBox(versions.toTypedArray()).apply {
+                        if (selectedVersion != null) {
+                            selectedItem = selectedVersion
+                        }
 
-                    val currentVersion = table?.getValueAt(row, 4) as? String ?: ""
-                    val newestVersion = versions.firstOrNull() ?: ""
-                    if (currentVersion == newestVersion && currentVersion.isNotEmpty()) {
-                        foreground = com.intellij.ui.JBColor.BLUE
-                    }
+                        val currentVersion = table?.getValueAt(row, CURRENT_VERSION_COLUMN) as? String ?: ""
+                        val newestVersion = versions.firstOrNull() ?: ""
+                        if (currentVersion == newestVersion && currentVersion.isNotEmpty()) {
+                            foreground = com.intellij.ui.JBColor.BLUE
+                        }
 
-                    if (isSelected) {
-                        background = table?.selectionBackground
-                        if (currentVersion != newestVersion) {
-                            foreground = table?.selectionForeground
+                        if (isSelected) {
+                            background = table?.selectionBackground
+                            if (currentVersion != newestVersion) {
+                                foreground = table?.selectionForeground
+                            }
                         }
                     }
                 }
-            }
 
-            table.columnModel.getColumn(5).cellEditor = object : AbstractTableCellEditor() {
+            table.columnModel.getColumn(NEW_VERSION_COLUMN).cellEditor = object : AbstractTableCellEditor() {
                 private var currentComboBox: ComboBox<String>? = null
                 private var currentKey: String? = null
 
                 override fun getTableCellEditorComponent(
                     table: JTable?, value: Any?, isSelected: Boolean, row: Int, column: Int
                 ): Component {
-                    val groupId = table?.getValueAt(row, 0) as? String ?: ""
-                    val artifactId = table?.getValueAt(row, 1) as? String ?: ""
+                    val groupId = table?.getValueAt(row, GROUP_ID_COLUMN) as? String ?: ""
+                    val artifactId = table?.getValueAt(row, ARTIFACT_ID_COLUMN) as? String ?: ""
                     currentKey = "$groupId:$artifactId"
 
                     @Suppress("UNCHECKED_CAST")
                     val versions = value as? List<String> ?: emptyList()
                     val combo = ComboBox(versions.toTypedArray())
 
-                    val currentVersion = table?.getValueAt(row, 4) as? String ?: ""
+                    val currentVersion = table?.getValueAt(row, CURRENT_VERSION_COLUMN) as? String ?: ""
                     val newestVersion = versions.firstOrNull() ?: ""
                     if (currentVersion == newestVersion && currentVersion.isNotEmpty()) {
                         combo.foreground = com.intellij.ui.JBColor.BLUE
@@ -334,25 +342,26 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 }
             }
 
-            table.columnModel.getColumn(6).cellRenderer = TableCellRenderer { currentTable, value, isSelected, _, _, _ ->
-                @Suppress("UNCHECKED_CAST")
-                val advisories = value as? List<VulnerabilityAdvisory> ?: emptyList()
-                JLabel(vulnerabilitySummary(advisories)).apply {
-                    isOpaque = true
-                    border = BorderFactory.createEmptyBorder(0, 6, 0, 6)
-                    toolTipText = if (advisories.isEmpty()) {
-                        null
-                    } else {
-                        MyMessageBundle.message("vulnerability.details.title")
+            table.columnModel.getColumn(VULNERABILITIES_COLUMN).cellRenderer =
+                TableCellRenderer { currentTable, value, isSelected, _, _, _ ->
+                    @Suppress("UNCHECKED_CAST")
+                    val advisories = value as? List<VulnerabilityAdvisory> ?: emptyList()
+                    JLabel(vulnerabilitySummary(advisories)).apply {
+                        isOpaque = true
+                        border = BorderFactory.createEmptyBorder(0, 6, 0, 6)
+                        toolTipText = if (advisories.isEmpty()) {
+                            null
+                        } else {
+                            MyMessageBundle.message("vulnerability.details.title")
+                        }
+                        background = if (isSelected) {
+                            currentTable.selectionBackground
+                        } else {
+                            vulnerabilityColor(worstSeverity(advisories), currentTable.background)
+                        }
+                        foreground = if (isSelected) currentTable.selectionForeground else currentTable.foreground
                     }
-                    background = if (isSelected) {
-                        currentTable.selectionBackground
-                    } else {
-                        vulnerabilityColor(worstSeverity(advisories), currentTable.background)
-                    }
-                    foreground = if (isSelected) currentTable.selectionForeground else currentTable.foreground
                 }
-            }
 
             fun refreshAction(checkUpdates: Boolean, clearNewVersions: Boolean) {
                 if (isUpdating) return
@@ -391,8 +400,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
                                     row.propertyName,
                                     row.type,
                                     row.currentVersion,
-                                    availableVersions[row.key].orEmpty(),
-                                    vulnerabilityAdvisories["${row.key}:${row.currentVersion}"].orEmpty()
+                                    vulnerabilityAdvisories["${row.key}:${row.currentVersion}"].orEmpty(),
+                                    availableVersions[row.key].orEmpty()
                                 )
                             )
                         }
@@ -438,8 +447,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
                                         refreshAction(false, true)
 
                                         for (row in 0 until tableModel.rowCount) {
-                                            tableModel.setValueAt("", row, 4)
-                                            tableModel.setValueAt(emptyList<String>(), row, 5)
+                                            tableModel.setValueAt("", row, CURRENT_VERSION_COLUMN)
+                                            tableModel.setValueAt(emptyList<String>(), row, NEW_VERSION_COLUMN)
                                         }
                                     }
                                 }

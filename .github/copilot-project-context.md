@@ -19,7 +19,9 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   Datenmodell/Tabelle, Versionsprüfung (`maven-metadata.xml`), Central-first-Strategie,
   Credential-Auflösung, Update-Schreibvorgang mit Bestätigungsdialog, Navigation zur
   pom.xml-Definition sowie Multi-Source-Vulnerability-Checks für direkte und transitive
-  Dependencies in Hintergrund-Tasks. Maven-/PSI-Daten für Refreshes werden über eine
+  Dependencies in Hintergrund-Tasks. Die Tabellenspalte **Vulnerabilities (Current)** steht direkt
+  hinter **Current Version**, da die Befunde die aktuell verwendete Version betreffen.
+  Maven-/PSI-Daten für Refreshes werden über eine
   nicht blockierende Read-Action außerhalb des EDT erfasst. Während Refresh oder Update-Check
   laufen, bleibt der Vulnerability-Check deaktiviert, um konkurrierende Hintergrundaktionen zu vermeiden.
 - **MavenUpSettings**: `PersistentStateComponent`, gespeichert in `mavenup_settings.xml`

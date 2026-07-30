@@ -17,6 +17,7 @@
 - New `DependencyUpdate` equality/copy test.
 
 ### Changed
+- Moved the **Vulnerabilities (Current)** column directly behind **Current Version** to make clear that findings apply to the currently used component version.
 - Sonatype OSS Index now requires username/email and API token when enabled because its API authentication uses both values; the settings UI visibly marks both fields as required.
 - Refactored internal project structure into dedicated `model`, `service`, and `ui` packages without changing plugin behavior.
 - Moved external API requests for dependency version lookup and vulnerability checks from UI code into dedicated service-layer classes.

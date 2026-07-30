@@ -12,6 +12,8 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.application.ReadAction
 import com.intellij.util.concurrency.AppExecutorUtil
+import com.intellij.ui.table.JBTable
+import java.awt.Container
 import java.util.concurrent.TimeUnit
 
 class MavenUpWindowFactoryTest : BasePlatformTestCase() {
@@ -21,6 +23,17 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertFalse(canCheckVulnerabilities(isRefreshing = true, isUpdating = false))
         assertFalse(canCheckVulnerabilities(isRefreshing = false, isUpdating = true))
         assertFalse(canCheckVulnerabilities(isRefreshing = true, isUpdating = true))
+    }
+
+    fun testVulnerabilityColumnIsAssociatedWithCurrentVersion() {
+        val table = findTable(MavenUpWindowFactory().MyToolWindow(project).getContent())
+
+        assertNotNull(table)
+        assertEquals("Current Version", table!!.model.getColumnName(4))
+        assertEquals("Vulnerabilities (Current)", table.model.getColumnName(5))
+        assertEquals("New Version", table.model.getColumnName(6))
+        assertFalse(table.model.isCellEditable(0, 5))
+        assertTrue(table.model.isCellEditable(0, 6))
     }
 
     fun testShouldBeAvailableOnlyWhenMavenProjectsExist() {
@@ -239,6 +252,14 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertFalse(defaults.hideUnstableVersions)
         assertTrue(defaults.hiddenVersionQualifiers.isNotBlank())
         assertTrue(defaults.hiddenVersionQualifiers.contains("rc"))
+    }
+
+    private fun findTable(container: Container): JBTable? {
+        container.components.forEach { component ->
+            if (component is JBTable) return component
+            if (component is Container) findTable(component)?.let { return it }
+        }
+        return null
     }
 
     fun testCollectDependenciesAndProperties() {
