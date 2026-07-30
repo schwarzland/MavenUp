@@ -70,6 +70,10 @@ internal data class RefreshSnapshot(
     val dependencyProperties: Map<String, String>
 )
 
+internal fun canCheckVulnerabilities(isRefreshing: Boolean, isUpdating: Boolean): Boolean {
+    return !isRefreshing && !isUpdating
+}
+
 /**
  * Zusammenfassung
  * MyToolWindowFactory macht Folgendes:
@@ -153,6 +157,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private val vulnerabilityAdvisories = mutableMapOf<String, List<VulnerabilityAdvisory>>()
         private val transitiveCoordinates = mutableSetOf<String>()
         private var isUpdating = false
+        private var isRefreshing = false
         private var refreshGeneration = 0
 
         private val content = JBPanel<JBPanel<*>>(BorderLayout()).apply {
@@ -212,6 +217,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     isEnabled = false
                 }
             val updateButton = JButton(MyMessageBundle.message("toolwindow.MyToolWindow.update.button"))
+            fun updateVulnerabilityCheckButtonState() {
+                checkVulnerabilitiesButton.isEnabled = canCheckVulnerabilities(isRefreshing, isUpdating)
+            }
             val settingsButton = JButton(AllIcons.General.Settings).apply {
                 toolTipText = MyMessageBundle.message("toolwindow.MyToolWindow.settings.button")
                 isBorderPainted = false
@@ -350,6 +358,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 if (isUpdating) return
 
                 val generation = ++refreshGeneration
+                isRefreshing = true
+                updateVulnerabilityCheckButtonState()
                 tableModel.setRowCount(0)
                 if (clearNewVersions) {
                     availableVersions.clear()
@@ -389,10 +399,17 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         updateUpdateButtonState(updateButton)
 
                         if (checkUpdates) {
-                            performUpdateCheck(refreshButton, checkUpdatesButton, updateButton) {
+                            performUpdateCheck(
+                                refreshButton,
+                                checkUpdatesButton,
+                                checkVulnerabilitiesButton,
+                                updateButton
+                            ) {
                                 refreshAction(false, false)
                             }
                         }
+                        isRefreshing = false
+                        updateVulnerabilityCheckButtonState()
                     }
                     .submit(AppExecutorUtil.getAppExecutorService())
             }
@@ -445,7 +462,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         isUpdating = false
                         refreshButton.isEnabled = true
                         checkUpdatesButton.isEnabled = true
-                        checkVulnerabilitiesButton.isEnabled = true
+                        updateVulnerabilityCheckButtonState()
                         refreshAction(false, false)
                         vulnerabilityDetailsButton.isEnabled = vulnerabilityAdvisories.values.any { it.isNotEmpty() }
                         updateUpdateButtonState(updateButton)
@@ -646,12 +663,14 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private fun performUpdateCheck(
             refreshButton: JButton,
             checkUpdatesButton: JButton,
+            checkVulnerabilitiesButton: JButton,
             updateButton: JButton,
             refreshAfterCheck: () -> Unit
         ) {
             isUpdating = true
             refreshButton.isEnabled = false
             checkUpdatesButton.isEnabled = false
+            checkVulnerabilitiesButton.isEnabled = false
             updateButton.isEnabled = false
 
             availableVersions.clear()
@@ -661,6 +680,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     isUpdating = false
                     refreshButton.isEnabled = true
                     checkUpdatesButton.isEnabled = true
+                    checkVulnerabilitiesButton.isEnabled =
+                        canCheckVulnerabilities(isRefreshing, isUpdating)
                     refreshAfterCheck()
                     updateUpdateButtonState(updateButton)
                 }

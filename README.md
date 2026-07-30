@@ -17,6 +17,7 @@ Eine vollständige, englische Feature-Liste steht in `FEATURES.md`.
 - **Synchronisierte Auswahl bei gemeinsamer Property**: Wenn mehrere Dependencies dieselbe Maven-Property verwenden, wird eine geänderte Auswahl auf alle betroffenen Einträge synchronisiert.
 - **Sicheres Update mit Bestätigungsdialog**: Vor dem Schreiben zeigt MavenUp eine Zusammenfassung aller geplanten Änderungen (alt/neu, Typ, Koordinaten) und aktualisiert die `pom.xml` erst nach Bestätigung.
 - **Hintergrundverarbeitung für lange Aktionen**: Projekt-/PSI-Datenerfassung beim Refresh, Update-Check, Navigation und Schreiboperationen laufen im Hintergrund, damit die IDE responsiv bleibt.
+- **Sichere Aktionszustände**: **Check Vulnerabilities** bleibt während eines laufenden Refreshs oder Update-Checks deaktiviert, damit keine konkurrierenden Prüfungen gestartet werden.
 - **Navigation zur Definition in `pom.xml`**: Per Doppelklick (oder optional Einzelklick) springt MavenUp direkt zur passenden Dependency-/Plugin-Definition.
 - **Integrierte Einstellungen**: Über `Settings > Tools > MavenUp` konfigurierbar (u.a. Single-Click-Navigation, automatische Vorauswahl der neuesten Version).
 - **Multi-Source-Vulnerability-Check**: **Check Vulnerabilities** prüft direkte Komponenten und standardmäßig auch aufgelöste transitive Dependencies über [OSV.dev](https://osv.dev). Optional ergänzt [Sonatype OSS Index](https://ossindex.sonatype.org/) Maven-spezifische Befunde.
@@ -34,8 +35,8 @@ Eine vollständige, englische Feature-Liste steht in `FEATURES.md`.
 ### German
 Das Plugin öffnet ein Tool-Window namens **MavenUp** (meist am rechten oder unteren Rand der IDE).
 
-1. **Refresh**: Lädt die Projektdaten neu, befüllt die Tabelle und setzt die Spalte **New Version** zurück. (Beim **Check for Updates** bleiben die neu geladenen Werte erhalten.)
-2. **Check for Updates**: Sucht online nach verfügbaren Versionen für alle gelisteten Einträge.
+1. **Refresh**: Lädt die Projektdaten neu, befüllt die Tabelle und setzt die Spalte **New Version** zurück. Währenddessen ist **Check Vulnerabilities** deaktiviert. (Beim **Check for Updates** bleiben die neu geladenen Werte erhalten.)
+2. **Check for Updates**: Sucht online nach verfügbaren Versionen für alle gelisteten Einträge; **Check Vulnerabilities** bleibt bis zum Abschluss deaktiviert.
 3. **New Version**: In dieser Spalte kann nach dem Update-Check eine neuere Version gewählt werden.
 4. **Update**: Wendet die gewählten Versionsänderungen auf die entsprechenden `pom.xml`-Dateien an.
 5. **Check Vulnerabilities**: Prüft direkte Komponenten und, sofern aktiviert, transitive Dependencies über OSV.dev sowie optional OSS Index. Die Spalte **Vulnerabilities** zeigt Anzahl und höchsten Schweregrad.
@@ -44,8 +45,8 @@ Das Plugin öffnet ein Tool-Window namens **MavenUp** (meist am rechten oder unt
 ### English
 The plugin opens a tool window named **MavenUp** (usually located at the right or bottom edge of the IDE).
 
-1. **Refresh**: Reloads the project data and populates the table.
-2. **Check for Updates**: Searches online for available versions for all listed entries.
+1. **Refresh**: Reloads the project data and populates the table. **Check Vulnerabilities** is disabled while the refresh is running.
+2. **Check for Updates**: Searches online for available versions for all listed entries; **Check Vulnerabilities** remains disabled until completion.
 3. **New Version**: In this column, a newer version can be selected after the update check.
 4. **Update**: Applies the selected version changes to the corresponding `pom.xml` files.
 5. **Check Vulnerabilities**: Checks direct components and, when enabled, resolved transitive dependencies through OSV.dev and optionally Sonatype OSS Index. The **Vulnerabilities** column shows the count and highest severity.

@@ -24,6 +24,7 @@
 - CVSS v2/v3 vector scores are normalized with the CVSS Calculator library for consistent severity display.
 
 ### Fixed
+- Disabled **Check Vulnerabilities** while a refresh or update check is running to prevent overlapping background operations.
 - OSS Index requests are no longer sent when the configured username/email or API token is missing; OSV checks continue and the user receives a configuration warning.
 - Reduced high-volume INFO logging for repository versions and OSV batch coordinates; detailed lists are now truncated and emitted only at DEBUG level to prevent excessive `idea.log` growth and UI freezes while the IDE monitors the log file.
 - Maven project and PSI data for tool-window refreshes are now collected in a non-blocking background read action, preventing workspace file-index updates from running on the Event Dispatch Thread after Maven imports or manual refreshes.

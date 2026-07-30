@@ -3,6 +3,7 @@ package de.schwarzland.mavenup
 import de.schwarzland.mavenup.service.MavenUpSettings
 import de.schwarzland.mavenup.ui.MavenUpWindowFactory
 import de.schwarzland.mavenup.ui.RefreshSnapshot
+import de.schwarzland.mavenup.ui.canCheckVulnerabilities
 import com.intellij.openapi.wm.RegisterToolWindowTask
 import com.intellij.openapi.wm.ToolWindowAnchor
 import com.intellij.openapi.wm.ToolWindowManager
@@ -14,6 +15,13 @@ import com.intellij.util.concurrency.AppExecutorUtil
 import java.util.concurrent.TimeUnit
 
 class MavenUpWindowFactoryTest : BasePlatformTestCase() {
+
+    fun testVulnerabilityCheckAvailabilityDuringRefreshAndUpdateCheck() {
+        assertTrue(canCheckVulnerabilities(isRefreshing = false, isUpdating = false))
+        assertFalse(canCheckVulnerabilities(isRefreshing = true, isUpdating = false))
+        assertFalse(canCheckVulnerabilities(isRefreshing = false, isUpdating = true))
+        assertFalse(canCheckVulnerabilities(isRefreshing = true, isUpdating = true))
+    }
 
     fun testShouldBeAvailableOnlyWhenMavenProjectsExist() {
         val factory = MavenUpWindowFactory()

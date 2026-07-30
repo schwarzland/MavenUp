@@ -20,7 +20,8 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   Credential-Auflösung, Update-Schreibvorgang mit Bestätigungsdialog, Navigation zur
   pom.xml-Definition sowie Multi-Source-Vulnerability-Checks für direkte und transitive
   Dependencies in Hintergrund-Tasks. Maven-/PSI-Daten für Refreshes werden über eine
-  nicht blockierende Read-Action außerhalb des EDT erfasst.
+  nicht blockierende Read-Action außerhalb des EDT erfasst. Während Refresh oder Update-Check
+  laufen, bleibt der Vulnerability-Check deaktiviert, um konkurrierende Hintergrundaktionen zu vermeiden.
 - **MavenUpSettings**: `PersistentStateComponent`, gespeichert in `mavenup_settings.xml`
   (`jumpOnSingleClick`, `selectLatestVersion`, Filter für instabile Versionen/Qualifier,
   OSS-Index-Aktivierung/Benutzername, Transitiv-Scan). Für die HTTP-Basic-Authentifizierung

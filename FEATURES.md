@@ -17,6 +17,7 @@ This document lists the key features of the MavenUp IntelliJ plugin.
 - **Safe update workflow**: Shows a confirmation dialog before applying changes to `pom.xml`.
 - **Navigation to source in `pom.xml`**: Jumps directly to the matching dependency/plugin entry (single or double click, configurable).
 - **Background execution for long operations**: Collects Maven/PSI refresh data through non-blocking background read actions and also runs update checks, navigation tasks, and write operations outside the UI thread.
+- **Safe action availability**: Disables **Check Vulnerabilities** while a refresh or update check is running to prevent overlapping background operations.
 - **Input validation for displayed entries**: Skips dependencies and plugins without `groupId` so invalid entries are not shown.
 - **Compact logging and diagnostics**: Logs parsing errors, credential resolution issues, and repository request failures (including HTTP status), while limiting verbose version and component lists to truncated DEBUG messages.
 - **Project-level plugin settings**: Supports configurable behavior in `Settings > Tools > MavenUp` (click behavior, auto-select latest, unstable-version filtering).
