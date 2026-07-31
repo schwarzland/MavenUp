@@ -13,6 +13,7 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.command.WriteCommandAction
+import com.intellij.openapi.Disposable
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileEditor.OpenFileDescriptor
@@ -199,6 +200,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
         val content = ContentFactory
             .getInstance()
             .createContent(myToolWindow.getContent(), null, false)
+        content.setDisposer(myToolWindow)
 
         toolWindow.contentManager.addContent(content)
     }
@@ -257,7 +259,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
     /**
      * Die eigentliche Tool-Window-Komponente, die die Tabelle der Abhängigkeiten und die Aktions-Buttons verwaltet.
      */
-    internal inner class MyToolWindow(private val project: Project) {
+    internal inner class MyToolWindow(private val project: Project) : Disposable {
         private val vulnerabilityApiService = VulnerabilityApiService()
         private val ossIndexApiService = OssIndexApiService()
         private val ossIndexCredentialService = OssIndexCredentialService()
@@ -489,7 +491,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
                 ReadAction.nonBlocking<RefreshSnapshot> {
                     collectRefreshSnapshot(managedDependencyType)
-                }.expireWith(project)
+                }.expireWith(this@MyToolWindow)
                     .finishOnUiThread(ModalityState.any()) { snapshot ->
                         if (generation != refreshGeneration) {
                             return@finishOnUiThread
@@ -619,7 +621,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
             add(buttonPanel, BorderLayout.SOUTH)
 
-            project.messageBus.connect().subscribe(MavenImportListener.TOPIC, object : MavenImportListener {
+            project.messageBus.connect(this@MyToolWindow).subscribe(MavenImportListener.TOPIC, object : MavenImportListener {
                 override fun importFinished(
                     importedProjects: Collection<MavenProject>,
                     newModules: List<com.intellij.openapi.module.Module>
@@ -632,6 +634,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 }
             })
         }
+
+        override fun dispose() = Unit
 
         /**
          * Aktualisiert den Status des Update-Buttons basierend darauf, ob Änderungen ausgewählt wurden.
