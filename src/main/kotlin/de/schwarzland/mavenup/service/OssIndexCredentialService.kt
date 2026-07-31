@@ -40,13 +40,13 @@ class OssIndexCredentialService(
         } else {
             Credentials(username.trim(), token)
         }
-        passwordSafe.set(CREDENTIAL_ATTRIBUTES, credentials)
+        passwordSafe[CREDENTIAL_ATTRIBUTES] = credentials
     }
 
     /**
      * Implementiert das Abrufen der Zugangsdaten aus dem [PasswordSafe].
      */
-    override fun retrieve(): Credentials? = passwordSafe.get(CREDENTIAL_ATTRIBUTES)
+    override fun retrieve(): Credentials? = passwordSafe[CREDENTIAL_ATTRIBUTES]
 
     private companion object {
         /**
