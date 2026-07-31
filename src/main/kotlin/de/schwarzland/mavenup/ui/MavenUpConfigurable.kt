@@ -1,6 +1,5 @@
 package de.schwarzland.mavenup.ui
 
-import de.schwarzland.mavenup.MyMessageBundle
 import de.schwarzland.mavenup.service.MavenUpSettings
 import de.schwarzland.mavenup.service.OssIndexCredentialService
 import de.schwarzland.mavenup.service.OssIndexCredentialStore

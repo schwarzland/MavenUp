@@ -1,4 +1,4 @@
-package de.schwarzland.mavenup
+package de.schwarzland.mavenup.ui
 
 import com.intellij.DynamicBundle
 import org.jetbrains.annotations.Nls

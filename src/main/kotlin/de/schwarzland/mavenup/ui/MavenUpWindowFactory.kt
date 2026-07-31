@@ -1,6 +1,5 @@
 package de.schwarzland.mavenup.ui
 
-import de.schwarzland.mavenup.MyMessageBundle
 import de.schwarzland.mavenup.model.DependencyUpdate
 import de.schwarzland.mavenup.model.VulnerabilityAdvisory
 import de.schwarzland.mavenup.model.VulnerabilitySeverity
