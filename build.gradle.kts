@@ -1,9 +1,19 @@
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
+import org.jetbrains.kotlin.gradle.dsl.JvmDefaultMode
 
 plugins {
     id("org.jetbrains.kotlin.jvm")
     id("org.jetbrains.changelog")
     id("org.jetbrains.intellij.platform")
+}
+
+kotlin {
+    compilerOptions {
+        // IntelliJ's ToolWindowFactory supplies deprecated compatibility defaults.
+        // Inheriting JVM default methods directly prevents Kotlin from generating
+        // synthetic overrides that Plugin Verifier reports as deprecated usages.
+        jvmDefault = JvmDefaultMode.NO_COMPATIBILITY
+    }
 }
 
 // Read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin.html
