@@ -15,11 +15,32 @@ private const val CENTRAL_REPOSITORY_ID = "central"
 private const val CENTRAL_REPOSITORY_URL = "https://repo1.maven.org/maven2"
 private val LOG = Logger.getInstance(DependencyApiService::class.java)
 
+/**
+ * Dieser Service ist für die Interaktion mit Maven-Repositories zuständig, um verfügbare
+ * Versionen von Abhängigkeiten abzufragen.
+ *
+ * Die Hauptaufgaben dieser Klasse umfassen:
+ * - Auslesen von konfigurierten Maven-Repositories und Server-Zugangsdaten aus der `settings.xml`.
+ * - Abfrage von `maven-metadata.xml` von verschiedenen Repositories (z. B. Maven Central oder privaten Repos).
+ * - Auflösung von Platzhaltern für Zugangsdaten (Umgebungsvariablen oder System-Properties).
+ * - Filtern und Sortieren der gefundenen Versionen basierend auf den Plugin-Einstellungen (z. B. Ausschluss von Beta/Snapshot-Versionen).
+ *
+ * Dieser Service wird benötigt, um dem Benutzer eine Liste von möglichen Update-Kandidaten für seine
+ * Maven-Abhängigkeiten anzuzeigen.
+ */
 class DependencyApiService(private val project: Project) {
+    /**
+     * Bereinigt eine ID aus den Maven-Einstellungen (trimming) und stellt sicher,
+     * dass sie nicht leer ist.
+     */
     fun normalizeSettingsId(rawId: String?): String? {
         return rawId?.trim()?.takeIf { it.isNotEmpty() }
     }
 
+    /**
+     * Löst Platzhalter in Zugangsdaten auf. Unterstützt Umgebungsvariablen (`${env.VAR}`)
+     * und System-Properties oder einfache Umgebungsvariablen (`${VAR}`).
+     */
     fun resolveCredentialValue(rawValue: String?, serverId: String, fieldName: String): String? {
         val value = rawValue?.trim()?.takeIf { it.isNotEmpty() } ?: return null
         val envPlaceholder = Regex("""^\$\{env\.([^}]+)}$""").matchEntire(value)
@@ -48,6 +69,9 @@ class DependencyApiService(private val project: Project) {
         return value
     }
 
+    /**
+     * Extrahiert Benutzername und Passwort für Maven-Server aus der `settings.xml`.
+     */
     fun getMavenServerCredentials(): Map<String, Pair<String?, String?>> {
         val credentials = mutableMapOf<String, Pair<String?, String?>>()
         val generalSettings = MavenProjectsManager.getInstance(project).generalSettings
@@ -86,6 +110,9 @@ class DependencyApiService(private val project: Project) {
         return credentials
     }
 
+    /**
+     * Ermittelt die konfigurierten Maven-Repositories. Enthält standardmäßig Maven Central.
+     */
     fun getMavenRepositoryInfos(): List<Pair<String?, String>> {
         val infos = mutableListOf<Pair<String?, String>>(Pair(CENTRAL_REPOSITORY_ID, CENTRAL_REPOSITORY_URL))
 
@@ -122,6 +149,9 @@ class DependencyApiService(private val project: Project) {
             }
     }
 
+    /**
+     * Sucht passende Zugangsdaten für ein bestimmtes Repository basierend auf ID, URL oder Hostname.
+     */
     fun findServerCredentials(
         repositoryInfo: Pair<String?, String>,
         serverCredentials: Map<String, Pair<String?, String?>>
@@ -132,6 +162,9 @@ class DependencyApiService(private val project: Project) {
         return serverCredentials[host]
     }
 
+    /**
+     * Erstellt eine HTTP-Verbindung zur `maven-metadata.xml` des angegebenen Artefakts.
+     */
     private fun createMetadataConnection(repositoryUrl: String, groupId: String, artifactId: String): HttpURLConnection {
         val urlString = "$repositoryUrl/${groupId.replace('.', '/')}/$artifactId/maven-metadata.xml"
         val url = URI(urlString).toURL()
@@ -142,6 +175,9 @@ class DependencyApiService(private val project: Project) {
         }
     }
 
+    /**
+     * Wendet Basic-Auth-Zugangsdaten auf die HTTP-Verbindung an, falls vorhanden.
+     */
     private fun applyCredentials(
         connection: HttpURLConnection,
         repositoryInfo: Pair<String?, String>,
@@ -155,6 +191,10 @@ class DependencyApiService(private val project: Project) {
         }
     }
 
+    /**
+     * Liest die verfügbaren Versionen aus dem InputStream der HTTP-Verbindung und filtert sie,
+     * so dass nur Versionen größer oder gleich der aktuellen Version zurückgegeben werden.
+     */
     private fun readVersionsFromConnection(
         connection: HttpURLConnection,
         currentComparable: ComparableVersion,
@@ -193,6 +233,9 @@ class DependencyApiService(private val project: Project) {
         return Pair(true, versions)
     }
 
+    /**
+     * Ruft die Versionen für ein Artefakt von einem spezifischen Repository ab.
+     */
     fun fetchVersionsFromRepository(
         repositoryInfo: Pair<String?, String>,
         groupId: String,
@@ -210,6 +253,10 @@ class DependencyApiService(private val project: Project) {
         }
     }
 
+    /**
+     * Sammelt Versionen über mehrere Repositories hinweg. Wenn Maven Central erfolgreich abgefragt wurde,
+     * wird die Suche abgebrochen, um die Last zu verringern.
+     */
     fun collectVersionsFromRepositories(
         repositoryInfos: List<Pair<String?, String>>,
         fetchVersionsForRepository: (Pair<String?, String>) -> Pair<Boolean, List<String>>
@@ -228,6 +275,10 @@ class DependencyApiService(private val project: Project) {
         return allVersions
     }
 
+    /**
+     * Filtert die Liste der Versionen basierend auf den konfigurierten Ausschlusskriterien
+     * für instabile Versionen (z. B. "alpha", "beta", "rc").
+     */
     fun filterVersionsBySettings(versions: List<String>): List<String> {
         val settings = MavenUpSettings.getInstance(project).state
         if (!settings.hideUnstableVersions) {
@@ -249,6 +300,9 @@ class DependencyApiService(private val project: Project) {
         }
     }
 
+    /**
+     * Prüft, ob eine Version einen bestimmten Qualifier (z. B. "beta") enthält.
+     */
     fun versionHasQualifier(version: String, qualifier: String): Boolean {
         val qualifierPattern = Regex(
             "(?i)(?:^|[._\\-]|\\d)${Regex.escape(qualifier)}(?:[._\\-]?\\d*)?(?:$|[._\\-])"
@@ -256,6 +310,10 @@ class DependencyApiService(private val project: Project) {
         return qualifierPattern.containsMatchIn(version)
     }
 
+    /**
+     * Die Hauptmethode zum Abrufen aller relevanten Update-Versionen für ein Artefakt.
+     * Führt Repository-Suche, Credential-Auflösung, Filterung und Sortierung zusammen.
+     */
     fun fetchVersions(groupId: String, artifactId: String, currentVersion: String): List<String> {
         val repositoryInfos = getMavenRepositoryInfos()
         val serverCredentials = getMavenServerCredentials()

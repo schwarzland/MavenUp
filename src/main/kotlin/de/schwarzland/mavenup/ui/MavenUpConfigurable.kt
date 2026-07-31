@@ -21,6 +21,17 @@ import javax.swing.JTextField
 
 internal const val OSS_INDEX_ACCOUNT_URL = "https://ossindex.sonatype.org"
 
+/**
+ * Diese Klasse stellt die Konfigurationsoberfläche (Settings/Preferences) für das MavenUp-Plugin bereit.
+ *
+ * Sie implementiert das [Configurable]-Interface von IntelliJ und ermöglicht es dem Benutzer:
+ * - UI-Verhalten anzupassen (z. B. Sprung bei Einzelklick).
+ * - Filter für instabile Versionen zu konfigurieren.
+ * - Sicherheitsprüfungen (OSS Index) zu aktivieren und Zugangsdaten zu verwalten.
+ *
+ * Die Klasse wird benötigt, um die Plugin-Einstellungen in den IDE-Einstellungen anzuzeigen
+ * und Änderungen an [MavenUpSettings] sowie [OssIndexCredentialStore] zu persistieren.
+ */
 class MavenUpConfigurable internal constructor(
     private val project: Project,
     private val credentialService: OssIndexCredentialStore
@@ -43,8 +54,14 @@ class MavenUpConfigurable internal constructor(
     private var credentialLoadGeneration = 0
     private var credentialLoadFuture: CompletableFuture<*>? = null
 
+    /**
+     * Liefert den Anzeigenamen für den Eintrag in den IDE-Einstellungen.
+     */
     override fun getDisplayName(): String = "MavenUp"
 
+    /**
+     * Erstellt die Benutzeroberfläche für die Einstellungen unter Verwendung des IntelliJ UI DSL.
+     */
     override fun createComponent(): JComponent {
         val settings = MavenUpSettings.getInstance(project)
         return panel {
@@ -122,6 +139,9 @@ class MavenUpConfigurable internal constructor(
         }
     }
 
+    /**
+     * Prüft, ob der Benutzer Änderungen an den Einstellungen vorgenommen hat, die noch nicht gespeichert wurden.
+     */
     override fun isModified(): Boolean {
         val settings = MavenUpSettings.getInstance(project)
         return jumpOnSingleClickCheckBox?.isSelected != settings.state.jumpOnSingleClick ||
@@ -134,6 +154,10 @@ class MavenUpConfigurable internal constructor(
                 credentialsLoaded && currentToken() != storedToken
     }
 
+    /**
+     * Speichert die vom Benutzer vorgenommenen Änderungen in [MavenUpSettings] und [OssIndexCredentialStore].
+     * @throws ConfigurationException wenn erforderliche Zugangsdaten fehlen.
+     */
     override fun apply() {
         val settings = MavenUpSettings.getInstance(project)
         val ossIndexEnabled = ossIndexEnabledCheckBox?.isSelected ?: false
@@ -156,6 +180,10 @@ class MavenUpConfigurable internal constructor(
         }
     }
 
+    /**
+     * Setzt die UI-Komponenten auf den zuletzt gespeicherten Stand zurück.
+     * Lädt dabei auch die Zugangsdaten asynchron aus dem Passwort-Safe.
+     */
     override fun reset() {
         val settings = MavenUpSettings.getInstance(project)
         jumpOnSingleClickCheckBox?.isSelected = settings.state.jumpOnSingleClick
@@ -173,6 +201,9 @@ class MavenUpConfigurable internal constructor(
         loadCredentials()
     }
 
+    /**
+     * Gibt Ressourcen frei, wenn die Einstellungsseite geschlossen wird.
+     */
     override fun disposeUIResources() {
         credentialLoadGeneration++
         credentialLoadFuture?.cancel(true)
@@ -190,6 +221,9 @@ class MavenUpConfigurable internal constructor(
         ossIndexTokenField = null
     }
 
+    /**
+     * Lädt die OSS-Index-Zugangsdaten asynchron, um die UI nicht zu blockieren.
+     */
     private fun loadCredentials() {
         val generation = ++credentialLoadGeneration
         credentialLoadFuture?.cancel(true)
@@ -220,11 +254,17 @@ class MavenUpConfigurable internal constructor(
         }
     }
 
+    /**
+     * Aktiviert oder deaktiviert die Eingabefelder für Versions-Qualifizierer basierend auf dem Checkbox-Status.
+     */
     private fun updateHiddenQualifierControlsEnabled(enabled: Boolean) {
         hiddenVersionQualifiersLabel?.isEnabled = enabled
         hiddenVersionQualifiersField?.isEnabled = enabled
     }
 
+    /**
+     * Aktiviert oder deaktiviert die Eingabefelder für den OSS Index und aktualisiert die Beschriftungen (Pflichtfelder).
+     */
     private fun updateOssIndexControlsEnabled(enabled: Boolean) {
         ossIndexUsernameLabel?.text = MyMessageBundle.message(
             if (enabled) "settings.ossIndex.usernameRequired" else "settings.ossIndex.username"
@@ -239,6 +279,9 @@ class MavenUpConfigurable internal constructor(
         ossIndexTokenField?.isEnabled = enabled && credentialsLoaded
     }
 
+    /**
+     * Hilfsmethode zum Auslesen des aktuellen Passworts/Tokens aus dem Passwortfeld.
+     */
     private fun currentToken(): String = ossIndexTokenField?.password?.concatToString().orEmpty()
 
     private companion object {

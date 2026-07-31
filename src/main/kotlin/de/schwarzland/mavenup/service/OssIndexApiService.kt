@@ -20,10 +20,31 @@ private const val OSS_INDEX_BATCH_SIZE = 128
 private const val OSS_INDEX_SOURCE = "OSS Index"
 private val OSS_INDEX_LOG = Logger.getInstance(OssIndexApiService::class.java)
 
+/**
+ * Dieser Service ist für die Abfrage von Sicherheitsanfälligkeiten (Vulnerabilities)
+ * über den Sonatype OSS Index zuständig.
+ *
+ * Die Hauptaufgaben dieser Klasse umfassen:
+ * - Erstellung von Package-URLs (PURL) für Maven-Artefakte.
+ * - Senden von Batch-Anfragen an die OSS Index API.
+ * - Authentifizierung mittels Benutzername/E-Mail und API-Token.
+ * - Parsen der API-Antworten in das interne Modell `VulnerabilityAdvisory`.
+ *
+ * Dieser Service wird benötigt, um den Benutzer über bekannte Sicherheitslücken in
+ * den verwendeten Abhängigkeiten zu informieren.
+ */
 class OssIndexApiService {
+    /**
+     * Erstellt eine Package-URL (PURL) gemäß dem Maven-Schema.
+     * Beispiel: `pkg:maven/org.apache.logging.log4j/log4j-core@2.14.1`
+     */
     fun buildPackageUrl(groupId: String, artifactId: String, version: String): String =
         "pkg:maven/${encode(groupId)}/${encode(artifactId)}@${encode(version)}"
 
+    /**
+     * Parsed das JSON-Array der API-Antwort und ordnet die gefundenen Schwachstellen
+     * den ursprünglichen Abhängigkeits-Schlüsseln (groupId:artifactId:version) zu.
+     */
     fun parseReports(
         responseBody: String,
         coordinateToKey: Map<String, String>
@@ -42,6 +63,10 @@ class OssIndexApiService {
         return results
     }
 
+    /**
+     * Führt eine einzelne Batch-Anfrage für eine Liste von Abhängigkeiten durch.
+     * Erfordert authentifizierte Zugangsdaten.
+     */
     fun fetchVulnerabilityAdvisoriesForChunk(
         chunk: List<Triple<String, String, String>>,
         username: String? = null,
@@ -90,6 +115,10 @@ class OssIndexApiService {
         return results
     }
 
+    /**
+     * Die Hauptmethode zum Abrufen von Schwachstellen für eine Liste von Abhängigkeiten.
+     * Teilt die Liste in Chunks auf, um API-Limits einzuhalten, und aktualisiert den Fortschrittsindikator.
+     */
     fun fetchVulnerabilityAdvisories(
         dependencies: List<Triple<String, String, String>>,
         username: String? = null,
@@ -112,6 +141,10 @@ class OssIndexApiService {
         return results
     }
 
+    /**
+     * Transformiert ein einzelnes Vulnerability-Objekt aus der JSON-Antwort
+     * in ein `VulnerabilityAdvisory`-Modellobjekt.
+     */
     private fun parseVulnerability(vulnerability: JsonObject): VulnerabilityAdvisory? {
         val id = vulnerability.get("id")?.asString?.trim().orEmpty()
         if (id.isEmpty()) return null
@@ -138,6 +171,9 @@ class OssIndexApiService {
         )
     }
 
+    /**
+     * Hilfsmethode zur URL-Codierung von PURL-Komponenten gemäß den Anforderungen des OSS Index.
+     */
     private fun encode(value: String): String =
         URLEncoder.encode(value, StandardCharsets.UTF_8).replace("+", "%20")
 }

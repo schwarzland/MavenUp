@@ -61,6 +61,9 @@ private const val VULNERABILITIES_COLUMN = 5
 private const val NEW_VERSION_COLUMN = 6
 private val LOG = Logger.getInstance(MavenUpWindowFactory::class.java)
 
+/**
+ * Repräsentiert eine einzelne Zeile in der Abhängigkeitstabelle.
+ */
 internal data class RefreshRow(
     val groupId: String,
     val artifactId: String,
@@ -71,11 +74,18 @@ internal data class RefreshRow(
     val key: String = "$groupId:$artifactId"
 }
 
+/**
+ * Enthält einen Schnappschuss aller relevanten Projektdaten für die Anzeige im Tool Window.
+ */
 internal data class RefreshSnapshot(
     val rows: List<RefreshRow>,
     val dependencyProperties: Map<String, String>
 )
 
+/**
+ * Modell für die Darstellung von Sicherheitslücken in einer Tabellenzelle.
+ * Kapselt die Zuordnung von Koordinaten zu Warnungen und unterscheidet zwischen direkten und transitiven Funden.
+ */
 internal data class VulnerabilityCell(
     val advisoriesByCoordinate: Map<String, List<VulnerabilityAdvisory>>,
     val transitiveCoordinates: Set<String>
@@ -95,6 +105,10 @@ internal data class VulnerabilityCell(
         }
 }
 
+/**
+ * Erstellt ein [VulnerabilityCell]-Objekt für eine spezifische Abhängigkeit.
+ * Kombiniert die Warnungen für die direkte Abhängigkeit mit denen ihrer transitiven Kinder.
+ */
 internal fun buildVulnerabilityCell(
     directCoordinate: String,
     vulnerabilityAdvisories: Map<String, List<VulnerabilityAdvisory>>,
@@ -112,6 +126,10 @@ internal fun buildVulnerabilityCell(
     return VulnerabilityCell(findings, transitiveCoordinates)
 }
 
+/**
+ * Erstellt einen kurzen Zusammenfassungstext für die Anzeige in der Tabellenzelle.
+ * Zeigt die Anzahl der Warnungen, den schlimmsten Schweregrad und (falls vorhanden) transitive Funde an.
+ */
 internal fun vulnerabilitySummary(cell: VulnerabilityCell): String {
     val advisories = cell.allAdvisories
     if (advisories.isEmpty()) return ""
@@ -149,26 +167,33 @@ private fun artifactNodeCoordinate(node: MavenArtifactNode): Triple<String, Stri
 private fun coordinateString(coordinate: Triple<String, String, String>): String =
     "${coordinate.first}:${coordinate.second}:${coordinate.third}"
 
+/**
+ * Prüft, ob eine Sicherheitsprüfung aktuell durchgeführt werden kann.
+ */
 internal fun canCheckVulnerabilities(isRefreshing: Boolean, isUpdating: Boolean): Boolean {
     return !isRefreshing && !isUpdating
 }
 
-/**
- * Zusammenfassung
- * MyToolWindowFactory macht Folgendes:
- * registriert bzw. erzeugt den Inhalt eines IntelliJ Tool Windows
- * erstellt ein einfaches UI-Panel
- * zeigt ein Label mit einer Zahl an
- * bietet einen Button, der die Zahl zufällig neu setzt
- * verwendet MyMessageBundle, um UI-Texte aus Properties-Dateien zu laden
- * Aktuell ist das also ein einfaches Beispiel-Tool-Window, vermutlich aus einem Plugin-Template, das als Grundlage für weitere Funktionalität dienen kann.
- */
 
+/**
+ * -----------------------------------------------------------------------------------------------
+ * Factory-Klasse zur Erstellung und Initialisierung des MavenUp Tool Windows in der IntelliJ-IDE.
+ *
+ * Diese Klasse registriert das Tool Window und bettet das [MyToolWindow]-Panel ein, welches die
+ * Hauptoberfläche für die Maven-Abhängigkeitsverwaltung bereitstellt.
+ */
 class MavenUpWindowFactory : ToolWindowFactory {
+    /**
+     * Bestimmt, ob das Tool Window für das aktuelle Projekt verfügbar sein soll.
+     * Es wird nur angezeigt, wenn Maven-Projekte im Projekt konfiguriert sind.
+     */
     override fun shouldBeAvailable(project: Project): Boolean {
         return MavenProjectsManager.getInstance(project).hasProjects()
     }
 
+    /**
+     * Erstellt den Inhalt des Tool Windows und fügt ihn dem ContentManager hinzu.
+     */
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
         val myToolWindow = MyToolWindow(project)
 
@@ -179,6 +204,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
         toolWindow.contentManager.addContent(content)
     }
 
+    /**
+     * Dialog zur Bestätigung der ausgewählten Updates. Zeigt eine Tabelle mit den
+     * durchzuführenden Änderungen (Gruppe, Artefakt, Version alt/neu).
+     */
     class UpdateConfirmationDialog(
         project: Project,
         private val updates: List<DependencyUpdate>
@@ -188,6 +217,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
             init()
         }
 
+        /**
+         * Erstellt den zentralen Bereich des Dialogs mit der Update-Übersichtstabelle.
+         */
         override fun createCenterPanel(): JComponent {
             val panel = JBPanel<JBPanel<*>>(BorderLayout())
             panel.preferredSize = java.awt.Dimension(600, 400)
@@ -223,6 +255,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
     }
 
+    /**
+     * Die eigentliche Tool-Window-Komponente, die die Tabelle der Abhängigkeiten und die Aktions-Buttons verwaltet.
+     */
     internal inner class MyToolWindow(private val project: Project) {
         private val vulnerabilityApiService = VulnerabilityApiService()
         private val ossIndexApiService = OssIndexApiService()
@@ -599,6 +634,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
             })
         }
 
+        /**
+         * Aktualisiert den Status des Update-Buttons basierend darauf, ob Änderungen ausgewählt wurden.
+         */
         private fun updateUpdateButtonState(updateButton: JButton) {
             var hasUpdate = false
             knownDependencies.forEach { (key, currentVersion) ->
@@ -610,6 +648,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
             updateButton.isEnabled = hasUpdate && !isUpdating
         }
 
+        /**
+         * Sammelt alle in der UI ausgewählten Updates, für die eine neue Version gewählt wurde.
+         */
         internal fun collectSelectedUpdates(): List<DependencyUpdate> {
             return selectedVersions.mapNotNull { (key, newVersion) ->
                 val currentVersion = knownDependencies[key] ?: return@mapNotNull null
@@ -642,6 +683,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
             )
         }
 
+        /**
+         * Durchsucht die XML-Tags nach Abhängigkeiten und extrahiert deren Koordinaten sowie
+         * mögliche Platzhalter (Properties).
+         */
         private fun collectDependenciesAndProperties(
             parentTag: XmlTag?,
             wrapperTagName: String,
@@ -665,6 +710,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
             }
         }
 
+        /**
+         * Erstellt einen Schnappschuss der aktuellen Abhängigkeiten im Projekt.
+         * Muss außerhalb des Event Dispatch Threads aufgerufen werden.
+         */
         internal fun collectRefreshSnapshot(managedDependencyType: String): RefreshSnapshot {
             check(!ApplicationManager.getApplication().isDispatchThread) {
                 "Refresh data must not be collected on the Event Dispatch Thread"
@@ -745,6 +794,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
             return RefreshSnapshot(rows, properties)
         }
 
+        /**
+         * Orchestriert den Prozess der Update-Prüfung und aktualisiert die UI-Komponenten.
+         */
         private fun performUpdateCheck(
             refreshButton: JButton,
             checkUpdatesButton: JButton,
@@ -773,6 +825,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
             }
         }
 
+        /**
+         * Wendet die ausgewählten Updates auf die `pom.xml` des Projekts an.
+         */
         private fun applyUpdateToPom(
             mavenProject: MavenProject,
             updates: List<DependencyUpdate>
@@ -851,6 +906,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
             }
         }
 
+        /**
+         * Führt die Sicherheitsprüfung für die erfassten Abhängigkeiten durch.
+         * Nutzt OSV und optional den Sonatype OSS Index.
+         */
         private fun performVulnerabilityCheck(onFinished: () -> Unit) {
             ProgressManager.getInstance().run(object : Task.Backgroundable(
                 project,
@@ -924,6 +983,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
             })
         }
 
+        /**
+         * Sammelt alle direkten und (falls konfiguriert) transitiven Abhängigkeiten für den Scan.
+         */
         private fun collectVulnerabilityScanTargets(
             directDependencies: List<Triple<String, String, String>>
         ): VulnerabilityScanTargets {
@@ -951,14 +1013,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
             )
         }
 
-        @Suppress("unused")
-        internal fun collectResolvedDependencies(
-            projects: Collection<MavenProject>
-        ): Set<Triple<String, String, String>> = collectResolvedDependencyRelations(projects)
-            .flatMapTo(linkedSetOf()) { (directDependency, transitiveDependencies) ->
-                listOf(directDependency) + transitiveDependencies
-            }
-
+        /**
+         * Ermittelt die Beziehungen zwischen direkten und transitiven Abhängigkeiten aus dem Maven-Modell.
+         */
         internal fun collectResolvedDependencyRelations(
             projects: Collection<MavenProject>
         ): Map<Triple<String, String, String>, Set<Triple<String, String, String>>> {
@@ -981,6 +1038,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
             return dependenciesByDirect
         }
 
+        /**
+         * Öffnet den Detail-Dialog für alle gefundenen Sicherheitslücken.
+         */
         private fun showAllVulnerabilityDetails() {
             val findings = vulnerabilityAdvisories
                 .filterValues { it.isNotEmpty() }
@@ -990,6 +1050,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
             if (findings.isNotEmpty()) VulnerabilityDetailDialog(project, findings).show()
         }
 
+        /**
+         * Bestimmt die Hintergrundfarbe für ein Tabellenfeld basierend auf dem Schweregrad der Sicherheitslücke.
+         */
         private fun vulnerabilityColor(
             severity: VulnerabilitySeverity,
             defaultColor: java.awt.Color
@@ -1001,6 +1064,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
             VulnerabilitySeverity.UNKNOWN -> defaultColor
         }
 
+        /**
+         * Startet die Hintergrundaufgabe zur Prüfung auf verfügbare Versions-Updates.
+         */
         private fun checkForUpdates(onFinished: () -> Unit) {
             ProgressManager.getInstance().run(object : Task.Backgroundable(
                 project,
@@ -1083,6 +1149,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
             }
         }
 
+        /**
+         * Berechnet Schnittmengen von verfügbaren Versionen, wenn mehrere Abhängigkeiten dieselbe Property nutzen.
+         */
         private fun postProcessPropertyUpdates() {
             val propertyToDependencies: Map<String, List<String>> = dependencyToProperty
                 .entries
@@ -1144,6 +1213,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
             }
         }
 
+        /**
+         * Aktualisiert die Versionsnummer in einem XML-Tag. Berücksichtigt dabei, ob die Version
+         * direkt oder über eine Maven-Property definiert ist.
+         */
         internal fun updateXmlTagVersion(tag: XmlTag, newVersion: String, propertiesTag: XmlTag?) {
             val versionTag = tag.findFirstSubTag("version")
             if (versionTag != null) {
@@ -1170,6 +1243,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
             return dependencyApiService.fetchVersions(groupId, artifactId, currentVersion)
         }
 
+        /**
+         * Liefert die UI-Komponente des Tool Windows zurück.
+         */
         fun getContent(): JBPanel<JBPanel<*>> = content
 
         private fun findTag(parentTag: XmlTag?, tagName: String, groupId: String, artifactId: String): XmlTag? {
@@ -1180,6 +1256,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
             }
         }
 
+        /**
+         * Sucht nach einer Abhängigkeit in der `pom.xml`.
+         * Unterstützt sowohl direkte Abhängigkeiten als auch Einträge im `dependencyManagement`.
+         */
         internal fun findDependency(
             rootTag: XmlTag?,
             groupId: String,
@@ -1210,6 +1290,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
             return findTag(pmPluginsTag, "plugin", groupId, artifactId)
         }
 
+        /**
+         * Öffnet den Editor und springt zur Definition der angegebenen Abhängigkeit in der `pom.xml`.
+         */
         private fun navigateToDependency(groupId: String, artifactId: String, type: String = "dependency") {
             ProgressManager.getInstance().run(object : Task.Backgroundable(
                 project,
@@ -1248,6 +1331,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
             })
         }
 
+        /**
+         * Öffnet die Plugin-Einstellungen.
+         */
         private fun openSettings() {
             com.intellij.openapi.options.ShowSettingsUtil.getInstance()
                 .showSettingsDialog(project, MavenUpConfigurable::class.java)
