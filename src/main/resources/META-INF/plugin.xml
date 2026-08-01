@@ -21,7 +21,7 @@
             <li><b>Repository-Based Update Check:</b> Finds newer versions in Maven Central and configured private repositories, including authenticated repositories from <code>settings.xml</code>.</li>
             <li><b>Flexible Version Selection:</b> Select versions from a dropdown, optionally hide unstable releases, and update the affected <code>pom.xml</code> files after confirmation.</li>
             <li><b>Navigation &amp; Context Menu:</b> Jump directly to the definition in the <code>pom.xml</code> via double-click (or optional single-click). Right-click any dependency row for a context menu with <b>Navigate to pom.xml</b> or <b>Open in Maven Repository</b>.</li>
-            <li><b>Configurable Repository Browser:</b> Choose between MVN Repository, Maven Central Search, or Sonatype Central for artifact version links — applies to both the main table context menu and the Vulnerability Details dialog.</li>
+            <li><b>Configurable Repository Browser:</b> Choose between MVN Repository and Sonatype Central for artifact version links — applies to both the main table context menu and the Vulnerability Details dialog.</li>
             <li><b>Multi-Source Vulnerability Check:</b> Checks direct components and resolved transitive dependencies through OSV.dev, with optional Maven-focused enrichment from Sonatype OSS Index.</li>
             <li><b>Detailed Security Findings:</b> Shows deduplicated advisories with severity/CVSS, summaries, sources, references, and clearly marked transitive findings. Clicking a component opens its MVN Repository page in the browser.</li>
             <li><b>Secure OSS Index Access:</b> Stores API tokens in IntelliJ Password Safe and provides a direct link to the Sonatype account page for obtaining a token.</li>

@@ -299,10 +299,6 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
             buildMavenRepositoryUrl("org.springframework", "spring-core", "5.3.10", MavenRepositoryBrowser.MVN_REPOSITORY)
         )
         assertEquals(
-            "https://search.maven.org/artifact/org.springframework/spring-core/5.3.10",
-            buildMavenRepositoryUrl("org.springframework", "spring-core", "5.3.10", MavenRepositoryBrowser.MAVEN_CENTRAL)
-        )
-        assertEquals(
             "https://central.sonatype.com/artifact/org.springframework/spring-core/5.3.10",
             buildMavenRepositoryUrl("org.springframework", "spring-core", "5.3.10", MavenRepositoryBrowser.SONATYPE_CENTRAL)
         )

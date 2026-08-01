@@ -11,14 +11,12 @@ import com.intellij.openapi.project.Project
  */
 enum class MavenRepositoryBrowser(val displayName: String) {
     MVN_REPOSITORY("MVN Repository"),
-    MAVEN_CENTRAL("Maven Central Search"),
     SONATYPE_CENTRAL("Sonatype Central");
 
     /** Erzeugt die direkte URL zur Versionsseite der angegebenen Komponente. */
     fun urlFor(groupId: String, artifactId: String, version: String): String = when (this) {
-        MVN_REPOSITORY    -> "https://mvnrepository.com/artifact/$groupId/$artifactId/$version"
-        MAVEN_CENTRAL     -> "https://search.maven.org/artifact/$groupId/$artifactId/$version"
-        SONATYPE_CENTRAL  -> "https://central.sonatype.com/artifact/$groupId/$artifactId/$version"
+        MVN_REPOSITORY   -> "https://mvnrepository.com/artifact/$groupId/$artifactId/$version"
+        SONATYPE_CENTRAL -> "https://central.sonatype.com/artifact/$groupId/$artifactId/$version"
     }
 }
 

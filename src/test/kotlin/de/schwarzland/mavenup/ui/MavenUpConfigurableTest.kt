@@ -230,11 +230,11 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
 
         @Suppress("UNCHECKED_CAST")
         val comboBox = configurable.field<com.intellij.openapi.ui.ComboBox<MavenRepositoryBrowser>>("repositoryBrowserComboBox")
-        comboBox.selectedItem = MavenRepositoryBrowser.MAVEN_CENTRAL
+        comboBox.selectedItem = MavenRepositoryBrowser.SONATYPE_CENTRAL
         assertTrue("Änderung der Combobox sollte isModified() true machen", configurable.isModified)
 
         configurable.apply()
-        assertEquals(MavenRepositoryBrowser.MAVEN_CENTRAL, settings.state.repositoryBrowser)
+        assertEquals(MavenRepositoryBrowser.SONATYPE_CENTRAL, settings.state.repositoryBrowser)
     }
 
     fun testRepositoryBrowserDefaultIsMvnRepository() {
@@ -245,10 +245,6 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
         assertEquals(
             "https://mvnrepository.com/artifact/com.example/lib/1.0",
             MavenRepositoryBrowser.MVN_REPOSITORY.urlFor("com.example", "lib", "1.0")
-        )
-        assertEquals(
-            "https://search.maven.org/artifact/com.example/lib/1.0",
-            MavenRepositoryBrowser.MAVEN_CENTRAL.urlFor("com.example", "lib", "1.0")
         )
         assertEquals(
             "https://central.sonatype.com/artifact/com.example/lib/1.0",
