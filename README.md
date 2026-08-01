@@ -18,8 +18,10 @@ Eine vollständige, englische Feature-Liste steht in `FEATURES.md`.
 - **Sicheres Update mit Bestätigungsdialog**: Vor dem Schreiben zeigt MavenUp eine Zusammenfassung aller geplanten Änderungen (alt/neu, Typ, Koordinaten) und aktualisiert die `pom.xml` erst nach Bestätigung.
 - **Hintergrundverarbeitung für lange Aktionen**: Projekt-/PSI-Datenerfassung beim Refresh, Update-Check, Navigation und Schreiboperationen laufen im Hintergrund, damit die IDE responsiv bleibt.
 - **Sichere Aktionszustände**: **Check Vulnerabilities** bleibt während eines laufenden Refreshs oder Update-Checks deaktiviert, damit keine konkurrierenden Prüfungen gestartet werden.
-- **Navigation zur Definition in `pom.xml`**: Per Doppelklick (oder optional Einzelklick) springt MavenUp direkt zur passenden Dependency-/Plugin-Definition.
-- **Integrierte Einstellungen**: Über `Settings > Tools > MavenUp` konfigurierbar (u.a. Single-Click-Navigation, automatische Vorauswahl der neuesten Version).
+- **Navigation zur Definition in `pom.xml`**: Per Doppelklick (oder optional Einzelklick) springt MavenUp direkt zur passenden Dependency-/Plugin-Definition. Ein Tooltip auf jeder Zeile zeigt den konfigurierten Klick-Modus an.
+- **Rechtsklick-Kontextmenü**: Ein Rechtsklick auf eine Dependency-Zeile öffnet ein Kontextmenü mit zwei Einträgen: **Navigate to pom.xml** (springt zur Definition im Editor) und **Open in Maven Repository** (öffnet die Versionsseite im konfigurierten Repository-Browser).
+- **Konfigurierbarer Repository-Browser**: Unter `Settings > Tools > MavenUp` kann zwischen **MVN Repository** (Standard, `mvnrepository.com`) und **Sonatype Central** (`central.sonatype.com`) gewählt werden. Die Auswahl gilt für das Kontextmenü und die Component-Spalte im Vulnerability-Details-Dialog.
+- **Integrierte Einstellungen**: Über `Settings > Tools > MavenUp` konfigurierbar (u.a. Single-Click-Navigation, automatische Vorauswahl der neuesten Version, Repository-Browser).
 - **Multi-Source-Vulnerability-Check**: **Check Vulnerabilities** prüft direkte Komponenten und standardmäßig auch aufgelöste transitive Dependencies über [OSV.dev](https://osv.dev). Optional ergänzt [Sonatype OSS Index](https://ossindex.sonatype.org/) Maven-spezifische Befunde.
 - **Detaillierte Security-Befunde**: Direkt hinter **Current Version** zeigt **Vulnerabilities (Current)** die Befunde der direkten Dependency und ihrer aufgelösten transitiven Dependencies mit Gesamtzahl, transitiver Anzahl und höchstem Schweregrad. **Vulnerability Details** ordnet die als transitiv markierten Komponenten der ausgewählten direkten Dependency zu und zeigt IDs, Aliase, CVSS, Beschreibung, Quellen und Referenzen. Zurückgezogene Advisories werden ignoriert und Mehrfachmeldungen anhand ihrer IDs/Aliase zusammengeführt.
 
@@ -41,6 +43,7 @@ Das Plugin öffnet ein Tool-Window namens **MavenUp** (meist am rechten oder unt
 4. **Update**: Wendet die gewählten Versionsänderungen auf die entsprechenden `pom.xml`-Dateien an.
 5. **Check Vulnerabilities**: Prüft direkte Komponenten und, sofern aktiviert, transitive Dependencies über OSV.dev sowie optional OSS Index. Die direkt hinter **Current Version** angeordnete Spalte **Vulnerabilities (Current)** zeigt pro direkter Dependency die Gesamtzahl, die davon transitive Anzahl und den höchsten Schweregrad.
 6. **Vulnerability Details**: Öffnet alle Befunde inklusive Quellen, IDs/Aliasen, CVSS, Beschreibung und Referenzen. Ein Klick auf eine befüllte Vulnerability-Zelle öffnet die direkten und als `(transitive)` gekennzeichneten Befunde, die zu dieser Dependency gehören.
+7. **Rechtsklick-Kontextmenü**: Ein Rechtsklick auf eine Zeile bietet **Navigate to pom.xml** und **Open in Maven Repository** (öffnet die aktuelle Version im konfigurierten Repository-Browser).
 
 ### English
 The plugin opens a tool window named **MavenUp** (usually located at the right or bottom edge of the IDE).
@@ -51,11 +54,13 @@ The plugin opens a tool window named **MavenUp** (usually located at the right o
 4. **Update**: Applies the selected version changes to the corresponding `pom.xml` files.
 5. **Check Vulnerabilities**: Checks direct components and, when enabled, resolved transitive dependencies through OSV.dev and optionally Sonatype OSS Index. The **Vulnerabilities (Current)** column appears directly after **Current Version** and shows each direct dependency's total finding count, transitive finding count, and highest severity.
 6. **Vulnerability Details**: Opens detailed findings with sources, IDs/aliases, CVSS, summaries, and references. Clicking a populated vulnerability cell opens the direct findings and the related findings marked as `(transitive)`.
+7. **Right-click context menu**: Right-clicking any row offers **Navigate to pom.xml** and **Open in Maven Repository** (opens the current version in the configured repository browser).
 
 ## Einstellungen
 
 Unter `Settings > Tools > MavenUp` können folgende Optionen konfiguriert werden:
 
+- **Maven Repository Browser**: Wählt den Browser für Artifact-Versionsseiten – **MVN Repository** (Standard, `mvnrepository.com`) oder **Sonatype Central** (`central.sonatype.com`). Die Auswahl gilt für das Rechtsklick-Kontextmenü und die Component-Spalte im Vulnerability-Details-Dialog.
 - **Jump to pom.xml on single click**: Ermöglicht die Navigation zur `pom.xml` mit einem einfachen statt eines Doppelklicks.
 - **Automatically select newest version**: Wählt nach einem Update-Check automatisch die jeweils neueste verfügbare Version in der Dropdown-Liste aus.
 - **Hide unstable versions**: Blendet instabile Versionen (z.B. RC/Beta) aus den auswählbaren Update-Versionen aus.
@@ -88,7 +93,7 @@ Danach einmal `gradlew --stop` ausführen, damit der Gradle-Daemon die neuen Ein
 
 ## Architektur
 
-Das Plugin ist jetzt klar in drei Schichten gegliedert:
+Das Plugin ist klar in drei Schichten gegliedert:
 
 ### Datenmodell (`de.schwarzland.mavenup.model`)
 - Enthält schlanke DTOs für den UI-/Service-Datenaustausch, z. B. `DependencyUpdate` und `VulnerabilityAdvisory`.
