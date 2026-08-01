@@ -289,7 +289,18 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.newVersion"))
             }
 
-            val table = JBTable(tableModel)
+            val table = object : JBTable(tableModel) {
+                override fun getToolTipText(e: MouseEvent): String? {
+                    val row = rowAtPoint(e.point)
+                    val column = columnAtPoint(e.point)
+                    if (row < 0 || column == VULNERABILITIES_COLUMN) return super.getToolTipText(e)
+                    val settings = MavenUpSettings.getInstance(project)
+                    return if (settings.state.jumpOnSingleClick)
+                        MyMessageBundle.message("toolwindow.MyToolWindow.table.row.tooltip.singleClick")
+                    else
+                        MyMessageBundle.message("toolwindow.MyToolWindow.table.row.tooltip.doubleClick")
+                }
+            }
 
             table.addMouseListener(object : MouseAdapter() {
                 override fun mouseClicked(e: MouseEvent) {
