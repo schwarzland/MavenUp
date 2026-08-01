@@ -5,22 +5,7 @@
 ### Added
 - Right-click context menu on dependency rows with two actions: **Navigate to pom.xml** (jumps to the entry in the editor) and **Open in Maven Repository** (opens the matching version page in the configured repository browser).
 - Configurable Maven Repository Browser: users can choose between **MVN Repository** (default, `mvnrepository.com`) and **Sonatype Central** (`central.sonatype.com`) under **Settings > Tools > MavenUp**. The selection applies to both the context menu in the main table and the Component column link in the Vulnerability Details dialog.
-
-### Changed
-- Updated row tooltip to reflect the right-click menu: "Click to navigate to pom.xml | Right-click for more options" or "Double-click to navigate to pom.xml | Right-click for more options" depending on the configured click mode.
-- The Component column tooltip in the Vulnerability Details dialog now dynamically shows the name of the configured repository browser instead of a fixed "MVN Repository" label.
-
-### Fixed
-- Moved the link icon to the beginning of the **Vulnerabilities** column cell, so it appears before the summary text.
-
-### Added
 - Added a tooltip on dependency rows in the main table indicating whether a single or double click will open the entry in pom.xml (adapts to the "jump on single click" setting).
-
-### Changed
-- Clicking a component in the **Component** column of the Vulnerability Details dialog now opens its MVN Repository page in the browser.
-- Replaced the OK and Cancel buttons in the **Vulnerability Details** dialog and the **References** dialog with a single **Close** button, matching the JetBrains UI guidelines for read-only informational dialogs.
-
-### Added
 - Added a link in the OSS Index settings that opens the Sonatype account page for creating or copying an API token.
 - Added a **Check Vulnerabilities** action that queries OSV.dev and optionally enriches results with Sonatype OSS Index data, with credentials stored securely in IntelliJ Password Safe.
 - Added resolved transitive dependencies to vulnerability scans by default.
@@ -35,6 +20,10 @@
 - New `DependencyUpdate` equality/copy test.
 
 ### Changed
+- Updated row tooltip to reflect the right-click menu: "Click to navigate to pom.xml | Right-click for more options" or "Double-click to navigate to pom.xml | Right-click for more options" depending on the configured click mode.
+- The Component column tooltip in the Vulnerability Details dialog now dynamically shows the name of the configured repository browser instead of a fixed "MVN Repository" label.
+- Clicking a component in the **Component** column of the Vulnerability Details dialog now opens its MVN Repository page in the browser.
+- Replaced the OK and Cancel buttons in the **Vulnerability Details** dialog and the **References** dialog with a single **Close** button, matching the JetBrains UI guidelines for read-only informational dialogs.
 - Clicking a cell in the **References** column of the Vulnerability Details dialog now opens a dedicated references list dialog instead of directly navigating to the first link. Clicking any link in that list opens it in the browser.
 - Added a link icon to the **Vulnerabilities (Current)** column cell when findings are present, making it visually clear that the cell is clickable to open the details dialog.
 - Refocused the plugin description on user-visible capabilities while keeping internal implementation details concise.
@@ -47,6 +36,7 @@
 - CVSS v2/v3 vector scores are normalized with the CVSS Calculator library for consistent severity display.
 
 ### Fixed
+- Moved the link icon to the beginning of the **Vulnerabilities** column cell, so it appears before the summary text.
 - Disabled **Check Vulnerabilities** while a refresh or update check is running to prevent overlapping background operations.
 - OSS Index requests are no longer sent when the configured username/email or API token is missing; OSV checks continue and the user receives a configuration warning.
 - Improved OSV diagnostic logging with request and chunk summaries, response-size mismatch warnings, HTTP error bodies, and cancellation details.

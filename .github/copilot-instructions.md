@@ -3,7 +3,13 @@
 Bei **jeder** Änderung im Repository sind diese Punkte immer zu berücksichtigen:
 
 1. **README.md** ergänzen/aktualisieren, wenn sich Verhalten, Nutzung, Konfiguration oder Architektur ändert.
-2. **CHANGELOG.md** ergänzen/aktualisieren mit einem passenden Eintrag zur Änderung. Sprache: Englisch. Orientiere dich an der bisherigen Form (Version, Datum, Kategorie, kurze Beschreibung) udn an der Versionsnummer in `gradle.properties`.
+2. **CHANGELOG.md** ergänzen/aktualisieren mit einem passenden Eintrag zur Änderung. Dabei gelten folgende Regeln:
+   - Sprache: Englisch.
+   - Versionsnummer aus `gradle.properties` übernehmen.
+   - Struktur: pro Version **genau einen** `### Added`-, `### Changed`- und `### Fixed`-Block – niemals doppelte Kategorien innerhalb derselben Version.
+   - Neue Einträge immer in den bestehenden Block der aktuellen Version einsortieren, nicht als neuen Block anhängen.
+   - Jeder Eintrag ist ein prägnanter Satz (ein Gedanke pro Zeile); keine Redundanzen, keine Dopplungen.
+   - Nach dem Hinzufügen die gesamte Version überfliegen und sicherstellen, dass keine Kategorie doppelt vorkommt und alle Einträge thematisch korrekt zugeordnet sind.
 3. **FEATURES.md** ergänzen/aktualisieren, wenn neue Funktionen hinzugefügt oder bestehende Funktionen geändert werden. Sprache: Englisch.
 4. **src/main/resources/META-INF/plugin.xml** ergänze/aktualisiere die Sektion <description> in einer kompakten Form, wenn neue Funktionen hinzugefügt oder bestehende Funktionen geändert werden. Sprache: Englisch.
 5. **Unittest** ergänzen/aktualisieren, wenn sich Verhalten, Nutzung, Konfiguration oder Architektur ändert.
