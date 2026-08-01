@@ -27,7 +27,17 @@ Bei **jeder** Änderung im Repository sind diese Punkte immer zu berücksichtige
    - Neue Funktionen als neuen `<li>`-Eintrag ergänzen; geänderte Funktionen im bestehenden `<li>` aktualisieren – keine Dopplungen.
    - Beschreibungen müssen die tatsächliche Implementierung korrekt widerspiegeln – keine produktspezifischen Hardcodierungen, die durch Einstellungen variieren können (z. B. nie einen festen Repository-Namen nennen, wenn der Browser konfigurierbar ist).
    - Nach jeder Änderung die vollständige `<description>` mit FEATURES.md abgleichen: jede wichtige Funktion aus FEATURES.md muss sinngemäß abgedeckt sein; veraltete oder entfernte Einträge sind zu löschen.
-5. **Unittest** ergänzen/aktualisieren, wenn sich Verhalten, Nutzung, Konfiguration oder Architektur ändert.
+5. **Unittests** schreiben oder anpassen – Ziel ist eine **sehr hohe Testabdeckung**. Dabei gelten folgende Regeln:
+   - **Jede neue öffentliche oder interne Methode** (`public`, `internal`) bekommt mindestens einen Unittest.
+   - **Jede Änderung an bestehender Logik** macht die zugehörigen Tests ungültig – diese sind zu aktualisieren oder zu ergänzen.
+   - **Teststruktur**: Testklassen liegen unter `src/test/kotlin/` und spiegeln die Paketstruktur des Produktivcodesexakt wider (`model`, `service`, `ui`).
+   - **Testtyp je nach Klasse wählen**:
+     - Reine Logik ohne IntelliJ-Platform (z. B. `VulnerabilityApiService`, `VulnerabilityMerger`, `LogSummary`, `OssIndexApiService`, `DependencyUpdate`): reines JUnit (`@Test`-Annotation, kein `BasePlatformTestCase`).
+     - Klassen, die IntelliJ-APIs, PSI oder ein Projekt-Objekt benötigen (z. B. `DependencyApiService`, `MavenUpConfigurable`, `MavenUpWindowFactory`): erben von `BasePlatformTestCase`, Testmethoden ohne `@Test`-Annotation (JUnit 3-Stil).
+   - **Testfälle je Methode** abdecken: Normalfall, Grenzfälle (leere Eingabe, null, leere Liste), Fehlerfall (HTTP-Fehler, fehlende Werte, ungültige Eingaben).
+   - **Keine Reflection** für den Zugriff auf private Methoden – wenn eine Methode testbar sein soll, muss sie `internal` oder in einen Service ausgelagert werden.
+   - **Keine Duplikate**: Besteht bereits ein Test für einen Fall, wird er erweitert statt ein neuer angelegt.
+   - Nach jeder Implementierungsänderung prüfen, ob bestehende Tests noch korrekt sind, und fehlgeschlagene oder veraltete Tests sofort korrigieren.
 6. **.github/copilot-project-context.md** ergänzen/aktualisieren, wenn sich Verhalten, Nutzung, Konfiguration oder Architektur ändert. Dabei gelten folgende Regeln:
    - Sprache: Deutsch. Die Datei dient als kompakte Referenz für Copilot-Agenten.
    - Jede neue Klasse/Komponente wird in der **Komponenten**-Liste ergänzt; veraltete oder umbenannte Klassen werden aktualisiert oder entfernt.
