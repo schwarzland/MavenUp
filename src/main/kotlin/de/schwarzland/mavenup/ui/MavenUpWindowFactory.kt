@@ -457,10 +457,12 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     JLabel(vulnerabilitySummary(cell)).apply {
                         isOpaque = true
                         border = BorderFactory.createEmptyBorder(0, 6, 0, 6)
-                        toolTipText = if (advisories.isEmpty()) {
-                            null
+                        if (advisories.isNotEmpty()) {
+                            icon = AllIcons.Ide.Link
+                            horizontalTextPosition = JLabel.LEADING
+                            toolTipText = MyMessageBundle.message("vulnerability.details.title")
                         } else {
-                            MyMessageBundle.message("vulnerability.details.title")
+                            toolTipText = null
                         }
                         background = if (isSelected) {
                             currentTable.selectionBackground

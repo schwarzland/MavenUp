@@ -17,6 +17,7 @@
 - New `DependencyUpdate` equality/copy test.
 
 ### Changed
+- Added a link icon to the **Vulnerabilities (Current)** column cell when findings are present, making it visually clear that the cell is clickable to open the details dialog.
 - Refocused the plugin description on user-visible capabilities while keeping internal implementation details concise.
 - Transitive vulnerability findings are now included in the **Vulnerabilities (Current)** cell of their direct dependency, marked with a transitive count, and included in that row's detail view.
 - Moved the **Vulnerabilities (Current)** column directly behind **Current Version** to make clear that findings apply to the currently used component version.
