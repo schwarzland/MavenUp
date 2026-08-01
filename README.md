@@ -127,8 +127,32 @@ Hinweise:
 
 ---
 
+
 ## Developer Stuff
+
+### Git Buffer Size erhöhen
+
 `git push` scheiterte mit den `/assets/*.png`weil die Git-Buffer-Size zu klein war. Lösung:
 ```
 git config --global http.postBuffer 524288000
 ```
+
+### ClassNotFoundException: MavenUpWindowFactory at plugin startup
+
+**Symptom:** The IDE log shows `Cannot process toolwindow MavenUp` / `ClassNotFoundException: de.schwarzland.mavenup.ui.MavenUpWindowFactory`.
+
+**Cause:** A corrupt Gradle build-cache entry for `compileKotlin`. Gradle reports the task as `FROM-CACHE` but restores an empty output, so the plugin JAR contains no compiled classes.
+
+**Fix:**
+```bash
+.\gradlew.bat clean compileKotlin --rerun-tasks
+.\gradlew.bat prepareSandbox --rerun-tasks
+```
+
+If the problem persists, clear the Gradle build cache completely:
+```bash
+.\gradlew.bat --stop
+Remove-Item -Recurse "$env:USERPROFILE\.gradle\caches\build-cache-*"
+.\gradlew.bat prepareSandbox
+```
+
