@@ -58,6 +58,12 @@ Bei **jeder** Änderung im Repository sind diese Punkte immer zu berücksichtige
    - Bibliotheken, die nur zur Testzeit oder als provided/platform verwendet werden (`testImplementation`, `intellijPlatform`), sind davon in der Regel ausgenommen.
    - Der Abschnitt **`## Third-party licenses`** in der `README.md` ist entsprechend zu ergänzen oder zu aktualisieren: jede eingebettete Bibliothek mit Name, Version, Lizenz (inkl. Link) und Verwendungszweck.
    - Veraltete oder entfernte Abhängigkeiten sind aus dem Abschnitt zu entfernen.
-10. **kein git commit** ausführen.
+10. **getting_started.html** ergänzen/aktualisieren, wenn sich die Bedienung des Plugins ändert (neue Schritte, umbenannte Aktionen, neue Dialoge oder Einstellungen, die für Einsteiger relevant sind). Dabei gelten folgende Regeln:
+    - Sprache: Englisch. Die Datei wird als *Getting Started*-Seite im JetBrains Marketplace und im IDE Plugin Manager angezeigt.
+    - Die Beschreibung muss für neue Nutzer verständlich sein – kurze, handlungsorientierte Sätze.
+    - Neue Bedienelemente oder Workflows als zusätzliche `<li>`-Einträge in der bestehenden `<ol>` ergänzen; geänderte Aktionen im bestehenden Eintrag aktualisieren.
+    - Veraltete oder entfernte Aktionen sind zu löschen.
+    - Nach jeder Änderung die gesamte `getting_started.html` mit der tatsächlichen Bedienung abgleichen und sicherstellen, dass alle wesentlichen Schritte für einen Einsteiger abgedeckt sind.
+11. **kein git commit** ausführen.
 
 Diese Vorgaben gelten standardmäßig für alle Copilot-Änderungen in diesem Projekt.

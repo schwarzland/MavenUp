@@ -76,3 +76,4 @@ Siehe `.github/copilot-instructions.md` für die verbindliche Arbeitsanweisung
   in die user-lokale `~/.gradle/gradle.properties`.
 - `checkliste-publication.md` enthält Checkliste für Plugin-Veröffentlichung.
 - `mavenup_plugin_de.html` vermutlich Marketplace-Beschreibung (DE).
+- `getting_started.html` ist die *Getting Started*-Seite im JetBrains Marketplace / Plugin Manager. Sie erklärt neuen Nutzern in einem kompakten HTML-Kurzleitfaden die ersten Schritte: Tool-Window öffnen, Refresh, Update-Check, Version auswählen, Update anwenden. Muss bei jeder Bedienungsänderung (neue Aktionen, umbenannte Buttons, neue Dialoge) aktuell gehalten werden.
