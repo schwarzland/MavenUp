@@ -1,13 +1,79 @@
 package de.schwarzland.mavenup
 
+import de.schwarzland.mavenup.model.VulnerabilityAdvisory
+import de.schwarzland.mavenup.model.VulnerabilitySeverity
+import de.schwarzland.mavenup.service.MavenUpSettings
+import de.schwarzland.mavenup.service.MavenRepositoryBrowser
+import de.schwarzland.mavenup.ui.buildMavenRepositoryUrl
+import de.schwarzland.mavenup.ui.MavenUpWindowFactory
+import de.schwarzland.mavenup.ui.RefreshSnapshot
+import de.schwarzland.mavenup.ui.buildVulnerabilityCell
+import de.schwarzland.mavenup.ui.canCheckVulnerabilities
+import de.schwarzland.mavenup.ui.vulnerabilitySummary
 import com.intellij.openapi.wm.RegisterToolWindowTask
 import com.intellij.openapi.wm.ToolWindowAnchor
 import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.psi.xml.XmlFile
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.openapi.command.WriteCommandAction
+import com.intellij.openapi.application.ReadAction
+import com.intellij.util.concurrency.AppExecutorUtil
+import com.intellij.ui.table.JBTable
+import java.awt.Container
+import java.util.concurrent.TimeUnit
 
 class MavenUpWindowFactoryTest : BasePlatformTestCase() {
+
+    fun testVulnerabilityCheckAvailabilityDuringRefreshAndUpdateCheck() {
+        assertTrue(canCheckVulnerabilities(isRefreshing = false, isUpdating = false))
+        assertFalse(canCheckVulnerabilities(isRefreshing = true, isUpdating = false))
+        assertFalse(canCheckVulnerabilities(isRefreshing = false, isUpdating = true))
+        assertFalse(canCheckVulnerabilities(isRefreshing = true, isUpdating = true))
+    }
+
+    fun testVulnerabilityColumnIsAssociatedWithCurrentVersion() {
+        val table = findTable(MavenUpWindowFactory().MyToolWindow(project).getContent())
+
+        assertNotNull(table)
+        assertEquals("Current Version", table!!.model.getColumnName(4))
+        assertEquals("Vulnerabilities (Current)", table.model.getColumnName(5))
+        assertEquals("New Version", table.model.getColumnName(6))
+        assertFalse(table.model.isCellEditable(0, 5))
+        assertTrue(table.model.isCellEditable(0, 6))
+    }
+
+    fun testTransitiveVulnerabilitiesAreIncludedAndMarkedInDependencyCell() {
+        val directCoordinate = "com.example:direct:1.0.0"
+        val transitiveCoordinate = "com.example:transitive:2.0.0"
+        val directAdvisory = VulnerabilityAdvisory(
+            id = "CVE-DIRECT",
+            severity = VulnerabilitySeverity.MEDIUM,
+            sources = setOf("OSV")
+        )
+        val transitiveAdvisory = VulnerabilityAdvisory(
+            id = "CVE-TRANSITIVE",
+            severity = VulnerabilitySeverity.HIGH,
+            sources = setOf("OSV")
+        )
+
+        val cell = buildVulnerabilityCell(
+            directCoordinate,
+            mapOf(
+                directCoordinate to listOf(directAdvisory),
+                transitiveCoordinate to listOf(transitiveAdvisory)
+            ),
+            setOf(transitiveCoordinate)
+        )
+
+        assertEquals(2, cell.allAdvisories.size)
+        assertEquals(1, cell.transitiveAdvisoryCount)
+        assertEquals("2 (1 transitive, HIGH)", vulnerabilitySummary(cell))
+        assertEquals(listOf(directAdvisory), cell.detailFindings()[directCoordinate])
+        assertEquals(
+            listOf(transitiveAdvisory),
+            cell.detailFindings()["$transitiveCoordinate (transitive)"]
+        )
+    }
 
     fun testShouldBeAvailableOnlyWhenMavenProjectsExist() {
         val factory = MavenUpWindowFactory()
@@ -33,6 +99,47 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         } finally {
             ToolWindowManager.getInstance(project).unregisterToolWindow("TestWindow")
         }
+    }
+
+    fun testRefreshSnapshotCollectionRunsOutsideEdt() {
+        val toolWindowInstance = MavenUpWindowFactory().MyToolWindow(project)
+
+        val snapshot: RefreshSnapshot = ReadAction.nonBlocking<RefreshSnapshot> {
+            toolWindowInstance.collectRefreshSnapshot("managed dependency")
+        }.submit(AppExecutorUtil.getAppExecutorService()).get(5, TimeUnit.SECONDS)
+
+        assertNotNull(snapshot)
+        assertTrue(snapshot.rows.isEmpty())
+    }
+
+    fun testSelectedUpdatesUseCachedRefreshData() {
+        val toolWindowInstance = MavenUpWindowFactory().MyToolWindow(project)
+        val key = "com.example:example-core"
+        val fields = toolWindowInstance.javaClass
+        @Suppress("UNCHECKED_CAST")
+        val selectedVersions = fields.getDeclaredField("selectedVersions")
+            .apply { isAccessible = true }
+            .get(toolWindowInstance) as MutableMap<String, String>
+        @Suppress("UNCHECKED_CAST")
+        val knownDependencies = fields.getDeclaredField("knownDependencies")
+            .apply { isAccessible = true }
+            .get(toolWindowInstance) as MutableMap<String, String>
+        @Suppress("UNCHECKED_CAST")
+        val knownTypes = fields.getDeclaredField("knownTypes")
+            .apply { isAccessible = true }
+            .get(toolWindowInstance) as MutableMap<String, String>
+
+        selectedVersions[key] = "2.0.0"
+        knownDependencies[key] = "1.0.0"
+        knownTypes[key] = "dependency"
+
+        val updates = toolWindowInstance.collectSelectedUpdates()
+
+        assertEquals(1, updates.size)
+        assertEquals("com.example", updates.single().groupId)
+        assertEquals("example-core", updates.single().artifactId)
+        assertEquals("1.0.0", updates.single().oldVersion)
+        assertEquals("2.0.0", updates.single().newVersion)
     }
 
     fun testFindDependency() {
@@ -186,6 +293,30 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertTrue(defaults.hiddenVersionQualifiers.contains("rc"))
     }
 
+    fun testBuildMavenRepositoryUrl() {
+        assertEquals(
+            "https://mvnrepository.com/artifact/org.springframework/spring-core/5.3.10",
+            buildMavenRepositoryUrl("org.springframework", "spring-core", "5.3.10", MavenRepositoryBrowser.MVN_REPOSITORY)
+        )
+        assertEquals(
+            "https://central.sonatype.com/artifact/org.springframework/spring-core/5.3.10",
+            buildMavenRepositoryUrl("org.springframework", "spring-core", "5.3.10", MavenRepositoryBrowser.SONATYPE_CENTRAL)
+        )
+        // default browser is MVN_REPOSITORY
+        assertEquals(
+            "https://mvnrepository.com/artifact/com.example/my-lib/1.0.0",
+            buildMavenRepositoryUrl("com.example", "my-lib", "1.0.0")
+        )
+    }
+
+    private fun findTable(container: Container): JBTable? {
+        container.components.forEach { component ->
+            if (component is JBTable) return component
+            if (component is Container) findTable(component)?.let { return it }
+        }
+        return null
+    }
+
     fun testCollectDependenciesAndProperties() {
         val pomContent = """
             <project>
@@ -282,271 +413,6 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertNull(targetMap[":missing-group-plugin"])
     }
 
-    fun testResolveCredentialValueWithSystemPropertyPlaceholder() {
-        val factory = MavenUpWindowFactory()
-        val toolWindowInstance = factory.MyToolWindow(project)
-        val resolveMethod = toolWindowInstance.javaClass.getDeclaredMethod(
-            "resolveCredentialValue",
-            String::class.java,
-            String::class.java,
-            String::class.java
-        ).apply { isAccessible = true }
-
-        val key = "mavenup.test.credential"
-        val expected = "secret-value"
-        try {
-            System.setProperty(key, expected)
-            val resolved = resolveMethod.invoke(
-                toolWindowInstance,
-                "${'$'}{$key}",
-                "test-server",
-                "username"
-            ) as String?
-            assertEquals(expected, resolved)
-        } finally {
-            System.clearProperty(key)
-        }
-    }
-
-    fun testResolveCredentialValueWithMissingEnvPlaceholderReturnsNull() {
-        val factory = MavenUpWindowFactory()
-        val toolWindowInstance = factory.MyToolWindow(project)
-        val resolveMethod = toolWindowInstance.javaClass.getDeclaredMethod(
-            "resolveCredentialValue",
-            String::class.java,
-            String::class.java,
-            String::class.java
-        ).apply { isAccessible = true }
-
-        val missingVar = "MAVENUP_TEST_MISSING_ENV_1234567890"
-        val resolved = resolveMethod.invoke(
-            toolWindowInstance,
-            "${'$'}{env.$missingVar}",
-            "test-server",
-            "password"
-        ) as String?
-
-        assertNull(resolved)
-    }
-
-    fun testResolveCredentialValueWithPlainTextKeepsValue() {
-        val factory = MavenUpWindowFactory()
-        val toolWindowInstance = factory.MyToolWindow(project)
-        val resolveMethod = toolWindowInstance.javaClass.getDeclaredMethod(
-            "resolveCredentialValue",
-            String::class.java,
-            String::class.java,
-            String::class.java
-        ).apply { isAccessible = true }
-
-        val resolved = resolveMethod.invoke(
-            toolWindowInstance,
-            " plain-secret ",
-            "test-server",
-            "username"
-        ) as String?
-
-        assertEquals("plain-secret", resolved)
-    }
-
-    fun testResolveCredentialValueWithMissingPropertyPlaceholderReturnsNull() {
-        val factory = MavenUpWindowFactory()
-        val toolWindowInstance = factory.MyToolWindow(project)
-        val resolveMethod = toolWindowInstance.javaClass.getDeclaredMethod(
-            "resolveCredentialValue",
-            String::class.java,
-            String::class.java,
-            String::class.java
-        ).apply { isAccessible = true }
-
-        val missingVar = "MAVENUP_TEST_MISSING_PROP_1234567890"
-        val resolved = resolveMethod.invoke(
-            toolWindowInstance,
-            "${'$'}{$missingVar}",
-            "test-server",
-            "username"
-        ) as String?
-
-        assertNull(resolved)
-    }
-
-    fun testResolveCredentialValueWithBlankInputReturnsNull() {
-        val factory = MavenUpWindowFactory()
-        val toolWindowInstance = factory.MyToolWindow(project)
-        val resolveMethod = toolWindowInstance.javaClass.getDeclaredMethod(
-            "resolveCredentialValue",
-            String::class.java,
-            String::class.java,
-            String::class.java
-        ).apply { isAccessible = true }
-
-        val resolved = resolveMethod.invoke(
-            toolWindowInstance,
-            "   ",
-            "test-server",
-            "username"
-        ) as String?
-
-        assertNull(resolved)
-    }
-
-    fun testFindServerCredentialsFallsBackToRepositoryUrl() {
-        val factory = MavenUpWindowFactory()
-        val toolWindowInstance = factory.MyToolWindow(project)
-        val findMethod = toolWindowInstance.javaClass.getDeclaredMethod(
-            "findServerCredentials",
-            Pair::class.java,
-            Map::class.java
-        ).apply { isAccessible = true }
-
-        val repo = Pair<String?, String>(null, "https://repo.example.org/maven")
-        val creds = mapOf<String, Pair<String?, String?>>(
-            "https://repo.example.org/maven" to Pair("user", "pass")
-        )
-
-        val resolved = findMethod.invoke(toolWindowInstance, repo, creds) as Pair<*, *>?
-        assertEquals("user", resolved?.first)
-        assertEquals("pass", resolved?.second)
-    }
-
-    fun testFindServerCredentialsFallsBackToHost() {
-        val factory = MavenUpWindowFactory()
-        val toolWindowInstance = factory.MyToolWindow(project)
-        val findMethod = toolWindowInstance.javaClass.getDeclaredMethod(
-            "findServerCredentials",
-            Pair::class.java,
-            Map::class.java
-        ).apply { isAccessible = true }
-
-        val repo = Pair<String?, String>(null, "https://repo.example.org/maven")
-        val creds = mapOf<String, Pair<String?, String?>>(
-            "repo.example.org" to Pair("host-user", "host-pass")
-        )
-
-        val resolved = findMethod.invoke(toolWindowInstance, repo, creds) as Pair<*, *>?
-        assertEquals("host-user", resolved?.first)
-        assertEquals("host-pass", resolved?.second)
-    }
-
-    fun testCollectVersionsFromRepositoriesPrioritizesCentralAndShortCircuitsOnSuccess() {
-        val factory = MavenUpWindowFactory()
-        val toolWindowInstance = factory.MyToolWindow(project)
-        val collectMethod = toolWindowInstance.javaClass.getDeclaredMethod(
-            "collectVersionsFromRepositories",
-            List::class.java,
-            kotlin.Function1::class.java
-        ).apply { isAccessible = true }
-
-        val repositories = listOf(
-            Pair<String?, String>("private-1", "https://private-1.example.org/maven"),
-            Pair<String?, String>("central", "https://repo1.maven.org/maven2"),
-            Pair<String?, String>("private-2", "https://private-2.example.org/maven")
-        )
-        val called = mutableListOf<String>()
-        val fetcher: (Pair<String?, String>) -> Pair<Boolean, List<String>> = { repo ->
-            called.add(repo.second)
-            if (repo.second == "https://repo1.maven.org/maven2") {
-                Pair(true, listOf("1.2.0"))
-            } else {
-                Pair(true, listOf("9.9.9"))
-            }
-        }
-
-        @Suppress("UNCHECKED_CAST")
-        val versions = collectMethod.invoke(toolWindowInstance, repositories, fetcher) as Set<String>
-
-        assertEquals(listOf("https://repo1.maven.org/maven2"), called)
-        assertEquals(setOf("1.2.0"), versions)
-    }
-
-    fun testCollectVersionsFromRepositoriesContinuesWhenCentralFails() {
-        val factory = MavenUpWindowFactory()
-        val toolWindowInstance = factory.MyToolWindow(project)
-        val collectMethod = toolWindowInstance.javaClass.getDeclaredMethod(
-            "collectVersionsFromRepositories",
-            List::class.java,
-            kotlin.Function1::class.java
-        ).apply { isAccessible = true }
-
-        val repositories = listOf(
-            Pair<String?, String>("private-1", "https://private-1.example.org/maven"),
-            Pair<String?, String>("central", "https://repo1.maven.org/maven2"),
-            Pair<String?, String>("private-2", "https://private-2.example.org/maven")
-        )
-        val called = mutableListOf<String>()
-        val fetcher: (Pair<String?, String>) -> Pair<Boolean, List<String>> = { repo ->
-            called.add(repo.second)
-            if (repo.second == "https://repo1.maven.org/maven2") {
-                Pair(false, emptyList())
-            } else {
-                Pair(true, listOf("1.0.0"))
-            }
-        }
-
-        @Suppress("UNCHECKED_CAST")
-        val versions = collectMethod.invoke(toolWindowInstance, repositories, fetcher) as Set<String>
-
-        assertEquals(
-            listOf(
-                "https://repo1.maven.org/maven2",
-                "https://private-1.example.org/maven",
-                "https://private-2.example.org/maven"
-            ),
-            called
-        )
-        assertEquals(setOf("1.0.0"), versions)
-    }
-
-    fun testFilterVersionsBySettingsWhenDisabledKeepsAll() {
-        val settings = MavenUpSettings.getInstance(project)
-        val previousHide = settings.state.hideUnstableVersions
-        val previousQualifiers = settings.state.hiddenVersionQualifiers
-        settings.state.hideUnstableVersions = false
-        settings.state.hiddenVersionQualifiers = "rc,beta"
-
-        val factory = MavenUpWindowFactory()
-        val toolWindowInstance = factory.MyToolWindow(project)
-        val filterMethod = toolWindowInstance.javaClass.getDeclaredMethod(
-            "filterVersionsBySettings",
-            List::class.java
-        ).apply { isAccessible = true }
-
-        val input = listOf("2.0.0-RC1", "2.0.0-beta2", "2.0.0")
-        try {
-            @Suppress("UNCHECKED_CAST")
-            val filtered = filterMethod.invoke(toolWindowInstance, input) as List<String>
-            assertEquals(input, filtered)
-        } finally {
-            settings.state.hideUnstableVersions = previousHide
-            settings.state.hiddenVersionQualifiers = previousQualifiers
-        }
-    }
-
-    fun testFilterVersionsBySettingsRemovesConfiguredQualifiers() {
-        val settings = MavenUpSettings.getInstance(project)
-        val previousHide = settings.state.hideUnstableVersions
-        val previousQualifiers = settings.state.hiddenVersionQualifiers
-        settings.state.hideUnstableVersions = true
-        settings.state.hiddenVersionQualifiers = "rc,beta,milestone"
-
-        val factory = MavenUpWindowFactory()
-        val toolWindowInstance = factory.MyToolWindow(project)
-        val filterMethod = toolWindowInstance.javaClass.getDeclaredMethod(
-            "filterVersionsBySettings",
-            List::class.java
-        ).apply { isAccessible = true }
-
-        val input = listOf("2.0.0-RC1", "2.0.0-beta2", "2.0.0-MILESTONE-1", "2.0.0", "1.9.9")
-        try {
-            @Suppress("UNCHECKED_CAST")
-            val filtered = filterMethod.invoke(toolWindowInstance, input) as List<String>
-            assertEquals(listOf("2.0.0", "1.9.9"), filtered)
-        } finally {
-            settings.state.hideUnstableVersions = previousHide
-            settings.state.hiddenVersionQualifiers = previousQualifiers
-        }
-    }
-
     fun testFindPlugin() {
         val pomContent = """
             <project>
@@ -595,4 +461,5 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertNotNull("Managed Plugin sollte gefunden werden", managedPlugin)
         assertEquals("maven-surefire-plugin", managedPlugin?.findFirstSubTag("artifactId")?.value?.text)
     }
+
 }

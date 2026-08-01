@@ -8,7 +8,7 @@
     <name>MavenUp</name>
 
     <!-- A displayed Vendor name or Organization ID displayed on the Plugins Page. -->
-    <vendor url="https://www.schwarzland.de">schwarzland.de</vendor>
+    <vendor url="https://www.schwarzland.de">Michael Schwarz</vendor>
 
     <!-- Description of the plugin displayed on the Plugin Page and IDE Plugin Manager.
          Guidelines: https://plugins.jetbrains.com/docs/marketplace/best-practices-for-listing.html#plugin-description -->
@@ -16,13 +16,18 @@
         IntelliJ plugin for Maven projects to simplify dependency and plugin management. It provides a clear table view of all declared components and enables easy updates to newer versions.<br><br>
         <b>Features:</b>
         <ul>
-            <li><b>Dependency & Plugin Overview:</b> Displays all dependencies and plugins declared in Maven projects.</li>
-            <li><b>Dependency Management Support:</b> Automatically detects whether a dependency is managed directly or via <code>dependencyManagement</code>.</li>
-            <li><b>Maven Properties (Variables):</b> Shows Maven property names (e.g., <code>${spring.version}</code>) in a dedicated column.</li>
-            <li><b>Update Check:</b> Checks for newer versions in configured repositories at the click of a button.</li>
-            <li><b>Select & Update Versions:</b> Select new versions from a dropdown and automatically update the <code>pom.xml</code>.</li>
-            <li><b>Navigation:</b> Jump directly to the definition in the <code>pom.xml</code> via double-click (or optional single-click).</li>
+            <li><b>Dependency & Plugin Overview:</b> Displays dependencies and plugins from all Maven modules, including entries from <code>dependencyManagement</code> and <code>pluginManagement</code>.</li>
+            <li><b>Property-Aware Versions:</b> Shows Maven properties such as <code>${spring.version}</code> and updates the shared property instead of replacing its references.</li>
+            <li><b>Repository-Based Update Check:</b> Finds newer versions in Maven Central and configured private repositories, including authenticated repositories from <code>settings.xml</code>.</li>
+            <li><b>Flexible Version Selection:</b> Select versions from a dropdown, optionally hide unstable releases, and update the affected <code>pom.xml</code> files after confirmation.</li>
+            <li><b>Navigation &amp; Context Menu:</b> Jump directly to the definition in the <code>pom.xml</code> via double-click (or optional single-click). Right-click any dependency row for a context menu with <b>Navigate to pom.xml</b> or <b>Open in Maven Repository</b>.</li>
+            <li><b>Configurable Repository Browser:</b> Choose between MVN Repository and Sonatype Central for artifact version links — applies to both the main table context menu and the Vulnerability Details dialog.</li>
+            <li><b>Multi-Source Vulnerability Check:</b> Checks direct components and resolved transitive dependencies through OSV.dev, with optional Maven-focused enrichment from Sonatype OSS Index.</li>
+            <li><b>Detailed Security Findings:</b> Shows deduplicated advisories with severity/CVSS, summaries, sources, references, and clearly marked transitive findings. Clicking a component opens its version page in the configured repository browser.</li>
+            <li><b>Secure OSS Index Access:</b> Stores API tokens in IntelliJ Password Safe and provides a direct link to the Sonatype account page for obtaining a token.</li>
+            <li><b>Project Settings:</b> Configure navigation, automatic version selection, unstable-version filters, transitive scans, and optional OSS Index integration under <b>Settings | Tools | MavenUp</b>.</li>
         </ul>
+        Background processing and a layered internal architecture keep long-running operations responsive and maintainable.
         ]]></description>
 
     <!-- Product and plugin compatibility requirements.
@@ -37,16 +42,16 @@
     <!-- Extensions defined by the plugin.
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
     <extensions defaultExtensionNs="com.intellij">
-        <toolWindow id="MavenUp" factoryClass="de.schwarzland.mavenup.MavenUpWindowFactory"
+        <toolWindow id="MavenUp" factoryClass="de.schwarzland.mavenup.ui.MavenUpWindowFactory"
                     icon="AllIcons.Toolwindows.ToolWindowPalette"
                     anchor="bottom"
                     secondary="false"
                     doNotActivateOnStart="true"/>
 
-        <projectConfigurable parentId="tools" instance="de.schwarzland.mavenup.MavenUpConfigurable"
-                             id="de.schwarzland.mavenup.MavenUpConfigurable" displayName="MavenUp"/>
+        <projectConfigurable parentId="tools" instance="de.schwarzland.mavenup.ui.MavenUpConfigurable"
+                             id="de.schwarzland.mavenup.ui.MavenUpConfigurable" displayName="MavenUp"/>
 
-        <postStartupActivity implementation="de.schwarzland.mavenup.MavenUpStartupActivity"/>
+        <postStartupActivity implementation="de.schwarzland.mavenup.service.MavenUpStartupActivity"/>
     </extensions>
 
 </idea-plugin>

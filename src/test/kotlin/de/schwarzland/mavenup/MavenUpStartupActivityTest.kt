@@ -1,5 +1,7 @@
 package de.schwarzland.mavenup
 
+import de.schwarzland.mavenup.service.MavenUpSettings
+import de.schwarzland.mavenup.service.MavenUpStartupActivity
 import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import kotlinx.coroutines.runBlocking
