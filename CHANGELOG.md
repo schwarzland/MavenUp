@@ -3,6 +3,7 @@
 # MavenUp Changelog
 ## [1.2.0]
 ### Changed
+- Clicking a component in the **Component** column of the Vulnerability Details dialog now opens its MVN Repository page in the browser.
 - Replaced the OK and Cancel buttons in the **Vulnerability Details** dialog and the **References** dialog with a single **Close** button, matching the JetBrains UI guidelines for read-only informational dialogs.
 
 ### Added
