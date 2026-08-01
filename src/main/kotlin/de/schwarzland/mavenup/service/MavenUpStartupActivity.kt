@@ -31,6 +31,10 @@ private val LOG = Logger.getInstance(MavenUpStartupActivity::class.java)
 private const val MAVEN_INDEXING_TIMEOUT_MS = 30000L // 30 Sekunden Timeout
 
 class MavenUpStartupActivity : ProjectActivity {
+    /**
+     * Wird beim Start eines IntelliJ-Projekts aufgerufen. Prüft, ob Maven-Projekte vorhanden sind,
+     * und aktiviert das MavenUp Tool Window direkt oder nach dem nächsten Maven-Import.
+     */
     override suspend fun execute(project: Project) {
         try {
             // Warte kurz, damit Maven-ProjectManager initialisiert sein kann

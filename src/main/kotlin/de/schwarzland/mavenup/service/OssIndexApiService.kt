@@ -42,7 +42,7 @@ class OssIndexApiService {
         "pkg:maven/${encode(groupId)}/${encode(artifactId)}@${encode(version)}"
 
     /**
-     * Parsed das JSON-Array der API-Antwort und ordnet die gefundenen Schwachstellen
+     * Parst das JSON-Array der API-Antwort und ordnet die gefundenen Schwachstellen
      * den ursprünglichen Abhängigkeits-Schlüsseln (groupId:artifactId:version) zu.
      */
     fun parseReports(

@@ -913,6 +913,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
             }
         }
 
+        /**
+         * Aktualisiert Abhängigkeitsversionen in `<dependencies>` und `<dependencyManagement>`
+         * des angegebenen POM-Root-Tags für ein einzelnes Update.
+         */
         private fun updateDependencies(
             documentElement: XmlTag,
             update: DependencyUpdate,
@@ -932,6 +936,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
             }
         }
 
+        /**
+         * Aktualisiert Plugin-Versionen in `<build><plugins>` und `<build><pluginManagement>`
+         * des angegebenen POM-Root-Tags für ein einzelnes Update.
+         */
         private fun updatePlugins(
             documentElement: XmlTag,
             update: DependencyUpdate,
@@ -952,6 +960,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
             }
         }
 
+        /**
+         * Prüft, ob ein XML-Tag mit groupId und artifactId des Updates übereinstimmt,
+         * und aktualisiert in diesem Fall die Version.
+         */
         private fun updateIfMatch(
             tag: XmlTag,
             update: DependencyUpdate,
@@ -1147,6 +1159,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
             })
         }
 
+        /**
+         * Verarbeitet alle Abhängigkeiten und Plugins eines einzelnen Maven-Projekts
+         * und fragt deren verfügbare Updates ab.
+         */
         private fun processProjectUpdates(mavenProject: MavenProject, indicator: ProgressIndicator) {
             val allKeysWithVersions = mutableMapOf<String, String>()
 
@@ -1172,6 +1188,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
             }
         }
 
+        /**
+         * Liest Abhängigkeiten und Plugins direkt aus der PSI-Struktur der `pom.xml`,
+         * um auch nicht aufgelöste oder verwaltete Einträge zu erfassen.
+         */
         private fun collectFromPsi(mavenProject: MavenProject, allKeysWithVersions: MutableMap<String, String>) {
             val psiFile = ApplicationManager.getApplication().runReadAction<XmlFile?> {
                 PsiManager.getInstance(project).findFile(mavenProject.file) as? XmlFile
@@ -1197,6 +1217,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
             }
         }
 
+        /**
+         * Extrahiert groupId, artifactId und Version aus den Kind-Tags eines XML-Parent-Tags
+         * und fügt neue Einträge der Ziel-Map hinzu (bereits vorhandene Schlüssel werden nicht überschrieben).
+         */
         private fun collectTags(parentTag: XmlTag?, tagName: String, allKeysWithVersions: MutableMap<String, String>) {
             parentTag?.findSubTags(tagName)?.forEach { tag ->
                 val g = tag.findFirstSubTag("groupId")?.value?.text ?: ""
@@ -1211,6 +1235,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /**
          * Berechnet Schnittmengen von verfügbaren Versionen, wenn mehrere Abhängigkeiten dieselbe Property nutzen.
          */
+        /**
+         * Berechnet für alle Abhängigkeiten, die dieselbe Maven-Property verwenden,
+         * die Schnittmenge der verfügbaren Versionen, damit die Property konsistent aktualisiert wird.
+         */
         private fun postProcessPropertyUpdates() {
             val propertyToDependencies: Map<String, List<String>> = dependencyToProperty
                 .entries
@@ -1223,6 +1251,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
             }
         }
 
+        /**
+         * Reduziert die verfügbaren Versionen für eine Gruppe von Abhängigkeiten auf deren gemeinsame
+         * Schnittmenge und wählt bei aktivierter Einstellung automatisch die neueste Version vor.
+         */
         private fun intersectVersions(depKeys: List<String>) {
             var commonVersions: List<String>? = null
             depKeys.forEach { depKey ->
@@ -1248,6 +1280,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
             }
         }
 
+        /**
+         * Ruft die verfügbaren Versionen für ein einzelnes Artefakt ab und speichert
+         * die Ergebnisse in [availableVersions] sowie die Vorauswahl in [selectedVersions].
+         */
         private fun checkArtifactUpdate(
             groupId: String?,
             artifactId: String?,
@@ -1307,6 +1343,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
          */
         fun getContent(): JBPanel<JBPanel<*>> = content
 
+        /**
+         * Sucht innerhalb eines XML-Parent-Tags nach einem Kind-Tag (z. B. `dependency` oder `plugin`)
+         * das mit der angegebenen groupId und artifactId übereinstimmt.
+         */
         private fun findTag(parentTag: XmlTag?, tagName: String, groupId: String, artifactId: String): XmlTag? {
             return parentTag?.findSubTags(tagName)?.find { tag ->
                 val g = tag.findFirstSubTag("groupId")?.value?.text
@@ -1336,6 +1376,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
             return findTag(dmDepsTag, "dependency", groupId, artifactId)
         }
 
+        /**
+         * Sucht nach einem Plugin in `<build><plugins>` oder `<build><pluginManagement>`.
+         */
         private fun findPlugin(rootTag: XmlTag?, groupId: String, artifactId: String, isManaged: Boolean): XmlTag? {
             val buildTag = rootTag?.findFirstSubTag("build")
             if (!isManaged) {
