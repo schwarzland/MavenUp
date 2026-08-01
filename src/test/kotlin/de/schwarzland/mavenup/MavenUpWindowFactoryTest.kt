@@ -3,6 +3,7 @@ package de.schwarzland.mavenup
 import de.schwarzland.mavenup.model.VulnerabilityAdvisory
 import de.schwarzland.mavenup.model.VulnerabilitySeverity
 import de.schwarzland.mavenup.service.MavenUpSettings
+import de.schwarzland.mavenup.ui.buildMavenRepositoryUrl
 import de.schwarzland.mavenup.ui.MavenUpWindowFactory
 import de.schwarzland.mavenup.ui.RefreshSnapshot
 import de.schwarzland.mavenup.ui.buildVulnerabilityCell
@@ -289,6 +290,17 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertFalse(defaults.hideUnstableVersions)
         assertTrue(defaults.hiddenVersionQualifiers.isNotBlank())
         assertTrue(defaults.hiddenVersionQualifiers.contains("rc"))
+    }
+
+    fun testBuildMavenRepositoryUrl() {
+        assertEquals(
+            "https://mvnrepository.com/artifact/org.springframework/spring-core/5.3.10",
+            buildMavenRepositoryUrl("org.springframework", "spring-core", "5.3.10")
+        )
+        assertEquals(
+            "https://mvnrepository.com/artifact/com.example/my-lib/1.0.0",
+            buildMavenRepositoryUrl("com.example", "my-lib", "1.0.0")
+        )
     }
 
     private fun findTable(container: Container): JBTable? {

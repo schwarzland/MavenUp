@@ -15,7 +15,8 @@ This document lists the key features of the MavenUp IntelliJ plugin.
 - **Optional unstable-version filtering**: Can hide versions by configurable qualifiers (for example `rc,beta,milestone`).
 - **Shared-property synchronization**: Synchronizes version selection across entries that use the same Maven property.
 - **Safe update workflow**: Shows a confirmation dialog before applying changes to `pom.xml`.
-- **Navigation to source in `pom.xml`**: Jumps directly to the matching dependency/plugin entry (single or double click, configurable). A tooltip on each dependency row adapts its text to the configured click mode ("Click to open in pom.xml" or "Double-click to open in pom.xml").
+- **Navigation to source in `pom.xml`**: Jumps directly to the matching dependency/plugin entry (single or double click, configurable). A tooltip on each dependency row adapts its text to the configured click mode ("Click to navigate to pom.xml | Right-click for more options" or "Double-click to navigate to pom.xml | Right-click for more options").
+- **Context menu on dependency rows**: Right-clicking any dependency row opens a context menu with two entries: **Navigate to pom.xml** (jumps to the entry in the editor) and **Open in Maven Repository** (opens the matching version page on [mvnrepository.com](https://mvnrepository.com/) in the default browser).
 - **Background execution for long operations**: Collects Maven/PSI refresh data through non-blocking background read actions and also runs update checks, navigation tasks, and write operations outside the UI thread.
 - **Safe action availability**: Disables **Check Vulnerabilities** while a refresh or update check is running to prevent overlapping background operations.
 - **Input validation for displayed entries**: Skips dependencies and plugins without `groupId` so invalid entries are not shown.

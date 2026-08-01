@@ -15,6 +15,7 @@ import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.diagnostic.Logger
+import com.intellij.ide.BrowserUtil
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.progress.ProgressIndicator
@@ -60,6 +61,12 @@ private const val CURRENT_VERSION_COLUMN = 4
 private const val VULNERABILITIES_COLUMN = 5
 private const val NEW_VERSION_COLUMN = 6
 private val LOG = Logger.getInstance(MavenUpWindowFactory::class.java)
+
+/**
+ * Erstellt die URL zur MVN Repository-Seite für eine gegebene Abhängigkeit und Version.
+ */
+internal fun buildMavenRepositoryUrl(groupId: String, artifactId: String, version: String): String =
+    "https://mvnrepository.com/artifact/$groupId/$artifactId/$version"
 
 /**
  * Repräsentiert eine einzelne Zeile in der Abhängigkeitstabelle.
@@ -303,6 +310,14 @@ class MavenUpWindowFactory : ToolWindowFactory {
             }
 
             table.addMouseListener(object : MouseAdapter() {
+                override fun mousePressed(e: MouseEvent) {
+                    if (e.isPopupTrigger) showContextMenu(e)
+                }
+
+                override fun mouseReleased(e: MouseEvent) {
+                    if (e.isPopupTrigger) showContextMenu(e)
+                }
+
                 override fun mouseClicked(e: MouseEvent) {
                     val row = table.rowAtPoint(e.point)
                     val column = table.columnAtPoint(e.point)
@@ -331,6 +346,27 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
                         navigateToDependency(groupId, artifactId, type)
                     }
+                }
+
+                private fun showContextMenu(e: MouseEvent) {
+                    val row = table.rowAtPoint(e.point)
+                    if (row < 0) return
+                    if (!table.isRowSelected(row)) {
+                        table.setRowSelectionInterval(row, row)
+                    }
+                    val groupId = table.getValueAt(row, GROUP_ID_COLUMN) as? String ?: ""
+                    val artifactId = table.getValueAt(row, ARTIFACT_ID_COLUMN) as? String ?: ""
+                    val type = table.getValueAt(row, TYPE_COLUMN) as? String ?: "dependency"
+                    val currentVersion = table.getValueAt(row, CURRENT_VERSION_COLUMN) as? String ?: ""
+
+                    val popup = JPopupMenu()
+                    popup.add(JMenuItem(MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.navigateToPom")).apply {
+                        addActionListener { navigateToDependency(groupId, artifactId, type) }
+                    })
+                    popup.add(JMenuItem(MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.openInMvnRepository")).apply {
+                        addActionListener { openInMavenRepository(groupId, artifactId, currentVersion) }
+                    })
+                    popup.show(e.component, e.x, e.y)
                 }
             })
 
@@ -1353,6 +1389,13 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private fun openSettings() {
             com.intellij.openapi.options.ShowSettingsUtil.getInstance()
                 .showSettingsDialog(project, MavenUpConfigurable::class.java)
+        }
+
+        /**
+         * Öffnet die MVN Repository-Seite der angegebenen Abhängigkeit im Standard-Browser.
+         */
+        private fun openInMavenRepository(groupId: String, artifactId: String, version: String) {
+            BrowserUtil.browse(buildMavenRepositoryUrl(groupId, artifactId, version))
         }
     }
 }

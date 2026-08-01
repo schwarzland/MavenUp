@@ -2,6 +2,12 @@
 
 # MavenUp Changelog
 ## [1.2.0]
+### Added
+- Right-click context menu on dependency rows with two actions: **Navigate to pom.xml** (jumps to the entry in the editor) and **Open in Maven Repository** (opens the matching version page on mvnrepository.com in the default browser).
+
+### Changed
+- Updated row tooltip to reflect the new right-click menu: "Click to navigate to pom.xml | Right-click for more options" or "Double-click to navigate to pom.xml | Right-click for more options" depending on the configured click mode.
+
 ### Fixed
 - Moved the link icon to the beginning of the **Vulnerabilities** column cell, so it appears before the summary text.
 

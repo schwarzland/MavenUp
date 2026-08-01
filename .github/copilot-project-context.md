@@ -16,10 +16,10 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
 - **MavenUpStartupActivity**: `ProjectActivity`, steuert Verfügbarkeit des Tool-Windows
   beim Projektstart (wartet auf `MavenProjectsManager`, reagiert auf `MavenImportListener`).
 - **MavenUpWindowFactory**: Zentrale `ToolWindowFactory` + `MyToolWindow`.
-  Datenmodell/Tabelle, Versionsprüfung (`maven-metadata.xml`), Central-first-Strategie,
-  Credential-Auflösung, Update-Schreibvorgang mit Bestätigungsdialog, Navigation zur
-  pom.xml-Definition sowie Multi-Source-Vulnerability-Checks für direkte und transitive
-  Dependencies in Hintergrund-Tasks. Die Tabellenspalte **Vulnerabilities (Current)** steht direkt
+  Navigation zur pom.xml-Definition sowie Multi-Source-Vulnerability-Checks für direkte und transitive
+  Dependencies in Hintergrund-Tasks. Per Rechtsklick auf eine Zeile öffnet sich ein Kontextmenü mit
+  **Navigate to pom.xml** (springt zur Definition im Editor) und **Open in Maven Repository** (öffnet
+  die passende Versionsseite auf mvnrepository.com im Standard-Browser). Die Tabellenspalte **Vulnerabilities (Current)** steht direkt
   hinter **Current Version** und ordnet transitive Befunde über den Maven-Dependency-Tree der
   jeweiligen direkten Dependency zu. Sie zeigt Gesamtzahl, transitive Anzahl und höchste Severity;
   der zeilenbezogene Detaildialog markiert die zugehörigen transitiven Komponenten.
