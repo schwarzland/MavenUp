@@ -21,7 +21,12 @@ Bei **jeder** Änderung im Repository sind diese Punkte immer zu berücksichtige
    - Neue Features werden als neuer Bullet-Point ergänzt; geänderte Features werden im bestehenden Bullet-Point aktualisiert – keine Dopplungen.
    - Veraltete oder entfernte Funktionen werden gelöscht.
    - Nach jeder Änderung die gesamte Liste auf Dopplungen und Lücken im Vergleich zur aktuellen Implementierung prüfen.
-4. **src/main/resources/META-INF/plugin.xml** ergänze/aktualisiere die Sektion <description> in einer kompakten Form, wenn neue Funktionen hinzugefügt oder bestehende Funktionen geändert werden. Sprache: Englisch.
+4. **src/main/resources/META-INF/plugin.xml** – die Sektion `<description>` aktualisieren, wenn neue Funktionen hinzugefügt oder bestehende Funktionen geändert werden. Dabei gelten folgende Regeln:
+   - Sprache: Englisch. Die Description wird auf dem JetBrains Marketplace und im IDE Plugin Manager angezeigt – sie muss für Endanwender verständlich formuliert sein.
+   - Jeder `<li>`-Eintrag beschreibt **genau eine** Funktion kompakt in einem Satz.
+   - Neue Funktionen als neuen `<li>`-Eintrag ergänzen; geänderte Funktionen im bestehenden `<li>` aktualisieren – keine Dopplungen.
+   - Beschreibungen müssen die tatsächliche Implementierung korrekt widerspiegeln – keine produktspezifischen Hardcodierungen, die durch Einstellungen variieren können (z. B. nie einen festen Repository-Namen nennen, wenn der Browser konfigurierbar ist).
+   - Nach jeder Änderung die vollständige `<description>` mit FEATURES.md abgleichen: jede wichtige Funktion aus FEATURES.md muss sinngemäß abgedeckt sein; veraltete oder entfernte Einträge sind zu löschen.
 5. **Unittest** ergänzen/aktualisieren, wenn sich Verhalten, Nutzung, Konfiguration oder Architektur ändert.
 6. **.github/copilot-project-context.md** ergänzen/aktualisieren, wenn sich Verhalten, Nutzung, Konfiguration oder Architektur ändert.
 7. **Methoden und Funktionen** der Klassen ergänzen/aktualisieren und dokumentieren, wenn sich Verhalten, Nutzung, Konfiguration oder Architektur ändert.
