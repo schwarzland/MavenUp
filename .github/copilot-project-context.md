@@ -13,13 +13,20 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
 - Plugin-Descriptor: `src/main/resources/META-INF/plugin.xml`
 
 ## Kernkomponenten (`src/main/kotlin/de/schwarzland/mavenup/`)
+
+### Paketstruktur
+- **`model`**: `DependencyUpdate`, `VulnerabilityAdvisory`, `VulnerabilitySeverity` – reine Daten-DTOs ohne Logik.
+- **`service`**: Alle externen API-Zugriffe, Settings, Startup-Logik und Hilfsfunktionen.
+- **`ui`**: Tool-Window, Dialoge, Settings-UI, I18n-Bundle.
+
+### Komponenten
 - **MavenUpStartupActivity**: `ProjectActivity`, steuert Verfügbarkeit des Tool-Windows
   beim Projektstart (wartet auf `MavenProjectsManager`, reagiert auf `MavenImportListener`).
 - **MavenUpWindowFactory**: Zentrale `ToolWindowFactory` + `MyToolWindow`.
   Navigation zur pom.xml-Definition sowie Multi-Source-Vulnerability-Checks für direkte und transitive
   Dependencies in Hintergrund-Tasks. Per Rechtsklick auf eine Zeile öffnet sich ein Kontextmenü mit
   **Navigate to pom.xml** und **Open in Maven Repository**. Der verwendete Repository-Browser
-  (**MVN Repository**, **Maven Central Search** oder **Sonatype Central**) ist in den Einstellungen
+  (**MVN Repository** oder **Sonatype Central**) ist in den Einstellungen
   konfigurierbar und gilt einheitlich für das Kontextmenü sowie die Component-Spalte im
   Vulnerability-Details-Dialog. Die Tabellenspalte **Vulnerabilities (Current)** steht direkt
   hinter **Current Version** und ordnet transitive Befunde über den Maven-Dependency-Tree der
@@ -29,10 +36,14 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   nicht blockierende Read-Action außerhalb des EDT erfasst. Während Refresh oder Update-Check
   laufen, bleibt der Vulnerability-Check deaktiviert, um konkurrierende Hintergrundaktionen zu vermeiden.
 - **MavenUpSettings**: `PersistentStateComponent`, gespeichert in `mavenup_settings.xml`
-  (`jumpOnSingleClick`, `selectLatestVersion`, Filter für instabile Versionen/Qualifier,
-  OSS-Index-Aktivierung/Benutzername, Transitiv-Scan). Für die HTTP-Basic-Authentifizierung
-  sind OSS-Index-Benutzername und Token gemeinsam erforderlich. Das Token liegt ausschließlich
-  im IntelliJ Password Safe; bei unvollständigen Credentials wird keine OSS-Index-Abfrage gesendet.
+  (`jumpOnSingleClick`, `selectLatestVersion`, `hideUnstableVersions`, `hiddenVersionQualifiers`,
+  `ossIndexEnabled`, `ossIndexUsername`, `checkTransitiveDependencies`, `repositoryBrowser`).
+  Für die HTTP-Basic-Authentifizierung sind OSS-Index-Benutzername und Token gemeinsam erforderlich.
+  Das Token liegt ausschließlich im IntelliJ Password Safe; bei unvollständigen Credentials wird
+  keine OSS-Index-Abfrage gesendet.
+- **MavenRepositoryBrowser**: Enum in `service`, definiert die zwei konfigurierbaren
+  Repository-Browser-Optionen (`MVN_REPOSITORY`, `SONATYPE_CENTRAL`) und erzeugt die jeweilige
+  Versions-URL für groupId/artifactId/version.
 - **MavenUpConfigurable**: Settings-UI unter `Settings > Tools > MavenUp`.
   Die OSS-Index-Sektion kennzeichnet Benutzername und Token bei Aktivierung als Pflichtfelder und
   verlinkt auf die Sonatype-Kontoeinstellungen zur Token-Erzeugung. Das Token wird außerhalb des EDT
@@ -40,6 +51,9 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
 - **VulnerabilityApiService**: OSV-Batchabfrage plus Detailanreicherung und Filterung
   zurückgezogener Advisories. Umfangreiche Komponenten- und Versionslisten werden nur gekürzt auf
   DEBUG-Ebene protokolliert, um starkes Wachstum der von der IDE überwachten `idea.log` zu vermeiden.
+- **DependencyApiService**: Liest Maven-Repository-Infos und Server-Credentials aus `settings.xml`,
+  fragt `maven-metadata.xml` für Versionslisten ab, löst Credential-Platzhalter auf und filtert
+  Versionen gemäß Plugin-Einstellungen (Qualifier-Filter, Sortierung).
 - **OssIndexApiService / OssIndexCredentialService**: optionale Sonatype-Abfrage über Maven-purl
   und sichere Zugangsdatenablage.
 - **VulnerabilityMerger / VulnerabilityAdvisory**: normalisiertes Security-Datenmodell und

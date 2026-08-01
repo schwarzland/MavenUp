@@ -28,7 +28,13 @@ Bei **jeder** Änderung im Repository sind diese Punkte immer zu berücksichtige
    - Beschreibungen müssen die tatsächliche Implementierung korrekt widerspiegeln – keine produktspezifischen Hardcodierungen, die durch Einstellungen variieren können (z. B. nie einen festen Repository-Namen nennen, wenn der Browser konfigurierbar ist).
    - Nach jeder Änderung die vollständige `<description>` mit FEATURES.md abgleichen: jede wichtige Funktion aus FEATURES.md muss sinngemäß abgedeckt sein; veraltete oder entfernte Einträge sind zu löschen.
 5. **Unittest** ergänzen/aktualisieren, wenn sich Verhalten, Nutzung, Konfiguration oder Architektur ändert.
-6. **.github/copilot-project-context.md** ergänzen/aktualisieren, wenn sich Verhalten, Nutzung, Konfiguration oder Architektur ändert.
+6. **.github/copilot-project-context.md** ergänzen/aktualisieren, wenn sich Verhalten, Nutzung, Konfiguration oder Architektur ändert. Dabei gelten folgende Regeln:
+   - Sprache: Deutsch. Die Datei dient als kompakte Referenz für Copilot-Agenten.
+   - Jede neue Klasse/Komponente wird in der **Komponenten**-Liste ergänzt; veraltete oder umbenannte Klassen werden aktualisiert oder entfernt.
+   - Jede neue Einstellung in `MavenUpSettings.State` muss in der Komponenten-Beschreibung von **MavenUpSettings** namentlich aufgeführt sein.
+   - Enum-Werte (z. B. `MavenRepositoryBrowser`) müssen korrekt benannt sein – keine Fantasie-Namen, die nicht im Code existieren.
+   - Neue Packages oder strukturelle Änderungen in der **Paketstruktur** aktualisieren.
+   - Nach jeder Änderung die Komponenten-Liste mit den tatsächlich vorhandenen Klassen unter `src/main/kotlin/` abgleichen.
 7. **Methoden und Funktionen** der Klassen ergänzen/aktualisieren und dokumentieren, wenn sich Verhalten, Nutzung, Konfiguration oder Architektur ändert.
 8. **KDoc-Qualität prüfen und sicherstellen** – bei jeder Änderung an einer Klasse oder Methode sind **alle** berührten Klassen und Methoden auf vollständige und korrekte KDoc zu prüfen. Konkret:
    - Jede Klasse, jedes `object`, jedes `enum` und jede `data class` muss einen KDoc-Kommentar haben.
