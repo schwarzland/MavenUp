@@ -470,7 +470,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         border = BorderFactory.createEmptyBorder(0, 6, 0, 6)
                         if (advisories.isNotEmpty()) {
                             icon = AllIcons.Ide.Link
-                            horizontalTextPosition = JLabel.LEADING
+                            horizontalTextPosition = JLabel.TRAILING
                             toolTipText = MyMessageBundle.message("vulnerability.details.title")
                         } else {
                             toolTipText = null

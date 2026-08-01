@@ -2,6 +2,9 @@
 
 # MavenUp Changelog
 ## [1.2.0]
+### Fixed
+- Moved the link icon to the beginning of the **Vulnerabilities** column cell, so it appears before the summary text.
+
 ### Added
 - Added a tooltip on dependency rows in the main table indicating whether a single or double click will open the entry in pom.xml (adapts to the "jump on single click" setting).
 
