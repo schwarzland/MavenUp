@@ -183,7 +183,7 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
         } catch (exception: ConfigurationException) {
             assertEquals(
                 "Username/email and API token are required when Sonatype OSS Index is enabled.",
-                exception.message
+                exception.localizedMessage
             )
         }
     }
