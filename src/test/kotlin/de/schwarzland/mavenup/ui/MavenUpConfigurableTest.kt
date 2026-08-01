@@ -74,7 +74,7 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
         val credentialStore = object : OssIndexCredentialStore {
             override fun store(username: String, token: String) = Unit
 
-            override fun retrieve(): Credentials? {
+            override fun retrieve(): Credentials {
                 lookupRanOnEdt.set(SwingUtilities.isEventDispatchThread())
                 lookupCount.incrementAndGet()
                 lookupCompleted.countDown()
