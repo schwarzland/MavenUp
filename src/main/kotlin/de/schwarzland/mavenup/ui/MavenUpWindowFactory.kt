@@ -369,7 +369,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     popup.add(JMenuItem(MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.navigateToPom")).apply {
                         addActionListener { navigateToDependency(groupId, artifactId, type) }
                     })
-                    popup.add(JMenuItem(MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.openInMvnRepository")).apply {
+                    val browserName = MavenUpSettings.getInstance(project).state.repositoryBrowser.displayName
+                    popup.add(JMenuItem(MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.openInMvnRepository", browserName)).apply {
                         addActionListener { openInMavenRepository(groupId, artifactId, currentVersion) }
                     })
                     popup.show(e.component, e.x, e.y)
