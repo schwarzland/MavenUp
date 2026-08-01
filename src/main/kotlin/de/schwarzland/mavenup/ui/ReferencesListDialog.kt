@@ -11,6 +11,7 @@ import java.awt.Cursor
 import java.awt.Dimension
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
+import javax.swing.Action
 import javax.swing.DefaultListModel
 import javax.swing.JComponent
 import javax.swing.JLabel
@@ -34,6 +35,7 @@ class ReferencesListDialog(
 
     init {
         title = MyMessageBundle.message("vulnerability.references.title", advisoryId)
+        setOKButtonText(MyMessageBundle.message("button.close"))
         init()
     }
 
@@ -72,6 +74,6 @@ class ReferencesListDialog(
         }
     }
 
-    /** Zeigt nur den OK-Button (kein Cancel erforderlich). */
-    override fun createActions() = arrayOf(okAction)
+    /** Zeigt ausschließlich den Close-Button, da der Dialog rein informativ ist und keine Eingaben erfordert. */
+    override fun createActions(): Array<Action> = arrayOf(okAction)
 }

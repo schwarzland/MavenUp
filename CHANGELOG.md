@@ -2,6 +2,9 @@
 
 # MavenUp Changelog
 ## [1.2.0]
+### Changed
+- Replaced the OK and Cancel buttons in the **Vulnerability Details** dialog and the **References** dialog with a single **Close** button, matching the JetBrains UI guidelines for read-only informational dialogs.
+
 ### Added
 - Added a link in the OSS Index settings that opens the Sonatype account page for creating or copying an API token.
 - Added a **Check Vulnerabilities** action that queries OSV.dev and optionally enriches results with Sonatype OSS Index data, with credentials stored securely in IntelliJ Password Safe.
