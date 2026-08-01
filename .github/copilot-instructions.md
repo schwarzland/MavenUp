@@ -52,6 +52,12 @@ Bei **jeder** Änderung im Repository sind diese Punkte immer zu berücksichtige
    - KDoc muss auf Deutsch verfasst sein und die tatsächliche Implementierung korrekt beschreiben.
    - Tippfehler, veraltete Beschreibungen und sprachliche Fehler (z. B. englische Verbformen wie „Parsed" statt „Parst") sind zu korrigieren.
    - Parameter (`@param`), Rückgabewerte (`@return`) und Ausnahmen (`@throws`) sind zu dokumentieren, wenn sie nicht selbsterklärend sind.
-9. **kein git commit** ausführen.
+9. **Lizenzbestimmungen prüfen**, wenn neue Abhängigkeiten (Dependencies) hinzugefügt oder bestehende aktualisiert werden. Dabei gelten folgende Regeln:
+   - Die Lizenz jeder neu hinzugefügten Bibliothek ist zu ermitteln (z. B. aus dem POM-File im Gradle-Cache oder der offiziellen Projektseite).
+   - Bibliotheken, die zur Laufzeit ins Plugin-JAR eingebettet werden (`implementation`-Scope), unterliegen den Weitergabepflichten ihrer Lizenz.
+   - Bibliotheken, die nur zur Testzeit oder als provided/platform verwendet werden (`testImplementation`, `intellijPlatform`), sind davon in der Regel ausgenommen.
+   - Der Abschnitt **`## Third-party licenses`** in der `README.md` ist entsprechend zu ergänzen oder zu aktualisieren: jede eingebettete Bibliothek mit Name, Version, Lizenz (inkl. Link) und Verwendungszweck.
+   - Veraltete oder entfernte Abhängigkeiten sind aus dem Abschnitt zu entfernen.
+10. **kein git commit** ausführen.
 
 Diese Vorgaben gelten standardmäßig für alle Copilot-Änderungen in diesem Projekt.
