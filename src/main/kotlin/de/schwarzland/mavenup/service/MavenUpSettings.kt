@@ -4,6 +4,25 @@ import com.intellij.openapi.components.*
 import com.intellij.openapi.project.Project
 
 /**
+ * Repräsentiert einen öffentlichen Maven-Repository-Browser, der für die Anzeige von
+ * Abhängigkeitsdetails im Standard-Browser genutzt werden kann.
+ *
+ * Jeder Wert kennt seinen Anzeigenamen sowie die URL-Vorlage für die Versionsseite.
+ */
+enum class MavenRepositoryBrowser(val displayName: String) {
+    MVN_REPOSITORY("MVN Repository"),
+    MAVEN_CENTRAL("Maven Central Search"),
+    SONATYPE_CENTRAL("Sonatype Central");
+
+    /** Erzeugt die direkte URL zur Versionsseite der angegebenen Komponente. */
+    fun urlFor(groupId: String, artifactId: String, version: String): String = when (this) {
+        MVN_REPOSITORY    -> "https://mvnrepository.com/artifact/$groupId/$artifactId/$version"
+        MAVEN_CENTRAL     -> "https://search.maven.org/artifact/$groupId/$artifactId/$version"
+        SONATYPE_CENTRAL  -> "https://central.sonatype.com/artifact/$groupId/$artifactId/$version"
+    }
+}
+
+/**
  * Diese Klasse verwaltet die persistenten Einstellungen für das MavenUp-Plugin auf Projektebene.
  *
  * Sie nutzt das IntelliJ-Framework zur Speicherung des Zustands in der Datei `mavenup_settings.xml`.
@@ -24,6 +43,7 @@ class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
      * @property ossIndexEnabled Gibt an, ob die Prüfung auf Sicherheitslücken via Sonatype OSS Index aktiviert ist.
      * @property ossIndexUsername Der Benutzername (E-Mail) für die Authentifizierung beim OSS Index.
      * @property checkTransitiveDependencies Bestimmt, ob auch transitive Abhängigkeiten auf Updates geprüft werden sollen.
+     * @property repositoryBrowser Der Maven-Repository-Browser, der für Links auf Abhängigkeits-Versionsseiten verwendet wird.
      */
     data class State(
         var jumpOnSingleClick: Boolean = false,
@@ -32,7 +52,8 @@ class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
         var hiddenVersionQualifiers: String = "rc,beta,alpha,ea,milestone,preview,cr,nightly,snapshot",
         var ossIndexEnabled: Boolean = false,
         var ossIndexUsername: String = "",
-        var checkTransitiveDependencies: Boolean = true
+        var checkTransitiveDependencies: Boolean = true,
+        var repositoryBrowser: MavenRepositoryBrowser = MavenRepositoryBrowser.MVN_REPOSITORY
     )
 
     private var myState = State()

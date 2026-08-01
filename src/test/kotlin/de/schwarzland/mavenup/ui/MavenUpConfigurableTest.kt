@@ -1,5 +1,6 @@
 package de.schwarzland.mavenup.ui
 
+import de.schwarzland.mavenup.service.MavenRepositoryBrowser
 import de.schwarzland.mavenup.service.MavenUpSettings
 import de.schwarzland.mavenup.service.OssIndexCredentialStore
 import com.intellij.credentialStore.Credentials
@@ -216,6 +217,43 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
         } finally {
             releaseLoad.countDown()
         }
+    }
+
+    fun testRepositoryBrowserSelectionIsPersistedOnApply() {
+        val settings = MavenUpSettings.getInstance(project)
+        settings.state.repositoryBrowser = MavenRepositoryBrowser.MVN_REPOSITORY
+
+        val configurable = MavenUpConfigurable(project)
+        configurable.createComponent()
+        configurable.reset()
+        assertFalse(configurable.isModified)
+
+        @Suppress("UNCHECKED_CAST")
+        val comboBox = configurable.field<com.intellij.openapi.ui.ComboBox<MavenRepositoryBrowser>>("repositoryBrowserComboBox")
+        comboBox.selectedItem = MavenRepositoryBrowser.MAVEN_CENTRAL
+        assertTrue("Änderung der Combobox sollte isModified() true machen", configurable.isModified)
+
+        configurable.apply()
+        assertEquals(MavenRepositoryBrowser.MAVEN_CENTRAL, settings.state.repositoryBrowser)
+    }
+
+    fun testRepositoryBrowserDefaultIsMvnRepository() {
+        assertEquals(MavenRepositoryBrowser.MVN_REPOSITORY, MavenUpSettings.State().repositoryBrowser)
+    }
+
+    fun testMavenRepositoryBrowserUrlPatterns() {
+        assertEquals(
+            "https://mvnrepository.com/artifact/com.example/lib/1.0",
+            MavenRepositoryBrowser.MVN_REPOSITORY.urlFor("com.example", "lib", "1.0")
+        )
+        assertEquals(
+            "https://search.maven.org/artifact/com.example/lib/1.0",
+            MavenRepositoryBrowser.MAVEN_CENTRAL.urlFor("com.example", "lib", "1.0")
+        )
+        assertEquals(
+            "https://central.sonatype.com/artifact/com.example/lib/1.0",
+            MavenRepositoryBrowser.SONATYPE_CENTRAL.urlFor("com.example", "lib", "1.0")
+        )
     }
 
     private fun waitForToken(configurable: MavenUpConfigurable, expectedToken: String) {

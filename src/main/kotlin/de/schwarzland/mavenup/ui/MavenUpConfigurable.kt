@@ -1,5 +1,6 @@
 package de.schwarzland.mavenup.ui
 
+import de.schwarzland.mavenup.service.MavenRepositoryBrowser
 import de.schwarzland.mavenup.service.MavenUpSettings
 import de.schwarzland.mavenup.service.OssIndexCredentialService
 import de.schwarzland.mavenup.service.OssIndexCredentialStore
@@ -9,7 +10,9 @@ import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.options.Configurable
 import com.intellij.openapi.options.ConfigurationException
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.ui.ComboBox
 import com.intellij.util.concurrency.AppExecutorUtil
+import com.intellij.ui.SimpleListCellRenderer
 import com.intellij.ui.components.JBCheckBox
 import com.intellij.ui.dsl.builder.panel
 import java.util.concurrent.CompletableFuture
@@ -38,6 +41,7 @@ class MavenUpConfigurable internal constructor(
     constructor(project: Project) : this(project, OssIndexCredentialService())
 
     private var jumpOnSingleClickCheckBox: JBCheckBox? = null
+    private var repositoryBrowserComboBox: ComboBox<MavenRepositoryBrowser>? = null
     private var selectLatestVersionCheckBox: JBCheckBox? = null
     private var hideUnstableVersionsCheckBox: JBCheckBox? = null
     private var hiddenVersionQualifiersLabel: JLabel? = null
@@ -67,6 +71,17 @@ class MavenUpConfigurable internal constructor(
             row {
                 jumpOnSingleClickCheckBox = checkBox(MyMessageBundle.message("settings.jumpOnSingleClick"))
                     .applyToComponent { isSelected = settings.state.jumpOnSingleClick }
+                    .component
+            }
+            row {
+                label(MyMessageBundle.message("settings.repositoryBrowser"))
+                repositoryBrowserComboBox = comboBox(MavenRepositoryBrowser.entries)
+                    .applyToComponent {
+                        selectedItem = settings.state.repositoryBrowser
+                        renderer = SimpleListCellRenderer.create { label, value, _ ->
+                            label.text = value?.displayName ?: ""
+                        }
+                    }
                     .component
             }
             row {
@@ -144,6 +159,7 @@ class MavenUpConfigurable internal constructor(
     override fun isModified(): Boolean {
         val settings = MavenUpSettings.getInstance(project)
         return jumpOnSingleClickCheckBox?.isSelected != settings.state.jumpOnSingleClick ||
+                repositoryBrowserComboBox?.selectedItem != settings.state.repositoryBrowser ||
                 selectLatestVersionCheckBox?.isSelected != settings.state.selectLatestVersion ||
                 hideUnstableVersionsCheckBox?.isSelected != settings.state.hideUnstableVersions ||
                 hiddenVersionQualifiersField?.text != settings.state.hiddenVersionQualifiers ||
@@ -167,6 +183,8 @@ class MavenUpConfigurable internal constructor(
         }
 
         settings.state.jumpOnSingleClick = jumpOnSingleClickCheckBox?.isSelected ?: false
+        settings.state.repositoryBrowser = repositoryBrowserComboBox?.selectedItem as? MavenRepositoryBrowser
+            ?: MavenRepositoryBrowser.MVN_REPOSITORY
         settings.state.selectLatestVersion = selectLatestVersionCheckBox?.isSelected ?: true
         settings.state.hideUnstableVersions = hideUnstableVersionsCheckBox?.isSelected ?: false
         settings.state.hiddenVersionQualifiers = hiddenVersionQualifiersField?.text?.trim().orEmpty()
@@ -186,6 +204,7 @@ class MavenUpConfigurable internal constructor(
     override fun reset() {
         val settings = MavenUpSettings.getInstance(project)
         jumpOnSingleClickCheckBox?.isSelected = settings.state.jumpOnSingleClick
+        repositoryBrowserComboBox?.selectedItem = settings.state.repositoryBrowser
         selectLatestVersionCheckBox?.isSelected = settings.state.selectLatestVersion
         hideUnstableVersionsCheckBox?.isSelected = settings.state.hideUnstableVersions
         hiddenVersionQualifiersField?.text = settings.state.hiddenVersionQualifiers
@@ -208,6 +227,7 @@ class MavenUpConfigurable internal constructor(
         credentialLoadFuture?.cancel(true)
         credentialLoadFuture = null
         jumpOnSingleClickCheckBox = null
+        repositoryBrowserComboBox = null
         selectLatestVersionCheckBox = null
         hideUnstableVersionsCheckBox = null
         hiddenVersionQualifiersLabel = null

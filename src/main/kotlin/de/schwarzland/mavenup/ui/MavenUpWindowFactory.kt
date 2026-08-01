@@ -4,6 +4,7 @@ import de.schwarzland.mavenup.model.DependencyUpdate
 import de.schwarzland.mavenup.model.VulnerabilityAdvisory
 import de.schwarzland.mavenup.model.VulnerabilitySeverity
 import de.schwarzland.mavenup.service.DependencyApiService
+import de.schwarzland.mavenup.service.MavenRepositoryBrowser
 import de.schwarzland.mavenup.service.MavenUpSettings
 import de.schwarzland.mavenup.service.OssIndexApiService
 import de.schwarzland.mavenup.service.OssIndexCredentialService
@@ -63,10 +64,15 @@ private const val NEW_VERSION_COLUMN = 6
 private val LOG = Logger.getInstance(MavenUpWindowFactory::class.java)
 
 /**
- * Erstellt die URL zur MVN Repository-Seite für eine gegebene Abhängigkeit und Version.
+ * Erstellt die URL zur Repository-Browser-Seite für eine gegebene Abhängigkeit und Version.
+ * Verwendet den konfigurierten [MavenRepositoryBrowser]; standard ist [MavenRepositoryBrowser.MVN_REPOSITORY].
  */
-internal fun buildMavenRepositoryUrl(groupId: String, artifactId: String, version: String): String =
-    "https://mvnrepository.com/artifact/$groupId/$artifactId/$version"
+internal fun buildMavenRepositoryUrl(
+    groupId: String,
+    artifactId: String,
+    version: String,
+    browser: MavenRepositoryBrowser = MavenRepositoryBrowser.MVN_REPOSITORY
+): String = browser.urlFor(groupId, artifactId, version)
 
 /**
  * Repräsentiert eine einzelne Zeile in der Abhängigkeitstabelle.
@@ -1392,10 +1398,12 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
-         * Öffnet die MVN Repository-Seite der angegebenen Abhängigkeit im Standard-Browser.
+         * Öffnet die Repository-Browser-Seite der angegebenen Abhängigkeit im Standard-Browser.
+         * Der verwendete Repository-Browser wird aus den Plugin-Einstellungen gelesen.
          */
         private fun openInMavenRepository(groupId: String, artifactId: String, version: String) {
-            BrowserUtil.browse(buildMavenRepositoryUrl(groupId, artifactId, version))
+            val browser = MavenUpSettings.getInstance(project).state.repositoryBrowser
+            BrowserUtil.browse(buildMavenRepositoryUrl(groupId, artifactId, version, browser))
         }
     }
 }

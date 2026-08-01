@@ -3,6 +3,7 @@ package de.schwarzland.mavenup
 import de.schwarzland.mavenup.model.VulnerabilityAdvisory
 import de.schwarzland.mavenup.model.VulnerabilitySeverity
 import de.schwarzland.mavenup.service.MavenUpSettings
+import de.schwarzland.mavenup.service.MavenRepositoryBrowser
 import de.schwarzland.mavenup.ui.buildMavenRepositoryUrl
 import de.schwarzland.mavenup.ui.MavenUpWindowFactory
 import de.schwarzland.mavenup.ui.RefreshSnapshot
@@ -295,8 +296,17 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
     fun testBuildMavenRepositoryUrl() {
         assertEquals(
             "https://mvnrepository.com/artifact/org.springframework/spring-core/5.3.10",
-            buildMavenRepositoryUrl("org.springframework", "spring-core", "5.3.10")
+            buildMavenRepositoryUrl("org.springframework", "spring-core", "5.3.10", MavenRepositoryBrowser.MVN_REPOSITORY)
         )
+        assertEquals(
+            "https://search.maven.org/artifact/org.springframework/spring-core/5.3.10",
+            buildMavenRepositoryUrl("org.springframework", "spring-core", "5.3.10", MavenRepositoryBrowser.MAVEN_CENTRAL)
+        )
+        assertEquals(
+            "https://central.sonatype.com/artifact/org.springframework/spring-core/5.3.10",
+            buildMavenRepositoryUrl("org.springframework", "spring-core", "5.3.10", MavenRepositoryBrowser.SONATYPE_CENTRAL)
+        )
+        // default browser is MVN_REPOSITORY
         assertEquals(
             "https://mvnrepository.com/artifact/com.example/my-lib/1.0.0",
             buildMavenRepositoryUrl("com.example", "my-lib", "1.0.0")

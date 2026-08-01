@@ -3,10 +3,12 @@
 # MavenUp Changelog
 ## [1.2.0]
 ### Added
-- Right-click context menu on dependency rows with two actions: **Navigate to pom.xml** (jumps to the entry in the editor) and **Open in Maven Repository** (opens the matching version page on mvnrepository.com in the default browser).
+- Right-click context menu on dependency rows with two actions: **Navigate to pom.xml** (jumps to the entry in the editor) and **Open in Maven Repository** (opens the matching version page in the configured repository browser).
+- Configurable Maven Repository Browser: users can choose between **MVN Repository** (default), **Maven Central Search**, and **Sonatype Central** under **Settings > Tools > MavenUp**. The selection applies to both the context menu in the main table and the Component column link in the Vulnerability Details dialog.
 
 ### Changed
-- Updated row tooltip to reflect the new right-click menu: "Click to navigate to pom.xml | Right-click for more options" or "Double-click to navigate to pom.xml | Right-click for more options" depending on the configured click mode.
+- Updated row tooltip to reflect the right-click menu: "Click to navigate to pom.xml | Right-click for more options" or "Double-click to navigate to pom.xml | Right-click for more options" depending on the configured click mode.
+- The Component column tooltip in the Vulnerability Details dialog now dynamically shows the name of the configured repository browser instead of a fixed "MVN Repository" label.
 
 ### Fixed
 - Moved the link icon to the beginning of the **Vulnerabilities** column cell, so it appears before the summary text.
