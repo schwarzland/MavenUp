@@ -13,9 +13,9 @@ Bei **jeder** Änderung im Repository sind diese Punkte immer zu berücksichtige
    - Sprache: Englisch.
    - Versionsnummer aus `gradle.properties` übernehmen.
    - Struktur: pro Version **genau einen** `### Added`-, `### Changed`- und `### Fixed`-Block – niemals doppelte Kategorien innerhalb derselben Version.
-   - Neue Einträge immer in den bestehenden Block der aktuellen Version einsortieren, nicht als neuen Block anhängen.
+   - Neue Einträge immer in den Block `## [Unreleased]` einsortieren, nicht als neuen Block anhängen.
    - Jeder Eintrag ist ein prägnanter Satz (ein Gedanke pro Zeile); keine Redundanzen, keine Dopplungen.
-   - Nach dem Hinzufügen die gesamte Version überfliegen und sicherstellen, dass keine Kategorie doppelt vorkommt und alle Einträge thematisch korrekt zugeordnet sind.
+   - Nach dem Hinzufügen den gesamten Bereich überfliegen und sicherstellen, dass keine Kategorie doppelt vorkommt und alle Einträge thematisch korrekt zugeordnet sind.
 3. **FEATURES.md** ergänzen/aktualisieren, wenn neue Funktionen hinzugefügt oder bestehende Funktionen geändert werden. Sprache: Englisch. Dabei gelten folgende Regeln:
    - Jede Funktion wird als ein prägnanter Bullet-Point beschrieben – ein Gedanke pro Zeile.
    - Neue Features werden als neuer Bullet-Point ergänzt; geänderte Features werden im bestehenden Bullet-Point aktualisiert – keine Dopplungen.
