@@ -3,6 +3,14 @@
 # MavenUp Changelog
 ## [Unreleased]
 
+### Added
+- Added a right-click context menu action in the Vulnerability Details dialog Component column to open the selected artifact version page in the configured repository browser.
+
+### Changed
+- Changed the Vulnerability Details dialog Component-column interaction from single-click navigation to a right-click context menu, aligned with the main table behavior.
+
+### Fixed
+- Improved discoverability and interaction consistency for repository navigation from the Vulnerability Details dialog by replacing direct click navigation with an explicit context menu action.
 
 ## [1.2.0]
 ### Added

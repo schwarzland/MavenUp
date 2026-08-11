@@ -20,10 +20,10 @@ Eine vollständige, englische Feature-Liste steht in `FEATURES.md`.
 - **Sichere Aktionszustände**: **Check Vulnerabilities** bleibt während eines laufenden Refreshs oder Update-Checks deaktiviert, damit keine konkurrierenden Prüfungen gestartet werden.
 - **Navigation zur Definition in `pom.xml`**: Per Doppelklick (oder optional Einzelklick) springt MavenUp direkt zur passenden Dependency-/Plugin-Definition. Ein Tooltip auf jeder Zeile zeigt den konfigurierten Klick-Modus an.
 - **Rechtsklick-Kontextmenü**: Ein Rechtsklick auf eine Dependency-Zeile öffnet ein Kontextmenü mit zwei Einträgen: **Navigate to pom.xml** (springt zur Definition im Editor) und **Open in Maven Repository** (öffnet die Versionsseite im konfigurierten Repository-Browser).
-- **Konfigurierbarer Repository-Browser**: Unter `Settings > Tools > MavenUp` kann zwischen **MVN Repository** (Standard, `mvnrepository.com`) und **Sonatype Central** (`central.sonatype.com`) gewählt werden. Die Auswahl gilt für das Kontextmenü und die Component-Spalte im Vulnerability-Details-Dialog.
+- **Konfigurierbarer Repository-Browser**: Unter `Settings > Tools > MavenUp` kann zwischen **MVN Repository** (Standard, `mvnrepository.com`) und **Sonatype Central** (`central.sonatype.com`) gewählt werden. Die Auswahl gilt für das Kontextmenü im Hauptfenster und das Kontextmenü der Component-Spalte im Vulnerability-Details-Dialog.
 - **Integrierte Einstellungen**: Über `Settings > Tools > MavenUp` konfigurierbar (u.a. Single-Click-Navigation, automatische Vorauswahl der neuesten Version, Repository-Browser).
 - **Multi-Source-Vulnerability-Check**: **Check Vulnerabilities** prüft direkte Komponenten und standardmäßig auch aufgelöste transitive Dependencies über [OSV.dev](https://osv.dev). Optional ergänzt [Sonatype OSS Index](https://ossindex.sonatype.org/) Maven-spezifische Befunde.
-- **Detaillierte Security-Befunde**: Direkt hinter **Current Version** zeigt **Vulnerabilities (Current)** die Befunde der direkten Dependency und ihrer aufgelösten transitiven Dependencies mit Gesamtzahl, transitiver Anzahl und höchstem Schweregrad. **Vulnerability Details** ordnet die als transitiv markierten Komponenten der ausgewählten direkten Dependency zu und zeigt IDs, Aliase, CVSS, Beschreibung, Quellen und Referenzen. Zurückgezogene Advisories werden ignoriert und Mehrfachmeldungen anhand ihrer IDs/Aliase zusammengeführt.
+- **Detaillierte Security-Befunde**: Direkt hinter **Current Version** zeigt **Vulnerabilities (Current)** die Befunde der direkten Dependency und ihrer aufgelösten transitiven Dependencies mit Gesamtzahl, transitiver Anzahl und höchstem Schweregrad. **Vulnerability Details** ordnet die als transitiv markierten Komponenten der ausgewählten direkten Dependency zu und zeigt IDs, Aliase, CVSS, Beschreibung, Quellen und Referenzen. Die **Component**-Spalte bietet per Rechtsklick ein Kontextmenü zum Öffnen der Komponente im konfigurierten Repository-Browser. Zurückgezogene Advisories werden ignoriert und Mehrfachmeldungen anhand ihrer IDs/Aliase zusammengeführt.
 
 ### Intern
 - **Gezielte Credential-Zuordnung**: Ordnet Credentials primär über Repository-ID zu, mit Fallback über Repository-URL und Hostname.
@@ -42,7 +42,7 @@ Das Plugin öffnet ein Tool-Window namens **MavenUp** (meist am rechten oder unt
 3. **New Version**: In dieser Spalte kann nach dem Update-Check eine neuere Version gewählt werden.
 4. **Update**: Wendet die gewählten Versionsänderungen auf die entsprechenden `pom.xml`-Dateien an.
 5. **Check Vulnerabilities**: Prüft direkte Komponenten und, sofern aktiviert, transitive Dependencies über OSV.dev sowie optional OSS Index. Die direkt hinter **Current Version** angeordnete Spalte **Vulnerabilities (Current)** zeigt pro direkter Dependency die Gesamtzahl, die davon transitive Anzahl und den höchsten Schweregrad.
-6. **Vulnerability Details**: Öffnet alle Befunde inklusive Quellen, IDs/Aliasen, CVSS, Beschreibung und Referenzen. Ein Klick auf eine befüllte Vulnerability-Zelle öffnet die direkten und als `(transitive)` gekennzeichneten Befunde, die zu dieser Dependency gehören.
+6. **Vulnerability Details**: Öffnet alle Befunde inklusive Quellen, IDs/Aliasen, CVSS, Beschreibung und Referenzen. Ein Klick auf eine befüllte Vulnerability-Zelle öffnet die direkten und als `(transitive)` gekennzeichneten Befunde, die zu dieser Dependency gehören. In der **Component**-Spalte öffnet ein Rechtsklick ein Kontextmenü mit **Open in Maven Repository**.
 7. **Rechtsklick-Kontextmenü**: Ein Rechtsklick auf eine Zeile bietet **Navigate to pom.xml** und **Open in Maven Repository** (öffnet die aktuelle Version im konfigurierten Repository-Browser).
 
 ### English
@@ -53,14 +53,14 @@ The plugin opens a tool window named **MavenUp** (usually located at the right o
 3. **New Version**: In this column, a newer version can be selected after the update check.
 4. **Update**: Applies the selected version changes to the corresponding `pom.xml` files.
 5. **Check Vulnerabilities**: Checks direct components and, when enabled, resolved transitive dependencies through OSV.dev and optionally Sonatype OSS Index. The **Vulnerabilities (Current)** column appears directly after **Current Version** and shows each direct dependency's total finding count, transitive finding count, and highest severity.
-6. **Vulnerability Details**: Opens detailed findings with sources, IDs/aliases, CVSS, summaries, and references. Clicking a populated vulnerability cell opens the direct findings and the related findings marked as `(transitive)`.
+6. **Vulnerability Details**: Opens detailed findings with sources, IDs/aliases, CVSS, summaries, and references. Clicking a populated vulnerability cell opens the direct findings and the related findings marked as `(transitive)`. In the **Component** column, right-click opens a context menu with **Open in Maven Repository**.
 7. **Right-click context menu**: Right-clicking any row offers **Navigate to pom.xml** and **Open in Maven Repository** (opens the current version in the configured repository browser).
 
 ## Einstellungen
 
 Unter `Settings > Tools > MavenUp` können folgende Optionen konfiguriert werden:
 
-- **Maven Repository Browser**: Wählt den Browser für Artifact-Versionsseiten – **MVN Repository** (Standard, `mvnrepository.com`) oder **Sonatype Central** (`central.sonatype.com`). Die Auswahl gilt für das Rechtsklick-Kontextmenü und die Component-Spalte im Vulnerability-Details-Dialog.
+- **Maven Repository Browser**: Wählt den Browser für Artifact-Versionsseiten – **MVN Repository** (Standard, `mvnrepository.com`) oder **Sonatype Central** (`central.sonatype.com`). Die Auswahl gilt für das Rechtsklick-Kontextmenü im Hauptfenster und das Kontextmenü der Component-Spalte im Vulnerability-Details-Dialog.
 - **Jump to pom.xml on single click**: Ermöglicht die Navigation zur `pom.xml` mit einem einfachen statt eines Doppelklicks.
 - **Automatically select newest version**: Wählt nach einem Update-Check automatisch die jeweils neueste verfügbare Version in der Dropdown-Liste aus.
 - **Hide unstable versions**: Blendet instabile Versionen (z.B. RC/Beta) aus den auswählbaren Update-Versionen aus.
@@ -107,7 +107,7 @@ Das Plugin ist klar in drei Schichten gegliedert:
 
 ### UI (`de.schwarzland.mavenup.ui`)
 - `MavenUpWindowFactory`: Tool-Window-Factory und UI-Interaktion für Tabelle, Update- und Vulnerability-Workflows; Refresh-Daten werden per nicht blockierender Read-Action außerhalb des EDT erfasst.
-- `VulnerabilityDetailDialog`: zeigt direkte und transitive Security-Befunde mit Quellen und Referenzen.
+- `VulnerabilityDetailDialog`: zeigt direkte und transitive Security-Befunde mit Quellen und Referenzen; die Component-Spalte bietet per Rechtsklick **Open in Maven Repository**.
 - `MavenUpConfigurable`: Einstellungs-UI unter `Settings > Tools > MavenUp`, gebunden an `MavenUpSettings`; Password-Safe-Zugriffe werden im Hintergrund geladen und für die Änderungserkennung zwischengespeichert.
 - `MyMessageBundle` (weiterhin im Basispaket): zentralisierte i18n-Texte für die UI.
 
@@ -176,4 +176,3 @@ If the problem persists, clear the Gradle build cache completely:
 Remove-Item -Recurse "$env:USERPROFILE\.gradle\caches\build-cache-*"
 .\gradlew.bat prepareSandbox
 ```
-

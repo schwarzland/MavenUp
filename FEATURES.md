@@ -32,7 +32,7 @@ This document describes the key features of the MavenUp IntelliJ plugin, grouped
 - **Credential placeholder resolution**: Resolves `${env.VAR_NAME}` and `${VAR_NAME}` placeholders for repository credentials.
 - **Credential matching fallbacks**: Matches credentials by repository ID, then repository URL, then repository host.
 - **Central-first repository strategy**: Queries Maven Central first and skips additional private repository requests for the same dependency when Central succeeds.
-- **Configurable Maven Repository Browser**: The repository browser used for opening artifact version pages can be selected under **Settings > Tools > MavenUp**. Two options are available: **MVN Repository** (default, `mvnrepository.com`) and **Sonatype Central** (`central.sonatype.com`). The selection applies to both the context menu in the main table and the Component column in the Vulnerability Details dialog.
+- **Configurable Maven Repository Browser**: The repository browser used for opening artifact version pages can be selected under **Settings > Tools > MavenUp**. Two options are available: **MVN Repository** (default, `mvnrepository.com`) and **Sonatype Central** (`central.sonatype.com`). The selection applies to both the context menu in the main table and the Component-column context menu in the Vulnerability Details dialog.
 
 ---
 
@@ -44,7 +44,7 @@ This document describes the key features of the MavenUp IntelliJ plugin, grouped
 - **Cross-source deduplication**: Merges matching CVE, GHSA, OSV, and Sonatype findings by intersecting advisory identifiers and aliases.
 - **Withdrawn advisory filtering**: Excludes withdrawn OSV advisories from results.
 - **Severity-aware current-version vulnerability column**: Displays **Vulnerabilities (Current)** directly after **Current Version**, showing the total finding count, transitive finding count, and highest known severity for the direct dependency and its resolved transitive dependencies; stays empty until a check has been run. When findings are present, a link icon indicates that the cell is clickable to open the vulnerability details dialog.
-- **Vulnerability details dialog**: Shows direct and related transitive findings for an individual dependency, or the complete scan, including transitive component markers and browser-accessible references. Clicking a cell in the **Component** column opens the component's MVN Repository page in the browser. Clicking a cell in the **References** column opens a dedicated list dialog showing all links for that advisory; clicking any link opens it in the browser. Both dialogs show only a **Close** button (no OK/Cancel) in line with JetBrains UI guidelines for read-only dialogs.
+- **Vulnerability details dialog**: Shows direct and related transitive findings for an individual dependency, or the complete scan, including transitive component markers and browser-accessible references. Right-clicking a cell in the **Component** column opens a context menu with **Open in Maven Repository** for the configured browser. Clicking a cell in the **References** column opens a dedicated list dialog showing all links for that advisory; clicking any link opens it in the browser. Both dialogs show only a **Close** button (no OK/Cancel) in line with JetBrains UI guidelines for read-only dialogs.
 
 ---
 
