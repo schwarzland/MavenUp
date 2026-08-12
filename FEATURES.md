@@ -11,7 +11,7 @@ This document describes the key features of the MavenUp IntelliJ plugin, grouped
 - **Support for managed scopes**: Includes `dependencyManagement` and `pluginManagement` entries.
 - **Input validation for displayed entries**: Skips dependencies and plugins without `groupId` so invalid entries are not shown.
 - **Navigation to source in `pom.xml`**: Jumps directly to the matching dependency/plugin entry (single or double click, configurable). A tooltip on each dependency row adapts its text to the configured click mode ("Click to navigate to pom.xml | Right-click for more options" or "Double-click to navigate to pom.xml | Right-click for more options").
-- **Context menu on dependency rows**: Right-clicking any dependency row opens a context menu with two entries: **Navigate to pom.xml** (jumps to the entry in the editor) and **Open in Maven Repository** (opens the matching version page in the configured repository browser).
+- **Context menu on dependency rows**: Right-clicking any dependency row opens a context menu with **Navigate to pom.xml** (jumps to the entry in the editor), **Open in Maven Repository** (opens the matching version page in the configured repository browser), and optionally **Show Vulnerability Details** (opens the vulnerability findings dialog when findings are available for the dependency).
 - **Safe update workflow**: Shows a confirmation dialog before applying changes to `pom.xml`.
 
 ---

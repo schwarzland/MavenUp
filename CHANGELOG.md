@@ -4,17 +4,12 @@
 ## [Unreleased]
 
 ### Added
-- Added a right-click context menu action in the Vulnerability Details dialog Component column to open the selected artifact version page in the configured repository browser.
-- Added two selection-based actions to the Vulnerability Details dialog: **Open in ...** and **References...**, both disabled until a vulnerability row is selected.
-- Added a **References...** entry to the Vulnerability Details Component-column right-click context menu to open the selected advisory links directly from the menu.
+- Added "Show Vulnerability Details" to the right-click context menu in the main dependencies table, allowing quick access to vulnerability findings when available for a dependency.
 
 ### Changed
-- Changed the Vulnerability Details dialog Component-column interaction from single-click navigation to a right-click context menu, aligned with the main table behavior.
-- Changed the Vulnerability Details workflow to row-driven actions so repository navigation and reference opening explicitly target the currently selected advisory.
-- Changed the Vulnerability Details right-click behavior to work on the selected row from every column except **References**.
 
 ### Fixed
-- Improved discoverability and interaction consistency for repository navigation from the Vulnerability Details dialog by replacing direct click navigation with an explicit context menu action.
+
 
 ## [1.2.0]
 ### Added

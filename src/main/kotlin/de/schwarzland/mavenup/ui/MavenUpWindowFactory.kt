@@ -188,6 +188,8 @@ internal fun canCheckVulnerabilities(isRefreshing: Boolean, isUpdating: Boolean)
 }
 
 
+private const val VULNERABILITY_DETAILS_TITLE = "vulnerability.details.title"
+
 /**
  * -----------------------------------------------------------------------------------------------
  * Factory-Klasse zur Erstellung und Initialisierung des MavenUp Tool Windows in der IntelliJ-IDE.
@@ -336,7 +338,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                             VulnerabilityDetailDialog(
                                 project,
                                 cell.detailFindings(),
-                                "$coordinate - ${MyMessageBundle.message("vulnerability.details.title")}"
+                                "$coordinate - ${MyMessageBundle.message(VULNERABILITY_DETAILS_TITLE)}"
                             ).show()
                         }
                         return
@@ -364,6 +366,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     val artifactId = table.getValueAt(row, ARTIFACT_ID_COLUMN) as? String ?: ""
                     val type = table.getValueAt(row, TYPE_COLUMN) as? String ?: "dependency"
                     val currentVersion = table.getValueAt(row, CURRENT_VERSION_COLUMN) as? String ?: ""
+                    val vulnerabilityCell = table.getValueAt(row, VULNERABILITIES_COLUMN) as? VulnerabilityCell
 
                     val popup = JPopupMenu()
                     popup.add(JMenuItem(MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.navigateToPom")).apply {
@@ -373,6 +376,19 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     popup.add(JMenuItem(MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.openInMvnRepository", browserName)).apply {
                         addActionListener { openInMavenRepository(groupId, artifactId, currentVersion) }
                     })
+                    if (vulnerabilityCell != null && vulnerabilityCell.allAdvisories.isNotEmpty()) {
+                        popup.addSeparator()
+                        popup.add(JMenuItem(MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.showVulnerabilityDetails")).apply {
+                            addActionListener {
+                                val coordinate = "$groupId:$artifactId:$currentVersion"
+                                VulnerabilityDetailDialog(
+                                    project,
+                                    vulnerabilityCell.detailFindings(),
+                                    "$coordinate - ${MyMessageBundle.message(VULNERABILITY_DETAILS_TITLE)}"
+                                ).show()
+                            }
+                        })
+                    }
                     popup.show(e.component, e.x, e.y)
                 }
             })
@@ -514,7 +530,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         if (advisories.isNotEmpty()) {
                             icon = AllIcons.Ide.Link
                             horizontalTextPosition = JLabel.TRAILING
-                            toolTipText = MyMessageBundle.message("vulnerability.details.title")
+                            toolTipText = MyMessageBundle.message(VULNERABILITY_DETAILS_TITLE)
                         } else {
                             toolTipText = null
                         }
