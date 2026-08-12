@@ -2,6 +2,7 @@ package de.schwarzland.mavenup.ui
 
 import de.schwarzland.mavenup.service.MavenRepositoryBrowser
 import de.schwarzland.mavenup.service.MavenUpSettings
+import de.schwarzland.mavenup.service.MAVEN_UP_SETTINGS_TOPIC
 import de.schwarzland.mavenup.service.OssIndexCredentialService
 import de.schwarzland.mavenup.service.OssIndexCredentialStore
 import com.intellij.openapi.application.ApplicationManager
@@ -42,6 +43,7 @@ class MavenUpConfigurable internal constructor(
 
     private var jumpOnSingleClickCheckBox: JBCheckBox? = null
     private var repositoryBrowserComboBox: ComboBox<MavenRepositoryBrowser>? = null
+    private var toolbarShowTextCheckBox: JBCheckBox? = null
     private var selectLatestVersionCheckBox: JBCheckBox? = null
     private var hideUnstableVersionsCheckBox: JBCheckBox? = null
     private var hiddenVersionQualifiersLabel: JLabel? = null
@@ -71,6 +73,11 @@ class MavenUpConfigurable internal constructor(
             row {
                 jumpOnSingleClickCheckBox = checkBox(MyMessageBundle.message("settings.jumpOnSingleClick"))
                     .applyToComponent { isSelected = settings.state.jumpOnSingleClick }
+                    .component
+            }
+            row {
+                toolbarShowTextCheckBox = checkBox(MyMessageBundle.message("settings.toolbarShowText"))
+                    .applyToComponent { isSelected = settings.state.toolbarShowText }
                     .component
             }
             row {
@@ -160,6 +167,7 @@ class MavenUpConfigurable internal constructor(
         val settings = MavenUpSettings.getInstance(project)
         return jumpOnSingleClickCheckBox?.isSelected != settings.state.jumpOnSingleClick ||
                 repositoryBrowserComboBox?.selectedItem != settings.state.repositoryBrowser ||
+                toolbarShowTextCheckBox?.isSelected != settings.state.toolbarShowText ||
                 selectLatestVersionCheckBox?.isSelected != settings.state.selectLatestVersion ||
                 hideUnstableVersionsCheckBox?.isSelected != settings.state.hideUnstableVersions ||
                 hiddenVersionQualifiersField?.text != settings.state.hiddenVersionQualifiers ||
@@ -185,6 +193,7 @@ class MavenUpConfigurable internal constructor(
         settings.state.jumpOnSingleClick = jumpOnSingleClickCheckBox?.isSelected ?: false
         settings.state.repositoryBrowser = repositoryBrowserComboBox?.selectedItem as? MavenRepositoryBrowser
             ?: MavenRepositoryBrowser.MVN_REPOSITORY
+        settings.state.toolbarShowText = toolbarShowTextCheckBox?.isSelected ?: false
         settings.state.selectLatestVersion = selectLatestVersionCheckBox?.isSelected ?: true
         settings.state.hideUnstableVersions = hideUnstableVersionsCheckBox?.isSelected ?: false
         settings.state.hiddenVersionQualifiers = hiddenVersionQualifiersField?.text?.trim().orEmpty()
@@ -195,6 +204,7 @@ class MavenUpConfigurable internal constructor(
             storedToken = ossIndexToken
             credentialService.store(settings.state.ossIndexUsername, storedToken)
         }
+        project.messageBus.syncPublisher(MAVEN_UP_SETTINGS_TOPIC).run()
     }
 
     /**
@@ -205,6 +215,7 @@ class MavenUpConfigurable internal constructor(
         val settings = MavenUpSettings.getInstance(project)
         jumpOnSingleClickCheckBox?.isSelected = settings.state.jumpOnSingleClick
         repositoryBrowserComboBox?.selectedItem = settings.state.repositoryBrowser
+        toolbarShowTextCheckBox?.isSelected = settings.state.toolbarShowText
         selectLatestVersionCheckBox?.isSelected = settings.state.selectLatestVersion
         hideUnstableVersionsCheckBox?.isSelected = settings.state.hideUnstableVersions
         hiddenVersionQualifiersField?.text = settings.state.hiddenVersionQualifiers
@@ -228,6 +239,7 @@ class MavenUpConfigurable internal constructor(
         credentialLoadFuture = null
         jumpOnSingleClickCheckBox = null
         repositoryBrowserComboBox = null
+        toolbarShowTextCheckBox = null
         selectLatestVersionCheckBox = null
         hideUnstableVersionsCheckBox = null
         hiddenVersionQualifiersLabel = null

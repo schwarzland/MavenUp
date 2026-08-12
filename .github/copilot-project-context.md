@@ -25,7 +25,7 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
 - **MavenUpWindowFactory**: Zentrale `ToolWindowFactory` + `MyToolWindow`.
   Navigation zur pom.xml-Definition sowie Multi-Source-Vulnerability-Checks für direkte und transitive
   Dependencies in Hintergrund-Tasks. Per Rechtsklick auf eine Zeile öffnet sich ein Kontextmenü mit
-  **Navigate to pom.xml**, **Open in Maven Repository** und ggf. **Show Vulnerability Details** (falls Vulnerabilities vorhanden sind).   Der **Open on [Browser]**-Button in der Toolbar steht direkt nach **Refresh**, wird aktiv sobald eine Dependency-Zeile selektiert ist, und zeigt dynamisch den konfigurierten Browser-Namen in der Beschriftung (z.B. **Open on MVN Repository** oder **Open on Sonatype Central**). Der **Vulnerability Details**-Button ist erst aktiv, wenn eine Dependency-Zeile mit Befunden selektiert ist, und zeigt ausschließlich die Befunde der selektierten Dependency (direkte und transitive). Der verwendete Repository-Browser
+  **Navigate to pom.xml**, **Open in Maven Repository** und ggf. **Show Vulnerability Details** (falls Vulnerabilities vorhanden sind). Die Aktionen liegen in einer oberen `ActionToolbar` (Icon-Actions mit Tooltip): links die Kernaktionen **Refresh**, **Check for Updates**, **Check Vulnerabilities** und **Update**, durch einen Trenner abgesetzt die selektionsabhängigen Aktionen **Open on [Browser]** und **Vulnerability Details**, am Ende **Settings**. Die **Open on [Browser]**-Aktion wird aktiv, sobald eine Dependency-Zeile selektiert ist, und zeigt dynamisch den konfigurierten Browser-Namen im Tooltip (z.B. **Open on MVN Repository** oder **Open on Sonatype Central**). Die **Vulnerability Details**-Aktion ist erst aktiv, wenn eine Dependency-Zeile mit Befunden selektiert ist, und zeigt ausschließlich die Befunde der selektierten Dependency (direkte und transitive). Der verwendete Repository-Browser
   (**MVN Repository** oder **Sonatype Central**) ist in den Einstellungen
   konfigurierbar und gilt einheitlich für das Kontextmenü sowie das zeilenbezogene Rechtsklick-Menü
   (alle Spalten außer References) im
@@ -36,16 +36,23 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   Maven-/PSI-Daten für Refreshes werden über eine
   nicht blockierende Read-Action außerhalb des EDT erfasst. Während Refresh oder Update-Check
   laufen, bleibt der Vulnerability-Check deaktiviert, um konkurrierende Hintergrundaktionen zu vermeiden.
+  Die Aktionsleiste kann laut Einstellung (`toolbarShowText`) wahlweise Icon- oder Text-Buttons darstellen und
+  wird bei geänderten Einstellungen über den `MAVEN_UP_SETTINGS_TOPIC`-Message-Bus sofort neu aufgebaut.
 - **MavenUpSettings**: `PersistentStateComponent`, gespeichert in `mavenup_settings.xml`
   (`jumpOnSingleClick`, `selectLatestVersion`, `hideUnstableVersions`, `hiddenVersionQualifiers`,
-  `ossIndexEnabled`, `ossIndexUsername`, `checkTransitiveDependencies`, `repositoryBrowser`).
+  `ossIndexEnabled`, `ossIndexUsername`, `checkTransitiveDependencies`, `repositoryBrowser`, `toolbarShowText`).
   Für die HTTP-Basic-Authentifizierung sind OSS-Index-Benutzername und Token gemeinsam erforderlich.
   Das Token liegt ausschließlich im IntelliJ Password Safe; bei unvollständigen Credentials wird
   keine OSS-Index-Abfrage gesendet.
+- **MAVEN_UP_SETTINGS_TOPIC**: `Topic<Runnable>` in `service`, über das `MavenUpConfigurable.apply()`
+  Einstellungsänderungen veröffentlicht, damit offene UI-Komponenten (z.B. die Tool-Window-Aktionsleiste)
+  sofort reagieren können.
 - **MavenRepositoryBrowser**: Enum in `service`, definiert die zwei konfigurierbaren
   Repository-Browser-Optionen (`MVN_REPOSITORY`, `SONATYPE_CENTRAL`) und erzeugt die jeweilige
   Versions-URL für groupId/artifactId/version.
 - **MavenUpConfigurable**: Settings-UI unter `Settings > Tools > MavenUp`.
+  Bietet u.a. die Checkbox für Text-Buttons in der Aktionsleiste (`toolbarShowText`) und veröffentlicht
+  beim Speichern den `MAVEN_UP_SETTINGS_TOPIC`.
   Die OSS-Index-Sektion kennzeichnet Benutzername und Token bei Aktivierung als Pflichtfelder und
   verlinkt auf die Sonatype-Kontoeinstellungen zur Token-Erzeugung. Das Token wird außerhalb des EDT
   aus dem Password Safe geladen und für `isModified()` im UI-Modell gecacht.
@@ -61,9 +68,8 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   quellenübergreifende Deduplizierung anhand von IDs/Aliasen; CVSS-Vektoren werden über
   `us.springett:cvss-calculator` normalisiert, bei nicht unterstützten CVSS-Versionen wird auf
   den Schweregrad der Quelle zurückgefallen.
-- **VulnerabilityDetailDialog**: Detailansicht für direkte und transitive Befunde. Rein informativer Dialog – zeigt ausschließlich einen **Close**-Button (kein OK/Cancel), entsprechend den JetBrains UI-Richtlinien für read-only Dialoge. Die Buttons **Open in ...** und **References...** sind initial deaktiviert und werden erst bei selektierter Vulnerability-Zeile aktiviert; zusätzlich öffnet ein Rechtsklick auf die selektierte Zeile in allen Spalten außer **References** das Kontextmenü mit **Open in Maven Repository** und **References...**.
+- **VulnerabilityDetailDialog**: Detailansicht für direkte und transitive Befunde. Rein informativer Dialog – zeigt ausschließlich einen **Close**-Button (kein OK/Cancel), entsprechend den JetBrains UI-Richtlinien für read-only Dialoge. Die Aktionen **Open in ...** und **References...** liegen in einer oberen `ActionToolbar` des Dialogs, sind initial deaktiviert und werden erst bei selektierter Vulnerability-Zeile aktiviert; zusätzlich öffnet ein Rechtsklick auf die selektierte Zeile in allen Spalten außer **References** das Kontextmenü mit **Open in Maven Repository** und **References...**.
 - **ReferencesListDialog**: Zeigt alle Referenz-Links eines Advisories als klickbare Liste. Ebenfalls rein informativer Dialog mit ausschließlich einem **Close**-Button.
-- **WrapLayout**: `FlowLayout`-Erweiterung in `ui`, die Komponenten bei zu geringer Breite in mehrere Zeilen umbricht und die bevorzugte Höhe korrekt berechnet. Wird für die umbrechende Button-Toolbar des Tool-Windows verwendet.
 - **MyMessageBundle**: I18n-Wrapper (`messages.MyMessageBundle`).
 
 Tests: `src/test/kotlin/de/schwarzland/mavenup/` mit Plattformtests sowie reinen Service-/Modelltests

@@ -25,13 +25,13 @@
         <strong>Vulnerabilities (Current)</strong> column directly after <strong>Current Version</strong>, showing the
         total finding count, transitive finding count, and highest severity.</li>
     <li><strong>Vulnerability Details</strong>: Select a dependency row with vulnerability findings and click
-        <strong>Vulnerability Details</strong> to open the details dialog for that dependency. The button is only
+        <strong>Vulnerability Details</strong> to open the details dialog for that dependency. The action is only
         active when such a row is selected. You can also click a populated cell in the
         <strong>Vulnerabilities (Current)</strong> column directly. It lists direct and related transitive findings
-        with advisory IDs, CVSS scores, summaries, sources, and clickable references. The actions
-        <strong>Open in ...</strong> and <strong>References...</strong> are disabled until you select a finding row,
-        then they apply to that selected advisory. Right-clicking the selected row in any column except
-        <strong>References</strong> also offers <strong>Open in Maven Repository</strong> and
+        with advisory IDs, CVSS scores, summaries, sources, and clickable references. In the dialog's top
+        action toolbar, the actions <strong>Open in ...</strong> and <strong>References...</strong> are disabled
+        until you select a finding row, then they apply to that selected advisory. Right-clicking the selected
+        row in any column except <strong>References</strong> also offers <strong>Open in Maven Repository</strong> and
         <strong>References...</strong>.</li>
 </ol>
 
@@ -42,10 +42,10 @@
     <li><strong>Right-click context menu</strong>: Right-click any row to access <strong>Navigate to pom.xml</strong>,
         <strong>Open in Maven Repository</strong> (opens the current version page in the configured repository
         browser), and optionally <strong>Show Vulnerability Details</strong> (opens the vulnerability findings dialog if vulnerabilities are present).</li>
-    <li><strong>Open on [browser] button</strong>: Select any dependency row to activate the <strong>Open on [browser]</strong> button placed directly after <strong>Refresh</strong>. Its label dynamically shows the configured repository browser name (e.g. <strong>Open on MVN Repository</strong> or <strong>Open on Sonatype Central</strong>) and opens the current version of the selected dependency in that browser.</li>
+    <li><strong>Open on [browser]</strong>: Select any dependency row to activate the <strong>Open on [browser]</strong> action in the top action toolbar. Its tooltip dynamically shows the configured repository browser name (e.g. <strong>Open on MVN Repository</strong> or <strong>Open on Sonatype Central</strong>) and opens the current version of the selected dependency in that browser.</li>
 </ul>
 
 <h3>Settings</h3>
 <p>Configure the plugin under <strong>Settings &gt; Tools &gt; MavenUp</strong>: choose the repository browser,
-    enable single-click navigation, auto-select the newest version, filter out unstable versions (e.g. RC/beta), and
-    set up optional Sonatype OSS Index credentials.</p>
+    show toolbar buttons with text labels instead of icons only, enable single-click navigation, auto-select the
+    newest version, filter out unstable versions (e.g. RC/beta), and set up optional Sonatype OSS Index credentials.</p>

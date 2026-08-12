@@ -5,17 +5,20 @@
 
 ### Added
 - Added "Show Vulnerability Details" to the right-click context menu in the main dependencies table, allowing quick access to vulnerability findings when available for a dependency.
-- Added **Open on [browser]** button to the main toolbar directly after **Refresh**; it is enabled as soon as a dependency row is selected, its label dynamically shows the configured repository browser name, and it opens the current version of that dependency in the configured Maven repository browser.
+- Added a setting to show text labels on the toolbar buttons instead of icons only; it applies to the tool window and the Vulnerability Details dialog and takes effect immediately on the open tool window.
+- Added **Open on [browser]** action; it is a selection-dependent action in the top action toolbar, its tooltip dynamically shows the configured repository browser name, and it opens the current version of the selected dependency in the configured Maven repository browser.
 
 ### Changed
 - Removed the link icon from the **Component** column in the Vulnerability Details dialog, as double-clicking a row no longer triggers an action.
-- The **Vulnerability Details** button now requires a dependency row with findings to be selected and shows only the vulnerabilities for that selected dependency instead of all found vulnerabilities.
-- Moved the **Open in ...** and **References...** buttons in the Vulnerability Details dialog from above the table to the bottom-left, in the same row as the **Close** button.
-- The toolbar buttons now wrap into multiple rows when the tool window is too narrow to display them all in a single line.
+- The **Vulnerability Details** action now requires a dependency row with findings to be selected and shows only the vulnerabilities for that selected dependency instead of all found vulnerabilities.
+- Reorganized the tool window and Vulnerability Details dialog actions into a top IntelliJ ActionToolbar with icons and tooltips, separating core actions (Refresh, Check for Updates, Check Vulnerabilities, Update) from the selection-dependent actions (Open in ..., Vulnerability Details / References) by a divider, in line with the IntelliJ UI guidelines.
+- Removed the bottom button bar and the custom wrapping layout, as the action toolbar handles overflow itself.
 
 ### Fixed
 - All plugin tables now enforce single-row selection instead of allowing multiple rows to be selected at once.
 - The **Confirm Changes** dialog table is now read-only, preventing accidental editing of the update overview.
+
+## [1.2.0]
 ### Added
 - Right-click context menu on dependency rows with two actions: **Navigate to pom.xml** (jumps to the entry in the editor) and **Open in Maven Repository** (opens the matching version page in the configured repository browser).
 - Configurable Maven Repository Browser: users can choose between **MVN Repository** (default, `mvnrepository.com`) and **Sonatype Central** (`central.sonatype.com`) under **Settings > Tools > MavenUp**. The selection applies to both the context menu in the main table and the Component column link in the Vulnerability Details dialog.

@@ -21,7 +21,6 @@ import com.intellij.openapi.application.ReadAction
 import com.intellij.util.concurrency.AppExecutorUtil
 import com.intellij.ui.table.JBTable
 import java.awt.Container
-import javax.swing.JButton
 import java.util.concurrent.TimeUnit
 
 class MavenUpWindowFactoryTest : BasePlatformTestCase() {
@@ -319,14 +318,6 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         return null
     }
 
-    private fun findButton(container: Container, text: String): JButton? {
-        container.components.forEach { component ->
-            if (component is JButton && component.text == text) return component
-            if (component is Container) findButton(component, text)?.let { return it }
-        }
-        return null
-    }
-
     fun testMainTableUsesSingleSelection() {
         val content = MavenUpWindowFactory().MyToolWindow(project).getContent()
 
@@ -358,25 +349,27 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         )
     }
 
-    fun testOpenInRepositoryButtonInitiallyDisabled() {
-        val content = MavenUpWindowFactory().MyToolWindow(project).getContent()
+    fun testOpenInRepositoryActionInitiallyDisabled() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
 
-        val button = findButton(content, "Open on MVN Repository")
-        assertNotNull("Open on MVN Repository-Button sollte im Tool Window vorhanden sein", button)
-        assertFalse("Open on MVN Repository-Button sollte initial deaktiviert sein", button!!.isEnabled)
+        assertFalse(
+            "Open-in-Repository-Aktion sollte ohne Selektion deaktiviert sein",
+            toolWindow.isOpenInRepositoryEnabled()
+        )
     }
 
-    fun testOpenInRepositoryButtonEnabledOnRowSelection() {
-        val toolWindowInstance = MavenUpWindowFactory().MyToolWindow(project)
-        val content = toolWindowInstance.getContent()
+    fun testOpenInRepositoryActionEnabledOnRowSelection() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val content = toolWindow.getContent()
         val table = findTable(content)
-        val button = findButton(content, "Open on MVN Repository")
-
         assertNotNull(table)
-        assertNotNull(button)
 
-        // Tabelle ist leer – kein Button aktiv
-        assertFalse("Open on MVN Repository-Button sollte bei leerer Tabelle deaktiviert sein", button!!.isEnabled)
+        // Tabelle ist leer – Aktion inaktiv
+        assertFalse(
+            "Open-in-Repository-Aktion sollte bei leerer Tabelle deaktiviert sein",
+            toolWindow.isOpenInRepositoryEnabled()
+        )
 
         // Eine Zeile hinzufügen und selektieren
         (table!!.model as? javax.swing.table.DefaultTableModel)?.addRow(
@@ -384,22 +377,93 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         )
         table.setRowSelectionInterval(0, 0)
 
-        assertTrue("Open on MVN Repository-Button sollte bei selektierter Zeile aktiviert sein", button.isEnabled)
+        assertTrue(
+            "Open-in-Repository-Aktion sollte bei selektierter Zeile aktiviert sein",
+            toolWindow.isOpenInRepositoryEnabled()
+        )
 
         // Selektion aufheben
         table.clearSelection()
-        assertFalse("Open on MVN Repository-Button sollte ohne Selektion wieder deaktiviert sein", button.isEnabled)
+        assertFalse(
+            "Open-in-Repository-Aktion sollte ohne Selektion wieder deaktiviert sein",
+            toolWindow.isOpenInRepositoryEnabled()
+        )
     }
 
-    fun testOpenInRepositoryButtonLabelReflectsConfiguredBrowser() {
+    fun testOpenInRepositoryActionLabelReflectsConfiguredBrowser() {
         val settings = MavenUpSettings.getInstance(project)
         settings.state.repositoryBrowser = MavenRepositoryBrowser.SONATYPE_CENTRAL
 
-        val content = MavenUpWindowFactory().MyToolWindow(project).getContent()
-        val button = findButton(content, "Open on Sonatype Central")
-        assertNotNull("Button-Label sollte den konfigurierten Browser-Namen enthalten", button)
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+        assertEquals(
+            "Aktionstext sollte den konfigurierten Browser-Namen enthalten",
+            "Open on Sonatype Central",
+            toolWindow.currentOpenInRepositoryText()
+        )
 
         settings.state.repositoryBrowser = MavenRepositoryBrowser.MVN_REPOSITORY
+    }
+
+    fun testActionToolbarIsPresentAtTop() {
+        val content = MavenUpWindowFactory().MyToolWindow(project).getContent()
+
+        val toolbarComponent = (content.layout as? java.awt.BorderLayout)
+            ?.getLayoutComponent(java.awt.BorderLayout.NORTH)
+        assertNotNull("Die obere Aktionsleiste sollte im Tool Window vorhanden sein", toolbarComponent)
+    }
+
+    fun testToolbarTextEnabledReflectsSetting() {
+        val settings = MavenUpSettings.getInstance(project)
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        settings.state.toolbarShowText = false
+        assertFalse(
+            "Text-Modus sollte deaktiviert gemeldet werden, wenn die Einstellung aus ist",
+            toolWindow.isToolbarTextEnabled()
+        )
+
+        settings.state.toolbarShowText = true
+        assertTrue(
+            "Text-Modus sollte aktiviert gemeldet werden, wenn die Einstellung an ist",
+            toolWindow.isToolbarTextEnabled()
+        )
+
+        settings.state.toolbarShowText = false
+    }
+
+    fun testVulnerabilityDetailsActionReflectsSelection() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val content = toolWindow.getContent()
+        val table = findTable(content)
+        assertNotNull(table)
+
+        assertFalse(
+            "Vulnerability-Details-Aktion sollte ohne Selektion deaktiviert sein",
+            toolWindow.isVulnerabilityDetailsEnabled()
+        )
+
+        val advisory = VulnerabilityAdvisory(
+            id = "CVE-1",
+            severity = VulnerabilitySeverity.MEDIUM,
+            sources = setOf("OSV"),
+            references = setOf("https://example.test")
+        )
+        val cell = buildVulnerabilityCell(
+            "com.example:my-lib:1.0.0",
+            mapOf("com.example:my-lib:1.0.0" to listOf(advisory)),
+            emptySet()
+        )
+        (table!!.model as? javax.swing.table.DefaultTableModel)?.addRow(
+            arrayOf("com.example", "my-lib", "", "dependency", "1.0.0", cell, emptyList<String>())
+        )
+        table.setRowSelectionInterval(0, 0)
+
+        assertTrue(
+            "Vulnerability-Details-Aktion sollte bei Zeile mit Befunden aktiviert sein",
+            toolWindow.isVulnerabilityDetailsEnabled()
+        )
     }
 
     fun testCollectDependenciesAndProperties() {

@@ -241,6 +241,29 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
         assertEquals(MavenRepositoryBrowser.MVN_REPOSITORY, MavenUpSettings.State().repositoryBrowser)
     }
 
+    fun testToolbarShowTextDefaultIsFalse() {
+        assertFalse(MavenUpSettings.State().toolbarShowText)
+    }
+
+    fun testToolbarShowTextSelectionIsPersistedOnApply() {
+        val settings = MavenUpSettings.getInstance(project)
+        settings.state.toolbarShowText = false
+
+        val configurable = MavenUpConfigurable(project)
+        configurable.createComponent()
+        configurable.reset()
+        assertFalse(configurable.isModified)
+
+        val checkBox = configurable.field<com.intellij.ui.components.JBCheckBox>("toolbarShowTextCheckBox")
+        checkBox.isSelected = true
+        assertTrue("Änderung der Checkbox sollte isModified() true machen", configurable.isModified)
+
+        configurable.apply()
+        assertTrue(settings.state.toolbarShowText)
+
+        settings.state.toolbarShowText = false
+    }
+
     fun testMavenRepositoryBrowserUrlPatterns() {
         assertEquals(
             "https://mvnrepository.com/artifact/com.example/lib/1.0",
