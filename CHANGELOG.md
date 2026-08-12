@@ -10,6 +10,7 @@
 ### Changed
 - The **Vulnerability Details** button now requires a dependency row with findings to be selected and shows only the vulnerabilities for that selected dependency instead of all found vulnerabilities.
 - Moved the **Open in ...** and **References...** buttons in the Vulnerability Details dialog from above the table to the bottom-left, in the same row as the **Close** button.
+- The toolbar buttons now wrap into multiple rows when the tool window is too narrow to display them all in a single line.
 
 ### Fixed
 

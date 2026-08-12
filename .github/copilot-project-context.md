@@ -63,6 +63,7 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   den Schweregrad der Quelle zurückgefallen.
 - **VulnerabilityDetailDialog**: Detailansicht für direkte und transitive Befunde. Rein informativer Dialog – zeigt ausschließlich einen **Close**-Button (kein OK/Cancel), entsprechend den JetBrains UI-Richtlinien für read-only Dialoge. Die Buttons **Open in ...** und **References...** sind initial deaktiviert und werden erst bei selektierter Vulnerability-Zeile aktiviert; zusätzlich öffnet ein Rechtsklick auf die selektierte Zeile in allen Spalten außer **References** das Kontextmenü mit **Open in Maven Repository** und **References...**.
 - **ReferencesListDialog**: Zeigt alle Referenz-Links eines Advisories als klickbare Liste. Ebenfalls rein informativer Dialog mit ausschließlich einem **Close**-Button.
+- **WrapLayout**: `FlowLayout`-Erweiterung in `ui`, die Komponenten bei zu geringer Breite in mehrere Zeilen umbricht und die bevorzugte Höhe korrekt berechnet. Wird für die umbrechende Button-Toolbar des Tool-Windows verwendet.
 - **MyMessageBundle**: I18n-Wrapper (`messages.MyMessageBundle`).
 
 Tests: `src/test/kotlin/de/schwarzland/mavenup/` mit Plattformtests sowie reinen Service-/Modelltests

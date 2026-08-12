@@ -699,7 +699,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             add(JBScrollPane(table), BorderLayout.CENTER)
 
             val buttonPanel = JPanel(BorderLayout()).apply {
-                val leftButtonPanel = JPanel(FlowLayout(FlowLayout.LEFT)).apply {
+                val leftButtonPanel = JPanel(WrapLayout(FlowLayout.LEFT)).apply {
                     add(refreshButton.apply {
                         addActionListener { refreshAction(false, true) }
                     })
@@ -742,7 +742,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         addActionListener { updateAction() }
                     })
                 }
-                add(leftButtonPanel, BorderLayout.WEST)
+                add(leftButtonPanel, BorderLayout.CENTER)
                 add(settingsButton.apply {
                     addActionListener { openSettings() }
                 }, BorderLayout.EAST)
