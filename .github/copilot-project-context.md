@@ -25,7 +25,7 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
 - **MavenUpWindowFactory**: Zentrale `ToolWindowFactory` + `MyToolWindow`.
   Navigation zur pom.xml-Definition sowie Multi-Source-Vulnerability-Checks für direkte und transitive
   Dependencies in Hintergrund-Tasks. Per Rechtsklick auf eine Zeile öffnet sich ein Kontextmenü mit
-  **Navigate to pom.xml**, **Open in Maven Repository** und ggf. **Show Vulnerability Details** (falls Vulnerabilities vorhanden sind). Der verwendete Repository-Browser
+  **Navigate to pom.xml**, **Open in Maven Repository** und ggf. **Show Vulnerability Details** (falls Vulnerabilities vorhanden sind). Der **Vulnerability Details**-Button ist erst aktiv, wenn eine Dependency-Zeile mit Befunden selektiert ist, und zeigt ausschließlich die Befunde der selektierten Dependency (direkte und transitive). Der verwendete Repository-Browser
   (**MVN Repository** oder **Sonatype Central**) ist in den Einstellungen
   konfigurierbar und gilt einheitlich für das Kontextmenü sowie das zeilenbezogene Rechtsklick-Menü
   (alle Spalten außer References) im

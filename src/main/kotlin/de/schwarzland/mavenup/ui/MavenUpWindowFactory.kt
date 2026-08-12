@@ -405,6 +405,11 @@ class MavenUpWindowFactory : ToolWindowFactory {
             fun updateVulnerabilityCheckButtonState() {
                 checkVulnerabilitiesButton.isEnabled = canCheckVulnerabilities(isRefreshing, isUpdating)
             }
+            fun updateVulnerabilityDetailsButtonState() {
+                val row = table.selectedRow
+                val cell = if (row >= 0) table.getValueAt(row, VULNERABILITIES_COLUMN) as? VulnerabilityCell else null
+                vulnerabilityDetailsButton.isEnabled = !isUpdating && cell?.allAdvisories?.isNotEmpty() == true
+            }
             val settingsButton = JButton(AllIcons.General.Settings).apply {
                 toolTipText = MyMessageBundle.message("toolwindow.MyToolWindow.settings.button")
                 isBorderPainted = false
@@ -415,6 +420,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
             // Force commit editor when focus lost
             table.putClientProperty("terminateEditOnFocusLost", true)
+
+            table.selectionModel.addListSelectionListener { event ->
+                if (!event.valueIsAdjusting) updateVulnerabilityDetailsButtonState()
+            }
 
             // Custom Renderer and Editor for the "New Version" column
             table.columnModel.getColumn(NEW_VERSION_COLUMN).cellRenderer =
@@ -657,7 +666,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         checkUpdatesButton.isEnabled = true
                         updateVulnerabilityCheckButtonState()
                         refreshAction(false, false)
-                        vulnerabilityDetailsButton.isEnabled = vulnerabilityAdvisories.values.any { it.isNotEmpty() }
+                        updateVulnerabilityDetailsButtonState()
                         updateUpdateButtonState(updateButton)
                     }
                 }
@@ -679,7 +688,22 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         addActionListener { checkVulnerabilitiesAction() }
                     })
                     add(vulnerabilityDetailsButton.apply {
-                        addActionListener { showAllVulnerabilityDetails() }
+                        addActionListener {
+                            val row = table.selectedRow
+                            if (row >= 0) {
+                                val cell = table.getValueAt(row, VULNERABILITIES_COLUMN) as? VulnerabilityCell
+                                val findings = cell?.detailFindings() ?: emptyMap()
+                                val groupId = table.getValueAt(row, GROUP_ID_COLUMN)?.toString().orEmpty()
+                                val artifactId = table.getValueAt(row, ARTIFACT_ID_COLUMN)?.toString().orEmpty()
+                                if (findings.isNotEmpty()) {
+                                    VulnerabilityDetailDialog(
+                                        project,
+                                        findings,
+                                        "$groupId:$artifactId - ${MyMessageBundle.message(VULNERABILITY_DETAILS_TITLE)}"
+                                    ).show()
+                                }
+                            }
+                        }
                     })
                     add(updateButton.apply {
                         addActionListener { updateAction() }
@@ -1123,18 +1147,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 }
             }
             return dependenciesByDirect
-        }
-
-        /**
-         * Öffnet den Detail-Dialog für alle gefundenen Sicherheitslücken.
-         */
-        private fun showAllVulnerabilityDetails() {
-            val findings = vulnerabilityAdvisories
-                .filterValues { it.isNotEmpty() }
-                .mapKeys { (coordinate, _) ->
-                    if (coordinate in transitiveCoordinates) "$coordinate (transitive)" else coordinate
-                }
-            if (findings.isNotEmpty()) VulnerabilityDetailDialog(project, findings).show()
         }
 
         /**

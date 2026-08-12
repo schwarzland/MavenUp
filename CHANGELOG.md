@@ -7,6 +7,7 @@
 - Added "Show Vulnerability Details" to the right-click context menu in the main dependencies table, allowing quick access to vulnerability findings when available for a dependency.
 
 ### Changed
+- The **Vulnerability Details** button now requires a dependency row with findings to be selected and shows only the vulnerabilities for that selected dependency instead of all found vulnerabilities.
 
 ### Fixed
 
