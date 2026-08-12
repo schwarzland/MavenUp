@@ -326,6 +326,18 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         return null
     }
 
+    fun testMainTableUsesSingleSelection() {
+        val content = MavenUpWindowFactory().MyToolWindow(project).getContent()
+
+        val table = findTable(content)
+        assertNotNull("Die Haupttabelle sollte im Tool Window vorhanden sein", table)
+        assertEquals(
+            "Die Haupttabelle sollte nur Einzelselektion erlauben",
+            javax.swing.ListSelectionModel.SINGLE_SELECTION,
+            table!!.selectionModel.selectionMode
+        )
+    }
+
     fun testOpenInRepositoryButtonInitiallyDisabled() {
         val content = MavenUpWindowFactory().MyToolWindow(project).getContent()
 

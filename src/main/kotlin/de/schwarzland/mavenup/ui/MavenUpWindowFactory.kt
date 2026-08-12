@@ -267,6 +267,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             }
 
             val table = JBTable(tableModel)
+            table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION)
             panel.add(JBScrollPane(table), BorderLayout.CENTER)
             return panel
         }
@@ -318,6 +319,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         MyMessageBundle.message("toolwindow.MyToolWindow.table.row.tooltip.doubleClick")
                 }
             }
+            table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION)
 
             table.addMouseListener(object : MouseAdapter() {
                 override fun mousePressed(e: MouseEvent) {
