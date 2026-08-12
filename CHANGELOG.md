@@ -9,6 +9,7 @@
 - Added **Open on [browser]** action; it is a selection-dependent action in the top action toolbar, its tooltip dynamically shows the configured repository browser name, and it opens the current version of the selected dependency in the configured Maven repository browser.
 
 ### Changed
+- Changed the **References** icon in the Vulnerability Details dialog (top toolbar action and References column) to a details preview icon, making it clearer that clicking opens a dialog listing the references.
 - Removed the link icon from the **Component** column in the Vulnerability Details dialog, as double-clicking a row no longer triggers an action.
 - The **Vulnerability Details** action now requires a dependency row with findings to be selected and shows only the vulnerabilities for that selected dependency instead of all found vulnerabilities.
 - Reorganized the tool window and Vulnerability Details dialog actions into a top IntelliJ ActionToolbar with icons and tooltips, separating core actions (Refresh, Check for Updates, Check Vulnerabilities, Update) from the selection-dependent actions (Open in ..., Vulnerability Details / References) by a divider, in line with the IntelliJ UI guidelines.
