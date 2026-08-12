@@ -2,6 +2,7 @@ package de.schwarzland.mavenup
 
 import de.schwarzland.mavenup.model.VulnerabilityAdvisory
 import de.schwarzland.mavenup.model.VulnerabilitySeverity
+import de.schwarzland.mavenup.model.DependencyUpdate
 import de.schwarzland.mavenup.service.MavenUpSettings
 import de.schwarzland.mavenup.service.MavenRepositoryBrowser
 import de.schwarzland.mavenup.ui.buildMavenRepositoryUrl
@@ -335,6 +336,25 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
             "Die Haupttabelle sollte nur Einzelselektion erlauben",
             javax.swing.ListSelectionModel.SINGLE_SELECTION,
             table!!.selectionModel.selectionMode
+        )
+    }
+
+    fun testConfirmChangesDialogTableIsNotEditable() {
+        val updates = listOf(
+            DependencyUpdate("com.example", "demo-lib", "dependency", "1.0.0", "1.1.0")
+        )
+        val dialog = MavenUpWindowFactory.UpdateConfirmationDialog(project, updates)
+        val table = dialog.buildTable()
+        for (column in 0 until table.columnCount) {
+            assertFalse(
+                "Zelle in Spalte $column sollte nicht editierbar sein",
+                table.isCellEditable(0, column)
+            )
+        }
+        assertEquals(
+            "Die Confirm-Changes-Tabelle sollte nur Einzelselektion erlauben",
+            javax.swing.ListSelectionModel.SINGLE_SELECTION,
+            table.selectionModel.selectionMode
         )
     }
 

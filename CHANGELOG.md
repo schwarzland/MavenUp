@@ -15,6 +15,7 @@
 
 ### Fixed
 - All plugin tables now enforce single-row selection instead of allowing multiple rows to be selected at once.
+- The **Confirm Changes** dialog table is now read-only, preventing accidental editing of the update overview.
 ### Added
 - Right-click context menu on dependency rows with two actions: **Navigate to pom.xml** (jumps to the entry in the editor) and **Open in Maven Repository** (opens the matching version page in the configured repository browser).
 - Configurable Maven Repository Browser: users can choose between **MVN Repository** (default, `mvnrepository.com`) and **Sonatype Central** (`central.sonatype.com`) under **Settings > Tools > MavenUp**. The selection applies to both the context menu in the main table and the Component column link in the Vulnerability Details dialog.

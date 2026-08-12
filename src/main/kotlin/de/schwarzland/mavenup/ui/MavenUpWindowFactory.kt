@@ -246,7 +246,19 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 BorderLayout.NORTH
             )
 
-            val tableModel = DefaultTableModel().apply {
+            panel.add(JBScrollPane(buildTable()), BorderLayout.CENTER)
+            return panel
+        }
+
+        /**
+         * Erstellt die schreibgeschützte Update-Übersichtstabelle mit Einzelselektion.
+         *
+         * @return Die konfigurierte, nicht editierbare Tabelle mit allen anstehenden Updates.
+         */
+        internal fun buildTable(): JBTable {
+            val tableModel = object : DefaultTableModel() {
+                override fun isCellEditable(row: Int, column: Int): Boolean = false
+            }.apply {
                 addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.groupId"))
                 addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.artifactId"))
                 addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.type"))
@@ -268,8 +280,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
             val table = JBTable(tableModel)
             table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION)
-            panel.add(JBScrollPane(table), BorderLayout.CENTER)
-            return panel
+            return table
         }
 
     }
