@@ -27,7 +27,8 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   Dependencies in Hintergrund-Tasks. Per Rechtsklick auf eine Zeile öffnet sich ein Kontextmenü mit
   **Navigate to pom.xml** und **Open in Maven Repository**. Der verwendete Repository-Browser
   (**MVN Repository** oder **Sonatype Central**) ist in den Einstellungen
-  konfigurierbar und gilt einheitlich für das Kontextmenü sowie die Component-Spalte im
+  konfigurierbar und gilt einheitlich für das Kontextmenü sowie das zeilenbezogene Rechtsklick-Menü
+  (alle Spalten außer References) im
   Vulnerability-Details-Dialog. Die Tabellenspalte **Vulnerabilities (Current)** steht direkt
   hinter **Current Version** und ordnet transitive Befunde über den Maven-Dependency-Tree der
   jeweiligen direkten Dependency zu. Sie zeigt Gesamtzahl, transitive Anzahl und höchste Severity;
@@ -60,7 +61,7 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   quellenübergreifende Deduplizierung anhand von IDs/Aliasen; CVSS-Vektoren werden über
   `us.springett:cvss-calculator` normalisiert, bei nicht unterstützten CVSS-Versionen wird auf
   den Schweregrad der Quelle zurückgefallen.
-- **VulnerabilityDetailDialog**: Detailansicht für direkte und transitive Befunde. Rein informativer Dialog – zeigt ausschließlich einen **Close**-Button (kein OK/Cancel), entsprechend den JetBrains UI-Richtlinien für read-only Dialoge. Die Buttons **Open in ...** und **References...** sind initial deaktiviert und werden erst bei selektierter Vulnerability-Zeile aktiviert; zusätzlich öffnet in der Component-Spalte ein Rechtsklick das Kontextmenü mit **Open in Maven Repository** und **References...**.
+- **VulnerabilityDetailDialog**: Detailansicht für direkte und transitive Befunde. Rein informativer Dialog – zeigt ausschließlich einen **Close**-Button (kein OK/Cancel), entsprechend den JetBrains UI-Richtlinien für read-only Dialoge. Die Buttons **Open in ...** und **References...** sind initial deaktiviert und werden erst bei selektierter Vulnerability-Zeile aktiviert; zusätzlich öffnet ein Rechtsklick auf die selektierte Zeile in allen Spalten außer **References** das Kontextmenü mit **Open in Maven Repository** und **References...**.
 - **ReferencesListDialog**: Zeigt alle Referenz-Links eines Advisories als klickbare Liste. Ebenfalls rein informativer Dialog mit ausschließlich einem **Close**-Button.
 - **MyMessageBundle**: I18n-Wrapper (`messages.MyMessageBundle`).
 

@@ -11,6 +11,7 @@
 ### Changed
 - Changed the Vulnerability Details dialog Component-column interaction from single-click navigation to a right-click context menu, aligned with the main table behavior.
 - Changed the Vulnerability Details workflow to row-driven actions so repository navigation and reference opening explicitly target the currently selected advisory.
+- Changed the Vulnerability Details right-click behavior to work on the selected row from every column except **References**.
 
 ### Fixed
 - Improved discoverability and interaction consistency for repository navigation from the Vulnerability Details dialog by replacing direct click navigation with an explicit context menu action.
