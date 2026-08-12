@@ -5,9 +5,11 @@
 
 ### Added
 - Added "Show Vulnerability Details" to the right-click context menu in the main dependencies table, allowing quick access to vulnerability findings when available for a dependency.
+- Added **Open on [browser]** button to the main toolbar directly after **Refresh**; it is enabled as soon as a dependency row is selected, its label dynamically shows the configured repository browser name, and it opens the current version of that dependency in the configured Maven repository browser.
 
 ### Changed
 - The **Vulnerability Details** button now requires a dependency row with findings to be selected and shows only the vulnerabilities for that selected dependency instead of all found vulnerabilities.
+- Moved the **Open in ...** and **References...** buttons in the Vulnerability Details dialog from above the table to the bottom-left, in the same row as the **Close** button.
 
 ### Fixed
 

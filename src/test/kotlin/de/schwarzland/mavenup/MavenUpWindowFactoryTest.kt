@@ -20,6 +20,7 @@ import com.intellij.openapi.application.ReadAction
 import com.intellij.util.concurrency.AppExecutorUtil
 import com.intellij.ui.table.JBTable
 import java.awt.Container
+import javax.swing.JButton
 import java.util.concurrent.TimeUnit
 
 class MavenUpWindowFactoryTest : BasePlatformTestCase() {
@@ -315,6 +316,58 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
             if (component is Container) findTable(component)?.let { return it }
         }
         return null
+    }
+
+    private fun findButton(container: Container, text: String): JButton? {
+        container.components.forEach { component ->
+            if (component is JButton && component.text == text) return component
+            if (component is Container) findButton(component, text)?.let { return it }
+        }
+        return null
+    }
+
+    fun testOpenInRepositoryButtonInitiallyDisabled() {
+        val content = MavenUpWindowFactory().MyToolWindow(project).getContent()
+
+        val button = findButton(content, "Open on MVN Repository")
+        assertNotNull("Open on MVN Repository-Button sollte im Tool Window vorhanden sein", button)
+        assertFalse("Open on MVN Repository-Button sollte initial deaktiviert sein", button!!.isEnabled)
+    }
+
+    fun testOpenInRepositoryButtonEnabledOnRowSelection() {
+        val toolWindowInstance = MavenUpWindowFactory().MyToolWindow(project)
+        val content = toolWindowInstance.getContent()
+        val table = findTable(content)
+        val button = findButton(content, "Open on MVN Repository")
+
+        assertNotNull(table)
+        assertNotNull(button)
+
+        // Tabelle ist leer – kein Button aktiv
+        assertFalse("Open on MVN Repository-Button sollte bei leerer Tabelle deaktiviert sein", button!!.isEnabled)
+
+        // Eine Zeile hinzufügen und selektieren
+        (table!!.model as? javax.swing.table.DefaultTableModel)?.addRow(
+            arrayOf("com.example", "my-lib", "", "dependency", "1.0.0", null, emptyList<String>())
+        )
+        table.setRowSelectionInterval(0, 0)
+
+        assertTrue("Open on MVN Repository-Button sollte bei selektierter Zeile aktiviert sein", button.isEnabled)
+
+        // Selektion aufheben
+        table.clearSelection()
+        assertFalse("Open on MVN Repository-Button sollte ohne Selektion wieder deaktiviert sein", button.isEnabled)
+    }
+
+    fun testOpenInRepositoryButtonLabelReflectsConfiguredBrowser() {
+        val settings = MavenUpSettings.getInstance(project)
+        settings.state.repositoryBrowser = MavenRepositoryBrowser.SONATYPE_CENTRAL
+
+        val content = MavenUpWindowFactory().MyToolWindow(project).getContent()
+        val button = findButton(content, "Open on Sonatype Central")
+        assertNotNull("Button-Label sollte den konfigurierten Browser-Namen enthalten", button)
+
+        settings.state.repositoryBrowser = MavenRepositoryBrowser.MVN_REPOSITORY
     }
 
     fun testCollectDependenciesAndProperties() {
