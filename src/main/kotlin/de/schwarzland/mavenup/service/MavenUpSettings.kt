@@ -65,7 +65,7 @@ class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
         var ossIndexUsername: String = "",
         var checkTransitiveDependencies: Boolean = true,
         var repositoryBrowser: MavenRepositoryBrowser = MavenRepositoryBrowser.MVN_REPOSITORY,
-        var toolbarShowText: Boolean = false
+        var toolbarShowText: Boolean = true
     )
 
     private var myState = State()

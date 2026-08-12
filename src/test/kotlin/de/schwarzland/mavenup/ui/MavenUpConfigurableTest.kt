@@ -241,8 +241,8 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
         assertEquals(MavenRepositoryBrowser.MVN_REPOSITORY, MavenUpSettings.State().repositoryBrowser)
     }
 
-    fun testToolbarShowTextDefaultIsFalse() {
-        assertFalse(MavenUpSettings.State().toolbarShowText)
+    fun testToolbarShowTextDefaultIsTrue() {
+        assertTrue(MavenUpSettings.State().toolbarShowText)
     }
 
     fun testToolbarShowTextSelectionIsPersistedOnApply() {
