@@ -288,6 +288,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
             val table = JBTable(tableModel)
             table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION)
+            table.tableHeader.reorderingAllowed = false
             return table
         }
 
@@ -348,6 +349,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 }
             }
             table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION)
+            table.tableHeader.reorderingAllowed = false
 
             table.addMouseListener(object : MouseAdapter() {
                 override fun mousePressed(e: MouseEvent) {

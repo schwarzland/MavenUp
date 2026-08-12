@@ -15,6 +15,7 @@ This document describes the key features of the MavenUp IntelliJ plugin, grouped
 - **Open in Repository action**: A selection-dependent action in the top action toolbar opens the current version of the selected dependency in the configured repository browser. Its tooltip dynamically reflects the configured repository browser name (e.g. **Open on MVN Repository** or **Open on Sonatype Central**), equivalent to the **Open in Maven Repository** context menu entry.
 - **Safe update workflow**: Shows a confirmation dialog before applying changes to `pom.xml`.
 - **Two-tier action toolbar**: Tool window and Vulnerability Details dialog present their actions in a top IntelliJ `ActionToolbar`; core actions (Refresh, Check for Updates, Check Vulnerabilities, Update) are separated from the selection-dependent actions (Open in Repository, Vulnerability Details / References) by a separator, with Settings placed at the end. Actions render either as icon-only buttons (with tooltips) or as buttons with text labels (default), configurable in the settings.
+- **Fixed column order**: All plugin tables enforce single-row selection and prevent column reordering, so columns keep their defined order and cannot be dragged around.
 
 ---
 

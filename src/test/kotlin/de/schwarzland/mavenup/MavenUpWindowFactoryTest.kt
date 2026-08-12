@@ -328,6 +328,10 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
             javax.swing.ListSelectionModel.SINGLE_SELECTION,
             table!!.selectionModel.selectionMode
         )
+        assertFalse(
+            "Die Haupttabelle sollte kein Umordnen der Spalten erlauben",
+            table.tableHeader.reorderingAllowed
+        )
     }
 
     fun testConfirmChangesDialogTableIsNotEditable() {
@@ -346,6 +350,10 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
             "Die Confirm-Changes-Tabelle sollte nur Einzelselektion erlauben",
             javax.swing.ListSelectionModel.SINGLE_SELECTION,
             table.selectionModel.selectionMode
+        )
+        assertFalse(
+            "Die Confirm-Changes-Tabelle sollte kein Umordnen der Spalten erlauben",
+            table.tableHeader.reorderingAllowed
         )
     }
 
