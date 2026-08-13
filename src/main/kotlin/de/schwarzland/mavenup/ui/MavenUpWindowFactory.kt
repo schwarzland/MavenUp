@@ -403,7 +403,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private var isRefreshing = false
         private var refreshGeneration = 0
 
-        /** Die Tabelle der Abhängigkeiten; wird im Init-Block initialisiert. */
+        /** Die Tabelle der Abhängigkeiten; wird im Property-Initializer von [content] zugewiesen. */
+        @Suppress("RedundantLateinit")
         private lateinit var table: JBTable
 
         /** Die obere Aktionsleiste des Tool-Windows; wird im Init-Block initialisiert. */
@@ -607,23 +608,24 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         combo.foreground = versionStatusColor(upToDate)
                     }
 
+                    // Custom-Renderer, der Farbe und Font nur im Anzeigefeld übernimmt (nicht im Dropdown)
+                    combo.setRenderer { _, value, index, _, _ ->
+                        JLabel(value ?: "").apply {
+                            if (index == -1) {
+                                foreground = combo.foreground
+                                font = combo.font
+                            }
+                        }
+                    }
+
                     combo.addActionListener {
                         val selected = combo.selectedItem as? String
                         val key = currentKey
                         if (key != null && selected != null) {
-                            selectedVersions[key] = selected
-
-                            // Synchronize other dependencies using the same property
-                            val property = dependencyToProperty[key]
-                            if (property != null) {
-                                dependencyToProperty.forEach { (depKey, prop) ->
-                                    if (prop == property) {
-                                        selectedVersions[depKey] = selected
-                                    }
-                                }
-                            }
+                            synchronizePropertyVersions(key, selected)
                         }
                         updateUpdateButtonState()
+                        updateEditorVisuals(combo, editorPanel, selected, currentVersion, newestVersion)
                     }
 
                     currentComboBox = combo
@@ -640,17 +642,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 override fun getCellEditorValue(): Any? {
                     val selected = currentComboBox?.selectedItem as? String
                     if (currentKey != null && selected != null) {
-                        selectedVersions[currentKey!!] = selected
-
-                        // Synchronize other dependencies using the same property
-                        val property = dependencyToProperty[currentKey!!]
-                        if (property != null) {
-                            dependencyToProperty.forEach { (key, prop) ->
-                                if (prop == property) {
-                                    selectedVersions[key] = selected
-                                }
-                            }
-                        }
+                        synchronizePropertyVersions(currentKey!!, selected)
                     }
                     updateUpdateButtonState()
                     val groupId = currentKey?.substringBefore(":")
@@ -943,6 +935,56 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /**
          * Stößt eine erneute Auswertung des Update-Aktionszustands über die Aktionsleiste an.
          */
+        /**
+         * Synchronisiert die Version-Auswahl über alle Einträge, die dieselbe Maven-Property verwenden.
+         *
+         * @param key Der Schlüssel (`groupId:artifactId`) der geänderten Dependency.
+         * @param selected Die neu ausgewählte Version.
+         */
+        private fun synchronizePropertyVersions(key: String, selected: String) {
+            selectedVersions[key] = selected
+            val property = dependencyToProperty[key]
+            if (property != null) {
+                dependencyToProperty.forEach { (depKey, prop) ->
+                    if (prop == property) {
+                        selectedVersions[depKey] = selected
+                    }
+                }
+            }
+        }
+
+        /**
+         * Aktualisiert die visuelle Darstellung (Farbe, Font, Icon, Tooltip) des Editor-Panels
+         * sofort nach einer Versionsauswahl, ohne dass der Fokus die Zelle verlassen muss.
+         *
+         * @param combo Die ComboBox im Editor.
+         * @param panel Das umgebende JPanel mit Icon und ComboBox.
+         * @param selected Die aktuell gewählte Version.
+         * @param currentVersion Die im Projekt verwendete Version.
+         * @param newestVersion Die höchste bekannte Version.
+         */
+        private fun updateEditorVisuals(
+            combo: ComboBox<String>,
+            panel: JPanel?,
+            selected: String?,
+            currentVersion: String,
+            newestVersion: String
+        ) {
+            val newUpToDate = isVersionUpToDate(selected ?: "", newestVersion)
+            val newHasChange = selected != currentVersion && !selected.isNullOrEmpty()
+            val newColor = if (newHasChange) versionStatusColor(newUpToDate) else null
+            val newFontStyle = if (newHasChange) java.awt.Font.BOLD else java.awt.Font.PLAIN
+            combo.foreground = newColor
+            combo.font = combo.font.deriveFont(newFontStyle)
+            combo.repaint()
+            if (panel != null) {
+                val iconLabel = panel.getComponent(0) as? JLabel
+                iconLabel?.icon = versionStatusIcon(newUpToDate)
+                panel.toolTipText = versionStatusTooltip(currentVersion, selected ?: currentVersion, newestVersion)
+                panel.repaint()
+            }
+        }
+
         private fun updateUpdateButtonState() {
             refreshToolbar()
         }
