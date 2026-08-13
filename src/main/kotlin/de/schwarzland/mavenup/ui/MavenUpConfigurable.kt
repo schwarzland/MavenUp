@@ -85,8 +85,16 @@ class MavenUpConfigurable internal constructor(
                 repositoryBrowserComboBox = comboBox(MavenRepositoryBrowser.entries)
                     .applyToComponent {
                         selectedItem = settings.state.repositoryBrowser
-                        renderer = SimpleListCellRenderer.create { label, value, _ ->
-                            label.text = value?.displayName ?: ""
+                        renderer = object : SimpleListCellRenderer<MavenRepositoryBrowser>() {
+                            override fun customize(
+                                list: javax.swing.JList<out MavenRepositoryBrowser>,
+                                value: MavenRepositoryBrowser?,
+                                index: Int,
+                                selected: Boolean,
+                                hasFocus: Boolean
+                            ) {
+                                text = value?.displayName ?: ""
+                            }
                         }
                     }
                     .component
