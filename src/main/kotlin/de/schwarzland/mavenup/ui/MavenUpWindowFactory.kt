@@ -327,23 +327,42 @@ class MavenUpWindowFactory : ToolWindowFactory {
         project: Project,
         private val updates: List<DependencyUpdate>
     ) : DialogWrapper(project) {
+        private lateinit var syncMavenCheckbox: JCheckBox
+
         init {
             title = MyMessageBundle.message("toolwindow.MyToolWindow.update.confirm.title")
             init()
         }
 
         /**
-         * Erstellt den zentralen Bereich des Dialogs mit der Update-Übersichtstabelle.
+         * Gibt zurück, ob der Benutzer die Option "Sync Maven Changes" ausgewählt hat.
+         */
+        fun isSyncMavenSelected(): Boolean = syncMavenCheckbox.isSelected
+
+        /**
+         * Erstellt den zentralen Bereich des Dialogs mit der Update-Übersichtstabelle und der Sync-Option.
          */
         override fun createCenterPanel(): JComponent {
             val panel = JBPanel<JBPanel<*>>(BorderLayout())
-            panel.preferredSize = java.awt.Dimension(600, 400)
-            panel.add(
+            panel.preferredSize = java.awt.Dimension(600, 450)
+            
+            val topPanel = JBPanel<JBPanel<*>>(BorderLayout())
+            topPanel.add(
                 JLabel(MyMessageBundle.message("toolwindow.MyToolWindow.update.confirm.message")),
                 BorderLayout.NORTH
             )
+            topPanel.border = BorderFactory.createEmptyBorder(0, 0, 10, 0)
+            panel.add(topPanel, BorderLayout.NORTH)
 
             panel.add(JBScrollPane(buildTable()), BorderLayout.CENTER)
+
+            syncMavenCheckbox = JCheckBox(MyMessageBundle.message("toolwindow.MyToolWindow.update.confirm.syncMaven"))
+            syncMavenCheckbox.isSelected = true
+            val bottomPanel = JBPanel<JBPanel<*>>(BorderLayout())
+            bottomPanel.border = BorderFactory.createEmptyBorder(10, 0, 0, 0)
+            bottomPanel.add(syncMavenCheckbox, BorderLayout.WEST)
+            panel.add(bottomPanel, BorderLayout.SOUTH)
+
             return panel
         }
 
@@ -747,14 +766,20 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     if (updates.isNotEmpty()) {
                         val dialog = UpdateConfirmationDialog(project, updates)
                         if (dialog.showAndGet()) {
+                            val shouldSyncMaven = dialog.isSyncMavenSelected()
                             ProgressManager.getInstance().run(object : Task.Backgroundable(
                                 project,
                                 MyMessageBundle.message("toolwindow.MyToolWindow.update.progress"),
                                 true
                             ) {
                                 override fun run(indicator: ProgressIndicator) {
-                                    MavenProjectsManager.getInstance(project).projects.forEach { mavenProject ->
+                                    val mavenManager = MavenProjectsManager.getInstance(project)
+                                    mavenManager.projects.forEach { mavenProject ->
                                         applyUpdateToPom(mavenProject, updates)
+                                    }
+
+                                    if (shouldSyncMaven) {
+                                        mavenManager.forceUpdateAllProjectsOrFindAllAvailablePomFiles()
                                     }
 
                                     ApplicationManager.getApplication().invokeLater {
