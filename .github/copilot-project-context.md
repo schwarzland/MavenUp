@@ -2,7 +2,7 @@
 
 ## Was ist MavenUp?
 IntelliJ-Plugin (Kotlin/Gradle, IntelliJ Platform Plugin) für **Maven-Projekte**.
-Zeigt alle Dependencies/Plugins aus `pom.xml`-Dateien (inkl. `dependencyManagement`/
+Zeigt alle Dependencies/Plugins aus `pom.xml`-Dateien (inkl. `<parent>`, `dependencyManagement`/
 `pluginManagement`) in einer Tabelle im MavenUp-Tool-Window, prüft verfügbare neue
 Versionen gegen Maven Central + private Repositories (aus `settings.xml`,
 inkl. Credential-Placeholder-Auflösung), und schreibt gewählte Versions-Updates

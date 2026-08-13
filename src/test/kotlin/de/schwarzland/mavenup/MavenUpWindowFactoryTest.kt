@@ -619,4 +619,157 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertEquals("maven-surefire-plugin", managedPlugin?.findFirstSubTag("artifactId")?.value?.text)
     }
 
+    fun testCollectParentDependency() {
+        val pomContent = """
+            <project>
+                <parent>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-parent</artifactId>
+                    <version>3.1.0</version>
+                </parent>
+                <dependencies>
+                    <dependency>
+                        <groupId>com.example</groupId>
+                        <artifactId>example-core</artifactId>
+                        <version>1.0.0</version>
+                    </dependency>
+                </dependencies>
+            </project>
+        """.trimIndent()
+
+        val psiFile = myFixture.configureByText("pom.xml", pomContent) as XmlFile
+        val rootTag = psiFile.document?.rootTag
+
+        val factory = MavenUpWindowFactory()
+        val toolWindowInstance = factory.MyToolWindow(project)
+        val properties = mutableMapOf<String, String>()
+
+        val parentRow = toolWindowInstance.collectParentDependency(rootTag, properties)
+
+        assertNotNull("Parent-Dependency sollte gefunden werden", parentRow)
+        assertEquals("org.springframework.boot", parentRow!!.groupId)
+        assertEquals("spring-boot-starter-parent", parentRow.artifactId)
+        assertEquals("3.1.0", parentRow.currentVersion)
+        assertEquals("parent", parentRow.type)
+        assertEquals("", parentRow.propertyName)
+    }
+
+    fun testCollectParentDependencyWithProperty() {
+        val pomContent = """
+            <project>
+                <parent>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-parent</artifactId>
+                    <version>${"$"}{boot.version}</version>
+                </parent>
+            </project>
+        """.trimIndent()
+
+        val psiFile = myFixture.configureByText("pom.xml", pomContent) as XmlFile
+        val rootTag = psiFile.document?.rootTag
+
+        val factory = MavenUpWindowFactory()
+        val toolWindowInstance = factory.MyToolWindow(project)
+        val properties = mutableMapOf<String, String>()
+
+        val parentRow = toolWindowInstance.collectParentDependency(rootTag, properties)
+
+        assertNotNull(parentRow)
+        assertEquals("boot.version", parentRow!!.propertyName)
+        assertEquals("boot.version", properties["org.springframework.boot:spring-boot-starter-parent"])
+    }
+
+    fun testCollectParentDependencyReturnsNullWithoutParentTag() {
+        val pomContent = """
+            <project>
+                <dependencies>
+                    <dependency>
+                        <groupId>com.example</groupId>
+                        <artifactId>example-core</artifactId>
+                        <version>1.0.0</version>
+                    </dependency>
+                </dependencies>
+            </project>
+        """.trimIndent()
+
+        val psiFile = myFixture.configureByText("pom.xml", pomContent) as XmlFile
+        val rootTag = psiFile.document?.rootTag
+
+        val factory = MavenUpWindowFactory()
+        val toolWindowInstance = factory.MyToolWindow(project)
+        val properties = mutableMapOf<String, String>()
+
+        val parentRow = toolWindowInstance.collectParentDependency(rootTag, properties)
+        assertNull("Ohne Parent-Tag sollte null zurückgegeben werden", parentRow)
+    }
+
+    fun testCollectParentDependencySkipsMissingGroupId() {
+        val pomContent = """
+            <project>
+                <parent>
+                    <artifactId>spring-boot-starter-parent</artifactId>
+                    <version>3.1.0</version>
+                </parent>
+            </project>
+        """.trimIndent()
+
+        val psiFile = myFixture.configureByText("pom.xml", pomContent) as XmlFile
+        val rootTag = psiFile.document?.rootTag
+
+        val factory = MavenUpWindowFactory()
+        val toolWindowInstance = factory.MyToolWindow(project)
+
+        val parentRow = toolWindowInstance.collectParentDependency(rootTag, mutableMapOf())
+        assertNull("Parent ohne groupId sollte übersprungen werden", parentRow)
+    }
+
+    fun testFindParent() {
+        val pomContent = """
+            <project>
+                <parent>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-parent</artifactId>
+                    <version>3.1.0</version>
+                </parent>
+            </project>
+        """.trimIndent()
+
+        val psiFile = myFixture.configureByText("pom.xml", pomContent) as XmlFile
+        val rootTag = psiFile.document?.rootTag
+
+        val factory = MavenUpWindowFactory()
+        val toolWindowInstance = factory.MyToolWindow(project)
+
+        val found = toolWindowInstance.findParent(rootTag, "org.springframework.boot", "spring-boot-starter-parent")
+        assertNotNull("Parent-Tag sollte gefunden werden", found)
+        assertEquals("spring-boot-starter-parent", found?.findFirstSubTag("artifactId")?.value?.text)
+
+        val notFound = toolWindowInstance.findParent(rootTag, "com.example", "other-artifact")
+        assertNull("Nicht passendes Parent-Tag sollte null zurückgeben", notFound)
+    }
+
+    fun testUpdateParentVersion() {
+        val pomContent = """
+            <project>
+                <parent>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-parent</artifactId>
+                    <version>3.1.0</version>
+                </parent>
+            </project>
+        """.trimIndent()
+
+        val psiFile = myFixture.configureByText("pom.xml", pomContent) as XmlFile
+        val rootTag = psiFile.document?.rootTag
+        val parentTag = rootTag?.findFirstSubTag("parent")
+
+        val factory = MavenUpWindowFactory()
+        val toolWindowInstance = factory.MyToolWindow(project)
+
+        WriteCommandAction.runWriteCommandAction(project) {
+            toolWindowInstance.updateXmlTagVersion(parentTag!!, "3.2.0", null)
+        }
+        assertEquals("3.2.0", parentTag?.findFirstSubTag("version")?.value?.text)
+    }
+
 }

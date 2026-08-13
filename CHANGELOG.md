@@ -7,6 +7,7 @@
 - Added "Show Vulnerability Details" to the right-click context menu in the main dependencies table, allowing quick access to vulnerability findings when available for a dependency.
 - Added a setting to show text labels on the toolbar buttons instead of icons only (enabled by default); it applies to the tool window and the Vulnerability Details dialog and takes effect immediately on the open tool window.
 - Added **Open on [browser]** action; it is a selection-dependent action in the top action toolbar, its tooltip dynamically shows the configured repository browser name, and it opens the current version of the selected dependency in the configured Maven repository browser.
+- The `<parent>` section of each `pom.xml` is now listed as a dependency with type "parent", including version checks, updates, navigation, and vulnerability scanning.
 
 ### Changed
 - Changed the **References** icon in the Vulnerability Details dialog (top toolbar action and References column) to a details preview icon, making it clearer that clicking opens a dialog listing the references.

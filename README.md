@@ -7,7 +7,7 @@ Eine vollständige, englische Feature-Liste steht in `FEATURES.md`.
 ## Funktionen
 
 - **Tool-Window für Maven-Projekte**: MavenUp ist nur bei Maven-Projekten verfügbar und zeigt alle gefundenen Module/`pom.xml`-Dateien in einer gemeinsamen Tabelle.
-- **Übersicht für Dependencies und Plugins**: Erfasst normale Einträge sowie `dependencyManagement` und `pluginManagement` inklusive Typ-Kennzeichnung.
+- **Übersicht für Dependencies und Plugins**: Erfasst normale Einträge, `dependencyManagement`, `pluginManagement` sowie die `<parent>`-Sektion inklusive Typ-Kennzeichnung.
 - **Feste Spaltenreihenfolge**: In allen Tabellen des Plugins lässt sich immer nur eine Zeile auswählen, und die Spalten können nicht per Drag-and-drop umgeordnet werden, sodass die Spaltenreihenfolge fest bleibt.
 - **Validierung beim Einlesen**: Dependencies und Plugins ohne `groupId` werden beim Einsammeln übersprungen und nicht in der Liste angezeigt.
 - **Property-Erkennung und Property-Updates**: Erkennt Versionen aus Maven-Properties (z.B. `${spring.version}`), zeigt die Property in eigener Spalte und aktualisiert beim Schreiben die Property statt des einzelnen Tags.

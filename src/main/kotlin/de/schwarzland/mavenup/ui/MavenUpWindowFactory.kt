@@ -61,6 +61,7 @@ import javax.swing.table.DefaultTableModel
 import javax.swing.table.TableCellRenderer
 
 
+private const val PARENT_TYPE = "parent"
 private const val MANAGED_PLUGIN = "managed plugin"
 private const val TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY = "toolwindow.MyToolWindow.type.managedDependency"
 private const val GROUP_ID_COLUMN = 0
@@ -964,6 +965,42 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
+         * Liest die Parent-Dependency aus dem `<parent>`-Tag der `pom.xml` und erzeugt eine [RefreshRow].
+         * Gibt `null` zurück, wenn kein Parent-Tag vorhanden ist oder groupId/artifactId leer sind.
+         *
+         * @param rootTag Das Root-Tag der `pom.xml`.
+         * @param propertyTargetMap Ziel-Map für erkannte Maven-Property-Platzhalter.
+         * @return Eine [RefreshRow] mit Typ [PARENT_TYPE] oder `null`.
+         */
+        internal fun collectParentDependency(
+            rootTag: XmlTag?,
+            propertyTargetMap: MutableMap<String, String>
+        ): RefreshRow? {
+            val parentTag = rootTag?.findFirstSubTag("parent") ?: return null
+            val g = parentTag.findFirstSubTag("groupId")?.value?.text?.trim().orEmpty()
+            if (g.isEmpty()) return null
+            val a = parentTag.findFirstSubTag("artifactId")?.value?.text?.trim().orEmpty()
+            if (a.isEmpty()) return null
+            val v = parentTag.findFirstSubTag("version")?.value?.text?.trim().orEmpty()
+            val key = "$g:$a"
+
+            val versionText = parentTag.findFirstSubTag("version")?.value?.trimmedText
+            var propertyName = ""
+            if (versionText != null && versionText.startsWith("\${") && versionText.endsWith("}")) {
+                propertyName = versionText.substring(2, versionText.length - 1)
+                propertyTargetMap[key] = propertyName
+            }
+
+            return RefreshRow(
+                groupId = g,
+                artifactId = a,
+                propertyName = propertyName,
+                type = PARENT_TYPE,
+                currentVersion = v
+            )
+        }
+
+        /**
          * Erstellt einen Schnappschuss der aktuellen Abhängigkeiten im Projekt.
          * Muss außerhalb des Event Dispatch Threads aufgerufen werden.
          */
@@ -983,6 +1020,12 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
                 if (psiFile != null) {
                     val documentElement = psiFile.document?.rootTag
+
+                    // Parent-Dependency erfassen
+                    collectParentDependency(documentElement, properties)?.let { parentRow ->
+                        rows.add(parentRow)
+                    }
+
                     collectDependenciesAndProperties(
                         documentElement,
                         "dependencies",
@@ -1089,10 +1132,16 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     val managedDependencyType = MyMessageBundle.message(
                         TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY
                     )
-                    if (update.type == "dependency" || update.type == managedDependencyType) {
-                        updateDependencies(documentElement, update, propertiesTag)
-                    } else if (update.type == "plugin" || update.type == MANAGED_PLUGIN) {
-                        updatePlugins(documentElement, update, propertiesTag)
+                    when (update.type) {
+                        PARENT_TYPE -> {
+                            updateParent(documentElement, update, propertiesTag)
+                        }
+                        "dependency", managedDependencyType -> {
+                            updateDependencies(documentElement, update, propertiesTag)
+                        }
+                        "plugin", MANAGED_PLUGIN -> {
+                            updatePlugins(documentElement, update, propertiesTag)
+                        }
                     }
                 }
             }
@@ -1118,6 +1167,26 @@ class MavenUpWindowFactory : ToolWindowFactory {
             // Search in <dependencyManagement><dependencies>
             dmDependenciesTag?.findSubTags("dependency")?.forEach { depTag ->
                 updateIfMatch(depTag, update, propertiesTag)
+            }
+        }
+
+        /**
+         * Aktualisiert die Version im `<parent>`-Tag der `pom.xml` für ein Parent-Update.
+         *
+         * @param documentElement Das Root-Tag der `pom.xml`.
+         * @param update Das anzuwendende Update.
+         * @param propertiesTag Das `<properties>`-Tag für Property-basierte Versionsupdates.
+         */
+        private fun updateParent(
+            documentElement: XmlTag,
+            update: DependencyUpdate,
+            propertiesTag: XmlTag?
+        ) {
+            val parentTag = documentElement.findFirstSubTag("parent") ?: return
+            val g = parentTag.findFirstSubTag("groupId")?.value?.text
+            val a = parentTag.findFirstSubTag("artifactId")?.value?.text
+            if (g == update.groupId && a == update.artifactId) {
+                updateXmlTagVersion(parentTag, update.newVersion, propertiesTag)
             }
         }
 
@@ -1373,6 +1442,17 @@ class MavenUpWindowFactory : ToolWindowFactory {
             ApplicationManager.getApplication().runReadAction {
                 val rootTag = psiFile.document?.rootTag ?: return@runReadAction
 
+                // parent
+                val parentTag = rootTag.findFirstSubTag("parent")
+                if (parentTag != null) {
+                    val g = parentTag.findFirstSubTag("groupId")?.value?.text ?: ""
+                    val a = parentTag.findFirstSubTag("artifactId")?.value?.text ?: ""
+                    val v = parentTag.findFirstSubTag("version")?.value?.text ?: ""
+                    if (g.isNotEmpty() && a.isNotEmpty() && !allKeysWithVersions.containsKey("$g:$a")) {
+                        allKeysWithVersions["$g:$a"] = v
+                    }
+                }
+
                 // dependencies
                 collectTags(rootTag.findFirstSubTag("dependencies"), "dependency", allKeysWithVersions)
 
@@ -1550,6 +1630,22 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
+         * Sucht nach dem `<parent>`-Tag in der `pom.xml`, das mit der angegebenen groupId
+         * und artifactId übereinstimmt.
+         *
+         * @param rootTag Das Root-Tag der `pom.xml`.
+         * @param groupId Die gesuchte Group-ID.
+         * @param artifactId Die gesuchte Artefakt-ID.
+         * @return Das `<parent>`-Tag oder `null`, wenn keines passt.
+         */
+        internal fun findParent(rootTag: XmlTag?, groupId: String, artifactId: String): XmlTag? {
+            val parentTag = rootTag?.findFirstSubTag("parent") ?: return null
+            val g = parentTag.findFirstSubTag("groupId")?.value?.text
+            val a = parentTag.findFirstSubTag("artifactId")?.value?.text
+            return if (g == groupId && a == artifactId) parentTag else null
+        }
+
+        /**
          * Sucht nach einem Plugin in `<build><plugins>` oder `<build><pluginManagement>`.
          */
         private fun findPlugin(rootTag: XmlTag?, groupId: String, artifactId: String, isManaged: Boolean): XmlTag? {
@@ -1587,7 +1683,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
                                 MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
                             val isManaged = type == managedDepType || type == MANAGED_PLUGIN
 
-                            if (type == "dependency" || type == managedDepType) {
+                            if (type == PARENT_TYPE) {
+                                findParent(rootTag, groupId, artifactId)
+                            } else if (type == "dependency" || type == managedDepType) {
                                 findDependency(rootTag, groupId, artifactId, isManaged)
                             } else {
                                 findPlugin(rootTag, groupId, artifactId, isManaged)

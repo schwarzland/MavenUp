@@ -16,7 +16,7 @@
         IntelliJ plugin for Maven projects to simplify dependency and plugin management. It provides a clear table view of all declared components and enables easy updates to newer versions.<br><br>
         <b>Features:</b>
         <ul>
-            <li><b>Dependency & Plugin Overview:</b> Displays dependencies and plugins from all Maven modules, including entries from <code>dependencyManagement</code> and <code>pluginManagement</code>. All tables allow single-row selection only and keep a fixed column order that cannot be reordered.</li>
+            <li><b>Dependency & Plugin Overview:</b> Displays dependencies, plugins, and the parent POM from all Maven modules, including entries from <code>dependencyManagement</code> and <code>pluginManagement</code>. The <code>&lt;parent&gt;</code> section is listed with type "parent". All tables allow single-row selection only and keep a fixed column order that cannot be reordered.</li>
             <li><b>Property-Aware Versions:</b> Shows Maven properties such as <code>${spring.version}</code> and updates the shared property instead of replacing its references.</li>
             <li><b>Repository-Based Update Check:</b> Finds newer versions in Maven Central and configured private repositories, including authenticated repositories from <code>settings.xml</code>.</li>
             <li><b>Flexible Version Selection:</b> Select versions from a dropdown, optionally hide unstable releases, and update the affected <code>pom.xml</code> files after confirmation.</li>
