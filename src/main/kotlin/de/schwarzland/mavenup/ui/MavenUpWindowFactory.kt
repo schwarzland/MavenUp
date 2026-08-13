@@ -685,6 +685,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 if (clearNewVersions) {
                     availableVersions.clear()
                     selectedVersions.clear()
+                    vulnerabilityAdvisories.clear()
+                    transitiveCoordinates.clear()
+                    transitiveDependenciesByDirect.clear()
                 }
                 dependencyToProperty.clear()
                 knownDependencies.clear()
