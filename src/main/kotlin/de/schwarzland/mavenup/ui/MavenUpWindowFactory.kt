@@ -559,7 +559,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         if (selectedVersion != null) {
                             selectedItem = selectedVersion
                         }
-                        foreground = versionStatusColor(upToDate)
+                        if (hasChange) {
+                            foreground = versionStatusColor(upToDate)
+                        }
 
                         if (isSelected) {
                             background = table?.selectionBackground
@@ -601,7 +603,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     val effectiveVersion = selectedVersion ?: currentVersion
                     val upToDate = isVersionUpToDate(effectiveVersion, newestVersion)
                     val hasChange = effectiveVersion != currentVersion && effectiveVersion.isNotEmpty()
-                    combo.foreground = versionStatusColor(upToDate)
+                    if (hasChange) {
+                        combo.foreground = versionStatusColor(upToDate)
+                    }
 
                     combo.addActionListener {
                         val selected = combo.selectedItem as? String
@@ -1501,7 +1505,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
          */
         private fun vulnerabilityColor(
             severity: VulnerabilitySeverity,
-            defaultColor: java.awt.Color
+            defaultColor: Color
         ): java.awt.Color = when (severity) {
             VulnerabilitySeverity.CRITICAL -> com.intellij.ui.JBColor(0xFFB3B3, 0x6E2C2C)
             VulnerabilitySeverity.HIGH -> com.intellij.ui.JBColor(0xFFD5A3, 0x714A21)
