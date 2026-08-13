@@ -1506,7 +1506,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private fun vulnerabilityColor(
             severity: VulnerabilitySeverity,
             defaultColor: Color
-        ): java.awt.Color = when (severity) {
+        ): Color = when (severity) {
             VulnerabilitySeverity.CRITICAL -> com.intellij.ui.JBColor(0xFFB3B3, 0x6E2C2C)
             VulnerabilitySeverity.HIGH -> com.intellij.ui.JBColor(0xFFD5A3, 0x714A21)
             VulnerabilitySeverity.MEDIUM -> com.intellij.ui.JBColor(0xFFF0A6, 0x665A21)
