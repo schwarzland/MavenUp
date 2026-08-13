@@ -11,10 +11,11 @@
 
 ### Changed
 - Renamed **Check for Updates** to **Find New Versions** and changed its toolbar icon from a download icon to a search/find icon, better conveying the action of searching for newer dependency versions.
+- Renamed **Check Vulnerabilities** to **Scan for Vulnerabilities** to use established security terminology that better conveys the systematic nature of the operation.
 - Changed the **References** icon in the Vulnerability Details dialog (top toolbar action and References column) to a details preview icon, making it clearer that clicking opens a dialog listing the references.
 - Removed the link icon from the **Component** column in the Vulnerability Details dialog, as double-clicking a row no longer triggers an action.
 - The **Vulnerability Details** action now requires a dependency row with findings to be selected and shows only the vulnerabilities for that selected dependency instead of all found vulnerabilities.
-- Reorganized the tool window and Vulnerability Details dialog actions into a top IntelliJ ActionToolbar with icons and tooltips, separating core actions (Refresh, Find New Versions, Check Vulnerabilities, Update) from the selection-dependent actions (Open in ..., Vulnerability Details / References) by a divider, in line with the IntelliJ UI guidelines.
+- Reorganized the tool window and Vulnerability Details dialog actions into a top IntelliJ ActionToolbar with icons and tooltips, separating core actions (Refresh, Find New Versions, Scan for Vulnerabilities, Update) from the selection-dependent actions (Open in ..., Vulnerability Details / References) by a divider, in line with the IntelliJ UI guidelines.
 - Removed the bottom button bar and the custom wrapping layout, as the action toolbar handles overflow itself.
 
 ### Fixed
@@ -29,7 +30,7 @@
 - Configurable Maven Repository Browser: users can choose between **MVN Repository** (default, `mvnrepository.com`) and **Sonatype Central** (`central.sonatype.com`) under **Settings > Tools > MavenUp**. The selection applies to both the context menu in the main table and the Component column link in the Vulnerability Details dialog.
 - Added a tooltip on dependency rows in the main table indicating whether a single or double click will open the entry in pom.xml (adapts to the "jump on single click" setting).
 - Added a link in the OSS Index settings that opens the Sonatype account page for creating or copying an API token.
-- Added a **Check Vulnerabilities** action that queries OSV.dev and optionally enriches results with Sonatype OSS Index data, with credentials stored securely in IntelliJ Password Safe.
+- Added a **Scan for Vulnerabilities** action that queries OSV.dev and optionally enriches results with Sonatype OSS Index data, with credentials stored securely in IntelliJ Password Safe.
 - Added resolved transitive dependencies to vulnerability scans by default.
 - Added detailed vulnerability results with advisory IDs, aliases, severity/CVSS, summaries, sources, references, and a dedicated details dialog.
 - Added cross-source advisory deduplication and severity-aware vulnerability table cells.
@@ -59,7 +60,7 @@
 
 ### Fixed
 - Moved the link icon to the beginning of the **Vulnerabilities** column cell, so it appears before the summary text.
-- Disabled **Check Vulnerabilities** while a refresh or update check is running to prevent overlapping background operations.
+- Disabled **Scan for Vulnerabilities** while a refresh or update check is running to prevent overlapping background operations.
 - OSS Index requests are no longer sent when the configured username/email or API token is missing; OSV checks continue and the user receives a configuration warning.
 - Improved OSV diagnostic logging with request and chunk summaries, response-size mismatch warnings, HTTP error bodies, and cancellation details.
 - Reduced high-volume INFO logging for repository versions and OSV batch coordinates; detailed lists are now truncated and emitted only at DEBUG level to prevent excessive `idea.log` growth and UI freezes while the IDE monitors the log file.

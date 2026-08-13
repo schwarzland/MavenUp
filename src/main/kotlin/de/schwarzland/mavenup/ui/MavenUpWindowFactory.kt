@@ -1252,7 +1252,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
-         * Führt die Sicherheitsprüfung für die erfassten Abhängigkeiten durch.
+         * Führt den Vulnerability-Scan für die erfassten Abhängigkeiten durch.
          * Nutzt OSV und optional den Sonatype OSS Index.
          */
         private fun performVulnerabilityCheck(onFinished: () -> Unit) {

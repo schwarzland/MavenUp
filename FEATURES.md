@@ -15,7 +15,7 @@ This document describes the key features of the MavenUp IntelliJ plugin, grouped
 - **Context menu on dependency rows**: Right-clicking any dependency row opens a context menu with **Navigate to pom.xml** (jumps to the entry in the editor), **Open in Maven Repository** (opens the matching version page in the configured repository browser), and optionally **Show Vulnerability Details** (opens the vulnerability findings dialog when findings are available for the dependency).
 - **Open in Repository action**: A selection-dependent action in the top action toolbar opens the current version of the selected dependency in the configured repository browser. Its tooltip dynamically reflects the configured repository browser name (e.g. **Open on MVN Repository** or **Open on Sonatype Central**), equivalent to the **Open in Maven Repository** context menu entry.
 - **Safe update workflow**: Shows a confirmation dialog before applying changes to `pom.xml`.
-- **Two-tier action toolbar**: Tool window and Vulnerability Details dialog present their actions in a top IntelliJ `ActionToolbar`; core actions (Refresh, Find New Versions, Check Vulnerabilities, Update) are separated from the selection-dependent actions (Open in Repository, Vulnerability Details / References) by a separator, with Settings placed at the end. Actions render either as icon-only buttons (with tooltips) or as buttons with text labels (default), configurable in the settings.
+- **Two-tier action toolbar**: Tool window and Vulnerability Details dialog present their actions in a top IntelliJ `ActionToolbar`; core actions (Refresh, Find New Versions, Scan for Vulnerabilities, Update) are separated from the selection-dependent actions (Open in Repository, Vulnerability Details / References) by a separator, with Settings placed at the end. Actions render either as icon-only buttons (with tooltips) or as buttons with text labels (default), configurable in the settings.
 - **Fixed column order**: All plugin tables enforce single-row selection and prevent column reordering, so columns keep their defined order and cannot be dragged around.
 
 ---
@@ -70,7 +70,7 @@ This document describes the key features of the MavenUp IntelliJ plugin, grouped
 ## Performance & Reliability
 
 - **Background execution for long operations**: Collects Maven/PSI refresh data through non-blocking background read actions and also runs update checks, navigation tasks, and write operations outside the UI thread.
-- **Safe action availability**: Disables **Check Vulnerabilities** while a refresh or update check is running to prevent overlapping background operations.
+- **Safe action availability**: Disables **Scan for Vulnerabilities** while a refresh or update check is running to prevent overlapping background operations.
 - **Compact logging and diagnostics**: Logs parsing errors, credential resolution issues, and repository request failures (including HTTP status), while limiting verbose version and component lists to truncated DEBUG messages.
 
 ---
