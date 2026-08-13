@@ -1111,7 +1111,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
-         * Orchestriert den Prozess der Update-Prüfung und aktualisiert die Aktionsleiste.
+         * Orchestriert den Prozess der Versionssuche und aktualisiert die Aktionsleiste.
          *
          * @param refreshAfterCheck Callback, der nach Abschluss der Prüfung ausgeführt wird.
          */
@@ -1398,7 +1398,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
-         * Startet die Hintergrundaufgabe zur Prüfung auf verfügbare Versions-Updates.
+         * Startet die Hintergrundaufgabe zur Suche nach verfügbaren neuen Versionen.
          */
         private fun checkForUpdates(onFinished: () -> Unit) {
             ProgressManager.getInstance().run(object : Task.Backgroundable(

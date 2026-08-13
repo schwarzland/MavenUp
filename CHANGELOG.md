@@ -10,11 +10,11 @@
 - The `<parent>` section of each `pom.xml` is now listed as a dependency with type "parent", including version checks, updates, navigation, and vulnerability scanning.
 
 ### Changed
-- Changed the **Check for Updates** toolbar icon from a download icon to a search/find icon, better conveying the action of searching for available updates.
+- Renamed **Check for Updates** to **Find New Versions** and changed its toolbar icon from a download icon to a search/find icon, better conveying the action of searching for newer dependency versions.
 - Changed the **References** icon in the Vulnerability Details dialog (top toolbar action and References column) to a details preview icon, making it clearer that clicking opens a dialog listing the references.
 - Removed the link icon from the **Component** column in the Vulnerability Details dialog, as double-clicking a row no longer triggers an action.
 - The **Vulnerability Details** action now requires a dependency row with findings to be selected and shows only the vulnerabilities for that selected dependency instead of all found vulnerabilities.
-- Reorganized the tool window and Vulnerability Details dialog actions into a top IntelliJ ActionToolbar with icons and tooltips, separating core actions (Refresh, Check for Updates, Check Vulnerabilities, Update) from the selection-dependent actions (Open in ..., Vulnerability Details / References) by a divider, in line with the IntelliJ UI guidelines.
+- Reorganized the tool window and Vulnerability Details dialog actions into a top IntelliJ ActionToolbar with icons and tooltips, separating core actions (Refresh, Find New Versions, Check Vulnerabilities, Update) from the selection-dependent actions (Open in ..., Vulnerability Details / References) by a divider, in line with the IntelliJ UI guidelines.
 - Removed the bottom button bar and the custom wrapping layout, as the action toolbar handles overflow itself.
 
 ### Fixed
@@ -94,7 +94,7 @@
 - The "Hidden version qualifiers" setting is now visually indented, and both its label and input field are automatically disabled when "Hide unstable versions" is turned off.
 - The "Hidden version qualifiers" input field is now wider, so longer qualifier lists are easier to read and edit.
 - Refresh now also clears the "New Version" column state.
-- Fixed refresh/update interaction: "Check for Updates" now keeps populated "New Version" values instead of clearing them.
+- Fixed refresh/update interaction: "Find New Versions" now keeps populated "New Version" values instead of clearing them.
 - Internal refactor: replaced the implicit one-shot refresh flag with an explicit refresh mode (`clear` vs `keep`) for better maintainability.
 
 ## [1.0.4]
