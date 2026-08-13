@@ -571,6 +571,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 val generation = ++refreshGeneration
                 isRefreshing = true
                 refreshToolbar()
+                cancelActiveCellEditing()
                 tableModel.setRowCount(0)
                 if (clearNewVersions) {
                     availableVersions.clear()
@@ -786,6 +787,25 @@ class MavenUpWindowFactory : ToolWindowFactory {
          */
         internal fun isToolbarTextEnabled(): Boolean =
             MavenUpSettings.getInstance(project).state.toolbarShowText
+
+        /**
+         * Bricht eine aktive Zell-Bearbeitung der Haupttabelle ab, bevor deren Zeilen entfernt
+         * oder neu aufgebaut werden.
+         *
+         * Ohne diesen Abbruch kann ein noch geöffneter Zell-Editor der Spalte "New Version" beim
+         * späteren Layout (`columnMarginChanged` → `editingStopped`) versuchen, seinen Wert in eine
+         * bereits entfernte Zeile zu schreiben, was eine [ArrayIndexOutOfBoundsException] im
+         * `DefaultTableModel` auslöst.
+         *
+         * @return `true`, wenn eine laufende Bearbeitung abgebrochen wurde, sonst `false`.
+         */
+        internal fun cancelActiveCellEditing(): Boolean {
+            if (table.isEditing) {
+                table.cellEditor?.cancelCellEditing()
+                return true
+            }
+            return false
+        }
 
         /**
          * Baut die obere Aktionsleiste neu auf, damit ein geänderter Text-/Icon-Modus wirksam wird.

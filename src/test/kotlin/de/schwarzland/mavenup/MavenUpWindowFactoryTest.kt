@@ -334,6 +334,41 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         )
     }
 
+    fun testCancelActiveCellEditingStopsEditingBeforeTableRebuild() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val content = toolWindow.getContent()
+        val table = findTable(content)
+        assertNotNull("Die Haupttabelle sollte vorhanden sein", table)
+
+        val model = table!!.model as javax.swing.table.DefaultTableModel
+        model.addRow(
+            arrayOf("com.example", "my-lib", "", "dependency", "1.0.0", null, listOf("1.1.0", "1.0.0"))
+        )
+
+        // Bearbeitung der Spalte "New Version" starten
+        assertTrue(
+            "Die New-Version-Zelle sollte in den Bearbeitungsmodus wechseln",
+            table.editCellAt(0, 6)
+        )
+        assertTrue("Die Tabelle sollte sich im Bearbeitungsmodus befinden", table.isEditing)
+
+        // Abbruch der Bearbeitung; danach darf das Leeren der Zeilen keine Exception auslösen
+        assertTrue(
+            "Eine laufende Bearbeitung sollte abgebrochen werden",
+            toolWindow.cancelActiveCellEditing()
+        )
+        assertFalse("Nach dem Abbruch sollte keine Bearbeitung mehr laufen", table.isEditing)
+
+        model.setRowCount(0)
+        table.doLayout()
+
+        // Ohne aktive Bearbeitung meldet der Aufruf, dass nichts abzubrechen war
+        assertFalse(
+            "Ohne laufende Bearbeitung sollte kein Abbruch gemeldet werden",
+            toolWindow.cancelActiveCellEditing()
+        )
+    }
+
     fun testConfirmChangesDialogTableIsNotEditable() {
         val updates = listOf(
             DependencyUpdate("com.example", "demo-lib", "dependency", "1.0.0", "1.1.0")
