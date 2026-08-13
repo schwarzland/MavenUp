@@ -11,6 +11,11 @@ import de.schwarzland.mavenup.ui.RefreshSnapshot
 import de.schwarzland.mavenup.ui.buildVulnerabilityCell
 import de.schwarzland.mavenup.ui.canCheckVulnerabilities
 import de.schwarzland.mavenup.ui.vulnerabilitySummary
+import de.schwarzland.mavenup.ui.isVersionUpToDate
+import de.schwarzland.mavenup.ui.versionStatusIcon
+import de.schwarzland.mavenup.ui.versionStatusColor
+import de.schwarzland.mavenup.ui.versionStatusTooltip
+import de.schwarzland.mavenup.ui.createVersionPanel
 import com.intellij.openapi.wm.RegisterToolWindowTask
 import com.intellij.openapi.wm.ToolWindowAnchor
 import com.intellij.openapi.wm.ToolWindowManager
@@ -805,6 +810,95 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
             toolWindowInstance.updateXmlTagVersion(parentTag!!, "3.2.0", null)
         }
         assertEquals("3.2.0", parentTag?.findFirstSubTag("version")?.value?.text)
+    }
+
+    fun testIsVersionUpToDateReturnsTrueWhenCurrentEqualsNewest() {
+        assertTrue(isVersionUpToDate("1.0.0", "1.0.0"))
+    }
+
+    fun testIsVersionUpToDateReturnsFalseWhenVersionsDiffer() {
+        assertFalse(isVersionUpToDate("1.0.0", "2.0.0"))
+    }
+
+    fun testIsVersionUpToDateReturnsFalseForEmptyCurrentVersion() {
+        assertFalse(isVersionUpToDate("", "1.0.0"))
+    }
+
+    fun testIsVersionUpToDateReturnsFalseForBothEmpty() {
+        assertFalse(isVersionUpToDate("", ""))
+    }
+
+    fun testVersionStatusIconReturnsCheckmarkWhenUpToDate() {
+        val icon = versionStatusIcon(upToDate = true)
+        assertEquals(com.intellij.icons.AllIcons.RunConfigurations.TestPassed, icon)
+    }
+
+    fun testVersionStatusIconReturnsArrowWhenUpdateAvailable() {
+        val icon = versionStatusIcon(upToDate = false)
+        assertEquals(com.intellij.icons.AllIcons.General.ArrowUp, icon)
+    }
+
+    fun testVersionStatusColorReturnsGreenWhenUpToDate() {
+        val color = versionStatusColor(upToDate = true)
+        assertNotNull(color)
+    }
+
+    fun testVersionStatusColorReturnsOrangeWhenUpdateAvailable() {
+        val color = versionStatusColor(upToDate = false)
+        assertNotNull(color)
+    }
+
+    fun testVersionStatusTooltipShowsUpToDateMessage() {
+        val tooltip = versionStatusTooltip("1.0.0", "1.0.0", "1.0.0")
+        assertTrue(tooltip.contains("1.0.0"))
+    }
+
+    fun testVersionStatusTooltipShowsUpdateAvailableMessage() {
+        val tooltip = versionStatusTooltip("1.0.0", "1.0.0", "2.0.0")
+        assertTrue(tooltip.contains("1.0.0"))
+        assertTrue(tooltip.contains("2.0.0"))
+    }
+
+    fun testVersionStatusTooltipShowsWillUpdateMessage() {
+        val tooltip = versionStatusTooltip("1.0.0", "2.0.0", "2.0.0")
+        assertTrue(tooltip.contains("1.0.0"))
+        assertTrue(tooltip.contains("2.0.0"))
+    }
+
+    fun testVersionStatusTooltipShowsWillUpdateNotLatestMessage() {
+        val tooltip = versionStatusTooltip("1.0.0", "1.5.0", "2.0.0")
+        assertTrue(tooltip.contains("1.0.0"))
+        assertTrue(tooltip.contains("1.5.0"))
+        assertTrue(tooltip.contains("2.0.0"))
+    }
+
+    fun testCreateVersionPanelContainsIconAndComboBox() {
+        val combo = javax.swing.JComboBox(arrayOf("1.0.0", "2.0.0"))
+        val icon = versionStatusIcon(upToDate = false)
+        val panel = createVersionPanel(combo, icon, "Test tooltip")
+
+        assertEquals(java.awt.BorderLayout::class.java, panel.layout::class.java)
+        assertEquals("Test tooltip", panel.toolTipText)
+        assertEquals(2, panel.componentCount)
+    }
+
+    fun testCreateVersionPanelAppliesBoldFontWhenChanged() {
+        val combo = javax.swing.JComboBox(arrayOf("1.0.0", "2.0.0"))
+        val originalFont = combo.font
+        val icon = versionStatusIcon(upToDate = true)
+        createVersionPanel(combo, icon, "tooltip", hasChange = true)
+
+        assertTrue(combo.font.isBold)
+        assertEquals(originalFont.size, combo.font.size)
+    }
+
+    fun testCreateVersionPanelKeepsNormalFontWhenUnchanged() {
+        val combo = javax.swing.JComboBox(arrayOf("1.0.0", "2.0.0"))
+        val originalStyle = combo.font.style
+        val icon = versionStatusIcon(upToDate = true)
+        createVersionPanel(combo, icon, "tooltip", hasChange = false)
+
+        assertEquals(originalStyle, combo.font.style)
     }
 
 }

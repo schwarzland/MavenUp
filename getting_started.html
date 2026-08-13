@@ -11,7 +11,10 @@
     <li><strong>Find New Versions</strong>: Searches Maven repositories for available newer versions for all listed
         entries.</li>
     <li><strong>New Version</strong>: After the update check, select the desired target version from the dropdown in
-        this column. If multiple entries share the same Maven property (e.g. <code>${spring.version}</code>), the
+        this column. A green checkmark icon indicates the selected version is the latest available; an orange arrow-up
+        icon signals that a newer version exists. When a version different from the current one is selected, the
+        dropdown text appears in bold to indicate a pending change. Hover over the cell for a tooltip with status
+        details. If multiple entries share the same Maven property (e.g. <code>${spring.version}</code>), the
         selection is synchronized automatically.</li>
     <li><strong>Update</strong>: Shows a confirmation dialog with a summary of all planned changes, then applies the
         selected version changes to the corresponding <code>pom.xml</code> files.</li>

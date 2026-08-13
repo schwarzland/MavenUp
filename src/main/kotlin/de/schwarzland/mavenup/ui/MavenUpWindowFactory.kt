@@ -53,6 +53,7 @@ import org.jetbrains.idea.maven.project.MavenProject
 import org.jetbrains.idea.maven.project.MavenProjectsManager
 import org.jetbrains.idea.maven.model.MavenArtifactNode
 import java.awt.BorderLayout
+import java.awt.Color
 import java.awt.Component
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
@@ -71,6 +72,93 @@ private const val CURRENT_VERSION_COLUMN = 4
 private const val VULNERABILITIES_COLUMN = 5
 private const val NEW_VERSION_COLUMN = 6
 private val LOG = Logger.getInstance(MavenUpWindowFactory::class.java)
+
+/** Farbe für Abhängigkeiten, die bereits auf der neuesten Version sind (Light-/Dark-Mode). */
+private val VERSION_UP_TO_DATE_COLOR = com.intellij.ui.JBColor(Color(0, 128, 0), Color(80, 200, 80))
+
+/** Farbe für Abhängigkeiten, für die ein Update verfügbar ist (Light-/Dark-Mode). */
+private val VERSION_UPDATE_AVAILABLE_COLOR = com.intellij.ui.JBColor(Color(204, 120, 0), Color(255, 180, 50))
+
+/**
+ * Bestimmt, ob die angegebene Version der höchsten bekannten Version entspricht.
+ *
+ * @param version Die zu prüfende Version (typischerweise die ausgewählte Version).
+ * @param newestVersion Die höchste bekannte Version (erstes Element der Versionsliste).
+ * @return `true`, wenn die Version der neuesten entspricht und nicht leer ist.
+ */
+internal fun isVersionUpToDate(version: String, newestVersion: String): Boolean =
+    version == newestVersion && version.isNotEmpty()
+
+/**
+ * Liefert das passende Status-Icon für die Versionsanzeige.
+ *
+ * @param upToDate `true`, wenn die ausgewählte Version die neueste ist.
+ * @return Ein grüner Haken bei neuestem Stand, ein Pfeil nach oben sonst.
+ */
+internal fun versionStatusIcon(upToDate: Boolean): Icon =
+    if (upToDate) AllIcons.RunConfigurations.TestPassed else AllIcons.General.ArrowUp
+
+/**
+ * Liefert die passende Textfarbe für die Versionsanzeige.
+ *
+ * @param upToDate `true`, wenn die ausgewählte Version die neueste ist.
+ * @return Grün bei neuestem Stand, Orange sonst.
+ */
+internal fun versionStatusColor(upToDate: Boolean): Color =
+    if (upToDate) VERSION_UP_TO_DATE_COLOR else VERSION_UPDATE_AVAILABLE_COLOR
+
+/**
+ * Erzeugt den lokalisierten Tooltip-Text für die Versionszelle.
+ *
+ * Berücksichtigt vier Zustände:
+ * 1. Ausgewählt == Aktuell == Neueste → "Up to date"
+ * 2. Ausgewählt == Aktuell ≠ Neueste → "Update available"
+ * 3. Ausgewählt ≠ Aktuell, Ausgewählt == Neueste → "Will update (to newest)"
+ * 4. Ausgewählt ≠ Aktuell, Ausgewählt ≠ Neueste → "Will update (not latest)"
+ *
+ * @param currentVersion Die aktuell im Projekt verwendete Version.
+ * @param selectedVersion Die vom Benutzer ausgewählte Zielversion.
+ * @param newestVersion Die höchste bekannte Version.
+ * @return Ein beschreibender Tooltip-Text.
+ */
+internal fun versionStatusTooltip(currentVersion: String, selectedVersion: String, newestVersion: String): String {
+    val hasChange = selectedVersion != currentVersion && selectedVersion.isNotEmpty()
+    val selectedIsNewest = isVersionUpToDate(selectedVersion, newestVersion)
+    return when {
+        !hasChange && selectedIsNewest ->
+            MyMessageBundle.message("toolwindow.MyToolWindow.version.upToDate", currentVersion)
+        !hasChange ->
+            MyMessageBundle.message("toolwindow.MyToolWindow.version.updateAvailable", currentVersion, newestVersion)
+        selectedIsNewest ->
+            MyMessageBundle.message("toolwindow.MyToolWindow.version.willUpdate", currentVersion, selectedVersion)
+        else ->
+            MyMessageBundle.message("toolwindow.MyToolWindow.version.willUpdateNotLatest", currentVersion, selectedVersion, newestVersion)
+    }
+}
+
+/**
+ * Erstellt ein JPanel mit Status-Icon und ComboBox für die Versionsanzeige in der Tabelle.
+ * Bei einer ausstehenden Änderung (ausgewählte ≠ aktuelle Version) wird die ComboBox-Schrift fett dargestellt.
+ *
+ * @param combo Die ComboBox mit den verfügbaren Versionen.
+ * @param statusIcon Das Status-Icon (grüner Haken oder Pfeil).
+ * @param tooltip Der Tooltip-Text für das Panel.
+ * @param hasChange `true`, wenn die ausgewählte Version von der aktuellen abweicht.
+ * @return Ein konfiguriertes JPanel mit Icon links und ComboBox in der Mitte.
+ */
+internal fun createVersionPanel(combo: JComponent, statusIcon: Icon, tooltip: String, hasChange: Boolean = false): JPanel =
+    JPanel(BorderLayout(2, 0)).apply {
+        isOpaque = false
+        val iconLabel = JLabel(statusIcon).apply {
+            border = BorderFactory.createEmptyBorder(0, 2, 0, 0)
+        }
+        add(iconLabel, BorderLayout.WEST)
+        if (hasChange) {
+            combo.font = combo.font.deriveFont(java.awt.Font.BOLD)
+        }
+        add(combo, BorderLayout.CENTER)
+        toolTipText = tooltip
+    }
 
 /**
  * Erstellt die URL zur Repository-Browser-Seite für eine gegebene Abhängigkeit und Version.
@@ -342,6 +430,17 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     val row = rowAtPoint(e.point)
                     val column = columnAtPoint(e.point)
                     if (row < 0 || column == VULNERABILITIES_COLUMN) return super.getToolTipText(e)
+                    if (column == NEW_VERSION_COLUMN) {
+                        @Suppress("UNCHECKED_CAST")
+                        val versions = getValueAt(row, NEW_VERSION_COLUMN) as? List<String> ?: emptyList()
+                        if (versions.isEmpty()) return null
+                        val groupId = getValueAt(row, GROUP_ID_COLUMN) as? String ?: ""
+                        val artifactId = getValueAt(row, ARTIFACT_ID_COLUMN) as? String ?: ""
+                        val currentVersion = getValueAt(row, CURRENT_VERSION_COLUMN) as? String ?: ""
+                        val newestVersion = versions.firstOrNull() ?: ""
+                        val effectiveVersion = selectedVersions["$groupId:$artifactId"] ?: currentVersion
+                        return versionStatusTooltip(currentVersion, effectiveVersion, newestVersion)
+                    }
                     val settings = MavenUpSettings.getInstance(project)
                     return if (settings.state.jumpOnSingleClick)
                         MyMessageBundle.message("toolwindow.MyToolWindow.table.row.tooltip.singleClick")
@@ -450,30 +549,35 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     if (versions.isEmpty()) return@TableCellRenderer JLabel("")
 
                     val selectedVersion = selectedVersions[key]
+                    val currentVersion = table?.getValueAt(row, CURRENT_VERSION_COLUMN) as? String ?: ""
+                    val newestVersion = versions.firstOrNull() ?: ""
+                    val effectiveVersion = selectedVersion ?: currentVersion
+                    val upToDate = isVersionUpToDate(effectiveVersion, newestVersion)
+                    val hasChange = effectiveVersion != currentVersion && effectiveVersion.isNotEmpty()
 
-                    ComboBox(versions.toTypedArray()).apply {
+                    val combo = ComboBox(versions.toTypedArray()).apply {
                         if (selectedVersion != null) {
                             selectedItem = selectedVersion
                         }
-
-                        val currentVersion = table?.getValueAt(row, CURRENT_VERSION_COLUMN) as? String ?: ""
-                        val newestVersion = versions.firstOrNull() ?: ""
-                        if (currentVersion == newestVersion && currentVersion.isNotEmpty()) {
-                            foreground = com.intellij.ui.JBColor.BLUE
-                        }
+                        foreground = versionStatusColor(upToDate)
 
                         if (isSelected) {
                             background = table?.selectionBackground
-                            if (currentVersion != newestVersion) {
-                                foreground = table?.selectionForeground
-                            }
                         }
                     }
+
+                    createVersionPanel(
+                        combo,
+                        versionStatusIcon(upToDate),
+                        versionStatusTooltip(currentVersion, effectiveVersion, newestVersion),
+                        hasChange
+                    )
                 }
 
             table.columnModel.getColumn(NEW_VERSION_COLUMN).cellEditor = object : AbstractTableCellEditor() {
                 private var currentComboBox: ComboBox<String>? = null
                 private var currentKey: String? = null
+                private var editorPanel: JPanel? = null
 
                 override fun getTableCellEditorComponent(
                     table: JTable?, value: Any?, isSelected: Boolean, row: Int, column: Int
@@ -488,14 +592,16 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
                     val currentVersion = table?.getValueAt(row, CURRENT_VERSION_COLUMN) as? String ?: ""
                     val newestVersion = versions.firstOrNull() ?: ""
-                    if (currentVersion == newestVersion && currentVersion.isNotEmpty()) {
-                        combo.foreground = com.intellij.ui.JBColor.BLUE
-                    }
 
                     val selectedVersion = if (currentKey != null) selectedVersions[currentKey!!] else null
                     if (selectedVersion != null) {
                         combo.selectedItem = selectedVersion
                     }
+
+                    val effectiveVersion = selectedVersion ?: currentVersion
+                    val upToDate = isVersionUpToDate(effectiveVersion, newestVersion)
+                    val hasChange = effectiveVersion != currentVersion && effectiveVersion.isNotEmpty()
+                    combo.foreground = versionStatusColor(upToDate)
 
                     combo.addActionListener {
                         val selected = combo.selectedItem as? String
@@ -517,7 +623,14 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     }
 
                     currentComboBox = combo
-                    return combo
+                    val panel = createVersionPanel(
+                        combo,
+                        versionStatusIcon(upToDate),
+                        versionStatusTooltip(currentVersion, effectiveVersion, newestVersion),
+                        hasChange
+                    )
+                    editorPanel = panel
+                    return panel
                 }
 
                 override fun getCellEditorValue(): Any? {

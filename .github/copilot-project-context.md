@@ -38,6 +38,13 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   laufen, bleibt der Vulnerability-Check deaktiviert, um konkurrierende Hintergrundaktionen zu vermeiden.
   Die Aktionsleiste kann laut Einstellung (`toolbarShowText`) wahlweise Icon- oder Text-Buttons darstellen und
   wird bei geänderten Einstellungen über den `MAVEN_UP_SETTINGS_TOPIC`-Message-Bus sofort neu aufgebaut.
+  Die Spalte **New Version** zeigt über die Helper-Funktionen `isVersionUpToDate()`, `versionStatusIcon()`,
+  `versionStatusColor()` und `versionStatusTooltip()` Status-Icons und farbcodierten Text:
+  grüner Haken + grüner Text wenn die ausgewählte Version die neueste ist, orangefarbener Pfeil + 
+  orangefarbener Text sonst. Icon und Farbe richten sich immer nach der **ausgewählten** Version im Dropdown.
+  Bei einer ausstehenden Änderung (ausgewählte ≠ aktuelle Version) wird der Dropdown-Text fett dargestellt.
+  `createVersionPanel()` baut das JPanel mit Icon und ComboBox zusammen.
+  Farben verwenden `JBColor`-Doppelwerte für Light-/Dark-Mode-Kompatibilität.
 - **MavenUpSettings**: `PersistentStateComponent`, gespeichert in `mavenup_settings.xml`
   (`jumpOnSingleClick`, `selectLatestVersion`, `hideUnstableVersions`, `hiddenVersionQualifiers`,
   `ossIndexEnabled`, `ossIndexUsername`, `checkTransitiveDependencies`, `repositoryBrowser`, `toolbarShowText`).
