@@ -717,7 +717,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 ) { refreshAction(false, true) })
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.checkUpdates.button",
-                    AllIcons.Actions.Download,
+                    AllIcons.Actions.Find,
                     { !isUpdating }
                 ) { refreshAction(true, true) })
                 add(toolbarAction(

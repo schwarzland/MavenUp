@@ -10,6 +10,7 @@
 - The `<parent>` section of each `pom.xml` is now listed as a dependency with type "parent", including version checks, updates, navigation, and vulnerability scanning.
 
 ### Changed
+- Changed the **Check for Updates** toolbar icon from a download icon to a search/find icon, better conveying the action of searching for available updates.
 - Changed the **References** icon in the Vulnerability Details dialog (top toolbar action and References column) to a details preview icon, making it clearer that clicking opens a dialog listing the references.
 - Removed the link icon from the **Component** column in the Vulnerability Details dialog, as double-clicking a row no longer triggers an action.
 - The **Vulnerability Details** action now requires a dependency row with findings to be selected and shows only the vulnerabilities for that selected dependency instead of all found vulnerabilities.
