@@ -98,6 +98,15 @@ org.gradle.jvmargs=-Djava.net.useSystemProxies=true -Djava.net.preferIPv4Stack=t
 Danach einmal `gradlew --stop` ausführen, damit der Gradle-Daemon die neuen Einstellungen übernimmt.
 
 
+## KI-Anweisungen
+
+Für die Weiterentwicklung dieses Projekts durch KI-Agenten (wie GitHub Copilot oder Junie) existieren verbindliche Anweisungen und Kontextinformationen:
+
+- **[.github/copilot-instructions.md](.github/copilot-instructions.md)**: Verbindliche Arbeitsanweisungen für Dokumentation, Testing, KDoc und Prozesse.
+- **[.github/copilot-project-context.md](.github/copilot-project-context.md)**: Detaillierter Projektkontext, Architekturübersicht und Komponentenbeschreibung.
+
+Diese Dateien sind bei jeder Änderung zu berücksichtigen und aktuell zu halten.
+
 ## Architektur
 
 Das Plugin ist klar in drei Schichten gegliedert:

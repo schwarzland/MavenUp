@@ -674,7 +674,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     }
                 }
 
-            fun refreshAction(checkUpdates: Boolean, clearNewVersions: Boolean) {
+            fun refreshAction(checkUpdates: Boolean, clearData: Boolean, clearVulnerabilities: Boolean) {
                 if (isUpdating) return
 
                 val generation = ++refreshGeneration
@@ -682,9 +682,11 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 refreshToolbar()
                 cancelActiveCellEditing()
                 tableModel.setRowCount(0)
-                if (clearNewVersions) {
+                if (clearData) {
                     availableVersions.clear()
                     selectedVersions.clear()
+                }
+                if (clearVulnerabilities) {
                     vulnerabilityAdvisories.clear()
                     transitiveCoordinates.clear()
                     transitiveDependenciesByDirect.clear()
@@ -728,7 +730,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
                         if (checkUpdates) {
                             performUpdateCheck {
-                                refreshAction(false, false)
+                                refreshAction(false, false, false)
                             }
                         }
                         isRefreshing = false
@@ -758,7 +760,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                                     ApplicationManager.getApplication().invokeLater {
                                         selectedVersions.clear()
                                         availableVersions.clear()
-                                        refreshAction(false, true)
+                                        refreshAction(false, true, true)
 
                                         for (row in 0 until tableModel.rowCount) {
                                             tableModel.setValueAt("", row, CURRENT_VERSION_COLUMN)
@@ -779,13 +781,13 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
                     performVulnerabilityCheck {
                         isUpdating = false
-                        refreshAction(false, false)
+                        refreshAction(false, false, false)
                         refreshToolbar()
                     }
                 }
             }
 
-            refreshAction(false, true)
+            refreshAction(false, true, true)
 
             add(JBScrollPane(table), BorderLayout.CENTER)
 
@@ -826,12 +828,12 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     "toolwindow.MyToolWindow.refresh.button",
                     AllIcons.Actions.Refresh,
                     { !isUpdating }
-                ) { refreshAction(false, true) })
+                ) { refreshAction(false, true, true) })
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.checkUpdates.button",
                     AllIcons.Actions.Find,
                     { !isUpdating }
-                ) { refreshAction(true, true) })
+                ) { refreshAction(true, true, false) })
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.checkVulnerabilities.button",
                     AllIcons.General.InspectionsEye,
@@ -871,7 +873,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     ApplicationManager.getApplication().invokeLater {
                         availableVersions.clear()
                         selectedVersions.clear()
-                        refreshAction(false, true)
+                        refreshAction(false, true, true)
                     }
                 }
             })

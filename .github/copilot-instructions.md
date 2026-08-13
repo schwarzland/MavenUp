@@ -66,4 +66,4 @@ Bei **jeder** Änderung im Repository sind diese Punkte immer zu berücksichtige
     - Nach jeder Änderung die gesamte `getting_started.html` mit der tatsächlichen Bedienung abgleichen und sicherstellen, dass alle wesentlichen Schritte für einen Einsteiger abgedeckt sind.
 11. **kein git commit** ausführen.
 
-Diese Vorgaben gelten standardmäßig für alle Copilot-Änderungen in diesem Projekt.
+Diese Vorgaben gelten standardmäßig für alle KI-Änderungen (GitHub Copilot, Junie, etc.) in diesem Projekt.

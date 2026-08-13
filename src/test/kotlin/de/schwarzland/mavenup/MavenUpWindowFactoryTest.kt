@@ -997,4 +997,5 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         settings.state.selectLatestVersion = true
     }
 
+
 }

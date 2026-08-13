@@ -84,6 +84,10 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
 Tests: `src/test/kotlin/de/schwarzland/mavenup/` mit Plattformtests sowie reinen Service-/Modelltests
 für OSV, OSS Index und Advisory-Deduplizierung.
 
+## KI-Agenten (Copilot / Junie)
+- Für KI-Agenten gelten die verbindlichen Arbeitsanweisungen in `.github/copilot-instructions.md`.
+- Junie nutzt zusätzlich die Datei `.junie/guidelines.md` als explizite Referenz auf diesen Kontext.
+
 ## Doku- und Prozesspflichten
 Siehe `.github/copilot-instructions.md` für die verbindliche Arbeitsanweisung
 (README/CHANGELOG/FEATURES/plugin.xml-Description/Unittests pflegen, kein `git commit`).
