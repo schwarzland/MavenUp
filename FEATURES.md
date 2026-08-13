@@ -64,6 +64,7 @@ This document describes the key features of the MavenUp IntelliJ plugin, grouped
 ## Settings & Configuration
 
 - **Project-level plugin settings**: Supports configurable behavior in `Settings > Tools > MavenUp` (click behavior, auto-select latest, unstable-version filtering).
+- **Immediate auto-select setting application**: Toggling the "Automatically select the newest version" setting and applying it immediately updates all **New Version** selections in the open tool window without requiring a new update check.
 - **Configurable toolbar button style**: Lets users switch the tool window and Vulnerability Details dialog toolbars between icon-only buttons and buttons with text labels (default); the change applies immediately to the open tool window.
 
 ---

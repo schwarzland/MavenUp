@@ -874,7 +874,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
             })
 
             project.messageBus.connect(this@MyToolWindow).subscribe(MAVEN_UP_SETTINGS_TOPIC, Runnable {
-                ApplicationManager.getApplication().invokeLater { rebuildToolbar() }
+                ApplicationManager.getApplication().invokeLater {
+                    rebuildToolbar()
+                    applySelectLatestVersionSetting()
+                }
             })
         }
 
@@ -933,8 +936,34 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
-         * Stößt eine erneute Auswertung des Update-Aktionszustands über die Aktionsleiste an.
+         * Wendet die Einstellung [MavenUpSettings.State.selectLatestVersion] auf alle bereits
+         * geladenen Abhängigkeiten an. Wird aufgerufen, wenn sich die Einstellung ändert, damit
+         * die "New Version"-Spalte sofort die korrekte Auswahl widerspiegelt.
+         *
+         * Bei aktivierter Einstellung wird für jede Abhängigkeit die neueste verfügbare Version
+         * vorausgewählt; bei deaktivierter Einstellung wird die aktuelle Version beibehalten.
          */
+        internal fun applySelectLatestVersionSetting() {
+            if (availableVersions.isEmpty()) return
+            val selectLatest = MavenUpSettings.getInstance(project).state.selectLatestVersion
+            for ((key, versions) in availableVersions) {
+                if (versions.isEmpty()) continue
+                val currentVersion = knownDependencies[key] ?: ""
+                if (selectLatest) {
+                    if (versions.first() != currentVersion) {
+                        selectedVersions[key] = versions.first()
+                    } else {
+                        selectedVersions.remove(key)
+                    }
+                } else {
+                    selectedVersions[key] = currentVersion
+                }
+            }
+            cancelActiveCellEditing()
+            table.repaint()
+            updateUpdateButtonState()
+        }
+
         /**
          * Synchronisiert die Version-Auswahl über alle Einträge, die dieselbe Maven-Property verwenden.
          *

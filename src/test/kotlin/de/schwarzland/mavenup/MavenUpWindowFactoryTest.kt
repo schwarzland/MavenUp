@@ -901,4 +901,100 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertEquals(originalStyle, combo.font.style)
     }
 
+    fun testApplySelectLatestVersionSettingSelectsNewest() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+        val settings = MavenUpSettings.getInstance(project)
+
+        val fields = toolWindow.javaClass
+        @Suppress("UNCHECKED_CAST")
+        val availableVersions = fields.getDeclaredField("availableVersions")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, List<String>>
+        @Suppress("UNCHECKED_CAST")
+        val selectedVersions = fields.getDeclaredField("selectedVersions")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, String>
+        @Suppress("UNCHECKED_CAST")
+        val knownDependencies = fields.getDeclaredField("knownDependencies")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, String>
+
+        val key = "com.example:apply-test"
+        availableVersions[key] = listOf("2.0.0", "1.5.0", "1.0.0")
+        knownDependencies[key] = "1.0.0"
+
+        // With selectLatestVersion enabled, the newest should be selected
+        settings.state.selectLatestVersion = true
+        toolWindow.applySelectLatestVersionSetting()
+        assertEquals("2.0.0", selectedVersions[key])
+
+        // With selectLatestVersion disabled, the current version should be selected
+        settings.state.selectLatestVersion = false
+        toolWindow.applySelectLatestVersionSetting()
+        assertEquals("1.0.0", selectedVersions[key])
+
+        // Reset
+        settings.state.selectLatestVersion = true
+    }
+
+    fun testApplySelectLatestVersionSettingRemovesSelectionWhenAlreadyLatest() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+        val settings = MavenUpSettings.getInstance(project)
+
+        val fields = toolWindow.javaClass
+        @Suppress("UNCHECKED_CAST")
+        val availableVersions = fields.getDeclaredField("availableVersions")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, List<String>>
+        @Suppress("UNCHECKED_CAST")
+        val selectedVersions = fields.getDeclaredField("selectedVersions")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, String>
+        @Suppress("UNCHECKED_CAST")
+        val knownDependencies = fields.getDeclaredField("knownDependencies")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, String>
+
+        val key = "com.example:already-latest"
+        availableVersions[key] = listOf("2.0.0", "1.0.0")
+        knownDependencies[key] = "2.0.0"
+        selectedVersions[key] = "2.0.0"
+
+        // When current version is already the latest and selectLatest is enabled,
+        // the entry should be removed from selectedVersions (no change needed)
+        settings.state.selectLatestVersion = true
+        toolWindow.applySelectLatestVersionSetting()
+        assertNull(
+            "Wenn die aktuelle Version bereits die neueste ist, soll kein Eintrag in selectedVersions stehen",
+            selectedVersions[key]
+        )
+
+        // Reset
+        settings.state.selectLatestVersion = true
+    }
+
+    fun testApplySelectLatestVersionSettingDoesNothingWhenNoVersionsLoaded() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+        val settings = MavenUpSettings.getInstance(project)
+
+        val fields = toolWindow.javaClass
+        @Suppress("UNCHECKED_CAST")
+        val selectedVersions = fields.getDeclaredField("selectedVersions")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, String>
+
+        selectedVersions["com.example:existing"] = "1.0.0"
+
+        // With no available versions loaded, the method should not modify selectedVersions
+        settings.state.selectLatestVersion = true
+        toolWindow.applySelectLatestVersionSetting()
+        assertEquals("1.0.0", selectedVersions["com.example:existing"])
+
+        // Reset
+        settings.state.selectLatestVersion = true
+    }
+
 }
