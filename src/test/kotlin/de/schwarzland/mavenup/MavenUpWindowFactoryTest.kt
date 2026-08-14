@@ -397,6 +397,32 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         )
     }
 
+    fun testConfirmChangesDialogSyncCheckboxReflectsSetting() {
+        val settings = de.schwarzland.mavenup.service.MavenUpSettings.getInstance(project)
+        val original = settings.state.syncMavenAfterUpdate
+        try {
+            val updates = listOf(
+                DependencyUpdate("com.example", "demo-lib", "dependency", "1.0.0", "1.1.0")
+            )
+
+            settings.state.syncMavenAfterUpdate = false
+            val disabledDialog = MavenUpWindowFactory.UpdateConfirmationDialog(project, updates)
+            assertFalse(
+                "Die Sync-Checkbox sollte den gespeicherten Wert false übernehmen",
+                disabledDialog.isSyncMavenSelected()
+            )
+
+            settings.state.syncMavenAfterUpdate = true
+            val enabledDialog = MavenUpWindowFactory.UpdateConfirmationDialog(project, updates)
+            assertTrue(
+                "Die Sync-Checkbox sollte den gespeicherten Wert true übernehmen",
+                enabledDialog.isSyncMavenSelected()
+            )
+        } finally {
+            settings.state.syncMavenAfterUpdate = original
+        }
+    }
+
     fun testOpenInRepositoryActionInitiallyDisabled() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         toolWindow.getContent()

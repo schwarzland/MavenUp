@@ -47,7 +47,8 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   Farben verwenden `JBColor`-Doppelwerte für Light-/Dark-Mode-Kompatibilität.
 - **MavenUpSettings**: `PersistentStateComponent`, gespeichert in `mavenup_settings.xml`
   (`jumpOnSingleClick`, `selectLatestVersion`, `hideUnstableVersions`, `hiddenVersionQualifiers`,
-  `ossIndexEnabled`, `ossIndexUsername`, `checkTransitiveDependencies`, `repositoryBrowser`, `toolbarShowText`).
+  `ossIndexEnabled`, `ossIndexUsername`, `checkTransitiveDependencies`, `repositoryBrowser`, `toolbarShowText`,
+  `syncMavenAfterUpdate`).
   Für die HTTP-Basic-Authentifizierung sind OSS-Index-Benutzername und Token gemeinsam erforderlich.
   Das Token liegt ausschließlich im IntelliJ Password Safe; bei unvollständigen Credentials wird
   keine OSS-Index-Abfrage gesendet.

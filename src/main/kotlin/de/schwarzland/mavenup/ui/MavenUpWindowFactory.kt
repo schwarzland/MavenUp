@@ -324,10 +324,14 @@ class MavenUpWindowFactory : ToolWindowFactory {
      * durchzuführenden Änderungen (Gruppe, Artefakt, Version alt/neu).
      */
     class UpdateConfirmationDialog(
-        project: Project,
+        private val project: Project,
         private val updates: List<DependencyUpdate>
     ) : DialogWrapper(project) {
-        private lateinit var syncMavenCheckbox: JCheckBox
+        private val syncMavenCheckbox: JCheckBox = JCheckBox(
+            MyMessageBundle.message("toolwindow.MyToolWindow.update.confirm.syncMaven")
+        ).apply {
+            isSelected = MavenUpSettings.getInstance(project).state.syncMavenAfterUpdate
+        }
 
         init {
             title = MyMessageBundle.message("toolwindow.MyToolWindow.update.confirm.title")
@@ -356,8 +360,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
             panel.add(JBScrollPane(buildTable()), BorderLayout.CENTER)
 
-            syncMavenCheckbox = JCheckBox(MyMessageBundle.message("toolwindow.MyToolWindow.update.confirm.syncMaven"))
-            syncMavenCheckbox.isSelected = true
             val bottomPanel = JBPanel<JBPanel<*>>(BorderLayout())
             bottomPanel.border = BorderFactory.createEmptyBorder(10, 0, 0, 0)
             bottomPanel.add(syncMavenCheckbox, BorderLayout.WEST)
@@ -767,6 +769,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         val dialog = UpdateConfirmationDialog(project, updates)
                         if (dialog.showAndGet()) {
                             val shouldSyncMaven = dialog.isSyncMavenSelected()
+                            MavenUpSettings.getInstance(project).state.syncMavenAfterUpdate = shouldSyncMaven
                             ProgressManager.getInstance().run(object : Task.Backgroundable(
                                 project,
                                 MyMessageBundle.message("toolwindow.MyToolWindow.update.progress"),

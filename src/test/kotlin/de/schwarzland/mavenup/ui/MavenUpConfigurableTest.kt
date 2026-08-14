@@ -264,6 +264,29 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
         settings.state.toolbarShowText = false
     }
 
+    fun testSyncMavenAfterUpdateDefaultIsTrue() {
+        assertTrue(MavenUpSettings.State().syncMavenAfterUpdate)
+    }
+
+    fun testSyncMavenAfterUpdateSelectionIsPersistedOnApply() {
+        val settings = MavenUpSettings.getInstance(project)
+        settings.state.syncMavenAfterUpdate = true
+
+        val configurable = MavenUpConfigurable(project)
+        configurable.createComponent()
+        configurable.reset()
+        assertFalse(configurable.isModified)
+
+        val checkBox = configurable.field<com.intellij.ui.components.JBCheckBox>("syncMavenAfterUpdateCheckBox")
+        checkBox.isSelected = false
+        assertTrue("Änderung der Checkbox sollte isModified() true machen", configurable.isModified)
+
+        configurable.apply()
+        assertFalse(settings.state.syncMavenAfterUpdate)
+
+        settings.state.syncMavenAfterUpdate = true
+    }
+
     fun testMavenRepositoryBrowserUrlPatterns() {
         assertEquals(
             "https://mvnrepository.com/artifact/com.example/lib/1.0",

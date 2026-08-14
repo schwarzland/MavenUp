@@ -55,6 +55,7 @@ class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
      * @property checkTransitiveDependencies Bestimmt, ob auch transitive Abhängigkeiten auf Updates geprüft werden sollen.
      * @property repositoryBrowser Der Maven-Repository-Browser, der für Links auf Abhängigkeits-Versionsseiten verwendet wird.
      * @property toolbarShowText Bestimmt, ob die Aktionsleisten Text-Buttons statt reiner Icon-Buttons anzeigen.
+     * @property syncMavenAfterUpdate Bestimmt, ob nach dem Schreiben der `pom.xml` automatisch der Maven-Sync der IDE ausgelöst wird.
      */
     data class State(
         var jumpOnSingleClick: Boolean = false,
@@ -65,7 +66,8 @@ class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
         var ossIndexUsername: String = "",
         var checkTransitiveDependencies: Boolean = true,
         var repositoryBrowser: MavenRepositoryBrowser = MavenRepositoryBrowser.MVN_REPOSITORY,
-        var toolbarShowText: Boolean = true
+        var toolbarShowText: Boolean = true,
+        var syncMavenAfterUpdate: Boolean = true
     )
 
     private var myState = State()
