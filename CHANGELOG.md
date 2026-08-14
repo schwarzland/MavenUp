@@ -23,6 +23,7 @@
 - Removed the bottom button bar and the custom wrapping layout, as the action toolbar handles overflow itself.
 
 ### Fixed
+- The **New Version** selections are now only reset according to the "Automatically select the newest version" setting when that setting itself changes, so applying unrelated settings no longer discards a pending version selection.
 - All plugin tables now enforce single-row selection instead of allowing multiple rows to be selected at once.
 - All plugin tables now prevent column reordering, so users can no longer drag columns into a different order.
 - The **Confirm Changes** dialog table is now read-only, preventing accidental editing of the update overview.

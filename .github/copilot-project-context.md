@@ -55,8 +55,9 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
 - **MAVEN_UP_SETTINGS_TOPIC**: `Topic<Runnable>` in `service`, über das `MavenUpConfigurable.apply()`
   Einstellungsänderungen veröffentlicht, damit offene UI-Komponenten (z.B. die Tool-Window-Aktionsleiste
   und die Versionsvorauswahl) sofort reagieren können. Beim Empfang wird die Toolbar neu aufgebaut und
-  `applySelectLatestVersionSetting()` aufgerufen, das die **New Version**-Auswahl aller Zeilen
-  gemäß der aktuellen `selectLatestVersion`-Einstellung aktualisiert.
+  `applySelectLatestVersionSetting()` nur dann aufgerufen, wenn sich die `selectLatestVersion`-Einstellung
+  tatsächlich geändert hat, damit andere Einstellungsänderungen die bereits getroffene **New Version**-Auswahl
+  nicht zurücksetzen.
 - **MavenRepositoryBrowser**: Enum in `service`, definiert die zwei konfigurierbaren
   Repository-Browser-Optionen (`MVN_REPOSITORY`, `SONATYPE_CENTRAL`) und erzeugt die jeweilige
   Versions-URL für groupId/artifactId/version.

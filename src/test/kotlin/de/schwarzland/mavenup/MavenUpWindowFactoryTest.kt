@@ -1023,5 +1023,80 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         settings.state.selectLatestVersion = true
     }
 
+    fun testSettingsChangeKeepsSelectionWhenSelectLatestUnchanged() {
+        val settings = MavenUpSettings.getInstance(project)
+        settings.state.selectLatestVersion = false
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        val fields = toolWindow.javaClass
+        @Suppress("UNCHECKED_CAST")
+        val availableVersions = fields.getDeclaredField("availableVersions")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, List<String>>
+        @Suppress("UNCHECKED_CAST")
+        val selectedVersions = fields.getDeclaredField("selectedVersions")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, String>
+        @Suppress("UNCHECKED_CAST")
+        val knownDependencies = fields.getDeclaredField("knownDependencies")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, String>
+
+        val key = "com.example:lib"
+        availableVersions[key] = listOf("2.0.0", "1.0.0")
+        knownDependencies[key] = "1.0.0"
+        selectedVersions[key] = "2.0.0"
+
+        // Nur eine unabhängige Einstellung ändert sich -> Auswahl bleibt erhalten
+        toolWindow.applySelectLatestVersionSettingIfChanged()
+
+        assertEquals(
+            "Eine unabhängige Einstellungsänderung darf die getroffene Auswahl nicht zurücksetzen",
+            "2.0.0",
+            selectedVersions[key]
+        )
+
+        settings.state.selectLatestVersion = true
+    }
+
+    fun testSettingsChangeReappliesSelectionWhenSelectLatestChanged() {
+        val settings = MavenUpSettings.getInstance(project)
+        settings.state.selectLatestVersion = false
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        val fields = toolWindow.javaClass
+        @Suppress("UNCHECKED_CAST")
+        val availableVersions = fields.getDeclaredField("availableVersions")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, List<String>>
+        @Suppress("UNCHECKED_CAST")
+        val selectedVersions = fields.getDeclaredField("selectedVersions")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, String>
+        @Suppress("UNCHECKED_CAST")
+        val knownDependencies = fields.getDeclaredField("knownDependencies")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, String>
+
+        val key = "com.example:lib"
+        availableVersions[key] = listOf("2.0.0", "1.0.0")
+        knownDependencies[key] = "1.0.0"
+        selectedVersions[key] = "1.0.0"
+
+        // Die Einstellung selectLatestVersion wird tatsächlich geändert -> Auswahl wird neu berechnet
+        settings.state.selectLatestVersion = true
+        toolWindow.applySelectLatestVersionSettingIfChanged()
+
+        assertEquals(
+            "Beim Ändern von selectLatestVersion soll die neueste Version vorausgewählt werden",
+            "2.0.0",
+            selectedVersions[key]
+        )
+
+        settings.state.selectLatestVersion = true
+    }
+
 
 }

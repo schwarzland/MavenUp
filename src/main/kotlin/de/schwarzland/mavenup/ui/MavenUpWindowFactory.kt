@@ -424,6 +424,16 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private var isRefreshing = false
         private var refreshGeneration = 0
 
+        /**
+         * Zuletzt bekannter Wert der Einstellung [MavenUpSettings.State.selectLatestVersion].
+         *
+         * Dient dazu, bei einer Einstellungsänderung zu erkennen, ob sich gerade diese Option
+         * geändert hat. Nur dann wird die "New Version"-Auswahl neu berechnet, damit andere
+         * Einstellungsänderungen die bereits getroffene Versionsauswahl nicht zurücksetzen.
+         */
+        private var lastSelectLatestVersion =
+            MavenUpSettings.getInstance(project).state.selectLatestVersion
+
         /** Die Tabelle der Abhängigkeiten; wird im Property-Initializer von [content] zugewiesen. */
         @Suppress("RedundantLateinit")
         private lateinit var table: JBTable
@@ -909,7 +919,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             project.messageBus.connect(this@MyToolWindow).subscribe(MAVEN_UP_SETTINGS_TOPIC, Runnable {
                 ApplicationManager.getApplication().invokeLater {
                     rebuildToolbar()
-                    applySelectLatestVersionSetting()
+                    applySelectLatestVersionSettingIfChanged()
                 }
             })
         }
@@ -966,6 +976,21 @@ class MavenUpWindowFactory : ToolWindowFactory {
             content.add(toolbar.component, BorderLayout.NORTH)
             content.revalidate()
             content.repaint()
+        }
+
+        /**
+         * Wendet die Einstellung [MavenUpSettings.State.selectLatestVersion] nur dann erneut an,
+         * wenn sich ihr Wert seit dem letzten Aufruf tatsächlich geändert hat.
+         *
+         * Dadurch setzt das Ändern anderer Einstellungen (z.B. Text-Buttons oder Maven-Sync) die
+         * bereits getroffene **New Version**-Auswahl nicht mehr zurück.
+         */
+        internal fun applySelectLatestVersionSettingIfChanged() {
+            val selectLatest = MavenUpSettings.getInstance(project).state.selectLatestVersion
+            if (selectLatest != lastSelectLatestVersion) {
+                lastSelectLatestVersion = selectLatest
+                applySelectLatestVersionSetting()
+            }
         }
 
         /**
