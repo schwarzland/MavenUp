@@ -398,7 +398,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
     }
 
     fun testConfirmChangesDialogSyncCheckboxReflectsSetting() {
-        val settings = de.schwarzland.mavenup.service.MavenUpSettings.getInstance(project)
+        val settings = MavenUpSettings.getInstance(project)
         val original = settings.state.syncMavenAfterUpdate
         try {
             val updates = listOf(
