@@ -1,6 +1,6 @@
 ---
 name: release-doc-check
-description: Prüft im Release-Branch die Release-Dokumentation (CHANGELOG.md, FEATURES.md, README.md, plugin.xml <description>) auf Vollständigkeit gegen das letzte Release und gleicht die Version in gradle.properties mit dem CHANGELOG ab. Läuft ausschließlich auf einem Release-Branch – auf main oder feature/** bricht er ab.
+description: Prüft im Release-Branch die Release-Dokumentation (CHANGELOG.md, FEATURES.md, README.md, getting_started.html, plugin.xml <description>) auf Vollständigkeit gegen das letzte Release und gleicht die Version in gradle.properties mit dem CHANGELOG ab. Läuft ausschließlich auf einem Release-Branch – auf main oder feature/** bricht er ab.
 tools: ['edit', 'view', 'create', 'grep', 'glob', 'powershell']
 ---
 
@@ -80,7 +80,18 @@ Halte dich an die verbindlichen Regeln aus `.github/copilot-instructions.md`.
 - Gleiche die `<description>` inhaltlich mit `FEATURES.md` ab: jede wichtige Funktion muss
   sinngemäß abgedeckt sein.
 
-### 5. gradle.properties – Version gegen CHANGELOG.md
+### 5. getting_started.html – Einsteiger-Workflow
+- Datei: `getting_started.html`.
+- Sprache: **Englisch**; die Seite beschreibt die **erste Nutzung** aus Sicht eines Users.
+- Prüfe, ob die Datei die typischen ersten Schritte für Einsteiger abdeckt:
+  Einstieg in den Tool Window, erste Aktualisierung, Versionssuche, Auswahl einer Zielversion,
+  Update, Navigation, Sicherheitsprüfung und grundlegende Konfiguration.
+- Ergänze fehlende Workflows, aktualisiere umbenannte Aktionen oder geänderte Dialoge,
+  entferne veraltete Schritte. Keine Dopplungen; die Reihenfolge muss sinnvoll für neue Nutzer sein.
+- Gleiche die Seite mit `FEATURES.md` und `src/main/resources/META-INF/plugin.xml` ab, damit
+  keine grundlegende Funktion aus der Produktbeschreibung fehlt.
+
+### 6. gradle.properties – Version gegen CHANGELOG.md
 - Vergleiche `version=` in `gradle.properties` mit der obersten Versionsnummer
   (`## [x.y.z]`) in `CHANGELOG.md`.
 - Bei Abweichung ist die **CHANGELOG-Version die Quelle der Wahrheit** für dieses Release:
@@ -89,8 +100,8 @@ Halte dich an die verbindlichen Regeln aus `.github/copilot-instructions.md`.
 - Melde die Korrektur explizit in der Zusammenfassung.
 
 ## Arbeitsweise & Grenzen
-- Nimm nur Änderungen an den fünf oben genannten Zielartefakten vor
-  (`CHANGELOG.md`, `FEATURES.md`, `README.md`, `plugin.xml`, `gradle.properties`).
+- Nimm nur Änderungen an den sechs oben genannten Zielartefakten vor
+  (`CHANGELOG.md`, `FEATURES.md`, `README.md`, `getting_started.html`, `plugin.xml`, `gradle.properties`).
 - Ändere **keinen** Produktivcode und **keine** Tests.
 - Führe **keinen** `git commit` und **kein** `git push` aus.
 - Fasse am Ende zusammen: geprüfter Branch, gefundene Lücken/Abweichungen und die

@@ -60,10 +60,12 @@ Bei **jeder** Änderung im Repository sind diese Punkte immer zu berücksichtige
    - Veraltete oder entfernte Abhängigkeiten sind aus dem Abschnitt zu entfernen.
 10. **getting_started.html** ergänzen/aktualisieren, wenn sich die Bedienung des Plugins ändert (neue Schritte, umbenannte Aktionen, neue Dialoge oder Einstellungen, die für Einsteiger relevant sind). Dabei gelten folgende Regeln:
     - Sprache: Englisch. Die Datei wird als *Getting Started*-Seite im JetBrains Marketplace und im IDE Plugin Manager angezeigt.
+    - Die Seite soll aus Sicht eines Users die erstmalige Verwendung des Plugins beschreiben: Einstieg, erste Aktualisierung, Auswahl einer Version, Update, Navigation, Sicherheitsprüfung und erste Konfiguration.
     - Die Beschreibung muss für neue Nutzer verständlich sein – kurze, handlungsorientierte Sätze.
     - Neue Bedienelemente oder Workflows als zusätzliche `<li>`-Einträge in der bestehenden `<ol>` ergänzen; geänderte Aktionen im bestehenden Eintrag aktualisieren.
     - Veraltete oder entfernte Aktionen sind zu löschen.
     - Nach jeder Änderung die gesamte `getting_started.html` mit der tatsächlichen Bedienung abgleichen und sicherstellen, dass alle wesentlichen Schritte für einen Einsteiger abgedeckt sind.
+    - Die Inhalte müssen mit `FEATURES.md` und `src/main/resources/META-INF/plugin.xml` abgestimmt sein; veraltete oder fehlende Einsteiger-Schritte sind zu korrigieren.
 11. **kein git commit** ausführen.
 
 Diese Vorgaben gelten standardmäßig für alle KI-Änderungen (GitHub Copilot, Junie, etc.) in diesem Projekt.
