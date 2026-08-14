@@ -1,7 +1,7 @@
 <!-- Keep a Changelog guide -> https://keepachangelog.com -->
 
 # MavenUp Changelog
-## [Unreleased]
+## [2.0.0]
 
 ### Added
 - Added a **Sync Maven changes after update** setting; the checkbox in the **Confirm Changes** dialog and the setting stay in sync, and the last choice made in the dialog is persisted.
@@ -21,6 +21,7 @@
 - The **Vulnerability Details** action now requires a dependency row with findings to be selected and shows only the vulnerabilities for that selected dependency instead of all found vulnerabilities.
 - Reorganized the tool window and Vulnerability Details dialog actions into a top IntelliJ ActionToolbar with icons and tooltips, separating core actions (Refresh, Find New Versions, Scan for Vulnerabilities, Update) from the selection-dependent actions (Open in ..., Vulnerability Details / References) by a divider, in line with the IntelliJ UI guidelines.
 - Removed the bottom button bar and the custom wrapping layout, as the action toolbar handles overflow itself.
+- **Find New Versions** now keeps existing vulnerability findings instead of clearing them; only **Refresh** discards the collected vulnerability data.
 
 ### Fixed
 - The **New Version** selections are now only reset according to the "Automatically select the newest version" setting when that setting itself changes, so applying unrelated settings no longer discards a pending version selection.
