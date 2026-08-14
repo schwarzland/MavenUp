@@ -6,10 +6,19 @@ import de.schwarzland.mavenup.model.VulnerabilitySeverity
 import de.schwarzland.mavenup.service.DependencyApiService
 import de.schwarzland.mavenup.service.MavenRepositoryBrowser
 import de.schwarzland.mavenup.service.MavenUpSettings
+import de.schwarzland.mavenup.service.MAVEN_UP_SETTINGS_TOPIC
 import de.schwarzland.mavenup.service.OssIndexApiService
 import de.schwarzland.mavenup.service.OssIndexCredentialService
 import de.schwarzland.mavenup.service.VulnerabilityApiService
 import de.schwarzland.mavenup.service.VulnerabilityMerger
+import com.intellij.openapi.actionSystem.ActionManager
+import com.intellij.openapi.actionSystem.ActionToolbar
+import com.intellij.openapi.actionSystem.ActionUpdateThread
+import com.intellij.openapi.actionSystem.AnAction
+import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.actionSystem.DefaultActionGroup
+import com.intellij.openapi.actionSystem.Separator
+import com.intellij.openapi.actionSystem.ex.ActionUtil
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.application.ReadAction
@@ -44,8 +53,8 @@ import org.jetbrains.idea.maven.project.MavenProject
 import org.jetbrains.idea.maven.project.MavenProjectsManager
 import org.jetbrains.idea.maven.model.MavenArtifactNode
 import java.awt.BorderLayout
+import java.awt.Color
 import java.awt.Component
-import java.awt.FlowLayout
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import javax.swing.*
@@ -53,6 +62,7 @@ import javax.swing.table.DefaultTableModel
 import javax.swing.table.TableCellRenderer
 
 
+private const val PARENT_TYPE = "parent"
 private const val MANAGED_PLUGIN = "managed plugin"
 private const val TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY = "toolwindow.MyToolWindow.type.managedDependency"
 private const val GROUP_ID_COLUMN = 0
@@ -62,6 +72,93 @@ private const val CURRENT_VERSION_COLUMN = 4
 private const val VULNERABILITIES_COLUMN = 5
 private const val NEW_VERSION_COLUMN = 6
 private val LOG = Logger.getInstance(MavenUpWindowFactory::class.java)
+
+/** Farbe für Abhängigkeiten, die bereits auf der neuesten Version sind (Light-/Dark-Mode). */
+private val VERSION_UP_TO_DATE_COLOR = com.intellij.ui.JBColor(Color(0, 128, 0), Color(80, 200, 80))
+
+/** Farbe für Abhängigkeiten, für die ein Update verfügbar ist (Light-/Dark-Mode). */
+private val VERSION_UPDATE_AVAILABLE_COLOR = com.intellij.ui.JBColor(Color(204, 120, 0), Color(255, 180, 50))
+
+/**
+ * Bestimmt, ob die angegebene Version der höchsten bekannten Version entspricht.
+ *
+ * @param version Die zu prüfende Version (typischerweise die ausgewählte Version).
+ * @param newestVersion Die höchste bekannte Version (erstes Element der Versionsliste).
+ * @return `true`, wenn die Version der neuesten entspricht und nicht leer ist.
+ */
+internal fun isVersionUpToDate(version: String, newestVersion: String): Boolean =
+    version == newestVersion && version.isNotEmpty()
+
+/**
+ * Liefert das passende Status-Icon für die Versionsanzeige.
+ *
+ * @param upToDate `true`, wenn die ausgewählte Version die neueste ist.
+ * @return Ein grüner Haken bei neuestem Stand, ein Pfeil nach oben sonst.
+ */
+internal fun versionStatusIcon(upToDate: Boolean): Icon =
+    if (upToDate) AllIcons.RunConfigurations.TestPassed else AllIcons.General.ArrowUp
+
+/**
+ * Liefert die passende Textfarbe für die Versionsanzeige.
+ *
+ * @param upToDate `true`, wenn die ausgewählte Version die neueste ist.
+ * @return Grün bei neuestem Stand, Orange sonst.
+ */
+internal fun versionStatusColor(upToDate: Boolean): Color =
+    if (upToDate) VERSION_UP_TO_DATE_COLOR else VERSION_UPDATE_AVAILABLE_COLOR
+
+/**
+ * Erzeugt den lokalisierten Tooltip-Text für die Versionszelle.
+ *
+ * Berücksichtigt vier Zustände:
+ * 1. Ausgewählt == Aktuell == Neueste → "Up to date"
+ * 2. Ausgewählt == Aktuell ≠ Neueste → "Update available"
+ * 3. Ausgewählt ≠ Aktuell, Ausgewählt == Neueste → "Will update (to newest)"
+ * 4. Ausgewählt ≠ Aktuell, Ausgewählt ≠ Neueste → "Will update (not latest)"
+ *
+ * @param currentVersion Die aktuell im Projekt verwendete Version.
+ * @param selectedVersion Die vom Benutzer ausgewählte Zielversion.
+ * @param newestVersion Die höchste bekannte Version.
+ * @return Ein beschreibender Tooltip-Text.
+ */
+internal fun versionStatusTooltip(currentVersion: String, selectedVersion: String, newestVersion: String): String {
+    val hasChange = selectedVersion != currentVersion && selectedVersion.isNotEmpty()
+    val selectedIsNewest = isVersionUpToDate(selectedVersion, newestVersion)
+    return when {
+        !hasChange && selectedIsNewest ->
+            MyMessageBundle.message("toolwindow.MyToolWindow.version.upToDate", currentVersion)
+        !hasChange ->
+            MyMessageBundle.message("toolwindow.MyToolWindow.version.updateAvailable", currentVersion, newestVersion)
+        selectedIsNewest ->
+            MyMessageBundle.message("toolwindow.MyToolWindow.version.willUpdate", currentVersion, selectedVersion)
+        else ->
+            MyMessageBundle.message("toolwindow.MyToolWindow.version.willUpdateNotLatest", currentVersion, selectedVersion, newestVersion)
+    }
+}
+
+/**
+ * Erstellt ein JPanel mit Status-Icon und ComboBox für die Versionsanzeige in der Tabelle.
+ * Bei einer ausstehenden Änderung (ausgewählte ≠ aktuelle Version) wird die ComboBox-Schrift fett dargestellt.
+ *
+ * @param combo Die ComboBox mit den verfügbaren Versionen.
+ * @param statusIcon Das Status-Icon (grüner Haken oder Pfeil).
+ * @param tooltip Der Tooltip-Text für das Panel.
+ * @param hasChange `true`, wenn die ausgewählte Version von der aktuellen abweicht.
+ * @return Ein konfiguriertes JPanel mit Icon links und ComboBox in der Mitte.
+ */
+internal fun createVersionPanel(combo: JComponent, statusIcon: Icon, tooltip: String, hasChange: Boolean = false): JPanel =
+    JPanel(BorderLayout(2, 0)).apply {
+        isOpaque = false
+        val iconLabel = JLabel(statusIcon).apply {
+            border = BorderFactory.createEmptyBorder(0, 2, 0, 0)
+        }
+        add(iconLabel, BorderLayout.WEST)
+        if (hasChange) {
+            combo.font = combo.font.deriveFont(java.awt.Font.BOLD)
+        }
+        add(combo, BorderLayout.CENTER)
+        toolTipText = tooltip
+    }
 
 /**
  * Erstellt die URL zur Repository-Browser-Seite für eine gegebene Abhängigkeit und Version.
@@ -188,6 +285,10 @@ internal fun canCheckVulnerabilities(isRefreshing: Boolean, isUpdating: Boolean)
 }
 
 
+private const val VULNERABILITY_DETAILS_TITLE = "vulnerability.details.title"
+
+private const val TOOLWINDOW_MY_TOOL_WINDOW_CONTEXT_MENU_OPEN_IN_MVN_REPOSITORY = "toolwindow.MyToolWindow.contextMenu.openInMvnRepository"
+
 /**
  * -----------------------------------------------------------------------------------------------
  * Factory-Klasse zur Erstellung und Initialisierung des MavenUp Tool Windows in der IntelliJ-IDE.
@@ -223,26 +324,59 @@ class MavenUpWindowFactory : ToolWindowFactory {
      * durchzuführenden Änderungen (Gruppe, Artefakt, Version alt/neu).
      */
     class UpdateConfirmationDialog(
-        project: Project,
+        private val project: Project,
         private val updates: List<DependencyUpdate>
     ) : DialogWrapper(project) {
+        private val syncMavenCheckbox: JCheckBox = JCheckBox(
+            MyMessageBundle.message("toolwindow.MyToolWindow.update.confirm.syncMaven")
+        ).apply {
+            isSelected = MavenUpSettings.getInstance(project).state.syncMavenAfterUpdate
+        }
+
         init {
             title = MyMessageBundle.message("toolwindow.MyToolWindow.update.confirm.title")
             init()
         }
 
         /**
-         * Erstellt den zentralen Bereich des Dialogs mit der Update-Übersichtstabelle.
+         * Gibt zurück, ob der Benutzer die Option "Sync Maven Changes" ausgewählt hat.
+         */
+        fun isSyncMavenSelected(): Boolean = syncMavenCheckbox.isSelected
+
+        /**
+         * Erstellt den zentralen Bereich des Dialogs mit der Update-Übersichtstabelle und der Sync-Option.
          */
         override fun createCenterPanel(): JComponent {
             val panel = JBPanel<JBPanel<*>>(BorderLayout())
-            panel.preferredSize = java.awt.Dimension(600, 400)
-            panel.add(
+            panel.preferredSize = java.awt.Dimension(600, 450)
+            
+            val topPanel = JBPanel<JBPanel<*>>(BorderLayout())
+            topPanel.add(
                 JLabel(MyMessageBundle.message("toolwindow.MyToolWindow.update.confirm.message")),
                 BorderLayout.NORTH
             )
+            topPanel.border = BorderFactory.createEmptyBorder(0, 0, 10, 0)
+            panel.add(topPanel, BorderLayout.NORTH)
 
-            val tableModel = DefaultTableModel().apply {
+            panel.add(JBScrollPane(buildTable()), BorderLayout.CENTER)
+
+            val bottomPanel = JBPanel<JBPanel<*>>(BorderLayout())
+            bottomPanel.border = BorderFactory.createEmptyBorder(10, 0, 0, 0)
+            bottomPanel.add(syncMavenCheckbox, BorderLayout.WEST)
+            panel.add(bottomPanel, BorderLayout.SOUTH)
+
+            return panel
+        }
+
+        /**
+         * Erstellt die schreibgeschützte Update-Übersichtstabelle mit Einzelselektion.
+         *
+         * @return Die konfigurierte, nicht editierbare Tabelle mit allen anstehenden Updates.
+         */
+        internal fun buildTable(): JBTable {
+            val tableModel = object : DefaultTableModel() {
+                override fun isCellEditable(row: Int, column: Int): Boolean = false
+            }.apply {
                 addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.groupId"))
                 addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.artifactId"))
                 addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.type"))
@@ -263,8 +397,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
             }
 
             val table = JBTable(tableModel)
-            panel.add(JBScrollPane(table), BorderLayout.CENTER)
-            return panel
+            table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION)
+            table.tableHeader.reorderingAllowed = false
+            return table
         }
 
     }
@@ -289,6 +424,26 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private var isRefreshing = false
         private var refreshGeneration = 0
 
+        /**
+         * Zuletzt bekannter Wert der Einstellung [MavenUpSettings.State.selectLatestVersion].
+         *
+         * Dient dazu, bei einer Einstellungsänderung zu erkennen, ob sich gerade diese Option
+         * geändert hat. Nur dann wird die "New Version"-Auswahl neu berechnet, damit andere
+         * Einstellungsänderungen die bereits getroffene Versionsauswahl nicht zurücksetzen.
+         */
+        private var lastSelectLatestVersion =
+            MavenUpSettings.getInstance(project).state.selectLatestVersion
+
+        /** Die Tabelle der Abhängigkeiten; wird im Property-Initializer von [content] zugewiesen. */
+        @Suppress("RedundantLateinit")
+        private lateinit var table: JBTable
+
+        /** Die obere Aktionsleiste des Tool-Windows; wird im Init-Block initialisiert. */
+        private var actionToolbar: ActionToolbar? = null
+
+        /** Die Aktionsgruppe der oberen Aktionsleiste; wird im Init-Block befüllt. */
+        private val toolbarGroup = DefaultActionGroup()
+
         private val content = JBPanel<JBPanel<*>>(BorderLayout()).apply {
             val tableModel = object : DefaultTableModel() {
                 override fun isCellEditable(row: Int, column: Int): Boolean = column == NEW_VERSION_COLUMN
@@ -302,11 +457,22 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.newVersion"))
             }
 
-            val table = object : JBTable(tableModel) {
+            table = object : JBTable(tableModel) {
                 override fun getToolTipText(e: MouseEvent): String? {
                     val row = rowAtPoint(e.point)
                     val column = columnAtPoint(e.point)
                     if (row < 0 || column == VULNERABILITIES_COLUMN) return super.getToolTipText(e)
+                    if (column == NEW_VERSION_COLUMN) {
+                        @Suppress("UNCHECKED_CAST")
+                        val versions = getValueAt(row, NEW_VERSION_COLUMN) as? List<String> ?: emptyList()
+                        if (versions.isEmpty()) return null
+                        val groupId = getValueAt(row, GROUP_ID_COLUMN) as? String ?: ""
+                        val artifactId = getValueAt(row, ARTIFACT_ID_COLUMN) as? String ?: ""
+                        val currentVersion = getValueAt(row, CURRENT_VERSION_COLUMN) as? String ?: ""
+                        val newestVersion = versions.firstOrNull() ?: ""
+                        val effectiveVersion = selectedVersions["$groupId:$artifactId"] ?: currentVersion
+                        return versionStatusTooltip(currentVersion, effectiveVersion, newestVersion)
+                    }
                     val settings = MavenUpSettings.getInstance(project)
                     return if (settings.state.jumpOnSingleClick)
                         MyMessageBundle.message("toolwindow.MyToolWindow.table.row.tooltip.singleClick")
@@ -314,6 +480,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         MyMessageBundle.message("toolwindow.MyToolWindow.table.row.tooltip.doubleClick")
                 }
             }
+            table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION)
+            table.tableHeader.reorderingAllowed = false
 
             table.addMouseListener(object : MouseAdapter() {
                 override fun mousePressed(e: MouseEvent) {
@@ -336,7 +504,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                             VulnerabilityDetailDialog(
                                 project,
                                 cell.detailFindings(),
-                                "$coordinate - ${MyMessageBundle.message("vulnerability.details.title")}"
+                                "$coordinate - ${MyMessageBundle.message(VULNERABILITY_DETAILS_TITLE)}"
                             ).show()
                         }
                         return
@@ -364,41 +532,42 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     val artifactId = table.getValueAt(row, ARTIFACT_ID_COLUMN) as? String ?: ""
                     val type = table.getValueAt(row, TYPE_COLUMN) as? String ?: "dependency"
                     val currentVersion = table.getValueAt(row, CURRENT_VERSION_COLUMN) as? String ?: ""
+                    val vulnerabilityCell = table.getValueAt(row, VULNERABILITIES_COLUMN) as? VulnerabilityCell
 
                     val popup = JPopupMenu()
                     popup.add(JMenuItem(MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.navigateToPom")).apply {
                         addActionListener { navigateToDependency(groupId, artifactId, type) }
                     })
                     val browserName = MavenUpSettings.getInstance(project).state.repositoryBrowser.displayName
-                    popup.add(JMenuItem(MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.openInMvnRepository", browserName)).apply {
+                    popup.add(JMenuItem(MyMessageBundle.message(
+                        TOOLWINDOW_MY_TOOL_WINDOW_CONTEXT_MENU_OPEN_IN_MVN_REPOSITORY, browserName)).apply {
                         addActionListener { openInMavenRepository(groupId, artifactId, currentVersion) }
                     })
+                    if (vulnerabilityCell != null && vulnerabilityCell.allAdvisories.isNotEmpty()) {
+                        popup.addSeparator()
+                        popup.add(JMenuItem(MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.showVulnerabilityDetails")).apply {
+                            addActionListener {
+                                val coordinate = "$groupId:$artifactId:$currentVersion"
+                                VulnerabilityDetailDialog(
+                                    project,
+                                    vulnerabilityCell.detailFindings(),
+                                    "$coordinate - ${MyMessageBundle.message(VULNERABILITY_DETAILS_TITLE)}"
+                                ).show()
+                            }
+                        })
+                    }
                     popup.show(e.component, e.x, e.y)
                 }
             })
 
-            val refreshButton = JButton(MyMessageBundle.message("toolwindow.MyToolWindow.refresh.button"))
-            val checkUpdatesButton = JButton(MyMessageBundle.message("toolwindow.MyToolWindow.checkUpdates.button"))
-            val checkVulnerabilitiesButton =
-                JButton(MyMessageBundle.message("toolwindow.MyToolWindow.checkVulnerabilities.button"))
-            val vulnerabilityDetailsButton =
-                JButton(MyMessageBundle.message("toolwindow.MyToolWindow.vulnerabilityDetails.button")).apply {
-                    isEnabled = false
-                }
-            val updateButton = JButton(MyMessageBundle.message("toolwindow.MyToolWindow.update.button"))
-            fun updateVulnerabilityCheckButtonState() {
-                checkVulnerabilitiesButton.isEnabled = canCheckVulnerabilities(isRefreshing, isUpdating)
-            }
-            val settingsButton = JButton(AllIcons.General.Settings).apply {
-                toolTipText = MyMessageBundle.message("toolwindow.MyToolWindow.settings.button")
-                isBorderPainted = false
-                isContentAreaFilled = false
-                isFocusPainted = false
-                preferredSize = java.awt.Dimension(20, 20)
-            }
-
             // Force commit editor when focus lost
             table.putClientProperty("terminateEditOnFocusLost", true)
+
+            table.selectionModel.addListSelectionListener { event ->
+                if (!event.valueIsAdjusting) {
+                    refreshToolbar()
+                }
+            }
 
             // Custom Renderer and Editor for the "New Version" column
             table.columnModel.getColumn(NEW_VERSION_COLUMN).cellRenderer =
@@ -412,30 +581,37 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     if (versions.isEmpty()) return@TableCellRenderer JLabel("")
 
                     val selectedVersion = selectedVersions[key]
+                    val currentVersion = table?.getValueAt(row, CURRENT_VERSION_COLUMN) as? String ?: ""
+                    val newestVersion = versions.firstOrNull() ?: ""
+                    val effectiveVersion = selectedVersion ?: currentVersion
+                    val upToDate = isVersionUpToDate(effectiveVersion, newestVersion)
+                    val hasChange = effectiveVersion != currentVersion && effectiveVersion.isNotEmpty()
 
-                    ComboBox(versions.toTypedArray()).apply {
+                    val combo = ComboBox(versions.toTypedArray()).apply {
                         if (selectedVersion != null) {
                             selectedItem = selectedVersion
                         }
-
-                        val currentVersion = table?.getValueAt(row, CURRENT_VERSION_COLUMN) as? String ?: ""
-                        val newestVersion = versions.firstOrNull() ?: ""
-                        if (currentVersion == newestVersion && currentVersion.isNotEmpty()) {
-                            foreground = com.intellij.ui.JBColor.BLUE
+                        if (hasChange) {
+                            foreground = versionStatusColor(upToDate)
                         }
 
                         if (isSelected) {
                             background = table?.selectionBackground
-                            if (currentVersion != newestVersion) {
-                                foreground = table?.selectionForeground
-                            }
                         }
                     }
+
+                    createVersionPanel(
+                        combo,
+                        versionStatusIcon(upToDate),
+                        versionStatusTooltip(currentVersion, effectiveVersion, newestVersion),
+                        hasChange
+                    )
                 }
 
             table.columnModel.getColumn(NEW_VERSION_COLUMN).cellEditor = object : AbstractTableCellEditor() {
                 private var currentComboBox: ComboBox<String>? = null
                 private var currentKey: String? = null
+                private var editorPanel: JPanel? = null
 
                 override fun getTableCellEditorComponent(
                     table: JTable?, value: Any?, isSelected: Boolean, row: Int, column: Int
@@ -450,54 +626,56 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
                     val currentVersion = table?.getValueAt(row, CURRENT_VERSION_COLUMN) as? String ?: ""
                     val newestVersion = versions.firstOrNull() ?: ""
-                    if (currentVersion == newestVersion && currentVersion.isNotEmpty()) {
-                        combo.foreground = com.intellij.ui.JBColor.BLUE
-                    }
 
                     val selectedVersion = if (currentKey != null) selectedVersions[currentKey!!] else null
                     if (selectedVersion != null) {
                         combo.selectedItem = selectedVersion
                     }
 
+                    val effectiveVersion = selectedVersion ?: currentVersion
+                    val upToDate = isVersionUpToDate(effectiveVersion, newestVersion)
+                    val hasChange = effectiveVersion != currentVersion && effectiveVersion.isNotEmpty()
+                    if (hasChange) {
+                        combo.foreground = versionStatusColor(upToDate)
+                    }
+
+                    // Custom-Renderer, der Farbe und Font nur im Anzeigefeld übernimmt (nicht im Dropdown)
+                    combo.setRenderer { _, value, index, _, _ ->
+                        JLabel(value ?: "").apply {
+                            if (index == -1) {
+                                foreground = combo.foreground
+                                font = combo.font
+                            }
+                        }
+                    }
+
                     combo.addActionListener {
                         val selected = combo.selectedItem as? String
                         val key = currentKey
                         if (key != null && selected != null) {
-                            selectedVersions[key] = selected
-
-                            // Synchronize other dependencies using the same property
-                            val property = dependencyToProperty[key]
-                            if (property != null) {
-                                dependencyToProperty.forEach { (depKey, prop) ->
-                                    if (prop == property) {
-                                        selectedVersions[depKey] = selected
-                                    }
-                                }
-                            }
+                            synchronizePropertyVersions(key, selected)
                         }
-                        updateUpdateButtonState(updateButton)
+                        updateUpdateButtonState()
+                        updateEditorVisuals(combo, editorPanel, selected, currentVersion, newestVersion)
                     }
 
                     currentComboBox = combo
-                    return combo
+                    val panel = createVersionPanel(
+                        combo,
+                        versionStatusIcon(upToDate),
+                        versionStatusTooltip(currentVersion, effectiveVersion, newestVersion),
+                        hasChange
+                    )
+                    editorPanel = panel
+                    return panel
                 }
 
                 override fun getCellEditorValue(): Any? {
                     val selected = currentComboBox?.selectedItem as? String
                     if (currentKey != null && selected != null) {
-                        selectedVersions[currentKey!!] = selected
-
-                        // Synchronize other dependencies using the same property
-                        val property = dependencyToProperty[currentKey!!]
-                        if (property != null) {
-                            dependencyToProperty.forEach { (key, prop) ->
-                                if (prop == property) {
-                                    selectedVersions[key] = selected
-                                }
-                            }
-                        }
+                        synchronizePropertyVersions(currentKey!!, selected)
                     }
-                    updateUpdateButtonState(updateButton)
+                    updateUpdateButtonState()
                     val groupId = currentKey?.substringBefore(":")
                     val artifactId = currentKey?.substringAfter(":")
                     return availableVersions["$groupId:$artifactId"]
@@ -514,7 +692,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         if (advisories.isNotEmpty()) {
                             icon = AllIcons.Ide.Link
                             horizontalTextPosition = JLabel.TRAILING
-                            toolTipText = MyMessageBundle.message("vulnerability.details.title")
+                            toolTipText = MyMessageBundle.message(VULNERABILITY_DETAILS_TITLE)
                         } else {
                             toolTipText = null
                         }
@@ -527,21 +705,27 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     }
                 }
 
-            fun refreshAction(checkUpdates: Boolean, clearNewVersions: Boolean) {
+            fun refreshAction(checkUpdates: Boolean, clearData: Boolean, clearVulnerabilities: Boolean) {
                 if (isUpdating) return
 
                 val generation = ++refreshGeneration
                 isRefreshing = true
-                updateVulnerabilityCheckButtonState()
+                refreshToolbar()
+                cancelActiveCellEditing()
                 tableModel.setRowCount(0)
-                if (clearNewVersions) {
+                if (clearData) {
                     availableVersions.clear()
                     selectedVersions.clear()
+                }
+                if (clearVulnerabilities) {
+                    vulnerabilityAdvisories.clear()
+                    transitiveCoordinates.clear()
+                    transitiveDependenciesByDirect.clear()
                 }
                 dependencyToProperty.clear()
                 knownDependencies.clear()
                 knownTypes.clear()
-                updateUpdateButtonState(updateButton)
+                updateUpdateButtonState()
 
                 val managedDependencyType =
                     MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
@@ -573,20 +757,15 @@ class MavenUpWindowFactory : ToolWindowFactory {
                                 )
                             )
                         }
-                        updateUpdateButtonState(updateButton)
+                        updateUpdateButtonState()
 
                         if (checkUpdates) {
-                            performUpdateCheck(
-                                refreshButton,
-                                checkUpdatesButton,
-                                checkVulnerabilitiesButton,
-                                updateButton
-                            ) {
-                                refreshAction(false, false)
+                            performUpdateCheck {
+                                refreshAction(false, false, false)
                             }
                         }
                         isRefreshing = false
-                        updateVulnerabilityCheckButtonState()
+                        refreshToolbar()
                     }
                     .submit(AppExecutorUtil.getAppExecutorService())
             }
@@ -599,20 +778,27 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     if (updates.isNotEmpty()) {
                         val dialog = UpdateConfirmationDialog(project, updates)
                         if (dialog.showAndGet()) {
+                            val shouldSyncMaven = dialog.isSyncMavenSelected()
+                            MavenUpSettings.getInstance(project).state.syncMavenAfterUpdate = shouldSyncMaven
                             ProgressManager.getInstance().run(object : Task.Backgroundable(
                                 project,
                                 MyMessageBundle.message("toolwindow.MyToolWindow.update.progress"),
                                 true
                             ) {
                                 override fun run(indicator: ProgressIndicator) {
-                                    MavenProjectsManager.getInstance(project).projects.forEach { mavenProject ->
+                                    val mavenManager = MavenProjectsManager.getInstance(project)
+                                    mavenManager.projects.forEach { mavenProject ->
                                         applyUpdateToPom(mavenProject, updates)
+                                    }
+
+                                    if (shouldSyncMaven) {
+                                        mavenManager.forceUpdateAllProjectsOrFindAllAvailablePomFiles()
                                     }
 
                                     ApplicationManager.getApplication().invokeLater {
                                         selectedVersions.clear()
                                         availableVersions.clear()
-                                        refreshAction(false, true)
+                                        refreshAction(false, true, true)
 
                                         for (row in 0 until tableModel.rowCount) {
                                             tableModel.setValueAt("", row, CURRENT_VERSION_COLUMN)
@@ -629,53 +815,93 @@ class MavenUpWindowFactory : ToolWindowFactory {
             val checkVulnerabilitiesAction = {
                 if (!isUpdating) {
                     isUpdating = true
-                    refreshButton.isEnabled = false
-                    checkUpdatesButton.isEnabled = false
-                    checkVulnerabilitiesButton.isEnabled = false
-                    vulnerabilityDetailsButton.isEnabled = false
-                    updateButton.isEnabled = false
+                    refreshToolbar()
 
                     performVulnerabilityCheck {
                         isUpdating = false
-                        refreshButton.isEnabled = true
-                        checkUpdatesButton.isEnabled = true
-                        updateVulnerabilityCheckButtonState()
-                        refreshAction(false, false)
-                        vulnerabilityDetailsButton.isEnabled = vulnerabilityAdvisories.values.any { it.isNotEmpty() }
-                        updateUpdateButtonState(updateButton)
+                        refreshAction(false, false, false)
+                        refreshToolbar()
                     }
                 }
             }
 
-            refreshAction(false, true)
+            refreshAction(false, true, true)
 
             add(JBScrollPane(table), BorderLayout.CENTER)
 
-            val buttonPanel = JPanel(BorderLayout()).apply {
-                val leftButtonPanel = JPanel(FlowLayout(FlowLayout.LEFT)).apply {
-                    add(refreshButton.apply {
-                        addActionListener { refreshAction(false, true) }
-                    })
-                    add(checkUpdatesButton.apply {
-                        addActionListener { refreshAction(true, true) }
-                    })
-                    add(checkVulnerabilitiesButton.apply {
-                        addActionListener { checkVulnerabilitiesAction() }
-                    })
-                    add(vulnerabilityDetailsButton.apply {
-                        addActionListener { showAllVulnerabilityDetails() }
-                    })
-                    add(updateButton.apply {
-                        addActionListener { updateAction() }
-                    })
+            fun toolbarAction(
+                messageKey: String,
+                icon: Icon,
+                isEnabled: () -> Boolean,
+                onPerform: () -> Unit
+            ): AnAction {
+                val label = MyMessageBundle.message(messageKey)
+                return object : AnAction(label, label, icon) {
+                    override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
+                    override fun update(e: AnActionEvent) {
+                        e.presentation.isEnabled = isEnabled()
+                        e.presentation.putClientProperty(ActionUtil.SHOW_TEXT_IN_TOOLBAR, isToolbarTextEnabled())
+                    }
+
+                    override fun actionPerformed(e: AnActionEvent) = onPerform()
                 }
-                add(leftButtonPanel, BorderLayout.WEST)
-                add(settingsButton.apply {
-                    addActionListener { openSettings() }
-                }, BorderLayout.EAST)
             }
 
-            add(buttonPanel, BorderLayout.SOUTH)
+            val openInRepositoryAction = object : AnAction() {
+                override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
+                override fun update(e: AnActionEvent) {
+                    val label = currentOpenInRepositoryText()
+                    e.presentation.text = label
+                    e.presentation.description = label
+                    e.presentation.icon = AllIcons.General.Web
+                    e.presentation.isEnabled = isOpenInRepositoryEnabled()
+                    e.presentation.putClientProperty(ActionUtil.SHOW_TEXT_IN_TOOLBAR, isToolbarTextEnabled())
+                }
+
+                override fun actionPerformed(e: AnActionEvent) = openInMavenRepositoryForSelectedRow()
+            }
+
+            toolbarGroup.apply {
+                add(toolbarAction(
+                    "toolwindow.MyToolWindow.refresh.button",
+                    AllIcons.Actions.Refresh,
+                    { !isUpdating }
+                ) { refreshAction(false, true, true) })
+                add(toolbarAction(
+                    "toolwindow.MyToolWindow.checkUpdates.button",
+                    AllIcons.Actions.Find,
+                    { !isUpdating }
+                ) { refreshAction(true, true, false) })
+                add(toolbarAction(
+                    "toolwindow.MyToolWindow.checkVulnerabilities.button",
+                    AllIcons.General.InspectionsEye,
+                    { isCheckVulnerabilitiesEnabled() }
+                ) { checkVulnerabilitiesAction() })
+                add(toolbarAction(
+                    "toolwindow.MyToolWindow.update.button",
+                    AllIcons.Actions.Execute,
+                    { isUpdateActionEnabled() }
+                ) { updateAction() })
+                addSeparator()
+                add(openInRepositoryAction)
+                add(toolbarAction(
+                    "toolwindow.MyToolWindow.vulnerabilityDetails.button",
+                    AllIcons.General.BalloonWarning,
+                    { isVulnerabilityDetailsEnabled() }
+                ) { openVulnerabilityDetailsForSelectedRow() })
+                add(Separator.getInstance())
+                add(toolbarAction(
+                    "toolwindow.MyToolWindow.settings.button",
+                    AllIcons.General.Settings,
+                    { true }
+                ) { openSettings() })
+            }
+            val toolbar = ActionManager.getInstance()
+                .createActionToolbar("MavenUpToolWindow", toolbarGroup, true)
+            toolbar.targetComponent = table
+            actionToolbar = toolbar
+
+            add(toolbar.component, BorderLayout.NORTH)
 
             project.messageBus.connect(this@MyToolWindow).subscribe(MavenImportListener.TOPIC, object : MavenImportListener {
                 override fun importFinished(
@@ -685,8 +911,15 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     ApplicationManager.getApplication().invokeLater {
                         availableVersions.clear()
                         selectedVersions.clear()
-                        refreshAction(false, true)
+                        refreshAction(false, true, true)
                     }
+                }
+            })
+
+            project.messageBus.connect(this@MyToolWindow).subscribe(MAVEN_UP_SETTINGS_TOPIC, Runnable {
+                ApplicationManager.getApplication().invokeLater {
+                    rebuildToolbar()
+                    applySelectLatestVersionSettingIfChanged()
                 }
             })
         }
@@ -694,17 +927,245 @@ class MavenUpWindowFactory : ToolWindowFactory {
         override fun dispose() = Unit
 
         /**
-         * Aktualisiert den Status des Update-Buttons basierend darauf, ob Änderungen ausgewählt wurden.
+         * Fordert die obere Aktionsleiste auf, den Aktivierungszustand und die Beschriftungen
+         * ihrer Aktionen neu zu berechnen.
          */
-        private fun updateUpdateButtonState(updateButton: JButton) {
-            var hasUpdate = false
-            knownDependencies.forEach { (key, currentVersion) ->
-                val newVersion = selectedVersions[key]
-                if (newVersion != null && newVersion != currentVersion) {
-                    hasUpdate = true
+        private fun refreshToolbar() {
+            actionToolbar?.updateActionsAsync()
+        }
+
+        /**
+         * Prüft, ob die Aktionsleisten gemäß den Einstellungen Text-Buttons statt reiner Icon-Buttons
+         * anzeigen sollen.
+         *
+         * @return `true`, wenn Text-Buttons angezeigt werden sollen.
+         */
+        internal fun isToolbarTextEnabled(): Boolean =
+            MavenUpSettings.getInstance(project).state.toolbarShowText
+
+        /**
+         * Bricht eine aktive Zell-Bearbeitung der Haupttabelle ab, bevor deren Zeilen entfernt
+         * oder neu aufgebaut werden.
+         *
+         * Ohne diesen Abbruch kann ein noch geöffneter Zell-Editor der Spalte "New Version" beim
+         * späteren Layout (`columnMarginChanged` → `editingStopped`) versuchen, seinen Wert in eine
+         * bereits entfernte Zeile zu schreiben, was eine [ArrayIndexOutOfBoundsException] im
+         * `DefaultTableModel` auslöst.
+         *
+         * @return `true`, wenn eine laufende Bearbeitung abgebrochen wurde, sonst `false`.
+         */
+        internal fun cancelActiveCellEditing(): Boolean {
+            if (table.isEditing) {
+                table.cellEditor?.cancelCellEditing()
+                return true
+            }
+            return false
+        }
+
+        /**
+         * Baut die obere Aktionsleiste neu auf, damit ein geänderter Text-/Icon-Modus wirksam wird.
+         * Ersetzt die bestehende Aktionsleiste im Nordbereich durch eine neu erstellte Instanz.
+         * Muss auf dem Event Dispatch Thread laufen.
+         */
+        private fun rebuildToolbar() {
+            actionToolbar?.let { content.remove(it.component) }
+            val toolbar = ActionManager.getInstance()
+                .createActionToolbar("MavenUpToolWindow", toolbarGroup, true)
+            toolbar.targetComponent = table
+            actionToolbar = toolbar
+            content.add(toolbar.component, BorderLayout.NORTH)
+            content.revalidate()
+            content.repaint()
+        }
+
+        /**
+         * Wendet die Einstellung [MavenUpSettings.State.selectLatestVersion] nur dann erneut an,
+         * wenn sich ihr Wert seit dem letzten Aufruf tatsächlich geändert hat.
+         *
+         * Dadurch setzt das Ändern anderer Einstellungen (z.B. Text-Buttons oder Maven-Sync) die
+         * bereits getroffene **New Version**-Auswahl nicht mehr zurück.
+         */
+        internal fun applySelectLatestVersionSettingIfChanged() {
+            val selectLatest = MavenUpSettings.getInstance(project).state.selectLatestVersion
+            if (selectLatest != lastSelectLatestVersion) {
+                lastSelectLatestVersion = selectLatest
+                applySelectLatestVersionSetting()
+            }
+        }
+
+        /**
+         * Wendet die Einstellung [MavenUpSettings.State.selectLatestVersion] auf alle bereits
+         * geladenen Abhängigkeiten an. Wird aufgerufen, wenn sich die Einstellung ändert, damit
+         * die "New Version"-Spalte sofort die korrekte Auswahl widerspiegelt.
+         *
+         * Bei aktivierter Einstellung wird für jede Abhängigkeit die neueste verfügbare Version
+         * vorausgewählt; bei deaktivierter Einstellung wird die aktuelle Version beibehalten.
+         */
+        internal fun applySelectLatestVersionSetting() {
+            if (availableVersions.isEmpty()) return
+            val selectLatest = MavenUpSettings.getInstance(project).state.selectLatestVersion
+            for ((key, versions) in availableVersions) {
+                if (versions.isEmpty()) continue
+                val currentVersion = knownDependencies[key] ?: ""
+                if (selectLatest) {
+                    if (versions.first() != currentVersion) {
+                        selectedVersions[key] = versions.first()
+                    } else {
+                        selectedVersions.remove(key)
+                    }
+                } else {
+                    selectedVersions[key] = currentVersion
                 }
             }
-            updateButton.isEnabled = hasUpdate && !isUpdating
+            cancelActiveCellEditing()
+            table.repaint()
+            updateUpdateButtonState()
+        }
+
+        /**
+         * Synchronisiert die Version-Auswahl über alle Einträge, die dieselbe Maven-Property verwenden.
+         *
+         * @param key Der Schlüssel (`groupId:artifactId`) der geänderten Dependency.
+         * @param selected Die neu ausgewählte Version.
+         */
+        private fun synchronizePropertyVersions(key: String, selected: String) {
+            selectedVersions[key] = selected
+            val property = dependencyToProperty[key]
+            if (property != null) {
+                dependencyToProperty.forEach { (depKey, prop) ->
+                    if (prop == property) {
+                        selectedVersions[depKey] = selected
+                    }
+                }
+            }
+        }
+
+        /**
+         * Aktualisiert die visuelle Darstellung (Farbe, Font, Icon, Tooltip) des Editor-Panels
+         * sofort nach einer Versionsauswahl, ohne dass der Fokus die Zelle verlassen muss.
+         *
+         * @param combo Die ComboBox im Editor.
+         * @param panel Das umgebende JPanel mit Icon und ComboBox.
+         * @param selected Die aktuell gewählte Version.
+         * @param currentVersion Die im Projekt verwendete Version.
+         * @param newestVersion Die höchste bekannte Version.
+         */
+        private fun updateEditorVisuals(
+            combo: ComboBox<String>,
+            panel: JPanel?,
+            selected: String?,
+            currentVersion: String,
+            newestVersion: String
+        ) {
+            val newUpToDate = isVersionUpToDate(selected ?: "", newestVersion)
+            val newHasChange = selected != currentVersion && !selected.isNullOrEmpty()
+            val newColor = if (newHasChange) versionStatusColor(newUpToDate) else null
+            val newFontStyle = if (newHasChange) java.awt.Font.BOLD else java.awt.Font.PLAIN
+            combo.foreground = newColor
+            combo.font = combo.font.deriveFont(newFontStyle)
+            combo.repaint()
+            if (panel != null) {
+                val iconLabel = panel.getComponent(0) as? JLabel
+                iconLabel?.icon = versionStatusIcon(newUpToDate)
+                panel.toolTipText = versionStatusTooltip(currentVersion, selected ?: currentVersion, newestVersion)
+                panel.repaint()
+            }
+        }
+
+        private fun updateUpdateButtonState() {
+            refreshToolbar()
+        }
+
+        /**
+         * Prüft, ob mindestens eine Abhängigkeit mit einer von der aktuellen Version abweichenden
+         * neuen Version ausgewählt wurde.
+         *
+         * @return `true`, wenn mindestens ein anwendbares Update ausgewählt ist.
+         */
+        internal fun hasSelectedUpdates(): Boolean {
+            return knownDependencies.any { (key, currentVersion) ->
+                val newVersion = selectedVersions[key]
+                newVersion != null && newVersion != currentVersion
+            }
+        }
+
+        /**
+         * Prüft, ob die Update-Aktion ausführbar ist (ausgewählte Updates und keine laufende Operation).
+         *
+         * @return `true`, wenn die Update-Aktion aktiviert sein soll.
+         */
+        internal fun isUpdateActionEnabled(): Boolean = hasSelectedUpdates() && !isUpdating
+
+        /**
+         * Prüft, ob die Vulnerability-Prüfung derzeit gestartet werden darf.
+         *
+         * @return `true`, wenn keine laufende Aktualisierung oder Prüfung aktiv ist.
+         */
+        internal fun isCheckVulnerabilitiesEnabled(): Boolean =
+            canCheckVulnerabilities(isRefreshing, isUpdating)
+
+        /**
+         * Prüft, ob für die aktuell selektierte Zeile die Repository-Browser-Aktion verfügbar ist.
+         *
+         * @return `true`, wenn eine Zeile selektiert ist.
+         */
+        internal fun isOpenInRepositoryEnabled(): Boolean =
+            ::table.isInitialized && table.selectedRow >= 0
+
+        /**
+         * Prüft, ob für die aktuell selektierte Zeile Vulnerability-Details angezeigt werden können.
+         *
+         * @return `true`, wenn die selektierte Zeile mindestens eine Sicherheitswarnung besitzt.
+         */
+        internal fun isVulnerabilityDetailsEnabled(): Boolean {
+            if (!::table.isInitialized) return false
+            val row = table.selectedRow
+            val cell = if (row >= 0) table.getValueAt(row, VULNERABILITIES_COLUMN) as? VulnerabilityCell else null
+            return !isUpdating && cell?.allAdvisories?.isNotEmpty() == true
+        }
+
+        /**
+         * Liefert die aktuelle Beschriftung der Repository-Browser-Aktion inklusive des
+         * konfigurierten Browser-Namens.
+         *
+         * @return Der lokalisierte Aktionstext mit eingesetztem Browser-Namen.
+         */
+        internal fun currentOpenInRepositoryText(): String {
+            val browserName = MavenUpSettings.getInstance(project).state.repositoryBrowser.displayName
+            return MyMessageBundle.message(
+                TOOLWINDOW_MY_TOOL_WINDOW_CONTEXT_MENU_OPEN_IN_MVN_REPOSITORY, browserName
+            )
+        }
+
+        /**
+         * Öffnet die aktuell selektierte Abhängigkeit im konfigurierten Repository-Browser.
+         */
+        internal fun openInMavenRepositoryForSelectedRow() {
+            val row = table.selectedRow
+            if (row < 0) return
+            val groupId = table.getValueAt(row, GROUP_ID_COLUMN)?.toString().orEmpty()
+            val artifactId = table.getValueAt(row, ARTIFACT_ID_COLUMN)?.toString().orEmpty()
+            val currentVersion = table.getValueAt(row, CURRENT_VERSION_COLUMN)?.toString().orEmpty()
+            openInMavenRepository(groupId, artifactId, currentVersion)
+        }
+
+        /**
+         * Öffnet den Vulnerability-Details-Dialog für die aktuell selektierte Abhängigkeit.
+         */
+        internal fun openVulnerabilityDetailsForSelectedRow() {
+            val row = table.selectedRow
+            if (row < 0) return
+            val cell = table.getValueAt(row, VULNERABILITIES_COLUMN) as? VulnerabilityCell
+            val findings = cell?.detailFindings() ?: emptyMap()
+            val groupId = table.getValueAt(row, GROUP_ID_COLUMN)?.toString().orEmpty()
+            val artifactId = table.getValueAt(row, ARTIFACT_ID_COLUMN)?.toString().orEmpty()
+            if (findings.isNotEmpty()) {
+                VulnerabilityDetailDialog(
+                    project,
+                    findings,
+                    "$groupId:$artifactId - ${MyMessageBundle.message(VULNERABILITY_DETAILS_TITLE)}"
+                ).show()
+            }
         }
 
         /**
@@ -770,6 +1231,42 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
+         * Liest die Parent-Dependency aus dem `<parent>`-Tag der `pom.xml` und erzeugt eine [RefreshRow].
+         * Gibt `null` zurück, wenn kein Parent-Tag vorhanden ist oder groupId/artifactId leer sind.
+         *
+         * @param rootTag Das Root-Tag der `pom.xml`.
+         * @param propertyTargetMap Ziel-Map für erkannte Maven-Property-Platzhalter.
+         * @return Eine [RefreshRow] mit Typ [PARENT_TYPE] oder `null`.
+         */
+        internal fun collectParentDependency(
+            rootTag: XmlTag?,
+            propertyTargetMap: MutableMap<String, String>
+        ): RefreshRow? {
+            val parentTag = rootTag?.findFirstSubTag("parent") ?: return null
+            val g = parentTag.findFirstSubTag("groupId")?.value?.text?.trim().orEmpty()
+            if (g.isEmpty()) return null
+            val a = parentTag.findFirstSubTag("artifactId")?.value?.text?.trim().orEmpty()
+            if (a.isEmpty()) return null
+            val v = parentTag.findFirstSubTag("version")?.value?.text?.trim().orEmpty()
+            val key = "$g:$a"
+
+            val versionText = parentTag.findFirstSubTag("version")?.value?.trimmedText
+            var propertyName = ""
+            if (versionText != null && versionText.startsWith("\${") && versionText.endsWith("}")) {
+                propertyName = versionText.substring(2, versionText.length - 1)
+                propertyTargetMap[key] = propertyName
+            }
+
+            return RefreshRow(
+                groupId = g,
+                artifactId = a,
+                propertyName = propertyName,
+                type = PARENT_TYPE,
+                currentVersion = v
+            )
+        }
+
+        /**
          * Erstellt einen Schnappschuss der aktuellen Abhängigkeiten im Projekt.
          * Muss außerhalb des Event Dispatch Threads aufgerufen werden.
          */
@@ -789,6 +1286,12 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
                 if (psiFile != null) {
                     val documentElement = psiFile.document?.rootTag
+
+                    // Parent-Dependency erfassen
+                    collectParentDependency(documentElement, properties)?.let { parentRow ->
+                        rows.add(parentRow)
+                    }
+
                     collectDependenciesAndProperties(
                         documentElement,
                         "dependencies",
@@ -854,32 +1357,23 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
-         * Orchestriert den Prozess der Update-Prüfung und aktualisiert die UI-Komponenten.
+         * Orchestriert den Prozess der Versionssuche und aktualisiert die Aktionsleiste.
+         *
+         * @param refreshAfterCheck Callback, der nach Abschluss der Prüfung ausgeführt wird.
          */
         private fun performUpdateCheck(
-            refreshButton: JButton,
-            checkUpdatesButton: JButton,
-            checkVulnerabilitiesButton: JButton,
-            updateButton: JButton,
             refreshAfterCheck: () -> Unit
         ) {
             isUpdating = true
-            refreshButton.isEnabled = false
-            checkUpdatesButton.isEnabled = false
-            checkVulnerabilitiesButton.isEnabled = false
-            updateButton.isEnabled = false
+            refreshToolbar()
 
             availableVersions.clear()
             selectedVersions.clear()
             checkForUpdates {
                 ApplicationManager.getApplication().invokeLater {
                     isUpdating = false
-                    refreshButton.isEnabled = true
-                    checkUpdatesButton.isEnabled = true
-                    checkVulnerabilitiesButton.isEnabled =
-                        canCheckVulnerabilities(isRefreshing, isUpdating)
                     refreshAfterCheck()
-                    updateUpdateButtonState(updateButton)
+                    refreshToolbar()
                 }
             }
         }
@@ -904,10 +1398,16 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     val managedDependencyType = MyMessageBundle.message(
                         TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY
                     )
-                    if (update.type == "dependency" || update.type == managedDependencyType) {
-                        updateDependencies(documentElement, update, propertiesTag)
-                    } else if (update.type == "plugin" || update.type == MANAGED_PLUGIN) {
-                        updatePlugins(documentElement, update, propertiesTag)
+                    when (update.type) {
+                        PARENT_TYPE -> {
+                            updateParent(documentElement, update, propertiesTag)
+                        }
+                        "dependency", managedDependencyType -> {
+                            updateDependencies(documentElement, update, propertiesTag)
+                        }
+                        "plugin", MANAGED_PLUGIN -> {
+                            updatePlugins(documentElement, update, propertiesTag)
+                        }
                     }
                 }
             }
@@ -933,6 +1433,26 @@ class MavenUpWindowFactory : ToolWindowFactory {
             // Search in <dependencyManagement><dependencies>
             dmDependenciesTag?.findSubTags("dependency")?.forEach { depTag ->
                 updateIfMatch(depTag, update, propertiesTag)
+            }
+        }
+
+        /**
+         * Aktualisiert die Version im `<parent>`-Tag der `pom.xml` für ein Parent-Update.
+         *
+         * @param documentElement Das Root-Tag der `pom.xml`.
+         * @param update Das anzuwendende Update.
+         * @param propertiesTag Das `<properties>`-Tag für Property-basierte Versionsupdates.
+         */
+        private fun updateParent(
+            documentElement: XmlTag,
+            update: DependencyUpdate,
+            propertiesTag: XmlTag?
+        ) {
+            val parentTag = documentElement.findFirstSubTag("parent") ?: return
+            val g = parentTag.findFirstSubTag("groupId")?.value?.text
+            val a = parentTag.findFirstSubTag("artifactId")?.value?.text
+            if (g == update.groupId && a == update.artifactId) {
+                updateXmlTagVersion(parentTag, update.newVersion, propertiesTag)
             }
         }
 
@@ -978,7 +1498,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
-         * Führt die Sicherheitsprüfung für die erfassten Abhängigkeiten durch.
+         * Führt den Vulnerability-Scan für die erfassten Abhängigkeiten durch.
          * Nutzt OSV und optional den Sonatype OSS Index.
          */
         private fun performVulnerabilityCheck(onFinished: () -> Unit) {
@@ -1110,24 +1630,12 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
-         * Öffnet den Detail-Dialog für alle gefundenen Sicherheitslücken.
-         */
-        private fun showAllVulnerabilityDetails() {
-            val findings = vulnerabilityAdvisories
-                .filterValues { it.isNotEmpty() }
-                .mapKeys { (coordinate, _) ->
-                    if (coordinate in transitiveCoordinates) "$coordinate (transitive)" else coordinate
-                }
-            if (findings.isNotEmpty()) VulnerabilityDetailDialog(project, findings).show()
-        }
-
-        /**
          * Bestimmt die Hintergrundfarbe für ein Tabellenfeld basierend auf dem Schweregrad der Sicherheitslücke.
          */
         private fun vulnerabilityColor(
             severity: VulnerabilitySeverity,
-            defaultColor: java.awt.Color
-        ): java.awt.Color = when (severity) {
+            defaultColor: Color
+        ): Color = when (severity) {
             VulnerabilitySeverity.CRITICAL -> com.intellij.ui.JBColor(0xFFB3B3, 0x6E2C2C)
             VulnerabilitySeverity.HIGH -> com.intellij.ui.JBColor(0xFFD5A3, 0x714A21)
             VulnerabilitySeverity.MEDIUM -> com.intellij.ui.JBColor(0xFFF0A6, 0x665A21)
@@ -1136,7 +1644,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
-         * Startet die Hintergrundaufgabe zur Prüfung auf verfügbare Versions-Updates.
+         * Startet die Hintergrundaufgabe zur Suche nach verfügbaren neuen Versionen.
          */
         private fun checkForUpdates(onFinished: () -> Unit) {
             ProgressManager.getInstance().run(object : Task.Backgroundable(
@@ -1199,6 +1707,17 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
             ApplicationManager.getApplication().runReadAction {
                 val rootTag = psiFile.document?.rootTag ?: return@runReadAction
+
+                // parent
+                val parentTag = rootTag.findFirstSubTag("parent")
+                if (parentTag != null) {
+                    val g = parentTag.findFirstSubTag("groupId")?.value?.text ?: ""
+                    val a = parentTag.findFirstSubTag("artifactId")?.value?.text ?: ""
+                    val v = parentTag.findFirstSubTag("version")?.value?.text ?: ""
+                    if (g.isNotEmpty() && a.isNotEmpty() && !allKeysWithVersions.containsKey("$g:$a")) {
+                        allKeysWithVersions["$g:$a"] = v
+                    }
+                }
 
                 // dependencies
                 collectTags(rootTag.findFirstSubTag("dependencies"), "dependency", allKeysWithVersions)
@@ -1377,6 +1896,22 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
+         * Sucht nach dem `<parent>`-Tag in der `pom.xml`, das mit der angegebenen groupId
+         * und artifactId übereinstimmt.
+         *
+         * @param rootTag Das Root-Tag der `pom.xml`.
+         * @param groupId Die gesuchte Group-ID.
+         * @param artifactId Die gesuchte Artefakt-ID.
+         * @return Das `<parent>`-Tag oder `null`, wenn keines passt.
+         */
+        internal fun findParent(rootTag: XmlTag?, groupId: String, artifactId: String): XmlTag? {
+            val parentTag = rootTag?.findFirstSubTag("parent") ?: return null
+            val g = parentTag.findFirstSubTag("groupId")?.value?.text
+            val a = parentTag.findFirstSubTag("artifactId")?.value?.text
+            return if (g == groupId && a == artifactId) parentTag else null
+        }
+
+        /**
          * Sucht nach einem Plugin in `<build><plugins>` oder `<build><pluginManagement>`.
          */
         private fun findPlugin(rootTag: XmlTag?, groupId: String, artifactId: String, isManaged: Boolean): XmlTag? {
@@ -1414,7 +1949,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
                                 MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
                             val isManaged = type == managedDepType || type == MANAGED_PLUGIN
 
-                            if (type == "dependency" || type == managedDepType) {
+                            if (type == PARENT_TYPE) {
+                                findParent(rootTag, groupId, artifactId)
+                            } else if (type == "dependency" || type == managedDepType) {
                                 findDependency(rootTag, groupId, artifactId, isManaged)
                             } else {
                                 findPlugin(rootTag, groupId, artifactId, isManaged)

@@ -1,13 +1,41 @@
 <!-- Keep a Changelog guide -> https://keepachangelog.com -->
 
 # MavenUp Changelog
+## [Unreleased]
+
+### Added
+- Added a **Sync Maven changes after update** setting; the checkbox in the **Confirm Changes** dialog and the setting stay in sync, and the last choice made in the dialog is persisted.
+- Added an optional **Sync Maven Changes after update** checkbox to the **Confirm Changes** dialog (enabled by default); when selected, it automatically triggers the IDE's Maven sync after updating the `pom.xml` files.
+- Added "Show Vulnerability Details" to the right-click context menu in the main dependencies table, allowing quick access to vulnerability findings when available for a dependency.
+- Added a setting to show text labels on the toolbar buttons instead of icons only (enabled by default); it applies to the tool window and the Vulnerability Details dialog and takes effect immediately on the open tool window.
+- Added **Open on [browser]** action; it is a selection-dependent action in the top action toolbar, its tooltip dynamically shows the configured repository browser name, and it opens the current version of the selected dependency in the configured Maven repository browser.
+- The `<parent>` section of each `pom.xml` is now listed as a dependency with type "parent", including version checks, updates, navigation, and vulnerability scanning.
+- The **New Version** column now shows a status icon and color-coded text: a green checkmark with green text when the selected version is the highest known version, or an orange arrow-up icon with orange text otherwise. The icon always reflects the currently **selected** version in the dropdown; when a version different from the current one is selected, the dropdown text is displayed in bold and colored to indicate a pending change. When the selected version matches the current version, the text uses the default table color (same as the **Current Version** column). Hovering over the cell shows a tooltip with status details.
+- Toggling the "Automatically select the newest version" setting and applying it now immediately updates all **New Version** selections in the open tool window without requiring a new update check.
+
+### Changed
+- Renamed **Check for Updates** to **Find New Versions** and changed its toolbar icon from a download icon to a search/find icon, better conveying the action of searching for newer dependency versions.
+- Renamed **Check Vulnerabilities** to **Scan for Vulnerabilities** to use established security terminology that better conveys the systematic nature of the operation.
+- Changed the **References** icon in the Vulnerability Details dialog (top toolbar action and References column) to a details preview icon, making it clearer that clicking opens a dialog listing the references.
+- Removed the link icon from the **Component** column in the Vulnerability Details dialog, as double-clicking a row no longer triggers an action.
+- The **Vulnerability Details** action now requires a dependency row with findings to be selected and shows only the vulnerabilities for that selected dependency instead of all found vulnerabilities.
+- Reorganized the tool window and Vulnerability Details dialog actions into a top IntelliJ ActionToolbar with icons and tooltips, separating core actions (Refresh, Find New Versions, Scan for Vulnerabilities, Update) from the selection-dependent actions (Open in ..., Vulnerability Details / References) by a divider, in line with the IntelliJ UI guidelines.
+- Removed the bottom button bar and the custom wrapping layout, as the action toolbar handles overflow itself.
+
+### Fixed
+- The **New Version** selections are now only reset according to the "Automatically select the newest version" setting when that setting itself changes, so applying unrelated settings no longer discards a pending version selection.
+- All plugin tables now enforce single-row selection instead of allowing multiple rows to be selected at once.
+- All plugin tables now prevent column reordering, so users can no longer drag columns into a different order.
+- The **Confirm Changes** dialog table is now read-only, preventing accidental editing of the update overview.
+- Fixed an `ArrayIndexOutOfBoundsException` that could occur when refreshing or updating while the "New Version" cell editor was still open, by cancelling active cell editing before the table is rebuilt.
+
 ## [1.2.0]
 ### Added
 - Right-click context menu on dependency rows with two actions: **Navigate to pom.xml** (jumps to the entry in the editor) and **Open in Maven Repository** (opens the matching version page in the configured repository browser).
 - Configurable Maven Repository Browser: users can choose between **MVN Repository** (default, `mvnrepository.com`) and **Sonatype Central** (`central.sonatype.com`) under **Settings > Tools > MavenUp**. The selection applies to both the context menu in the main table and the Component column link in the Vulnerability Details dialog.
 - Added a tooltip on dependency rows in the main table indicating whether a single or double click will open the entry in pom.xml (adapts to the "jump on single click" setting).
 - Added a link in the OSS Index settings that opens the Sonatype account page for creating or copying an API token.
-- Added a **Check Vulnerabilities** action that queries OSV.dev and optionally enriches results with Sonatype OSS Index data, with credentials stored securely in IntelliJ Password Safe.
+- Added a **Scan for Vulnerabilities** action that queries OSV.dev and optionally enriches results with Sonatype OSS Index data, with credentials stored securely in IntelliJ Password Safe.
 - Added resolved transitive dependencies to vulnerability scans by default.
 - Added detailed vulnerability results with advisory IDs, aliases, severity/CVSS, summaries, sources, references, and a dedicated details dialog.
 - Added cross-source advisory deduplication and severity-aware vulnerability table cells.
@@ -37,7 +65,7 @@
 
 ### Fixed
 - Moved the link icon to the beginning of the **Vulnerabilities** column cell, so it appears before the summary text.
-- Disabled **Check Vulnerabilities** while a refresh or update check is running to prevent overlapping background operations.
+- Disabled **Scan for Vulnerabilities** while a refresh or update check is running to prevent overlapping background operations.
 - OSS Index requests are no longer sent when the configured username/email or API token is missing; OSV checks continue and the user receives a configuration warning.
 - Improved OSV diagnostic logging with request and chunk summaries, response-size mismatch warnings, HTTP error bodies, and cancellation details.
 - Reduced high-volume INFO logging for repository versions and OSV batch coordinates; detailed lists are now truncated and emitted only at DEBUG level to prevent excessive `idea.log` growth and UI freezes while the IDE monitors the log file.
@@ -72,7 +100,7 @@
 - The "Hidden version qualifiers" setting is now visually indented, and both its label and input field are automatically disabled when "Hide unstable versions" is turned off.
 - The "Hidden version qualifiers" input field is now wider, so longer qualifier lists are easier to read and edit.
 - Refresh now also clears the "New Version" column state.
-- Fixed refresh/update interaction: "Check for Updates" now keeps populated "New Version" values instead of clearing them.
+- Fixed refresh/update interaction: "Find New Versions" now keeps populated "New Version" values instead of clearing them.
 - Internal refactor: replaced the implicit one-shot refresh flag with an explicit refresh mode (`clear` vs `keep`) for better maintainability.
 
 ## [1.0.4]

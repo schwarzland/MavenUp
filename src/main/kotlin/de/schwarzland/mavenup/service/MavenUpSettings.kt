@@ -2,6 +2,18 @@ package de.schwarzland.mavenup.service
 
 import com.intellij.openapi.components.*
 import com.intellij.openapi.project.Project
+import com.intellij.util.messages.Topic
+
+/**
+ * Message-Bus-Topic, über das Einstellungsänderungen veröffentlicht werden.
+ *
+ * Wird verwendet, damit offene UI-Komponenten (z. B. das Tool-Window) unmittelbar auf
+ * geänderte Einstellungen reagieren können, ohne neu geöffnet werden zu müssen. Der Listener
+ * wird als [Runnable] modelliert; [Runnable.run] wird nach dem Speichern der Einstellungen aufgerufen.
+ */
+@JvmField
+val MAVEN_UP_SETTINGS_TOPIC: Topic<Runnable> =
+    Topic.create("MavenUp settings changed", Runnable::class.java)
 
 /**
  * Repräsentiert einen öffentlichen Maven-Repository-Browser, der für die Anzeige von
@@ -42,6 +54,8 @@ class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
      * @property ossIndexUsername Der Benutzername (E-Mail) für die Authentifizierung beim OSS Index.
      * @property checkTransitiveDependencies Bestimmt, ob auch transitive Abhängigkeiten auf Updates geprüft werden sollen.
      * @property repositoryBrowser Der Maven-Repository-Browser, der für Links auf Abhängigkeits-Versionsseiten verwendet wird.
+     * @property toolbarShowText Bestimmt, ob die Aktionsleisten Text-Buttons statt reiner Icon-Buttons anzeigen.
+     * @property syncMavenAfterUpdate Bestimmt, ob nach dem Schreiben der `pom.xml` automatisch der Maven-Sync der IDE ausgelöst wird.
      */
     data class State(
         var jumpOnSingleClick: Boolean = false,
@@ -51,7 +65,9 @@ class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
         var ossIndexEnabled: Boolean = false,
         var ossIndexUsername: String = "",
         var checkTransitiveDependencies: Boolean = true,
-        var repositoryBrowser: MavenRepositoryBrowser = MavenRepositoryBrowser.MVN_REPOSITORY
+        var repositoryBrowser: MavenRepositoryBrowser = MavenRepositoryBrowser.MVN_REPOSITORY,
+        var toolbarShowText: Boolean = true,
+        var syncMavenAfterUpdate: Boolean = true
     )
 
     private var myState = State()

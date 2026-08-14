@@ -2,6 +2,7 @@ package de.schwarzland.mavenup
 
 import de.schwarzland.mavenup.model.VulnerabilityAdvisory
 import de.schwarzland.mavenup.model.VulnerabilitySeverity
+import de.schwarzland.mavenup.model.DependencyUpdate
 import de.schwarzland.mavenup.service.MavenUpSettings
 import de.schwarzland.mavenup.service.MavenRepositoryBrowser
 import de.schwarzland.mavenup.ui.buildMavenRepositoryUrl
@@ -10,6 +11,11 @@ import de.schwarzland.mavenup.ui.RefreshSnapshot
 import de.schwarzland.mavenup.ui.buildVulnerabilityCell
 import de.schwarzland.mavenup.ui.canCheckVulnerabilities
 import de.schwarzland.mavenup.ui.vulnerabilitySummary
+import de.schwarzland.mavenup.ui.isVersionUpToDate
+import de.schwarzland.mavenup.ui.versionStatusIcon
+import de.schwarzland.mavenup.ui.versionStatusColor
+import de.schwarzland.mavenup.ui.versionStatusTooltip
+import de.schwarzland.mavenup.ui.createVersionPanel
 import com.intellij.openapi.wm.RegisterToolWindowTask
 import com.intellij.openapi.wm.ToolWindowAnchor
 import com.intellij.openapi.wm.ToolWindowManager
@@ -317,6 +323,223 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         return null
     }
 
+    fun testMainTableUsesSingleSelection() {
+        val content = MavenUpWindowFactory().MyToolWindow(project).getContent()
+
+        val table = findTable(content)
+        assertNotNull("Die Haupttabelle sollte im Tool Window vorhanden sein", table)
+        assertEquals(
+            "Die Haupttabelle sollte nur Einzelselektion erlauben",
+            javax.swing.ListSelectionModel.SINGLE_SELECTION,
+            table!!.selectionModel.selectionMode
+        )
+        assertFalse(
+            "Die Haupttabelle sollte kein Umordnen der Spalten erlauben",
+            table.tableHeader.reorderingAllowed
+        )
+    }
+
+    fun testCancelActiveCellEditingStopsEditingBeforeTableRebuild() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val content = toolWindow.getContent()
+        val table = findTable(content)
+        assertNotNull("Die Haupttabelle sollte vorhanden sein", table)
+
+        val model = table!!.model as javax.swing.table.DefaultTableModel
+        model.addRow(
+            arrayOf("com.example", "my-lib", "", "dependency", "1.0.0", null, listOf("1.1.0", "1.0.0"))
+        )
+
+        // Bearbeitung der Spalte "New Version" starten
+        assertTrue(
+            "Die New-Version-Zelle sollte in den Bearbeitungsmodus wechseln",
+            table.editCellAt(0, 6)
+        )
+        assertTrue("Die Tabelle sollte sich im Bearbeitungsmodus befinden", table.isEditing)
+
+        // Abbruch der Bearbeitung; danach darf das Leeren der Zeilen keine Exception auslösen
+        assertTrue(
+            "Eine laufende Bearbeitung sollte abgebrochen werden",
+            toolWindow.cancelActiveCellEditing()
+        )
+        assertFalse("Nach dem Abbruch sollte keine Bearbeitung mehr laufen", table.isEditing)
+
+        model.setRowCount(0)
+        table.doLayout()
+
+        // Ohne aktive Bearbeitung meldet der Aufruf, dass nichts abzubrechen war
+        assertFalse(
+            "Ohne laufende Bearbeitung sollte kein Abbruch gemeldet werden",
+            toolWindow.cancelActiveCellEditing()
+        )
+    }
+
+    fun testConfirmChangesDialogTableIsNotEditable() {
+        val updates = listOf(
+            DependencyUpdate("com.example", "demo-lib", "dependency", "1.0.0", "1.1.0")
+        )
+        val dialog = MavenUpWindowFactory.UpdateConfirmationDialog(project, updates)
+        val table = dialog.buildTable()
+        for (column in 0 until table.columnCount) {
+            assertFalse(
+                "Zelle in Spalte $column sollte nicht editierbar sein",
+                table.isCellEditable(0, column)
+            )
+        }
+        assertEquals(
+            "Die Confirm-Changes-Tabelle sollte nur Einzelselektion erlauben",
+            javax.swing.ListSelectionModel.SINGLE_SELECTION,
+            table.selectionModel.selectionMode
+        )
+        assertFalse(
+            "Die Confirm-Changes-Tabelle sollte kein Umordnen der Spalten erlauben",
+            table.tableHeader.reorderingAllowed
+        )
+    }
+
+    fun testConfirmChangesDialogSyncCheckboxReflectsSetting() {
+        val settings = MavenUpSettings.getInstance(project)
+        val original = settings.state.syncMavenAfterUpdate
+        try {
+            val updates = listOf(
+                DependencyUpdate("com.example", "demo-lib", "dependency", "1.0.0", "1.1.0")
+            )
+
+            settings.state.syncMavenAfterUpdate = false
+            val disabledDialog = MavenUpWindowFactory.UpdateConfirmationDialog(project, updates)
+            assertFalse(
+                "Die Sync-Checkbox sollte den gespeicherten Wert false übernehmen",
+                disabledDialog.isSyncMavenSelected()
+            )
+
+            settings.state.syncMavenAfterUpdate = true
+            val enabledDialog = MavenUpWindowFactory.UpdateConfirmationDialog(project, updates)
+            assertTrue(
+                "Die Sync-Checkbox sollte den gespeicherten Wert true übernehmen",
+                enabledDialog.isSyncMavenSelected()
+            )
+        } finally {
+            settings.state.syncMavenAfterUpdate = original
+        }
+    }
+
+    fun testOpenInRepositoryActionInitiallyDisabled() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        assertFalse(
+            "Open-in-Repository-Aktion sollte ohne Selektion deaktiviert sein",
+            toolWindow.isOpenInRepositoryEnabled()
+        )
+    }
+
+    fun testOpenInRepositoryActionEnabledOnRowSelection() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val content = toolWindow.getContent()
+        val table = findTable(content)
+        assertNotNull(table)
+
+        // Tabelle ist leer – Aktion inaktiv
+        assertFalse(
+            "Open-in-Repository-Aktion sollte bei leerer Tabelle deaktiviert sein",
+            toolWindow.isOpenInRepositoryEnabled()
+        )
+
+        // Eine Zeile hinzufügen und selektieren
+        (table!!.model as? javax.swing.table.DefaultTableModel)?.addRow(
+            arrayOf("com.example", "my-lib", "", "dependency", "1.0.0", null, emptyList<String>())
+        )
+        table.setRowSelectionInterval(0, 0)
+
+        assertTrue(
+            "Open-in-Repository-Aktion sollte bei selektierter Zeile aktiviert sein",
+            toolWindow.isOpenInRepositoryEnabled()
+        )
+
+        // Selektion aufheben
+        table.clearSelection()
+        assertFalse(
+            "Open-in-Repository-Aktion sollte ohne Selektion wieder deaktiviert sein",
+            toolWindow.isOpenInRepositoryEnabled()
+        )
+    }
+
+    fun testOpenInRepositoryActionLabelReflectsConfiguredBrowser() {
+        val settings = MavenUpSettings.getInstance(project)
+        settings.state.repositoryBrowser = MavenRepositoryBrowser.SONATYPE_CENTRAL
+
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+        assertEquals(
+            "Aktionstext sollte den konfigurierten Browser-Namen enthalten",
+            "Open on Sonatype Central",
+            toolWindow.currentOpenInRepositoryText()
+        )
+
+        settings.state.repositoryBrowser = MavenRepositoryBrowser.MVN_REPOSITORY
+    }
+
+    fun testActionToolbarIsPresentAtTop() {
+        val content = MavenUpWindowFactory().MyToolWindow(project).getContent()
+
+        val toolbarComponent = (content.layout as? java.awt.BorderLayout)
+            ?.getLayoutComponent(java.awt.BorderLayout.NORTH)
+        assertNotNull("Die obere Aktionsleiste sollte im Tool Window vorhanden sein", toolbarComponent)
+    }
+
+    fun testToolbarTextEnabledReflectsSetting() {
+        val settings = MavenUpSettings.getInstance(project)
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        settings.state.toolbarShowText = false
+        assertFalse(
+            "Text-Modus sollte deaktiviert gemeldet werden, wenn die Einstellung aus ist",
+            toolWindow.isToolbarTextEnabled()
+        )
+
+        settings.state.toolbarShowText = true
+        assertTrue(
+            "Text-Modus sollte aktiviert gemeldet werden, wenn die Einstellung an ist",
+            toolWindow.isToolbarTextEnabled()
+        )
+
+        settings.state.toolbarShowText = false
+    }
+
+    fun testVulnerabilityDetailsActionReflectsSelection() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val content = toolWindow.getContent()
+        val table = findTable(content)
+        assertNotNull(table)
+
+        assertFalse(
+            "Vulnerability-Details-Aktion sollte ohne Selektion deaktiviert sein",
+            toolWindow.isVulnerabilityDetailsEnabled()
+        )
+
+        val advisory = VulnerabilityAdvisory(
+            id = "CVE-1",
+            severity = VulnerabilitySeverity.MEDIUM,
+            sources = setOf("OSV"),
+            references = setOf("https://example.test")
+        )
+        val cell = buildVulnerabilityCell(
+            "com.example:my-lib:1.0.0",
+            mapOf("com.example:my-lib:1.0.0" to listOf(advisory)),
+            emptySet()
+        )
+        (table!!.model as? javax.swing.table.DefaultTableModel)?.addRow(
+            arrayOf("com.example", "my-lib", "", "dependency", "1.0.0", cell, emptyList<String>())
+        )
+        table.setRowSelectionInterval(0, 0)
+
+        assertTrue(
+            "Vulnerability-Details-Aktion sollte bei Zeile mit Befunden aktiviert sein",
+            toolWindow.isVulnerabilityDetailsEnabled()
+        )
+    }
+
     fun testCollectDependenciesAndProperties() {
         val pomContent = """
             <project>
@@ -461,5 +684,419 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertNotNull("Managed Plugin sollte gefunden werden", managedPlugin)
         assertEquals("maven-surefire-plugin", managedPlugin?.findFirstSubTag("artifactId")?.value?.text)
     }
+
+    fun testCollectParentDependency() {
+        val pomContent = """
+            <project>
+                <parent>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-parent</artifactId>
+                    <version>3.1.0</version>
+                </parent>
+                <dependencies>
+                    <dependency>
+                        <groupId>com.example</groupId>
+                        <artifactId>example-core</artifactId>
+                        <version>1.0.0</version>
+                    </dependency>
+                </dependencies>
+            </project>
+        """.trimIndent()
+
+        val psiFile = myFixture.configureByText("pom.xml", pomContent) as XmlFile
+        val rootTag = psiFile.document?.rootTag
+
+        val factory = MavenUpWindowFactory()
+        val toolWindowInstance = factory.MyToolWindow(project)
+        val properties = mutableMapOf<String, String>()
+
+        val parentRow = toolWindowInstance.collectParentDependency(rootTag, properties)
+
+        assertNotNull("Parent-Dependency sollte gefunden werden", parentRow)
+        assertEquals("org.springframework.boot", parentRow!!.groupId)
+        assertEquals("spring-boot-starter-parent", parentRow.artifactId)
+        assertEquals("3.1.0", parentRow.currentVersion)
+        assertEquals("parent", parentRow.type)
+        assertEquals("", parentRow.propertyName)
+    }
+
+    fun testCollectParentDependencyWithProperty() {
+        val pomContent = """
+            <project>
+                <parent>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-parent</artifactId>
+                    <version>${"$"}{boot.version}</version>
+                </parent>
+            </project>
+        """.trimIndent()
+
+        val psiFile = myFixture.configureByText("pom.xml", pomContent) as XmlFile
+        val rootTag = psiFile.document?.rootTag
+
+        val factory = MavenUpWindowFactory()
+        val toolWindowInstance = factory.MyToolWindow(project)
+        val properties = mutableMapOf<String, String>()
+
+        val parentRow = toolWindowInstance.collectParentDependency(rootTag, properties)
+
+        assertNotNull(parentRow)
+        assertEquals("boot.version", parentRow!!.propertyName)
+        assertEquals("boot.version", properties["org.springframework.boot:spring-boot-starter-parent"])
+    }
+
+    fun testCollectParentDependencyReturnsNullWithoutParentTag() {
+        val pomContent = """
+            <project>
+                <dependencies>
+                    <dependency>
+                        <groupId>com.example</groupId>
+                        <artifactId>example-core</artifactId>
+                        <version>1.0.0</version>
+                    </dependency>
+                </dependencies>
+            </project>
+        """.trimIndent()
+
+        val psiFile = myFixture.configureByText("pom.xml", pomContent) as XmlFile
+        val rootTag = psiFile.document?.rootTag
+
+        val factory = MavenUpWindowFactory()
+        val toolWindowInstance = factory.MyToolWindow(project)
+        val properties = mutableMapOf<String, String>()
+
+        val parentRow = toolWindowInstance.collectParentDependency(rootTag, properties)
+        assertNull("Ohne Parent-Tag sollte null zurückgegeben werden", parentRow)
+    }
+
+    fun testCollectParentDependencySkipsMissingGroupId() {
+        val pomContent = """
+            <project>
+                <parent>
+                    <artifactId>spring-boot-starter-parent</artifactId>
+                    <version>3.1.0</version>
+                </parent>
+            </project>
+        """.trimIndent()
+
+        val psiFile = myFixture.configureByText("pom.xml", pomContent) as XmlFile
+        val rootTag = psiFile.document?.rootTag
+
+        val factory = MavenUpWindowFactory()
+        val toolWindowInstance = factory.MyToolWindow(project)
+
+        val parentRow = toolWindowInstance.collectParentDependency(rootTag, mutableMapOf())
+        assertNull("Parent ohne groupId sollte übersprungen werden", parentRow)
+    }
+
+    fun testFindParent() {
+        val pomContent = """
+            <project>
+                <parent>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-parent</artifactId>
+                    <version>3.1.0</version>
+                </parent>
+            </project>
+        """.trimIndent()
+
+        val psiFile = myFixture.configureByText("pom.xml", pomContent) as XmlFile
+        val rootTag = psiFile.document?.rootTag
+
+        val factory = MavenUpWindowFactory()
+        val toolWindowInstance = factory.MyToolWindow(project)
+
+        val found = toolWindowInstance.findParent(rootTag, "org.springframework.boot", "spring-boot-starter-parent")
+        assertNotNull("Parent-Tag sollte gefunden werden", found)
+        assertEquals("spring-boot-starter-parent", found?.findFirstSubTag("artifactId")?.value?.text)
+
+        val notFound = toolWindowInstance.findParent(rootTag, "com.example", "other-artifact")
+        assertNull("Nicht passendes Parent-Tag sollte null zurückgeben", notFound)
+    }
+
+    fun testUpdateParentVersion() {
+        val pomContent = """
+            <project>
+                <parent>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-parent</artifactId>
+                    <version>3.1.0</version>
+                </parent>
+            </project>
+        """.trimIndent()
+
+        val psiFile = myFixture.configureByText("pom.xml", pomContent) as XmlFile
+        val rootTag = psiFile.document?.rootTag
+        val parentTag = rootTag?.findFirstSubTag("parent")
+
+        val factory = MavenUpWindowFactory()
+        val toolWindowInstance = factory.MyToolWindow(project)
+
+        WriteCommandAction.runWriteCommandAction(project) {
+            toolWindowInstance.updateXmlTagVersion(parentTag!!, "3.2.0", null)
+        }
+        assertEquals("3.2.0", parentTag?.findFirstSubTag("version")?.value?.text)
+    }
+
+    fun testIsVersionUpToDateReturnsTrueWhenCurrentEqualsNewest() {
+        assertTrue(isVersionUpToDate("1.0.0", "1.0.0"))
+    }
+
+    fun testIsVersionUpToDateReturnsFalseWhenVersionsDiffer() {
+        assertFalse(isVersionUpToDate("1.0.0", "2.0.0"))
+    }
+
+    fun testIsVersionUpToDateReturnsFalseForEmptyCurrentVersion() {
+        assertFalse(isVersionUpToDate("", "1.0.0"))
+    }
+
+    fun testIsVersionUpToDateReturnsFalseForBothEmpty() {
+        assertFalse(isVersionUpToDate("", ""))
+    }
+
+    fun testVersionStatusIconReturnsCheckmarkWhenUpToDate() {
+        val icon = versionStatusIcon(upToDate = true)
+        assertEquals(com.intellij.icons.AllIcons.RunConfigurations.TestPassed, icon)
+    }
+
+    fun testVersionStatusIconReturnsArrowWhenUpdateAvailable() {
+        val icon = versionStatusIcon(upToDate = false)
+        assertEquals(com.intellij.icons.AllIcons.General.ArrowUp, icon)
+    }
+
+    fun testVersionStatusColorReturnsGreenWhenUpToDate() {
+        val color = versionStatusColor(upToDate = true)
+        assertNotNull(color)
+    }
+
+    fun testVersionStatusColorReturnsOrangeWhenUpdateAvailable() {
+        val color = versionStatusColor(upToDate = false)
+        assertNotNull(color)
+    }
+
+    fun testVersionStatusTooltipShowsUpToDateMessage() {
+        val tooltip = versionStatusTooltip("1.0.0", "1.0.0", "1.0.0")
+        assertTrue(tooltip.contains("1.0.0"))
+    }
+
+    fun testVersionStatusTooltipShowsUpdateAvailableMessage() {
+        val tooltip = versionStatusTooltip("1.0.0", "1.0.0", "2.0.0")
+        assertTrue(tooltip.contains("1.0.0"))
+        assertTrue(tooltip.contains("2.0.0"))
+    }
+
+    fun testVersionStatusTooltipShowsWillUpdateMessage() {
+        val tooltip = versionStatusTooltip("1.0.0", "2.0.0", "2.0.0")
+        assertTrue(tooltip.contains("1.0.0"))
+        assertTrue(tooltip.contains("2.0.0"))
+    }
+
+    fun testVersionStatusTooltipShowsWillUpdateNotLatestMessage() {
+        val tooltip = versionStatusTooltip("1.0.0", "1.5.0", "2.0.0")
+        assertTrue(tooltip.contains("1.0.0"))
+        assertTrue(tooltip.contains("1.5.0"))
+        assertTrue(tooltip.contains("2.0.0"))
+    }
+
+    fun testCreateVersionPanelContainsIconAndComboBox() {
+        val combo = javax.swing.JComboBox(arrayOf("1.0.0", "2.0.0"))
+        val icon = versionStatusIcon(upToDate = false)
+        val panel = createVersionPanel(combo, icon, "Test tooltip")
+
+        assertEquals(java.awt.BorderLayout::class.java, panel.layout::class.java)
+        assertEquals("Test tooltip", panel.toolTipText)
+        assertEquals(2, panel.componentCount)
+    }
+
+    fun testCreateVersionPanelAppliesBoldFontWhenChanged() {
+        val combo = javax.swing.JComboBox(arrayOf("1.0.0", "2.0.0"))
+        val originalFont = combo.font
+        val icon = versionStatusIcon(upToDate = true)
+        createVersionPanel(combo, icon, "tooltip", hasChange = true)
+
+        assertTrue(combo.font.isBold)
+        assertEquals(originalFont.size, combo.font.size)
+    }
+
+    fun testCreateVersionPanelKeepsNormalFontWhenUnchanged() {
+        val combo = javax.swing.JComboBox(arrayOf("1.0.0", "2.0.0"))
+        val originalStyle = combo.font.style
+        val icon = versionStatusIcon(upToDate = true)
+        createVersionPanel(combo, icon, "tooltip", hasChange = false)
+
+        assertEquals(originalStyle, combo.font.style)
+    }
+
+    fun testApplySelectLatestVersionSettingSelectsNewest() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+        val settings = MavenUpSettings.getInstance(project)
+
+        val fields = toolWindow.javaClass
+        @Suppress("UNCHECKED_CAST")
+        val availableVersions = fields.getDeclaredField("availableVersions")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, List<String>>
+        @Suppress("UNCHECKED_CAST")
+        val selectedVersions = fields.getDeclaredField("selectedVersions")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, String>
+        @Suppress("UNCHECKED_CAST")
+        val knownDependencies = fields.getDeclaredField("knownDependencies")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, String>
+
+        val key = "com.example:apply-test"
+        availableVersions[key] = listOf("2.0.0", "1.5.0", "1.0.0")
+        knownDependencies[key] = "1.0.0"
+
+        // With selectLatestVersion enabled, the newest should be selected
+        settings.state.selectLatestVersion = true
+        toolWindow.applySelectLatestVersionSetting()
+        assertEquals("2.0.0", selectedVersions[key])
+
+        // With selectLatestVersion disabled, the current version should be selected
+        settings.state.selectLatestVersion = false
+        toolWindow.applySelectLatestVersionSetting()
+        assertEquals("1.0.0", selectedVersions[key])
+
+        // Reset
+        settings.state.selectLatestVersion = true
+    }
+
+    fun testApplySelectLatestVersionSettingRemovesSelectionWhenAlreadyLatest() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+        val settings = MavenUpSettings.getInstance(project)
+
+        val fields = toolWindow.javaClass
+        @Suppress("UNCHECKED_CAST")
+        val availableVersions = fields.getDeclaredField("availableVersions")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, List<String>>
+        @Suppress("UNCHECKED_CAST")
+        val selectedVersions = fields.getDeclaredField("selectedVersions")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, String>
+        @Suppress("UNCHECKED_CAST")
+        val knownDependencies = fields.getDeclaredField("knownDependencies")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, String>
+
+        val key = "com.example:already-latest"
+        availableVersions[key] = listOf("2.0.0", "1.0.0")
+        knownDependencies[key] = "2.0.0"
+        selectedVersions[key] = "2.0.0"
+
+        // When current version is already the latest and selectLatest is enabled,
+        // the entry should be removed from selectedVersions (no change needed)
+        settings.state.selectLatestVersion = true
+        toolWindow.applySelectLatestVersionSetting()
+        assertNull(
+            "Wenn die aktuelle Version bereits die neueste ist, soll kein Eintrag in selectedVersions stehen",
+            selectedVersions[key]
+        )
+
+        // Reset
+        settings.state.selectLatestVersion = true
+    }
+
+    fun testApplySelectLatestVersionSettingDoesNothingWhenNoVersionsLoaded() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+        val settings = MavenUpSettings.getInstance(project)
+
+        val fields = toolWindow.javaClass
+        @Suppress("UNCHECKED_CAST")
+        val selectedVersions = fields.getDeclaredField("selectedVersions")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, String>
+
+        selectedVersions["com.example:existing"] = "1.0.0"
+
+        // With no available versions loaded, the method should not modify selectedVersions
+        settings.state.selectLatestVersion = true
+        toolWindow.applySelectLatestVersionSetting()
+        assertEquals("1.0.0", selectedVersions["com.example:existing"])
+
+        // Reset
+        settings.state.selectLatestVersion = true
+    }
+
+    fun testSettingsChangeKeepsSelectionWhenSelectLatestUnchanged() {
+        val settings = MavenUpSettings.getInstance(project)
+        settings.state.selectLatestVersion = false
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        val fields = toolWindow.javaClass
+        @Suppress("UNCHECKED_CAST")
+        val availableVersions = fields.getDeclaredField("availableVersions")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, List<String>>
+        @Suppress("UNCHECKED_CAST")
+        val selectedVersions = fields.getDeclaredField("selectedVersions")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, String>
+        @Suppress("UNCHECKED_CAST")
+        val knownDependencies = fields.getDeclaredField("knownDependencies")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, String>
+
+        val key = "com.example:lib"
+        availableVersions[key] = listOf("2.0.0", "1.0.0")
+        knownDependencies[key] = "1.0.0"
+        selectedVersions[key] = "2.0.0"
+
+        // Nur eine unabhängige Einstellung ändert sich -> Auswahl bleibt erhalten
+        toolWindow.applySelectLatestVersionSettingIfChanged()
+
+        assertEquals(
+            "Eine unabhängige Einstellungsänderung darf die getroffene Auswahl nicht zurücksetzen",
+            "2.0.0",
+            selectedVersions[key]
+        )
+
+        settings.state.selectLatestVersion = true
+    }
+
+    fun testSettingsChangeReappliesSelectionWhenSelectLatestChanged() {
+        val settings = MavenUpSettings.getInstance(project)
+        settings.state.selectLatestVersion = false
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        val fields = toolWindow.javaClass
+        @Suppress("UNCHECKED_CAST")
+        val availableVersions = fields.getDeclaredField("availableVersions")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, List<String>>
+        @Suppress("UNCHECKED_CAST")
+        val selectedVersions = fields.getDeclaredField("selectedVersions")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, String>
+        @Suppress("UNCHECKED_CAST")
+        val knownDependencies = fields.getDeclaredField("knownDependencies")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, String>
+
+        val key = "com.example:lib"
+        availableVersions[key] = listOf("2.0.0", "1.0.0")
+        knownDependencies[key] = "1.0.0"
+        selectedVersions[key] = "1.0.0"
+
+        // Die Einstellung selectLatestVersion wird tatsächlich geändert -> Auswahl wird neu berechnet
+        settings.state.selectLatestVersion = true
+        toolWindow.applySelectLatestVersionSettingIfChanged()
+
+        assertEquals(
+            "Beim Ändern von selectLatestVersion soll die neueste Version vorausgewählt werden",
+            "2.0.0",
+            selectedVersions[key]
+        )
+
+        settings.state.selectLatestVersion = true
+    }
+
 
 }
