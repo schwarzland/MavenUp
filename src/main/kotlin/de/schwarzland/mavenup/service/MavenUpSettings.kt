@@ -51,7 +51,6 @@ class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
      * @property hideUnstableVersions Gibt an, ob instabile Versionen in der Auswahl ausgeblendet werden sollen.
      * @property hiddenVersionQualifiers Kommagetrennte Liste von Qualifizierern (z.B. "beta", "alpha"), die als instabil gelten.
      * @property ossIndexEnabled Gibt an, ob die Prüfung auf Sicherheitslücken via Sonatype OSS Index aktiviert ist.
-     * @property ossIndexUsername Der Benutzername (E-Mail) für die Authentifizierung beim OSS Index.
      * @property checkTransitiveDependencies Bestimmt, ob auch transitive Abhängigkeiten auf Updates geprüft werden sollen.
      * @property repositoryBrowser Der Maven-Repository-Browser, der für Links auf Abhängigkeits-Versionsseiten verwendet wird.
      * @property toolbarShowText Bestimmt, ob die Aktionsleisten Text-Buttons statt reiner Icon-Buttons anzeigen.
@@ -63,7 +62,6 @@ class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
         var hideUnstableVersions: Boolean = false,
         var hiddenVersionQualifiers: String = "rc,beta,alpha,ea,milestone,preview,cr,nightly,snapshot",
         var ossIndexEnabled: Boolean = false,
-        var ossIndexUsername: String = "",
         var checkTransitiveDependencies: Boolean = true,
         var repositoryBrowser: MavenRepositoryBrowser = MavenRepositoryBrowser.MVN_REPOSITORY,
         var toolbarShowText: Boolean = true,

@@ -8,6 +8,7 @@ import de.schwarzland.mavenup.service.MavenRepositoryBrowser
 import de.schwarzland.mavenup.service.MavenUpSettings
 import de.schwarzland.mavenup.service.MAVEN_UP_SETTINGS_TOPIC
 import de.schwarzland.mavenup.service.OssIndexApiService
+import de.schwarzland.mavenup.service.OssIndexAuthenticationException
 import de.schwarzland.mavenup.service.OssIndexCredentialService
 import de.schwarzland.mavenup.service.VulnerabilityApiService
 import de.schwarzland.mavenup.service.VulnerabilityMerger
@@ -26,8 +27,10 @@ import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.ide.BrowserUtil
+import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileEditor.OpenFileDescriptor
+import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
@@ -38,6 +41,7 @@ import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
 import com.intellij.psi.PsiManager
+import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.xml.XmlFile
 import com.intellij.psi.xml.XmlTag
 import com.intellij.ui.components.JBPanel
@@ -787,11 +791,13 @@ class MavenUpWindowFactory : ToolWindowFactory {
                             ) {
                                 override fun run(indicator: ProgressIndicator) {
                                     val mavenManager = MavenProjectsManager.getInstance(project)
+                                    val pomFiles = mavenManager.projects.map { it.file }
                                     mavenManager.projects.forEach { mavenProject ->
                                         applyUpdateToPom(mavenProject, updates)
                                     }
 
                                     if (shouldSyncMaven) {
+                                        persistPomChanges(pomFiles)
                                         mavenManager.forceUpdateAllProjectsOrFindAllAvailablePomFiles()
                                     }
 
@@ -1414,6 +1420,29 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
+         * Schreibt die zuvor über PSI geänderten `pom.xml`-Dateien auf die Festplatte.
+         *
+         * PSI-/Document-Änderungen liegen zunächst nur im Speicher vor. Der anschließende
+         * Maven-Sync (`forceUpdateAllProjectsOrFindAllAvailablePomFiles`) liest die POM-Dateien
+         * jedoch von der Festplatte neu ein. Ohne vorheriges Speichern würde Maven den alten,
+         * unveränderten Inhalt importieren und das Projekt bliebe unsynchronisiert. Das Speichern
+         * erfolgt synchron auf dem EDT, damit es vor dem Auslösen des Sync abgeschlossen ist.
+         *
+         * @param pomFiles Die POM-Dateien, deren offene Documents gespeichert werden sollen.
+         */
+        private fun persistPomChanges(pomFiles: List<VirtualFile>) {
+            ApplicationManager.getApplication().invokeAndWait {
+                val psiDocumentManager = PsiDocumentManager.getInstance(project)
+                val fileDocumentManager = FileDocumentManager.getInstance()
+                pomFiles.forEach { pomFile ->
+                    val document = fileDocumentManager.getDocument(pomFile) ?: return@forEach
+                    psiDocumentManager.doPostponedOperationsAndUnblockDocument(document)
+                    fileDocumentManager.saveDocument(document)
+                }
+            }
+        }
+
+        /**
          * Aktualisiert Abhängigkeitsversionen in `<dependencies>` und `<dependencyManagement>`
          * des angegebenen POM-Root-Tags für ein einzelnes Update.
          */
@@ -1516,38 +1545,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     LOG.info("Starting vulnerability check for ${dependencies.size} dependencies/plugins.")
 
                     val osvResults = vulnerabilityApiService.fetchVulnerabilityAdvisories(dependencies.toList(), indicator)
-                    val settings = MavenUpSettings.getInstance(project).state
-                    var ossIndexError: String? = null
-                    val ossIndexResults = if (settings.ossIndexEnabled && !indicator.isCanceled) {
-                        try {
-                            val credentials = ossIndexCredentialService.retrieve()
-                            val username = settings.ossIndexUsername.ifBlank {
-                                credentials?.userName.orEmpty()
-                            }
-                            val token = credentials?.getPasswordAsString().orEmpty()
-                            if (username.isBlank() || token.isBlank()) {
-                                LOG.warn("Skipping OSS Index vulnerability check because credentials are incomplete.")
-                                ossIndexError = MyMessageBundle.message(
-                                    "vulnerability.ossIndex.credentialsMissing"
-                                )
-                                emptyMap()
-                            } else {
-                                ossIndexApiService.fetchVulnerabilityAdvisories(
-                                    dependencies.toList(),
-                                    username,
-                                    token,
-                                    indicator
-                                )
-                            }
-                        } catch (exception: Exception) {
-                            LOG.warn("OSS Index vulnerability check failed", exception)
-                            ossIndexError = exception.message ?: exception.javaClass.simpleName
-                            emptyMap()
-                        }
-                    } else {
-                        emptyMap()
-                    }
-                    val results = VulnerabilityMerger.merge(osvResults, ossIndexResults)
+                    val ossIndexScan = resolveOssIndexResults(dependencies.toList(), indicator)
+                    val results = VulnerabilityMerger.merge(osvResults, ossIndexScan.advisories)
                     val vulnerableEntries = results.values.count { it.isNotEmpty() }
                     LOG.info(
                         "Finished vulnerability check. " +
@@ -1555,23 +1554,98 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     )
 
                     ApplicationManager.getApplication().invokeLater {
-                        vulnerabilityAdvisories.clear()
-                        vulnerabilityAdvisories.putAll(results)
-                        transitiveCoordinates.clear()
-                        transitiveCoordinates.addAll(scanTargets.transitiveCoordinates)
-                        transitiveDependenciesByDirect.clear()
-                        transitiveDependenciesByDirect.putAll(scanTargets.transitiveDependenciesByDirect)
-                        ossIndexError?.let {
-                            Messages.showWarningDialog(
-                                project,
-                                it,
-                                MyMessageBundle.message("vulnerability.ossIndex.error.title")
-                            )
-                        }
+                        applyVulnerabilityResults(results, scanTargets)
+                        ossIndexScan.errorMessage?.let(::showOssIndexError)
                         onFinished()
                     }
                 }
             })
+        }
+
+        /**
+         * Bündelt das Ergebnis einer OSS-Index-Abfrage: die gefundenen Advisories und eine
+         * optionale, bereits benutzergerecht formulierte Fehlermeldung.
+         */
+        private inner class OssIndexScanResult(
+            val advisories: Map<String, List<VulnerabilityAdvisory>>,
+            val errorMessage: String?
+        )
+
+        /**
+         * Ermittelt die OSS-Index-Befunde für die angegebenen Abhängigkeiten.
+         *
+         * Ist der OSS Index deaktiviert oder der Vorgang abgebrochen, wird ein leeres Ergebnis
+         * ohne Fehler zurückgegeben. Fehlt das API-Token oder lehnt Sonatype es ab (ungültig bzw.
+         * abgelaufen), enthält das Ergebnis eine qualifizierte Fehlermeldung.
+         */
+        private fun resolveOssIndexResults(
+            dependencies: List<Triple<String, String, String>>,
+            indicator: ProgressIndicator
+        ): OssIndexScanResult {
+            val settings = MavenUpSettings.getInstance(project).state
+            if (!settings.ossIndexEnabled || indicator.isCanceled) {
+                return OssIndexScanResult(emptyMap(), null)
+            }
+            return try {
+                val token = ossIndexCredentialService.retrieve()?.getPasswordAsString().orEmpty()
+                if (token.isBlank()) {
+                    LOG.warn("Skipping OSS Index vulnerability check because the API token is missing.")
+                    OssIndexScanResult(
+                        emptyMap(),
+                        MyMessageBundle.message("vulnerability.ossIndex.credentialsMissing")
+                    )
+                } else {
+                    OssIndexScanResult(
+                        ossIndexApiService.fetchVulnerabilityAdvisories(dependencies, token, indicator),
+                        null
+                    )
+                }
+            } catch (exception: OssIndexAuthenticationException) {
+                LOG.warn("OSS Index vulnerability check failed due to an invalid or expired API token", exception)
+                OssIndexScanResult(
+                    emptyMap(),
+                    MyMessageBundle.message("vulnerability.ossIndex.authenticationFailed")
+                )
+            } catch (exception: Exception) {
+                LOG.warn("OSS Index vulnerability check failed", exception)
+                OssIndexScanResult(emptyMap(), exception.message ?: exception.javaClass.simpleName)
+            }
+        }
+
+        /**
+         * Übernimmt die zusammengeführten Scan-Ergebnisse in den Zustand des Tool-Windows.
+         */
+        private fun applyVulnerabilityResults(
+            results: Map<String, List<VulnerabilityAdvisory>>,
+            scanTargets: VulnerabilityScanTargets
+        ) {
+            vulnerabilityAdvisories.clear()
+            vulnerabilityAdvisories.putAll(results)
+            transitiveCoordinates.clear()
+            transitiveCoordinates.addAll(scanTargets.transitiveCoordinates)
+            transitiveDependenciesByDirect.clear()
+            transitiveDependenciesByDirect.putAll(scanTargets.transitiveDependenciesByDirect)
+        }
+
+        /**
+         * Zeigt die qualifizierte OSS-Index-Fehlermeldung an und bietet einen direkten Sprung
+         * in die Plugin-Einstellungen.
+         */
+        private fun showOssIndexError(errorMessage: String) {
+            val choice = Messages.showDialog(
+                project,
+                errorMessage,
+                MyMessageBundle.message("vulnerability.ossIndex.error.title"),
+                arrayOf(
+                    MyMessageBundle.message("vulnerability.ossIndex.error.openSettings"),
+                    MyMessageBundle.message("button.close")
+                ),
+                0,
+                Messages.getWarningIcon()
+            )
+            if (choice == 0) {
+                openSettings()
+            }
         }
 
         /**

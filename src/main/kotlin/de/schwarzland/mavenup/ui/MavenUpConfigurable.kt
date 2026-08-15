@@ -51,8 +51,6 @@ class MavenUpConfigurable internal constructor(
     private var hiddenVersionQualifiersField: JTextField? = null
     private var checkTransitiveDependenciesCheckBox: JBCheckBox? = null
     private var ossIndexEnabledCheckBox: JBCheckBox? = null
-    private var ossIndexUsernameLabel: JLabel? = null
-    private var ossIndexUsernameField: JTextField? = null
     private var ossIndexTokenLabel: JLabel? = null
     private var ossIndexTokenField: JPasswordField? = null
     private var storedToken = ""
@@ -139,15 +137,6 @@ class MavenUpConfigurable internal constructor(
                         .component
                 }
                 row {
-                    ossIndexUsernameLabel = label(MyMessageBundle.message("settings.ossIndex.username")).component
-                    ossIndexUsernameField = textField()
-                        .applyToComponent {
-                            text = settings.state.ossIndexUsername
-                            columns = 30
-                        }
-                        .component
-                }
-                row {
                     ossIndexTokenLabel = label(MyMessageBundle.message("settings.ossIndex.token")).component
                     ossIndexTokenField = cell(JPasswordField(30))
                         .component
@@ -188,7 +177,6 @@ class MavenUpConfigurable internal constructor(
                 hiddenVersionQualifiersField?.text != settings.state.hiddenVersionQualifiers ||
                 checkTransitiveDependenciesCheckBox?.isSelected != settings.state.checkTransitiveDependencies ||
                 ossIndexEnabledCheckBox?.isSelected != settings.state.ossIndexEnabled ||
-                ossIndexUsernameField?.text?.trim() != settings.state.ossIndexUsername ||
                 credentialsLoaded && currentToken() != storedToken
     }
 
@@ -199,9 +187,8 @@ class MavenUpConfigurable internal constructor(
     override fun apply() {
         val settings = MavenUpSettings.getInstance(project)
         val ossIndexEnabled = ossIndexEnabledCheckBox?.isSelected ?: false
-        val ossIndexUsername = ossIndexUsernameField?.text?.trim().orEmpty()
         val ossIndexToken = currentToken()
-        if (ossIndexEnabled && credentialsLoaded && (ossIndexUsername.isBlank() || ossIndexToken.isBlank())) {
+        if (ossIndexEnabled && credentialsLoaded && ossIndexToken.isBlank()) {
             throw ConfigurationException(MyMessageBundle.message("settings.ossIndex.credentialsRequired"))
         }
 
@@ -215,10 +202,9 @@ class MavenUpConfigurable internal constructor(
         settings.state.hiddenVersionQualifiers = hiddenVersionQualifiersField?.text?.trim().orEmpty()
         settings.state.checkTransitiveDependencies = checkTransitiveDependenciesCheckBox?.isSelected ?: true
         settings.state.ossIndexEnabled = ossIndexEnabled
-        settings.state.ossIndexUsername = ossIndexUsername
         if (credentialsLoaded) {
             storedToken = ossIndexToken
-            credentialService.store(settings.state.ossIndexUsername, storedToken)
+            credentialService.store(storedToken)
         }
         project.messageBus.syncPublisher(MAVEN_UP_SETTINGS_TOPIC).run()
     }
@@ -238,7 +224,6 @@ class MavenUpConfigurable internal constructor(
         hiddenVersionQualifiersField?.text = settings.state.hiddenVersionQualifiers
         checkTransitiveDependenciesCheckBox?.isSelected = settings.state.checkTransitiveDependencies
         ossIndexEnabledCheckBox?.isSelected = settings.state.ossIndexEnabled
-        ossIndexUsernameField?.text = settings.state.ossIndexUsername
         credentialsLoaded = false
         storedToken = ""
         ossIndexTokenField?.text = ""
@@ -264,8 +249,6 @@ class MavenUpConfigurable internal constructor(
         hiddenVersionQualifiersField = null
         checkTransitiveDependenciesCheckBox = null
         ossIndexEnabledCheckBox = null
-        ossIndexUsernameLabel = null
-        ossIndexUsernameField = null
         ossIndexTokenLabel = null
         ossIndexTokenField = null
     }
@@ -315,15 +298,10 @@ class MavenUpConfigurable internal constructor(
      * Aktiviert oder deaktiviert die Eingabefelder für den OSS Index und aktualisiert die Beschriftungen (Pflichtfelder).
      */
     private fun updateOssIndexControlsEnabled(enabled: Boolean) {
-        ossIndexUsernameLabel?.text = MyMessageBundle.message(
-            if (enabled) "settings.ossIndex.usernameRequired" else "settings.ossIndex.username"
-        )
         ossIndexTokenLabel?.text = MyMessageBundle.message(
             if (enabled) "settings.ossIndex.tokenRequired" else "settings.ossIndex.token"
         )
         ossIndexEnabledCheckBox?.isEnabled = credentialsLoaded
-        ossIndexUsernameLabel?.isEnabled = enabled
-        ossIndexUsernameField?.isEnabled = enabled
         ossIndexTokenLabel?.isEnabled = enabled && credentialsLoaded
         ossIndexTokenField?.isEnabled = enabled && credentialsLoaded
     }

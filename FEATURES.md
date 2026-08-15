@@ -55,9 +55,10 @@ This document describes the key features of the MavenUp IntelliJ plugin, grouped
 
 ## OSS Index Integration
 
-- **Validated OSS Index authentication**: Requires both username/email and API token when OSS Index is enabled, visibly marks both fields as required, and skips OSS Index requests when stored credentials are incomplete.
+- **Validated OSS Index authentication**: Requires an API token when OSS Index is enabled, visibly marks the token field as required, and skips OSS Index requests when the stored token is missing.
 - **Secure and responsive OSS Index credentials**: Stores the required API token in IntelliJ Password Safe instead of project settings and loads it outside the Event Dispatch Thread.
 - **OSS Index token guidance**: Provides a direct settings link to the Sonatype account page where users can create or copy their API token.
+- **Qualified OSS Index token errors**: Detects rejected requests (HTTP 401/403) and shows a dedicated message that the API token is invalid or expired instead of a generic HTTP error; the error dialog offers an **Open Settings** button to jump straight to the plugin configuration.
 
 ---
 
