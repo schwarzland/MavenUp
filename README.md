@@ -74,7 +74,7 @@ Unter `Settings > Tools > MavenUp` können folgende Optionen konfiguriert werden
 - **Hide unstable versions**: Blendet instabile Versionen (z.B. RC/Beta) aus den auswählbaren Update-Versionen aus.
 - **Hidden version qualifiers (comma-separated)**: Liste der auszublendenden Typen, z.B. `rc,beta,milestone` (eingerückt dargestellt; Label und Feld sind nur aktiv, wenn der Filter eingeschaltet ist; größeres Eingabefeld für längere Listen).
 - **Include resolved transitive dependencies**: Nimmt standardmäßig den aufgelösten Maven-Dependency-Tree in den Vulnerability-Check auf.
-- **Use Sonatype OSS Index as an additional source**: Aktiviert die optionale zweite Datenquelle. Sonatype verwendet HTTP Basic Authentication, daher sind Benutzername/E-Mail und API-Token gemeinsam erforderlich und werden bei aktivierter Option als Pflichtfelder angezeigt. Das Token wird ausschließlich im IntelliJ Password Safe gespeichert, außerhalb des Event Dispatch Thread geladen und nicht in `mavenup_settings.xml` abgelegt. Fehlen Zugangsdaten bei einer bereits gespeicherten Konfiguration, wird die OSS-Index-Abfrage übersprungen; OSV.dev wird weiterhin abgefragt. Ein Link öffnet die Sonatype-Kontoeinstellungen zum Erzeugen oder Kopieren eines Tokens.
+- **Use Sonatype OSS Index as an additional source**: Aktiviert die optionale zweite Datenquelle. Sonatype authentifiziert Anfragen ausschließlich über das API-Token; daher wird nur das Token benötigt und bei aktivierter Option als Pflichtfeld angezeigt. Das Token wird ausschließlich im IntelliJ Password Safe gespeichert, außerhalb des Event Dispatch Thread geladen und nicht in `mavenup_settings.xml` abgelegt. Fehlt das Token bei einer bereits gespeicherten Konfiguration, wird die OSS-Index-Abfrage übersprungen; OSV.dev wird weiterhin abgefragt. Ein Link öffnet die Sonatype-Kontoeinstellungen zum Erzeugen oder Kopieren eines Tokens.
 
 ## Gradle Proxy-Konfiguration
 
@@ -117,7 +117,7 @@ Das Plugin ist klar in drei Schichten gegliedert:
 
 ### Service (`de.schwarzland.mavenup.service`)
 - `MavenUpStartupActivity`: steuert die Verfügbarkeit des Tool-Windows beim Projektstart.
-- `MavenUpSettings`: projektbezogener Persistenz-Service (`PersistentStateComponent`) in `mavenup_settings.xml`; der für HTTP Basic Authentication benötigte OSS-Index-Benutzername wird dort gespeichert, Tokens werden getrennt über `OssIndexCredentialService` im Password Safe gespeichert.
+- `MavenUpSettings`: projektbezogener Persistenz-Service (`PersistentStateComponent`) in `mavenup_settings.xml`; das OSS-Index-Token wird getrennt über `OssIndexCredentialService` im Password Safe gespeichert. Für die HTTP Basic Authentication wird ein fester Platzhalter-Benutzername verwendet, da Sonatype nur das Token auswertet.
 - `DependencyApiService`, `VulnerabilityApiService` und `OssIndexApiService`: kapseln externe API-Abfragen für Versionen und Vulnerabilities außerhalb der UI.
 - `VulnerabilityMerger`: dedupliziert Befunde aus mehreren Quellen anhand von Advisory-IDs und Aliasen.
 - Unterstützte CVSS-Vektoren aus OSV werden mit `us.springett:cvss-calculator` in vergleichbare Basisscores umgerechnet. Bei noch nicht unterstützten CVSS-Versionen bleibt der Befund erhalten und nutzt den Schweregrad der Quelle.

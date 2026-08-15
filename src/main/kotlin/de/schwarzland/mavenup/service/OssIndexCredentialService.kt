@@ -10,10 +10,10 @@ import com.intellij.ide.passwordSafe.PasswordSafe
  */
 interface OssIndexCredentialStore {
     /**
-     * Speichert den Benutzernamen und das API-Token sicher.
-     * Wenn beide Werte leer sind, werden die vorhandenen Zugangsdaten gelöscht.
+     * Speichert das API-Token sicher.
+     * Wenn der Wert leer ist, werden die vorhandenen Zugangsdaten gelöscht.
      */
-    fun store(username: String, token: String)
+    fun store(token: String)
 
     /**
      * Ruft die gespeicherten Zugangsdaten ab.
@@ -32,13 +32,14 @@ class OssIndexCredentialService(
     private val passwordSafe: PasswordSafe = PasswordSafe.instance
 ) : OssIndexCredentialStore {
     /**
-     * Implementiert das sichere Speichern der Zugangsdaten im [PasswordSafe].
+     * Implementiert das sichere Speichern des Tokens im [PasswordSafe].
+     * Als Benutzername wird der feste Platzhalter [OSS_INDEX_AUTH_USERNAME] hinterlegt.
      */
-    override fun store(username: String, token: String) {
-        val credentials = if (username.isBlank() && token.isBlank()) {
+    override fun store(token: String) {
+        val credentials = if (token.isBlank()) {
             null
         } else {
-            Credentials(username.trim(), token)
+            Credentials(OSS_INDEX_AUTH_USERNAME, token)
         }
         passwordSafe[CREDENTIAL_ATTRIBUTES] = credentials
     }

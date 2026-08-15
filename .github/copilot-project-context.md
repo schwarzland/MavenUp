@@ -47,10 +47,11 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   Farben verwenden `JBColor`-Doppelwerte für Light-/Dark-Mode-Kompatibilität.
 - **MavenUpSettings**: `PersistentStateComponent`, gespeichert in `mavenup_settings.xml`
   (`jumpOnSingleClick`, `selectLatestVersion`, `hideUnstableVersions`, `hiddenVersionQualifiers`,
-  `ossIndexEnabled`, `ossIndexUsername`, `checkTransitiveDependencies`, `repositoryBrowser`, `toolbarShowText`,
+  `ossIndexEnabled`, `checkTransitiveDependencies`, `repositoryBrowser`, `toolbarShowText`,
   `syncMavenAfterUpdate`).
-  Für die HTTP-Basic-Authentifizierung sind OSS-Index-Benutzername und Token gemeinsam erforderlich.
-  Das Token liegt ausschließlich im IntelliJ Password Safe; bei unvollständigen Credentials wird
+  Für die OSS-Index-Abfrage ist nur das Token erforderlich; Sonatype wertet bei der HTTP-Basic-Authentifizierung
+  nur das Token aus, weshalb ein fester Platzhalter-Benutzername verwendet wird.
+  Das Token liegt ausschließlich im IntelliJ Password Safe; fehlt es, wird
   keine OSS-Index-Abfrage gesendet.
 - **MAVEN_UP_SETTINGS_TOPIC**: `Topic<Runnable>` in `service`, über das `MavenUpConfigurable.apply()`
   Einstellungsänderungen veröffentlicht, damit offene UI-Komponenten (z.B. die Tool-Window-Aktionsleiste
@@ -64,7 +65,7 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
 - **MavenUpConfigurable**: Settings-UI unter `Settings > Tools > MavenUp`.
   Bietet u.a. die Checkbox für Text-Buttons in der Aktionsleiste (`toolbarShowText`) und veröffentlicht
   beim Speichern den `MAVEN_UP_SETTINGS_TOPIC`.
-  Die OSS-Index-Sektion kennzeichnet Benutzername und Token bei Aktivierung als Pflichtfelder und
+  Die OSS-Index-Sektion kennzeichnet das Token bei Aktivierung als Pflichtfeld und
   verlinkt auf die Sonatype-Kontoeinstellungen zur Token-Erzeugung. Das Token wird außerhalb des EDT
   aus dem Password Safe geladen und für `isModified()` im UI-Modell gecacht.
 - **VulnerabilityApiService**: OSV-Batchabfrage plus Detailanreicherung und Filterung

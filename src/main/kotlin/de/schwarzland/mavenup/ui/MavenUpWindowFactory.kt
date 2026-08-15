@@ -1521,12 +1521,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     val ossIndexResults = if (settings.ossIndexEnabled && !indicator.isCanceled) {
                         try {
                             val credentials = ossIndexCredentialService.retrieve()
-                            val username = settings.ossIndexUsername.ifBlank {
-                                credentials?.userName.orEmpty()
-                            }
                             val token = credentials?.getPasswordAsString().orEmpty()
-                            if (username.isBlank() || token.isBlank()) {
-                                LOG.warn("Skipping OSS Index vulnerability check because credentials are incomplete.")
+                            if (token.isBlank()) {
+                                LOG.warn("Skipping OSS Index vulnerability check because the API token is missing.")
                                 ossIndexError = MyMessageBundle.message(
                                     "vulnerability.ossIndex.credentialsMissing"
                                 )
@@ -1534,7 +1531,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
                             } else {
                                 ossIndexApiService.fetchVulnerabilityAdvisories(
                                     dependencies.toList(),
-                                    username,
                                     token,
                                     indicator
                                 )

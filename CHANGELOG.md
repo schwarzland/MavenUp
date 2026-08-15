@@ -1,8 +1,12 @@
 <!-- Keep a Changelog guide -> https://keepachangelog.com -->
 
 # MavenUp Changelog
-## [2.0.0]
+## [Unreleased]
 
+### Changed
+- Sonatype OSS Index now authenticates with the API token only; the username/email field was removed because Sonatype does not validate it.
+
+## [2.0.0]
 ### Added
 - Added a **Sync Maven changes after update** setting; the checkbox in the **Confirm Changes** dialog and the setting stay in sync, and the last choice made in the dialog is persisted.
 - Added an optional **Sync Maven Changes after update** checkbox to the **Confirm Changes** dialog (enabled by default); when selected, it automatically triggers the IDE's Maven sync after updating the `pom.xml` files.

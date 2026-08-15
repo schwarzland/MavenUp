@@ -69,7 +69,6 @@ class OssIndexApiServiceTest {
         try {
             val result = service.fetchVulnerabilityAdvisoriesForChunk(
                 listOf(Triple("com.example", "demo", "1.0")),
-                "user@example.test",
                 "secret",
                 "http://127.0.0.1:${server.address.port}/api/v3/component-report"
             )
@@ -77,7 +76,7 @@ class OssIndexApiServiceTest {
             assertTrue(receivedBody.contains("pkg:maven/com.example/demo@1.0"))
             assertEquals(
                 "Basic " + java.util.Base64.getEncoder().encodeToString(
-                    "user@example.test:secret".toByteArray()
+                    "$OSS_INDEX_AUTH_USERNAME:secret".toByteArray()
                 ),
                 authorization
             )
@@ -88,7 +87,7 @@ class OssIndexApiServiceTest {
     }
 
     @Test
-    fun testFetchChunkSkipsRequestWithoutCompleteCredentials() {
+    fun testFetchChunkSkipsRequestWithoutToken() {
         val requestCount = AtomicInteger()
         val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         server.createContext("/api/v3/component-report") { exchange ->
@@ -105,7 +104,6 @@ class OssIndexApiServiceTest {
             assertTrue(
                 service.fetchVulnerabilityAdvisoriesForChunk(
                     dependencies,
-                    "user@example.test",
                     "",
                     reportUrl
                 ).isEmpty()
@@ -113,8 +111,7 @@ class OssIndexApiServiceTest {
             assertTrue(
                 service.fetchVulnerabilityAdvisoriesForChunk(
                     dependencies,
-                    "",
-                    "secret",
+                    null,
                     reportUrl
                 ).isEmpty()
             )

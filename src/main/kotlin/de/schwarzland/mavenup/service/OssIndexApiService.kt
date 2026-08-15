@@ -21,13 +21,22 @@ private const val OSS_INDEX_SOURCE = "OSS Index"
 private val OSS_INDEX_LOG = Logger.getInstance(OssIndexApiService::class.java)
 
 /**
+ * Fester Platzhalter-Benutzername für die HTTP-Basic-Authentifizierung beim OSS Index.
+ *
+ * Der Sonatype OSS Index authentifiziert Anfragen ausschließlich über das API-Token; der
+ * Benutzername-Teil des Auth-Headers wird serverseitig nicht ausgewertet. Es genügt daher
+ * ein beliebiger, nicht-leerer Platzhalter, sodass keine E-Mail-Adresse konfiguriert werden muss.
+ */
+internal const val OSS_INDEX_AUTH_USERNAME = "MavenUp"
+
+/**
  * Dieser Service ist für die Abfrage von Sicherheitsanfälligkeiten (Vulnerabilities)
  * über den Sonatype OSS Index zuständig.
  *
  * Die Hauptaufgaben dieser Klasse umfassen:
  * - Erstellung von Package-URLs (PURL) für Maven-Artefakte.
  * - Senden von Batch-Anfragen an die OSS Index API.
- * - Authentifizierung mittels Benutzername/E-Mail und API-Token.
+ * - Authentifizierung mittels API-Token (mit festem Platzhalter-Benutzernamen).
  * - Parsen der API-Antworten in das interne Modell `VulnerabilityAdvisory`.
  *
  * Dieser Service wird benötigt, um den Benutzer über bekannte Sicherheitslücken in
@@ -65,17 +74,16 @@ class OssIndexApiService {
 
     /**
      * Führt eine einzelne Batch-Anfrage für eine Liste von Abhängigkeiten durch.
-     * Erfordert authentifizierte Zugangsdaten.
+     * Erfordert ein API-Token; der Benutzername des Auth-Headers ist ein fester Platzhalter.
      */
     fun fetchVulnerabilityAdvisoriesForChunk(
         chunk: List<Triple<String, String, String>>,
-        username: String? = null,
         token: String? = null,
         reportUrl: String = OSS_INDEX_REPORT_URL
     ): Map<String, List<VulnerabilityAdvisory>> {
         if (chunk.isEmpty()) return emptyMap()
-        if (username.isNullOrBlank() || token.isNullOrBlank()) {
-            OSS_INDEX_LOG.warn("Skipping OSS Index request because username/email or API token is missing.")
+        if (token.isNullOrBlank()) {
+            OSS_INDEX_LOG.warn("Skipping OSS Index request because the API token is missing.")
             return emptyMap()
         }
 
@@ -93,7 +101,7 @@ class OssIndexApiService {
             doOutput = true
             setRequestProperty("Content-Type", "application/json; charset=utf-8")
             val value = Base64.getEncoder()
-                .encodeToString("$username:$token".toByteArray(StandardCharsets.UTF_8))
+                .encodeToString("$OSS_INDEX_AUTH_USERNAME:$token".toByteArray(StandardCharsets.UTF_8))
             setRequestProperty("Authorization", "Basic $value")
         }
 
@@ -121,13 +129,12 @@ class OssIndexApiService {
      */
     fun fetchVulnerabilityAdvisories(
         dependencies: List<Triple<String, String, String>>,
-        username: String? = null,
         token: String? = null,
         indicator: ProgressIndicator? = null
     ): Map<String, List<VulnerabilityAdvisory>> {
         if (dependencies.isEmpty()) return emptyMap()
-        if (username.isNullOrBlank() || token.isNullOrBlank()) {
-            OSS_INDEX_LOG.warn("Skipping OSS Index request because username/email or API token is missing.")
+        if (token.isNullOrBlank()) {
+            OSS_INDEX_LOG.warn("Skipping OSS Index request because the API token is missing.")
             return emptyMap()
         }
 
@@ -136,7 +143,7 @@ class OssIndexApiService {
         chunks.forEachIndexed { index, chunk ->
             if (indicator?.isCanceled == true) return results
             indicator?.text2 = "OSS Index ${index + 1}/${chunks.size}"
-            results.putAll(fetchVulnerabilityAdvisoriesForChunk(chunk, username, token))
+            results.putAll(fetchVulnerabilityAdvisoriesForChunk(chunk, token))
         }
         return results
     }
