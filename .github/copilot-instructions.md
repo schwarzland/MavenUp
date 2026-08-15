@@ -10,9 +10,9 @@ Bei **jeder** Änderung im Repository sind diese Punkte immer zu berücksichtige
    - Keine inhaltlichen Dopplungen zwischen den Abschnitten – jeder Punkt gehört genau an eine Stelle.
    - Nach jeder Änderung alle Abschnitte (Funktionen, Benutzung DE/EN, Einstellungen, Architektur) auf Vollständigkeit und Konsistenz prüfen.
 2. **CHANGELOG.md** ergänzen/aktualisieren mit einem passenden Eintrag zur Änderung. Dabei gelten folgende Regeln:
-   - Wenn du dich in einem Feature-Branch befindest, erkennbar an `feature/*` mit Hilfe der Anweisung `git rev-parse --abbrev-ref HEAD`, dann prüfe, ob eine Sektion `## [Unreleased]` existiert. Fehlt sie, wird sie oben in der Datei als erste Überschrift hinzugefügt.
-   - Neue Einträge immer in den Block `## [Unreleased]` einsortieren, nicht als neuen Block anhängen.
-   - Alle Änderungen eines Feature-Branches werden zunächst in dieser `## [Unreleased]`-Sektion dokumentiert, bevor weitere Release-Abschnitte oder andere Einträge ergänzt werden.
+   - Ermittle zunächst mit `git rev-parse --abbrev-ref HEAD`, ob du dich in einem Feature-Branch (erkennbar an `feature/*`) befindest.
+   - Wenn du dich in einem Feature-Branch befindest, prüfe, ob eine Sektion `## [Unreleased]` existiert. Fehlt sie, füge sie ganz oben in der Datei als erste Überschrift hinzu.
+   - Alle Änderungen des Feature-Branches werden in dieser `## [Unreleased]`-Sektion dokumentiert, nicht als neuer Block angehängt und bevor weitere Release-Abschnitte oder andere Einträge ergänzt werden.
    - Sprache: Englisch.
    - Struktur: pro Version **genau einen** `### Added`-, `### Changed`- und `### Fixed`-Block – niemals doppelte Kategorien innerhalb derselben Version.
    - Jeder Eintrag ist ein prägnanter Satz (ein Gedanke pro Zeile); keine Redundanzen, keine Dopplungen.
