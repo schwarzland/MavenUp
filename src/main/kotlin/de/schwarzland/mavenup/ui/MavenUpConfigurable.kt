@@ -15,6 +15,7 @@ import com.intellij.openapi.ui.ComboBox
 import com.intellij.util.concurrency.AppExecutorUtil
 import com.intellij.ui.SimpleListCellRenderer
 import com.intellij.ui.components.JBCheckBox
+import com.intellij.ui.dsl.builder.Align
 import com.intellij.ui.dsl.builder.panel
 import java.util.concurrent.CompletableFuture
 import javax.swing.JComponent
@@ -117,8 +118,11 @@ class MavenUpConfigurable internal constructor(
                 row {
                     hiddenVersionQualifiersLabel = label(MyMessageBundle.message("settings.hiddenVersionQualifiers")).component
                     hiddenVersionQualifiersField = textField()
+                        .align(Align.FILL)
+                        .resizableColumn()
                         .applyToComponent {
                             text = settings.state.hiddenVersionQualifiers
+                            columns = 20
                         }
                         .component
                 }
