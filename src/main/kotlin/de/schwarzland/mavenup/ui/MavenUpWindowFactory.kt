@@ -27,8 +27,10 @@ import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.ide.BrowserUtil
+import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileEditor.OpenFileDescriptor
+import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
@@ -39,6 +41,7 @@ import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
 import com.intellij.psi.PsiManager
+import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.xml.XmlFile
 import com.intellij.psi.xml.XmlTag
 import com.intellij.ui.components.JBPanel
@@ -788,11 +791,13 @@ class MavenUpWindowFactory : ToolWindowFactory {
                             ) {
                                 override fun run(indicator: ProgressIndicator) {
                                     val mavenManager = MavenProjectsManager.getInstance(project)
+                                    val pomFiles = mavenManager.projects.map { it.file }
                                     mavenManager.projects.forEach { mavenProject ->
                                         applyUpdateToPom(mavenProject, updates)
                                     }
 
                                     if (shouldSyncMaven) {
+                                        persistPomChanges(pomFiles)
                                         mavenManager.forceUpdateAllProjectsOrFindAllAvailablePomFiles()
                                     }
 
@@ -1410,6 +1415,29 @@ class MavenUpWindowFactory : ToolWindowFactory {
                             updatePlugins(documentElement, update, propertiesTag)
                         }
                     }
+                }
+            }
+        }
+
+        /**
+         * Schreibt die zuvor über PSI geänderten `pom.xml`-Dateien auf die Festplatte.
+         *
+         * PSI-/Document-Änderungen liegen zunächst nur im Speicher vor. Der anschließende
+         * Maven-Sync (`forceUpdateAllProjectsOrFindAllAvailablePomFiles`) liest die POM-Dateien
+         * jedoch von der Festplatte neu ein. Ohne vorheriges Speichern würde Maven den alten,
+         * unveränderten Inhalt importieren und das Projekt bliebe unsynchronisiert. Das Speichern
+         * erfolgt synchron auf dem EDT, damit es vor dem Auslösen des Sync abgeschlossen ist.
+         *
+         * @param pomFiles Die POM-Dateien, deren offene Documents gespeichert werden sollen.
+         */
+        private fun persistPomChanges(pomFiles: List<VirtualFile>) {
+            ApplicationManager.getApplication().invokeAndWait {
+                val psiDocumentManager = PsiDocumentManager.getInstance(project)
+                val fileDocumentManager = FileDocumentManager.getInstance()
+                pomFiles.forEach { pomFile ->
+                    val document = fileDocumentManager.getDocument(pomFile) ?: return@forEach
+                    psiDocumentManager.doPostponedOperationsAndUnblockDocument(document)
+                    fileDocumentManager.saveDocument(document)
                 }
             }
         }

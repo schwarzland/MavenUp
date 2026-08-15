@@ -9,6 +9,9 @@
 ### Changed
 - Sonatype OSS Index now authenticates with the API token only; the username/email field was removed because Sonatype does not validate it.
 
+### Fixed
+- Fixed **Sync Maven Changes after update** not synchronizing the Maven project by saving the modified `pom.xml` documents to disk before triggering the Maven sync, so the reimport reads the updated versions instead of the stale on-disk content.
+
 ## [2.0.0]
 ### Added
 - Added a **Sync Maven changes after update** setting; the checkbox in the **Confirm Changes** dialog and the setting stay in sync, and the last choice made in the dialog is persisted.
