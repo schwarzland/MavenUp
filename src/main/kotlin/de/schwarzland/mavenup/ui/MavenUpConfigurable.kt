@@ -113,16 +113,15 @@ class MavenUpConfigurable internal constructor(
                     .applyToComponent { isSelected = settings.state.hideUnstableVersions }
                     .component
             }
-            row {
-                hiddenVersionQualifiersLabel = label(
-                    "       ${MyMessageBundle.message("settings.hiddenVersionQualifiers")}"
-                ).component
-                hiddenVersionQualifiersField = textField()
-                    .applyToComponent {
-                        text = settings.state.hiddenVersionQualifiers
-                        columns = 40
-                    }
-                    .component
+            indent {
+                row {
+                    hiddenVersionQualifiersLabel = label(MyMessageBundle.message("settings.hiddenVersionQualifiers")).component
+                    hiddenVersionQualifiersField = textField()
+                        .applyToComponent {
+                            text = settings.state.hiddenVersionQualifiers
+                        }
+                        .component
+                }
             }
             group(MyMessageBundle.message("settings.vulnerability.group")) {
                 row {
