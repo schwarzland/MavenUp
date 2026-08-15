@@ -71,21 +71,6 @@ class MavenUpConfigurable internal constructor(
         val settings = MavenUpSettings.getInstance(project)
         return panel {
             row {
-                jumpOnSingleClickCheckBox = checkBox(MyMessageBundle.message("settings.jumpOnSingleClick"))
-                    .applyToComponent { isSelected = settings.state.jumpOnSingleClick }
-                    .component
-            }
-            row {
-                toolbarShowTextCheckBox = checkBox(MyMessageBundle.message("settings.toolbarShowText"))
-                    .applyToComponent { isSelected = settings.state.toolbarShowText }
-                    .component
-            }
-            row {
-                syncMavenAfterUpdateCheckBox = checkBox(MyMessageBundle.message("settings.syncMavenAfterUpdate"))
-                    .applyToComponent { isSelected = settings.state.syncMavenAfterUpdate }
-                    .component
-            }
-            row {
                 label(MyMessageBundle.message("settings.repositoryBrowser"))
                 repositoryBrowserComboBox = comboBox(MavenRepositoryBrowser.entries)
                     .applyToComponent {
@@ -104,6 +89,22 @@ class MavenUpConfigurable internal constructor(
                     }
                     .component
             }
+            row {
+                jumpOnSingleClickCheckBox = checkBox(MyMessageBundle.message("settings.jumpOnSingleClick"))
+                    .applyToComponent { isSelected = settings.state.jumpOnSingleClick }
+                    .component
+            }
+            row {
+                toolbarShowTextCheckBox = checkBox(MyMessageBundle.message("settings.toolbarShowText"))
+                    .applyToComponent { isSelected = settings.state.toolbarShowText }
+                    .component
+            }
+            row {
+                syncMavenAfterUpdateCheckBox = checkBox(MyMessageBundle.message("settings.syncMavenAfterUpdate"))
+                    .applyToComponent { isSelected = settings.state.syncMavenAfterUpdate }
+                    .component
+            }
+
             row {
                 selectLatestVersionCheckBox = checkBox(MyMessageBundle.message("settings.selectLatestVersion"))
                     .applyToComponent { isSelected = settings.state.selectLatestVersion }
@@ -139,19 +140,26 @@ class MavenUpConfigurable internal constructor(
                         .applyToComponent { isSelected = settings.state.ossIndexEnabled }
                         .component
                 }
-                row {
-                    ossIndexTokenLabel = label(MyMessageBundle.message("settings.ossIndex.token")).component
-                    ossIndexTokenField = cell(JPasswordField(30))
-                        .component
-                }
-                row {
-                    comment(MyMessageBundle.message("settings.ossIndex.hint"))
-                }
-                row {
-                    browserLink(
-                        MyMessageBundle.message("settings.ossIndex.accountLink"),
-                        OSS_INDEX_ACCOUNT_URL
-                    )
+                indent {
+                    row {
+                        ossIndexTokenLabel = label(MyMessageBundle.message("settings.ossIndex.token")).component
+                        ossIndexTokenField = cell(JPasswordField())
+                            .align(Align.FILL)
+                            .resizableColumn()
+                            .applyToComponent {
+                                columns = 20
+                            }
+                            .component
+                    }
+                    row {
+                        comment(MyMessageBundle.message("settings.ossIndex.hint"))
+                    }
+                    row {
+                        browserLink(
+                            MyMessageBundle.message("settings.ossIndex.accountLink"),
+                            OSS_INDEX_ACCOUNT_URL
+                        )
+                    }
                 }
             }
 
