@@ -14,6 +14,8 @@ Bei **jeder** Änderung im Repository sind diese Punkte immer zu berücksichtige
    - Versionsnummer aus `gradle.properties` übernehmen.
    - Struktur: pro Version **genau einen** `### Added`-, `### Changed`- und `### Fixed`-Block – niemals doppelte Kategorien innerhalb derselben Version.
    - Neue Einträge immer in den Block `## [Unreleased]` einsortieren, nicht als neuen Block anhängen.
+   - Wird in einem Feature-Branch eine Änderung vorgenommen, ist zu prüfen, ob eine Sektion `## [Unreleased]` existiert. Fehlt sie, wird sie oben in der Datei als erste Überschrift hinzugefügt.
+   - Alle Änderungen eines Feature-Branches werden zunächst in dieser `## [Unreleased]`-Sektion dokumentiert, bevor weitere Release-Abschnitte oder andere Einträge ergänzt werden.
    - Jeder Eintrag ist ein prägnanter Satz (ein Gedanke pro Zeile); keine Redundanzen, keine Dopplungen.
    - Nach dem Hinzufügen den gesamten Bereich überfliegen und sicherstellen, dass keine Kategorie doppelt vorkommt und alle Einträge thematisch korrekt zugeordnet sind.
 3. **FEATURES.md** ergänzen/aktualisieren, wenn neue Funktionen hinzugefügt oder bestehende Funktionen geändert werden. Sprache: Englisch. Dabei gelten folgende Regeln:
