@@ -30,6 +30,18 @@ private val OSS_INDEX_LOG = Logger.getInstance(OssIndexApiService::class.java)
 internal const val OSS_INDEX_AUTH_USERNAME = "MavenUp"
 
 /**
+ * Wird geworfen, wenn der Sonatype OSS Index die Anfrage wegen eines ungültigen oder
+ * abgelaufenen API-Tokens ablehnt (HTTP 401 Unauthorized oder HTTP 403 Forbidden).
+ *
+ * Diese spezielle Ausnahme ermöglicht es der Benutzeroberfläche, eine qualifizierte
+ * Fehlermeldung anzuzeigen, die den Benutzer gezielt auf ein fehlerhaftes Token hinweist,
+ * anstatt eine generische technische HTTP-Fehlermeldung auszugeben.
+ *
+ * @param message Die technische Beschreibung des fehlgeschlagenen HTTP-Aufrufs.
+ */
+class OssIndexAuthenticationException(message: String) : IOException(message)
+
+/**
  * Dieser Service ist für die Abfrage von Sicherheitsanfälligkeiten (Vulnerabilities)
  * über den Sonatype OSS Index zuständig.
  *
@@ -109,6 +121,14 @@ class OssIndexApiService {
         val responseCode = connection.responseCode
         if (responseCode != HttpURLConnection.HTTP_OK) {
             val errorBody = connection.errorStream?.bufferedReader()?.use { it.readText() }.orEmpty()
+            if (responseCode == HttpURLConnection.HTTP_UNAUTHORIZED ||
+                responseCode == HttpURLConnection.HTTP_FORBIDDEN
+            ) {
+                throw OssIndexAuthenticationException(
+                    "OSS Index rejected the API token with HTTP $responseCode " +
+                        "${connection.responseMessage}. Body: $errorBody"
+                )
+            }
             throw IOException(
                 "OSS Index request failed with HTTP $responseCode ${connection.responseMessage}. Body: $errorBody"
             )

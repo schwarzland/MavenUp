@@ -75,7 +75,8 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   fragt `maven-metadata.xml` für Versionslisten ab, löst Credential-Platzhalter auf und filtert
   Versionen gemäß Plugin-Einstellungen (Qualifier-Filter, Sortierung).
 - **OssIndexApiService / OssIndexCredentialService**: optionale Sonatype-Abfrage über Maven-purl
-  und sichere Zugangsdatenablage.
+  und sichere Zugangsdatenablage; wirft `OssIndexAuthenticationException` bei ungültigem/abgelaufenem
+  Token (HTTP 401/403) für eine qualifizierte Fehlermeldung.
 - **VulnerabilityMerger / VulnerabilityAdvisory**: normalisiertes Security-Datenmodell und
   quellenübergreifende Deduplizierung anhand von IDs/Aliasen; CVSS-Vektoren werden über
   `us.springett:cvss-calculator` normalisiert, bei nicht unterstützten CVSS-Versionen wird auf

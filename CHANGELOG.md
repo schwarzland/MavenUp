@@ -3,6 +3,9 @@
 # MavenUp Changelog
 ## [Unreleased]
 
+### Added
+- Show a qualified error message when a Sonatype OSS Index vulnerability scan fails because the API token is invalid or expired, offering a button to jump directly to the plugin settings.
+
 ### Changed
 - Sonatype OSS Index now authenticates with the API token only; the username/email field was removed because Sonatype does not validate it.
 

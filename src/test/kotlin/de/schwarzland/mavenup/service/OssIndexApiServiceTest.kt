@@ -120,4 +120,64 @@ class OssIndexApiServiceTest {
             server.stop(0)
         }
     }
+
+    @Test
+    fun testFetchChunkThrowsAuthenticationExceptionOnUnauthorized() {
+        assertAuthenticationExceptionForStatus(401)
+    }
+
+    @Test
+    fun testFetchChunkThrowsAuthenticationExceptionOnForbidden() {
+        assertAuthenticationExceptionForStatus(403)
+    }
+
+    @Test
+    fun testFetchChunkThrowsGenericIoExceptionOnServerError() {
+        val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+        server.createContext("/api/v3/component-report") { exchange ->
+            val bytes = "boom".toByteArray()
+            exchange.sendResponseHeaders(500, bytes.size.toLong())
+            exchange.responseBody.use { it.write(bytes) }
+        }
+        server.start()
+
+        try {
+            val reportUrl = "http://127.0.0.1:${server.address.port}/api/v3/component-report"
+            val error = org.junit.Assert.assertThrows(java.io.IOException::class.java) {
+                service.fetchVulnerabilityAdvisoriesForChunk(
+                    listOf(Triple("com.example", "demo", "1.0")),
+                    "secret",
+                    reportUrl
+                )
+            }
+            assertTrue(error !is OssIndexAuthenticationException)
+            assertTrue(error.message.orEmpty().contains("HTTP 500"))
+        } finally {
+            server.stop(0)
+        }
+    }
+
+    private fun assertAuthenticationExceptionForStatus(statusCode: Int) {
+        val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+        server.createContext("/api/v3/component-report") { exchange ->
+            val bytes = "denied".toByteArray()
+            exchange.sendResponseHeaders(statusCode, bytes.size.toLong())
+            exchange.responseBody.use { it.write(bytes) }
+        }
+        server.start()
+
+        try {
+            val reportUrl = "http://127.0.0.1:${server.address.port}/api/v3/component-report"
+            val error = org.junit.Assert.assertThrows(OssIndexAuthenticationException::class.java) {
+                service.fetchVulnerabilityAdvisoriesForChunk(
+                    listOf(Triple("com.example", "demo", "1.0")),
+                    "secret",
+                    reportUrl
+                )
+            }
+            assertTrue(error.message.orEmpty().contains("HTTP $statusCode"))
+        } finally {
+            server.stop(0)
+        }
+    }
 }
