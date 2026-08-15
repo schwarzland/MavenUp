@@ -7,6 +7,7 @@
 - Show a qualified error message when a Sonatype OSS Index vulnerability scan fails because the API token is invalid or expired, offering a button to jump directly to the plugin settings.
 
 ### Changed
+- The settings page groups its options under three headings — **Appearance**, **Versions & Updates** and **Vulnerability Check** — to improve orientation.
 - Sonatype OSS Index now authenticates with the API token only; the username/email field was removed because Sonatype does not validate it.
 - The "Hidden version qualifiers" setting now follows the IntelliJ settings style: it appears as an indented sub-setting and the input field expands with the settings dialog width so long qualifier lists remain readable while disabled when the feature is off.
 

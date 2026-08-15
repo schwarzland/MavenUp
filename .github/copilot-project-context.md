@@ -63,6 +63,7 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   Repository-Browser-Optionen (`MVN_REPOSITORY`, `SONATYPE_CENTRAL`) und erzeugt die jeweilige
   Versions-URL für groupId/artifactId/version.
 - **MavenUpConfigurable**: Settings-UI unter `Settings > Tools > MavenUp`.
+  Die Optionen sind in drei Gruppen (`group`) gegliedert: **Appearance**, **Versions & Updates** und **Vulnerability Check**.
   Bietet u.a. die Checkbox für Text-Buttons in der Aktionsleiste (`toolbarShowText`) und veröffentlicht
   beim Speichern den `MAVEN_UP_SETTINGS_TOPIC`.
   Die OSS-Index-Sektion kennzeichnet das Token bei Aktivierung als Pflichtfeld und

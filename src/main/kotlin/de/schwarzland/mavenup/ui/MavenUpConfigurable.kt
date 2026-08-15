@@ -70,65 +70,68 @@ class MavenUpConfigurable internal constructor(
     override fun createComponent(): JComponent {
         val settings = MavenUpSettings.getInstance(project)
         return panel {
-            row {
-                label(MyMessageBundle.message("settings.repositoryBrowser"))
-                repositoryBrowserComboBox = comboBox(MavenRepositoryBrowser.entries)
-                    .applyToComponent {
-                        selectedItem = settings.state.repositoryBrowser
-                        renderer = object : SimpleListCellRenderer<MavenRepositoryBrowser>() {
-                            override fun customize(
-                                list: javax.swing.JList<out MavenRepositoryBrowser>,
-                                value: MavenRepositoryBrowser?,
-                                index: Int,
-                                selected: Boolean,
-                                hasFocus: Boolean
-                            ) {
-                                text = value?.displayName ?: ""
-                            }
-                        }
-                    }
-                    .component
-            }
-            row {
-                jumpOnSingleClickCheckBox = checkBox(MyMessageBundle.message("settings.jumpOnSingleClick"))
-                    .applyToComponent { isSelected = settings.state.jumpOnSingleClick }
-                    .component
-            }
-            row {
-                toolbarShowTextCheckBox = checkBox(MyMessageBundle.message("settings.toolbarShowText"))
-                    .applyToComponent { isSelected = settings.state.toolbarShowText }
-                    .component
-            }
-            row {
-                syncMavenAfterUpdateCheckBox = checkBox(MyMessageBundle.message("settings.syncMavenAfterUpdate"))
-                    .applyToComponent { isSelected = settings.state.syncMavenAfterUpdate }
-                    .component
-            }
-
-            row {
-                selectLatestVersionCheckBox = checkBox(MyMessageBundle.message("settings.selectLatestVersion"))
-                    .applyToComponent { isSelected = settings.state.selectLatestVersion }
-                    .component
-            }
-            row {
-                hideUnstableVersionsCheckBox = checkBox(MyMessageBundle.message("settings.hideUnstableVersions"))
-                    .applyToComponent { isSelected = settings.state.hideUnstableVersions }
-                    .component
-            }
-            indent {
+            group(MyMessageBundle.message("settings.group.appearance")) {
                 row {
-                    hiddenVersionQualifiersLabel = label(MyMessageBundle.message("settings.hiddenVersionQualifiers")).component
-                    hiddenVersionQualifiersField = textField()
-                        .align(Align.FILL)
-                        .resizableColumn()
+                    label(MyMessageBundle.message("settings.repositoryBrowser"))
+                    repositoryBrowserComboBox = comboBox(MavenRepositoryBrowser.entries)
                         .applyToComponent {
-                            text = settings.state.hiddenVersionQualifiers
-                            columns = 20
+                            selectedItem = settings.state.repositoryBrowser
+                            renderer = object : SimpleListCellRenderer<MavenRepositoryBrowser>() {
+                                override fun customize(
+                                    list: javax.swing.JList<out MavenRepositoryBrowser>,
+                                    value: MavenRepositoryBrowser?,
+                                    index: Int,
+                                    selected: Boolean,
+                                    hasFocus: Boolean
+                                ) {
+                                    text = value?.displayName ?: ""
+                                }
+                            }
                         }
                         .component
                 }
+                row {
+                    toolbarShowTextCheckBox = checkBox(MyMessageBundle.message("settings.toolbarShowText"))
+                        .applyToComponent { isSelected = settings.state.toolbarShowText }
+                        .component
+                }
+                row {
+                    jumpOnSingleClickCheckBox = checkBox(MyMessageBundle.message("settings.jumpOnSingleClick"))
+                        .applyToComponent { isSelected = settings.state.jumpOnSingleClick }
+                        .component
+                }
             }
-            group(MyMessageBundle.message("settings.vulnerability.group")) {
+            group(MyMessageBundle.message("settings.group.versions")) {
+                row {
+                    selectLatestVersionCheckBox = checkBox(MyMessageBundle.message("settings.selectLatestVersion"))
+                        .applyToComponent { isSelected = settings.state.selectLatestVersion }
+                        .component
+                }
+                row {
+                    hideUnstableVersionsCheckBox = checkBox(MyMessageBundle.message("settings.hideUnstableVersions"))
+                        .applyToComponent { isSelected = settings.state.hideUnstableVersions }
+                        .component
+                }
+                indent {
+                    row {
+                        hiddenVersionQualifiersLabel = label(MyMessageBundle.message("settings.hiddenVersionQualifiers")).component
+                        hiddenVersionQualifiersField = textField()
+                            .align(Align.FILL)
+                            .resizableColumn()
+                            .applyToComponent {
+                                text = settings.state.hiddenVersionQualifiers
+                                columns = 20
+                            }
+                            .component
+                    }
+                }
+                row {
+                    syncMavenAfterUpdateCheckBox = checkBox(MyMessageBundle.message("settings.syncMavenAfterUpdate"))
+                        .applyToComponent { isSelected = settings.state.syncMavenAfterUpdate }
+                        .component
+                }
+            }
+            group(MyMessageBundle.message("settings.group.vulnerability")) {
                 row {
                     checkTransitiveDependenciesCheckBox =
                         checkBox(MyMessageBundle.message("settings.checkTransitiveDependencies"))
