@@ -1,7 +1,7 @@
 <!-- Keep a Changelog guide -> https://keepachangelog.com -->
 
 # MavenUp Changelog
-## [Unreleased]
+## [2.1.0]
 
 ### Added
 - Show a qualified error message when a Sonatype OSS Index vulnerability scan fails because the API token is invalid or expired, offering a button to jump directly to the plugin settings.
