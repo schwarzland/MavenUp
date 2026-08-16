@@ -1,10 +1,11 @@
 <!-- Keep a Changelog guide -> https://keepachangelog.com -->
 
 # MavenUp Changelog
-## [Unreleased]
+## [2.1.0]
 
 ### Added
 - Show a qualified error message when a Sonatype OSS Index vulnerability scan fails because the API token is invalid or expired, offering a button to jump directly to the plugin settings.
+- Added a filter row above the main dependencies table: a text field filters by GroupId, ArtifactId or Property, and a combo box filters by dependency type; both filters combine and only matching rows remain visible.
 
 ### Changed
 - The settings page groups its options under three headings — **Appearance**, **Versions & Updates** and **Vulnerability Check** — to improve orientation.
@@ -12,6 +13,7 @@
 - The "Hidden version qualifiers" setting now follows the IntelliJ settings style: it appears as an indented sub-setting and the input field expands with the settings dialog width so long qualifier lists remain readable while disabled when the feature is off.
 
 ### Fixed
+- Removed unnecessary `lateinit` modifiers on the tool window's table and row-sorter fields, eliminating two Gradle "'lateinit' is unnecessary" compiler warnings.
 - Fixed **Sync Maven Changes after update** not synchronizing the Maven project by saving the modified `pom.xml` documents to disk before triggering the Maven sync, so the reimport reads the updated versions instead of the stale on-disk content.
 
 ## [2.0.0]
