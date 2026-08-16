@@ -24,7 +24,7 @@ Eine vollständige, englische Feature-Liste steht in `FEATURES.md`.
 - **Rechtsklick-Kontextmenü**: Ein Rechtsklick auf eine Dependency-Zeile öffnet ein Kontextmenü mit **Navigate to pom.xml** (springt zur Definition im Editor), **Open in Maven Repository** (öffnet die Versionsseite im konfigurierten Repository-Browser) und ggf. **Show Vulnerability Details** (öffnet den Dialog mit Sicherheitsbefunden, falls Vulnerabilities gefunden wurden).
 - **Open-in-Repository-Aktion**: In der oberen Aktionsleiste öffnet die selektionsabhängige Aktion die aktuelle Version der selektierten Dependency im konfigurierten Repository-Browser. Der Tooltip zeigt dynamisch den konfigurierten Browser-Namen (z.B. **Open on MVN Repository** oder **Open on Sonatype Central**) – entspricht dem Kontextmenüeintrag **Open in Maven Repository**.
 - **Konfigurierbarer Repository-Browser**: Unter `Settings > Tools > MavenUp` kann zwischen **MVN Repository** (Standard, `mvnrepository.com`) und **Sonatype Central** (`central.sonatype.com`) gewählt werden. Die Auswahl gilt für das Kontextmenü im Hauptfenster und das Rechtsklick-Kontextmenü im Vulnerability-Details-Dialog (alle Spalten außer **References**).
-- **Integrierte Einstellungen**: Über `Settings > Tools > MavenUp` konfigurierbar (u.a. Single-Click-Navigation, automatische Vorauswahl der neuesten Version, Repository-Browser).
+- **Integrierte Einstellungen**: Über `Settings > Tools > MavenUp` konfigurierbar; die Optionen sind in die drei Gruppen **Appearance**, **Versions & Updates** und **Vulnerability Check** gegliedert (u.a. Single-Click-Navigation, automatische Vorauswahl der neuesten Version, Repository-Browser).
 - **Zweigeteilte Aktionsleiste**: Die Aktionen liegen in einer oberen Aktionsleiste (IntelliJ-`ActionToolbar`). Links stehen die Kernaktionen **Refresh**, **Find New Versions**, **Scan for Vulnerabilities** und **Update**; durch einen Trenner abgesetzt folgen die selektionsabhängigen Aktionen **Open on [Browser]** und **Vulnerability Details**, die erst bei passend selektierter Dependency-Zeile aktiv werden; rechts folgen die **Settings**. Wahlweise werden die Aktionen als reine Icon-Buttons (Standard, mit Namen als Tooltip) oder als Buttons mit Textbeschriftung dargestellt (per Einstellung umschaltbar).
 - **Multi-Source-Vulnerability-Check**: **Scan for Vulnerabilities** prüft direkte Komponenten und standardmäßig auch aufgelöste transitive Dependencies über [OSV.dev](https://osv.dev). Optional ergänzt [Sonatype OSS Index](https://ossindex.sonatype.org/) Maven-spezifische Befunde.
 - **Qualifizierte OSS-Index-Token-Fehler**: Lehnt Sonatype die Anfrage wegen eines ungültigen oder abgelaufenen API-Tokens ab (HTTP 401/403), zeigt der Scan eine eindeutige Fehlermeldung mit Hinweis auf das fehlerhafte Token statt einer generischen HTTP-Meldung. Der Fehlerdialog bietet einen **Open Settings**-Button, der direkt die Plugin-Einstellungen öffnet.
@@ -65,15 +65,23 @@ The plugin opens a tool window named **MavenUp** (usually located at the right o
 
 ## Einstellungen
 
-Unter `Settings > Tools > MavenUp` können folgende Optionen konfiguriert werden:
+Unter `Settings > Tools > MavenUp` können folgende Optionen konfiguriert werden. Die Einstellungen sind zur besseren Übersicht in drei thematische Gruppen mit Überschriften gegliedert: **Appearance**, **Versions & Updates** und **Vulnerability Check**.
+
+**Appearance**
 
 - **Maven Repository Browser**: Wählt den Browser für Artifact-Versionsseiten – **MVN Repository** (Standard, `mvnrepository.com`) oder **Sonatype Central** (`central.sonatype.com`). Die Auswahl gilt für das Rechtsklick-Kontextmenü im Hauptfenster und das Rechtsklick-Kontextmenü im Vulnerability-Details-Dialog (alle Spalten außer **References**).
 - **Show text labels on toolbar buttons instead of icons only**: Stellt die Aktionen in der oberen Aktionsleiste des Tool-Windows und des Vulnerability-Details-Dialogs wahlweise als Buttons mit Textbeschriftung statt als reine Icon-Buttons dar (Standard: an). Die Änderung wird sofort auf das offene Tool-Window angewendet.
 - **Jump to pom.xml on single click**: Ermöglicht die Navigation zur `pom.xml` mit einem einfachen statt eines Doppelklicks.
+
+**Versions & Updates**
+
 - **Automatically select newest version**: Wählt nach einem Update-Check automatisch die jeweils neueste verfügbare Version in der Dropdown-Liste aus. Wird diese Einstellung geändert und mit **Apply** oder **OK** bestätigt, aktualisiert sich die **New Version**-Auswahl im offenen Tool-Window sofort, ohne dass ein erneuter Update-Check nötig ist. Das Ändern anderer Einstellungen setzt eine bereits getroffene Versionsauswahl nicht zurück.
-- **Sync Maven changes after update**: Legt fest, ob nach dem Schreiben der `pom.xml` automatisch der Maven-Sync der IDE ausgelöst wird (Standard: an). Diese Einstellung ist mit der gleichnamigen Checkbox im Bestätigungsdialog **Confirm Changes** synchronisiert; die dort zuletzt getroffene Auswahl wird gespeichert.
 - **Hide unstable versions**: Blendet instabile Versionen (z.B. RC/Beta) aus den auswählbaren Update-Versionen aus.
-- **Hidden version qualifiers (comma-separated)**: Liste der auszublendenden Typen, z.B. `rc,beta,milestone` (eingerückt dargestellt; Label und Feld sind nur aktiv, wenn der Filter eingeschaltet ist; größeres Eingabefeld für längere Listen).
+- **Hidden version qualifiers (comma-separated)**: Liste der auszublendenden Typen, z.B. `rc,beta,milestone` (als eingerückter Unterpunkt im IntelliJ-Settings-Style; Label und Feld nur aktiv, wenn der Filter eingeschaltet ist; das Feld passt sich an die Dialogbreite an, damit auch längere Listen gut lesbar bleiben).
+- **Sync Maven changes after update**: Legt fest, ob nach dem Schreiben der `pom.xml` automatisch der Maven-Sync der IDE ausgelöst wird (Standard: an). Diese Einstellung ist mit der gleichnamigen Checkbox im Bestätigungsdialog **Confirm Changes** synchronisiert; die dort zuletzt getroffene Auswahl wird gespeichert.
+
+**Vulnerability Check**
+
 - **Include resolved transitive dependencies**: Nimmt standardmäßig den aufgelösten Maven-Dependency-Tree in den Vulnerability-Check auf.
 - **Use Sonatype OSS Index as an additional source**: Aktiviert die optionale zweite Datenquelle. Sonatype authentifiziert Anfragen ausschließlich über das API-Token; daher wird nur das Token benötigt und bei aktivierter Option als Pflichtfeld angezeigt. Das Token wird ausschließlich im IntelliJ Password Safe gespeichert, außerhalb des Event Dispatch Thread geladen und nicht in `mavenup_settings.xml` abgelegt. Fehlt das Token bei einer bereits gespeicherten Konfiguration, wird die OSS-Index-Abfrage übersprungen; OSV.dev wird weiterhin abgefragt. Ist das Token ungültig oder abgelaufen, wird eine qualifizierte Fehlermeldung angezeigt. Ein Link öffnet die Sonatype-Kontoeinstellungen zum Erzeugen oder Kopieren eines Tokens.
 
