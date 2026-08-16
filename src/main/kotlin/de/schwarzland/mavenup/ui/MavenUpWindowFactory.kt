@@ -1024,19 +1024,19 @@ class MavenUpWindowFactory : ToolWindowFactory {
             val panel = JBPanel<JBPanel<*>>(BorderLayout())
             panel.border = BorderFactory.createEmptyBorder(2, 4, 2, 4)
 
+            val typePanel = JBPanel<JBPanel<*>>(FlowLayout(FlowLayout.LEFT, 4, 0))
+            typePanel.add(JLabel(MyMessageBundle.message("toolwindow.MyToolWindow.filter.type.label")))
+            typeFilterComboBox.model = DefaultComboBoxModel(arrayOf(allTypesFilterLabel))
+            typeFilterComboBox.addActionListener { applyRowFilter() }
+            typePanel.add(typeFilterComboBox)
+            panel.add(typePanel, BorderLayout.WEST)
+
             searchTextField.textEditor.emptyText.text =
                 MyMessageBundle.message("toolwindow.MyToolWindow.filter.search.placeholder")
             searchTextField.addDocumentListener(object : DocumentAdapter() {
                 override fun textChanged(e: DocumentEvent) = applyRowFilter()
             })
             panel.add(searchTextField, BorderLayout.CENTER)
-
-            val typePanel = JBPanel<JBPanel<*>>(FlowLayout(FlowLayout.LEFT, 4, 0))
-            typePanel.add(JLabel(MyMessageBundle.message("toolwindow.MyToolWindow.filter.type.label")))
-            typeFilterComboBox.model = DefaultComboBoxModel(arrayOf(allTypesFilterLabel))
-            typeFilterComboBox.addActionListener { applyRowFilter() }
-            typePanel.add(typeFilterComboBox)
-            panel.add(typePanel, BorderLayout.EAST)
 
             return panel
         }
