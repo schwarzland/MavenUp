@@ -38,6 +38,10 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   laufen, bleibt der Vulnerability-Check deaktiviert, um konkurrierende Hintergrundaktionen zu vermeiden.
   Die Aktionsleiste kann laut Einstellung (`toolbarShowText`) wahlweise Icon- oder Text-Buttons darstellen und
   wird bei geänderten Einstellungen über den `MAVEN_UP_SETTINGS_TOPIC`-Message-Bus sofort neu aufgebaut.
+  Unterhalb der Aktionsleiste liegt eine Filterzeile mit einem `SearchTextField` (Textfilter über
+  GroupId, ArtifactId und Property, case-insensitiv) und einer Typ-`ComboBox`; beide Filter werden über
+  einen `TableRowSorter` (nur Filtern, kein Sortieren) mittels der Top-Level-Funktion `rowMatchesFilter`
+  kombiniert.
   Die Spalte **New Version** zeigt über die Helper-Funktionen `isVersionUpToDate()`, `versionStatusIcon()`,
   `versionStatusColor()` und `versionStatusTooltip()` Status-Icons und farbcodierten Text:
   grüner Haken + grüner Text wenn die ausgewählte Version die neueste ist, orangefarbener Pfeil + 

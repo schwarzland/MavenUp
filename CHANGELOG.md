@@ -5,6 +5,7 @@
 
 ### Added
 - Show a qualified error message when a Sonatype OSS Index vulnerability scan fails because the API token is invalid or expired, offering a button to jump directly to the plugin settings.
+- Added a filter row above the main dependencies table: a text field filters by GroupId, ArtifactId or Property, and a combo box filters by dependency type; both filters combine and only matching rows remain visible.
 
 ### Changed
 - The settings page groups its options under three headings — **Appearance**, **Versions & Updates** and **Vulnerability Check** — to improve orientation.

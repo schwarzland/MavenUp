@@ -44,6 +44,8 @@ import com.intellij.psi.PsiManager
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.xml.XmlFile
 import com.intellij.psi.xml.XmlTag
+import com.intellij.ui.DocumentAdapter
+import com.intellij.ui.SearchTextField
 import com.intellij.ui.components.JBPanel
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.content.ContentFactory
@@ -59,11 +61,14 @@ import org.jetbrains.idea.maven.model.MavenArtifactNode
 import java.awt.BorderLayout
 import java.awt.Color
 import java.awt.Component
+import java.awt.FlowLayout
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import javax.swing.*
+import javax.swing.event.DocumentEvent
 import javax.swing.table.DefaultTableModel
 import javax.swing.table.TableCellRenderer
+import javax.swing.table.TableRowSorter
 
 
 private const val PARENT_TYPE = "parent"
@@ -71,6 +76,7 @@ private const val MANAGED_PLUGIN = "managed plugin"
 private const val TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY = "toolwindow.MyToolWindow.type.managedDependency"
 private const val GROUP_ID_COLUMN = 0
 private const val ARTIFACT_ID_COLUMN = 1
+private const val PROPERTY_COLUMN = 2
 private const val TYPE_COLUMN = 3
 private const val CURRENT_VERSION_COLUMN = 4
 private const val VULNERABILITIES_COLUMN = 5
@@ -92,6 +98,39 @@ private val VERSION_UPDATE_AVAILABLE_COLOR = com.intellij.ui.JBColor(Color(204, 
  */
 internal fun isVersionUpToDate(version: String, newestVersion: String): Boolean =
     version == newestVersion && version.isNotEmpty()
+
+/**
+ * Prüft, ob eine Tabellenzeile den aktuellen Filterkriterien entspricht.
+ *
+ * Der Textfilter wird case-insensitiv gegen GroupId, ArtifactId und Property geprüft;
+ * die Zeile passt, sobald einer dieser Werte den Suchtext enthält. Ein leerer Suchtext
+ * lässt alle Zeilen zu. Der Typfilter passt bei leerem Wert auf jeden Typ, sonst nur bei
+ * exakter Übereinstimmung des Typs.
+ *
+ * @param groupId Die GroupId der Zeile.
+ * @param artifactId Die ArtifactId der Zeile.
+ * @param property Der Property-Name der Zeile.
+ * @param type Der Typ der Zeile.
+ * @param searchText Der eingegebene Suchtext (wird getrimmt und case-insensitiv verglichen).
+ * @param typeFilter Der ausgewählte Typ oder ein leerer String für "alle Typen".
+ * @return `true`, wenn die Zeile sowohl dem Text- als auch dem Typfilter entspricht.
+ */
+internal fun rowMatchesFilter(
+    groupId: String,
+    artifactId: String,
+    property: String,
+    type: String,
+    searchText: String,
+    typeFilter: String
+): Boolean {
+    val needle = searchText.trim().lowercase()
+    val textMatches = needle.isEmpty() ||
+        groupId.lowercase().contains(needle) ||
+        artifactId.lowercase().contains(needle) ||
+        property.lowercase().contains(needle)
+    val typeMatches = typeFilter.isEmpty() || type == typeFilter
+    return textMatches && typeMatches
+}
 
 /**
  * Liefert das passende Status-Icon für die Versionsanzeige.
@@ -448,6 +487,23 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /** Die Aktionsgruppe der oberen Aktionsleiste; wird im Init-Block befüllt. */
         private val toolbarGroup = DefaultActionGroup()
 
+        /** Eingabefeld für den Textfilter über GroupId, ArtifactId und Property. */
+        private val searchTextField = SearchTextField()
+
+        /** Auswahlfeld für den Typfilter der Tabelle. */
+        private val typeFilterComboBox = ComboBox<String>()
+
+        /** Anzeigetext der Combobox-Option, die alle Typen zulässt. */
+        private val allTypesFilterLabel =
+            MyMessageBundle.message("toolwindow.MyToolWindow.filter.type.all")
+
+        /** Container für Aktionsleiste und Filterzeile im Nordbereich. */
+        private val topPanel = JBPanel<JBPanel<*>>(BorderLayout())
+
+        /** Row-Sorter der Tabelle, der ausschließlich zum Filtern verwendet wird. */
+        @Suppress("RedundantLateinit")
+        private lateinit var tableRowSorter: TableRowSorter<DefaultTableModel>
+
         private val content = JBPanel<JBPanel<*>>(BorderLayout()).apply {
             val tableModel = object : DefaultTableModel() {
                 override fun isCellEditable(row: Int, column: Int): Boolean = column == NEW_VERSION_COLUMN
@@ -572,6 +628,13 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     refreshToolbar()
                 }
             }
+
+            tableRowSorter = TableRowSorter(tableModel)
+            for (columnIndex in 0 until tableModel.columnCount) {
+                tableRowSorter.setSortable(columnIndex, false)
+            }
+            table.rowSorter = tableRowSorter
+            applyRowFilter()
 
             // Custom Renderer and Editor for the "New Version" column
             table.columnModel.getColumn(NEW_VERSION_COLUMN).cellRenderer =
@@ -762,6 +825,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                             )
                         }
                         updateUpdateButtonState()
+                        updateTypeFilterOptions()
 
                         if (checkUpdates) {
                             performUpdateCheck {
@@ -907,7 +971,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
             toolbar.targetComponent = table
             actionToolbar = toolbar
 
-            add(toolbar.component, BorderLayout.NORTH)
+            topPanel.add(toolbar.component, BorderLayout.NORTH)
+            topPanel.add(buildFilterPanel(), BorderLayout.SOUTH)
+            add(topPanel, BorderLayout.NORTH)
 
             project.messageBus.connect(this@MyToolWindow).subscribe(MavenImportListener.TOPIC, object : MavenImportListener {
                 override fun importFinished(
@@ -950,6 +1016,79 @@ class MavenUpWindowFactory : ToolWindowFactory {
             MavenUpSettings.getInstance(project).state.toolbarShowText
 
         /**
+         * Erstellt die Filterzeile mit Textfeld und Typ-Combobox unterhalb der Aktionsleiste.
+         *
+         * @return Die konfigurierte Filter-Komponente.
+         */
+        private fun buildFilterPanel(): JComponent {
+            val panel = JBPanel<JBPanel<*>>(BorderLayout())
+            panel.border = BorderFactory.createEmptyBorder(2, 4, 2, 4)
+
+            searchTextField.textEditor.emptyText.text =
+                MyMessageBundle.message("toolwindow.MyToolWindow.filter.search.placeholder")
+            searchTextField.addDocumentListener(object : DocumentAdapter() {
+                override fun textChanged(e: DocumentEvent) = applyRowFilter()
+            })
+            panel.add(searchTextField, BorderLayout.CENTER)
+
+            val typePanel = JBPanel<JBPanel<*>>(FlowLayout(FlowLayout.LEFT, 4, 0))
+            typePanel.add(JLabel(MyMessageBundle.message("toolwindow.MyToolWindow.filter.type.label")))
+            typeFilterComboBox.model = DefaultComboBoxModel(arrayOf(allTypesFilterLabel))
+            typeFilterComboBox.addActionListener { applyRowFilter() }
+            typePanel.add(typeFilterComboBox)
+            panel.add(typePanel, BorderLayout.EAST)
+
+            return panel
+        }
+
+        /**
+         * Wendet den aktuellen Text- und Typfilter auf die Tabelle an.
+         *
+         * Liest den Suchtext aus [searchTextField] und den gewählten Typ aus
+         * [typeFilterComboBox] und setzt einen entsprechenden [RowFilter] auf den
+         * [tableRowSorter]. Die Option "alle Typen" wird dabei in einen leeren Typfilter
+         * übersetzt.
+         */
+        internal fun applyRowFilter() {
+            if (!::tableRowSorter.isInitialized) return
+            val searchText = searchTextField.text
+            val selectedType = typeFilterComboBox.selectedItem as? String ?: allTypesFilterLabel
+            val typeFilter = if (selectedType == allTypesFilterLabel) "" else selectedType
+            tableRowSorter.rowFilter = object : RowFilter<DefaultTableModel, Int>() {
+                override fun include(entry: Entry<out DefaultTableModel, out Int>): Boolean =
+                    rowMatchesFilter(
+                        entry.getValue(GROUP_ID_COLUMN)?.toString().orEmpty(),
+                        entry.getValue(ARTIFACT_ID_COLUMN)?.toString().orEmpty(),
+                        entry.getValue(PROPERTY_COLUMN)?.toString().orEmpty(),
+                        entry.getValue(TYPE_COLUMN)?.toString().orEmpty(),
+                        searchText,
+                        typeFilter
+                    )
+            }
+        }
+
+        /**
+         * Aktualisiert die Auswahlmöglichkeiten der Typ-Combobox anhand der aktuell in der
+         * Tabelle vorhandenen Typen.
+         *
+         * Die bisherige Auswahl bleibt erhalten, sofern der Typ weiterhin existiert; andernfalls
+         * wird auf "alle Typen" zurückgesetzt.
+         */
+        internal fun updateTypeFilterOptions() {
+            val model = table.model as DefaultTableModel
+            val types = (0 until model.rowCount)
+                .mapNotNull { model.getValueAt(it, TYPE_COLUMN) as? String }
+                .filter { it.isNotBlank() }
+                .distinct()
+                .sorted()
+            val previouslySelected = typeFilterComboBox.selectedItem as? String ?: allTypesFilterLabel
+            typeFilterComboBox.model =
+                DefaultComboBoxModel((listOf(allTypesFilterLabel) + types).toTypedArray())
+            typeFilterComboBox.selectedItem =
+                if (types.contains(previouslySelected)) previouslySelected else allTypesFilterLabel
+        }
+
+        /**
          * Bricht eine aktive Zell-Bearbeitung der Haupttabelle ab, bevor deren Zeilen entfernt
          * oder neu aufgebaut werden.
          *
@@ -974,14 +1113,14 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * Muss auf dem Event Dispatch Thread laufen.
          */
         private fun rebuildToolbar() {
-            actionToolbar?.let { content.remove(it.component) }
+            actionToolbar?.let { topPanel.remove(it.component) }
             val toolbar = ActionManager.getInstance()
                 .createActionToolbar("MavenUpToolWindow", toolbarGroup, true)
             toolbar.targetComponent = table
             actionToolbar = toolbar
-            content.add(toolbar.component, BorderLayout.NORTH)
-            content.revalidate()
-            content.repaint()
+            topPanel.add(toolbar.component, BorderLayout.NORTH)
+            topPanel.revalidate()
+            topPanel.repaint()
         }
 
         /**
