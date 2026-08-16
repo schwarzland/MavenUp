@@ -478,8 +478,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             MavenUpSettings.getInstance(project).state.selectLatestVersion
 
         /** Die Tabelle der Abhängigkeiten; wird im Property-Initializer von [content] zugewiesen. */
-        @Suppress("RedundantLateinit")
-        private lateinit var table: JBTable
+        private var table: JBTable
 
         /** Die obere Aktionsleiste des Tool-Windows; wird im Init-Block initialisiert. */
         private var actionToolbar: ActionToolbar? = null
@@ -501,8 +500,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private val topPanel = JBPanel<JBPanel<*>>(BorderLayout())
 
         /** Row-Sorter der Tabelle, der ausschließlich zum Filtern verwendet wird. */
-        @Suppress("RedundantLateinit")
-        private lateinit var tableRowSorter: TableRowSorter<DefaultTableModel>
+        private var tableRowSorter: TableRowSorter<DefaultTableModel>
 
         private val content = JBPanel<JBPanel<*>>(BorderLayout()).apply {
             val tableModel = object : DefaultTableModel() {
@@ -1050,7 +1048,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * übersetzt.
          */
         internal fun applyRowFilter() {
-            if (!::tableRowSorter.isInitialized) return
             val searchText = searchTextField.text
             val selectedType = typeFilterComboBox.selectedItem as? String ?: allTypesFilterLabel
             val typeFilter = if (selectedType == allTypesFilterLabel) "" else selectedType
@@ -1255,7 +1252,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * @return `true`, wenn eine Zeile selektiert ist.
          */
         internal fun isOpenInRepositoryEnabled(): Boolean =
-            ::table.isInitialized && table.selectedRow >= 0
+            table.selectedRow >= 0
 
         /**
          * Prüft, ob für die aktuell selektierte Zeile Vulnerability-Details angezeigt werden können.
@@ -1263,7 +1260,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * @return `true`, wenn die selektierte Zeile mindestens eine Sicherheitswarnung besitzt.
          */
         internal fun isVulnerabilityDetailsEnabled(): Boolean {
-            if (!::table.isInitialized) return false
             val row = table.selectedRow
             val cell = if (row >= 0) table.getValueAt(row, VULNERABILITIES_COLUMN) as? VulnerabilityCell else null
             return !isUpdating && cell?.allAdvisories?.isNotEmpty() == true
