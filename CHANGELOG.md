@@ -5,6 +5,7 @@
 
 ### Added
 - Added Changes (All/Yes/No) and Vulnerabilities (All/Yes/No) combo box filters to the tool window filter bar to filter dependencies by pending version changes and security findings.
+- Added documentation and transparency notes regarding privacy, external service endpoints, and transmitted Maven coordinates.
 
 ### Changed
 - Plugin settings are now stored globally (application level) instead of per project, so the configuration applies to all projects.

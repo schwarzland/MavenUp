@@ -45,6 +45,7 @@ This document describes the key features of the MavenUp IntelliJ plugin, grouped
 ## Vulnerability Scanning
 
 - **Multi-source vulnerability check**: Uses [OSV.dev](https://osv.dev) as the primary source and can optionally enrich results with Maven-focused findings from [Sonatype OSS Index](https://ossindex.sonatype.org/).
+- **Privacy & transparent data transmission**: Transmits exclusively Maven coordinates (groupId, artifactId, version) over HTTPS for version checks and vulnerability scanning without sending any source code, file paths, or private project data.
 - **Resolved transitive dependency coverage**: Includes the resolved Maven dependency tree by default and associates transitive findings with the direct dependency that introduced them.
 - **Detailed vulnerability intelligence**: Retrieves advisory identifiers, aliases, summaries, severity/CVSS information, references, and source attribution; unsupported CVSS versions fall back to source severity without dropping the advisory.
 - **Cross-source deduplication**: Merges matching CVE, GHSA, OSV, and Sonatype findings by intersecting advisory identifiers and aliases.
