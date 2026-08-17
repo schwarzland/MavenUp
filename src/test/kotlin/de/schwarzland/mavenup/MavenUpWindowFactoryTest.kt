@@ -235,7 +235,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
     fun testSelectLatestVersionSetting() {
         val factory = MavenUpWindowFactory()
         val toolWindowInstance = factory.MyToolWindow(project)
-        val settings = MavenUpSettings.getInstance(project)
+        val settings = MavenUpSettings.getInstance()
 
         // Mock data
         val key = "com.example:test-artifact"
@@ -279,7 +279,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
     }
 
     fun testJumpOnSingleClickSetting() {
-        val settings = MavenUpSettings.getInstance(project)
+        val settings = MavenUpSettings.getInstance()
         
         // Test default value
         assertFalse("jumpOnSingleClick sollte standardmäßig false sein", settings.state.jumpOnSingleClick)
@@ -398,7 +398,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
     }
 
     fun testConfirmChangesDialogSyncCheckboxReflectsSetting() {
-        val settings = MavenUpSettings.getInstance(project)
+        val settings = MavenUpSettings.getInstance()
         val original = settings.state.syncMavenAfterUpdate
         try {
             val updates = listOf(
@@ -465,7 +465,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
     }
 
     fun testOpenInRepositoryActionLabelReflectsConfiguredBrowser() {
-        val settings = MavenUpSettings.getInstance(project)
+        val settings = MavenUpSettings.getInstance()
         settings.state.repositoryBrowser = MavenRepositoryBrowser.SONATYPE_CENTRAL
 
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
@@ -488,7 +488,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
     }
 
     fun testToolbarTextEnabledReflectsSetting() {
-        val settings = MavenUpSettings.getInstance(project)
+        val settings = MavenUpSettings.getInstance()
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         toolWindow.getContent()
 
@@ -930,7 +930,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
     fun testApplySelectLatestVersionSettingSelectsNewest() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         toolWindow.getContent()
-        val settings = MavenUpSettings.getInstance(project)
+        val settings = MavenUpSettings.getInstance()
 
         val fields = toolWindow.javaClass
         @Suppress("UNCHECKED_CAST")
@@ -967,7 +967,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
     fun testApplySelectLatestVersionSettingRemovesSelectionWhenAlreadyLatest() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         toolWindow.getContent()
-        val settings = MavenUpSettings.getInstance(project)
+        val settings = MavenUpSettings.getInstance()
 
         val fields = toolWindow.javaClass
         @Suppress("UNCHECKED_CAST")
@@ -1004,7 +1004,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
     fun testApplySelectLatestVersionSettingDoesNothingWhenNoVersionsLoaded() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         toolWindow.getContent()
-        val settings = MavenUpSettings.getInstance(project)
+        val settings = MavenUpSettings.getInstance()
 
         val fields = toolWindow.javaClass
         @Suppress("UNCHECKED_CAST")
@@ -1024,7 +1024,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
     }
 
     fun testSettingsChangeKeepsSelectionWhenSelectLatestUnchanged() {
-        val settings = MavenUpSettings.getInstance(project)
+        val settings = MavenUpSettings.getInstance()
         settings.state.selectLatestVersion = false
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         toolWindow.getContent()
@@ -1061,7 +1061,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
     }
 
     fun testSettingsChangeReappliesSelectionWhenSelectLatestChanged() {
-        val settings = MavenUpSettings.getInstance(project)
+        val settings = MavenUpSettings.getInstance()
         settings.state.selectLatestVersion = false
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         toolWindow.getContent()

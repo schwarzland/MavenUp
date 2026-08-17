@@ -54,7 +54,7 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   Bei einer ausstehenden Änderung (ausgewählte ≠ aktuelle Version) wird der Dropdown-Text fett dargestellt.
   `createVersionPanel()` baut das JPanel mit Icon und ComboBox zusammen.
   Farben verwenden `JBColor`-Doppelwerte für Light-/Dark-Mode-Kompatibilität.
-- **MavenUpSettings**: `PersistentStateComponent`, gespeichert in `mavenup_settings.xml`
+- **MavenUpSettings**: `PersistentStateComponent` auf Anwendungsebene (`Service.Level.APP`), global für alle Projekte gespeichert in `mavenup_settings.xml`
   (`jumpOnSingleClick`, `selectLatestVersion`, `hideUnstableVersions`, `hiddenVersionQualifiers`,
   `ossIndexEnabled`, `checkTransitiveDependencies`, `repositoryBrowser`, `toolbarShowText`,
   `syncMavenAfterUpdate`).

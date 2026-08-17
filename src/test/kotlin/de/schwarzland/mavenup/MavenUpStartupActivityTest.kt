@@ -171,7 +171,7 @@ class MavenUpStartupActivityTest : BasePlatformTestCase() {
      */
     fun testActivityWorksWithProjectSettings() = runBlocking {
         try {
-            val settings = MavenUpSettings.getInstance(project)
+            val settings = MavenUpSettings.getInstance()
             assertNotNull("Settings sollte existieren", settings)
 
             activity.execute(project)

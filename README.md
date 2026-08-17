@@ -69,7 +69,7 @@ The plugin opens a tool window named **MavenUp** (usually located at the right o
 
 ## Einstellungen
 
-Unter `Settings > Tools > MavenUp` können folgende Optionen konfiguriert werden. Die Einstellungen sind zur besseren Übersicht in drei thematische Gruppen mit Überschriften gegliedert: **Appearance**, **Versions & Updates** und **Vulnerability Check**.
+Unter `Settings > Tools > MavenUp` können folgende Optionen konfiguriert werden. Die Einstellungen werden global auf Anwendungsebene gespeichert und gelten damit für alle Projekte. Sie sind zur besseren Übersicht in drei thematische Gruppen mit Überschriften gegliedert: **Appearance**, **Versions & Updates** und **Vulnerability Check**.
 
 **Appearance**
 
@@ -132,7 +132,7 @@ Das Plugin ist klar in drei Schichten gegliedert:
 - `MavenUpStartupActivity`: macht das Tool-Window beim Projektstart verfügbar, sobald bereits Maven-Projekte vorhanden sind.
 - `MavenUpMavenImportListener`: deklarativ (`<projectListeners>`) registrierter `MavenImportListener`, der das Tool-Window nach jedem abgeschlossenen Maven-Import verfügbar macht; die deklarative Registrierung wird beim Entladen des Plugins automatisch abgemeldet und ermöglicht Updates ohne IDE-Neustart.
 - `MavenUpToolWindowActivator`: gemeinsames, idempotentes Hilfsobjekt, das Startup-Aktivität und Import-Listener zum Verfügbarmachen des Tool-Windows nutzen.
-- `MavenUpSettings`: projektbezogener Persistenz-Service (`PersistentStateComponent`) in `mavenup_settings.xml`; das OSS-Index-Token wird getrennt über `OssIndexCredentialService` im Password Safe gespeichert. Für die HTTP Basic Authentication wird ein fester Platzhalter-Benutzername verwendet, da Sonatype nur das Token auswertet.
+- `MavenUpSettings`: anwendungsweiter Persistenz-Service (`PersistentStateComponent`, `Service.Level.APP`) in `mavenup_settings.xml`; die Einstellungen gelten global für alle Projekte. Das OSS-Index-Token wird getrennt über `OssIndexCredentialService` im Password Safe gespeichert. Für die HTTP Basic Authentication wird ein fester Platzhalter-Benutzername verwendet, da Sonatype nur das Token auswertet.
 - `DependencyApiService`, `VulnerabilityApiService` und `OssIndexApiService`: kapseln externe API-Abfragen für Versionen und Vulnerabilities außerhalb der UI.
 - `VulnerabilityMerger`: dedupliziert Befunde aus mehreren Quellen anhand von Advisory-IDs und Aliasen.
 - Unterstützte CVSS-Vektoren aus OSV werden mit `us.springett:cvss-calculator` in vergleichbare Basisscores umgerechnet. Bei noch nicht unterstützten CVSS-Versionen bleibt der Befund erhalten und nutzt den Schweregrad der Quelle.

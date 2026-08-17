@@ -3,6 +3,9 @@
 # MavenUp Changelog
 ## [Unreleased]
 
+### Changed
+- Plugin settings are now stored globally (application level) instead of per project, so the configuration applies to all projects.
+
 ### Fixed
 - Installing or updating the plugin no longer requires an IDE restart by registering the Maven import listener declaratively so the plugin can be unloaded dynamically.
 

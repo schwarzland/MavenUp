@@ -280,7 +280,7 @@ class DependencyApiService(private val project: Project) {
      * für instabile Versionen (z. B. "alpha", "beta", "rc").
      */
     fun filterVersionsBySettings(versions: List<String>): List<String> {
-        val settings = MavenUpSettings.getInstance(project).state
+        val settings = MavenUpSettings.getInstance().state
         if (!settings.hideUnstableVersions) {
             return versions
         }
