@@ -106,12 +106,38 @@ internal fun isVersionUpToDate(version: String, newestVersion: String): Boolean 
     version == newestVersion && version.isNotEmpty()
 
 /**
+ * Filteroption für dreiwertige Filterkriterien (Alle, Ja, Nein) in der Filterzeile.
+ *
+ * @property labelKey Der Schlüssel des lokalisierten Anzeigetextes im Message-Bundle.
+ */
+internal enum class TriStateFilter(val labelKey: String) {
+    /** Alle Einträge anzeigen (keine Filterung nach diesem Kriterium). */
+    ALL("toolwindow.MyToolWindow.filter.option.all"),
+
+    /** Nur Einträge anzeigen, die das Kriterium erfüllen. */
+    YES("toolwindow.MyToolWindow.filter.option.yes"),
+
+    /** Nur Einträge anzeigen, die das Kriterium nicht erfüllen. */
+    NO("toolwindow.MyToolWindow.filter.option.no");
+
+    /**
+     * Liefert die lokalisierte Bezeichnung der Filteroption.
+     */
+    val label: String
+        get() = MyMessageBundle.message(labelKey)
+
+    override fun toString(): String = label
+}
+
+/**
  * Prüft, ob eine Tabellenzeile den aktuellen Filterkriterien entspricht.
  *
  * Der Textfilter wird case-insensitiv gegen GroupId, ArtifactId und Property geprüft;
  * die Zeile passt, sobald einer dieser Werte den Suchtext enthält. Ein leerer Suchtext
  * lässt alle Zeilen zu. Der Typfilter passt bei leerem Wert auf jeden Typ, sonst nur bei
- * exakter Übereinstimmung des Typs.
+ * exakter Übereinstimmung des Typs. Der Änderungs- und Vulnerabilities-Filter prüfen,
+ * ob Änderungen bzw. Sicherheitslücken vorliegen (`YES`), nicht vorliegen (`NO`) oder
+ * der Filter inaktiv ist (`ALL`).
  *
  * @param groupId Die GroupId der Zeile.
  * @param artifactId Die ArtifactId der Zeile.
@@ -119,7 +145,11 @@ internal fun isVersionUpToDate(version: String, newestVersion: String): Boolean 
  * @param type Der Typ der Zeile.
  * @param searchText Der eingegebene Suchtext (wird getrimmt und case-insensitiv verglichen).
  * @param typeFilter Der ausgewählte Typ oder ein leerer String für "alle Typen".
- * @return `true`, wenn die Zeile sowohl dem Text- als auch dem Typfilter entspricht.
+ * @param hasChange `true`, wenn für die Zeile eine Versionsänderung vorliegt.
+ * @param changesFilter Die ausgewählte Filteroption für Änderungen (Alle, Ja, Nein).
+ * @param hasVulnerabilities `true`, wenn für die Zeile mindestens eine Sicherheitslücke gemeldet ist.
+ * @param vulnerabilitiesFilter Die ausgewählte Filteroption für Sicherheitslücken (Alle, Ja, Nein).
+ * @return `true`, wenn die Zeile allen aktiven Filterkriterien entspricht.
  */
 internal fun rowMatchesFilter(
     groupId: String,
@@ -127,7 +157,11 @@ internal fun rowMatchesFilter(
     property: String,
     type: String,
     searchText: String,
-    typeFilter: String
+    typeFilter: String,
+    hasChange: Boolean = false,
+    changesFilter: TriStateFilter = TriStateFilter.ALL,
+    hasVulnerabilities: Boolean = false,
+    vulnerabilitiesFilter: TriStateFilter = TriStateFilter.ALL
 ): Boolean {
     val needle = searchText.trim().lowercase()
     val textMatches = needle.isEmpty() ||
@@ -135,7 +169,17 @@ internal fun rowMatchesFilter(
         artifactId.lowercase().contains(needle) ||
         property.lowercase().contains(needle)
     val typeMatches = typeFilter.isEmpty() || type == typeFilter
-    return textMatches && typeMatches
+    val changesMatches = when (changesFilter) {
+        TriStateFilter.ALL -> true
+        TriStateFilter.YES -> hasChange
+        TriStateFilter.NO -> !hasChange
+    }
+    val vulnerabilitiesMatches = when (vulnerabilitiesFilter) {
+        TriStateFilter.ALL -> true
+        TriStateFilter.YES -> hasVulnerabilities
+        TriStateFilter.NO -> !hasVulnerabilities
+    }
+    return textMatches && typeMatches && changesMatches && vulnerabilitiesMatches
 }
 
 /**
@@ -509,10 +553,16 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private val toolbarGroup = DefaultActionGroup()
 
         /** Eingabefeld für den Textfilter über GroupId, ArtifactId und Property. */
-        private val searchTextField = SearchTextField()
+        internal val searchTextField = SearchTextField()
 
         /** Auswahlfeld für den Typfilter der Tabelle. */
-        private val typeFilterComboBox = ComboBox<String>()
+        internal val typeFilterComboBox = ComboBox<String>()
+
+        /** Auswahlfeld für den Filter nach anstehenden Änderungen (Ja/Nein/Alle). */
+        internal val changesFilterComboBox = ComboBox(TriStateFilter.entries.toTypedArray())
+
+        /** Auswahlfeld für den Filter nach Sicherheitslücken (Ja/Nein/Alle). */
+        internal val vulnerabilitiesFilterComboBox = ComboBox(TriStateFilter.entries.toTypedArray())
 
         /** Anzeigetext der Combobox-Option, die alle Typen zulässt. */
         private val allTypesFilterLabel =
@@ -745,6 +795,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         }
                         updateUpdateButtonState()
                         updateEditorVisuals(combo, editorPanel, selected, currentVersion, newestVersion)
+                        applyRowFilter()
                     }
 
                     currentComboBox = combo
@@ -1038,7 +1089,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             MavenUpSettings.getInstance().state.toolbarShowText
 
         /**
-         * Erstellt die Filterzeile mit Textfeld und Typ-Combobox unterhalb der Aktionsleiste.
+         * Erstellt die Filterzeile mit Typ-, Änderungs- und Vulnerabilities-Combobox sowie Textfeld unterhalb der Aktionsleiste.
          *
          * @return Die konfigurierte Filter-Komponente.
          */
@@ -1046,12 +1097,26 @@ class MavenUpWindowFactory : ToolWindowFactory {
             val panel = JBPanel<JBPanel<*>>(BorderLayout())
             panel.border = BorderFactory.createEmptyBorder(2, 4, 2, 4)
 
-            val typePanel = JBPanel<JBPanel<*>>(FlowLayout(FlowLayout.LEFT, 4, 0))
-            typePanel.add(JLabel(MyMessageBundle.message("toolwindow.MyToolWindow.filter.type.label")))
+            val filterControlsPanel = JBPanel<JBPanel<*>>(FlowLayout(FlowLayout.LEFT, 4, 0))
+
+            filterControlsPanel.add(JLabel(MyMessageBundle.message("toolwindow.MyToolWindow.filter.type.label")))
             typeFilterComboBox.model = DefaultComboBoxModel(arrayOf(allTypesFilterLabel))
             typeFilterComboBox.addActionListener { applyRowFilter() }
-            typePanel.add(typeFilterComboBox)
-            panel.add(typePanel, BorderLayout.WEST)
+            filterControlsPanel.add(typeFilterComboBox)
+
+            filterControlsPanel.add(JLabel(MyMessageBundle.message("toolwindow.MyToolWindow.filter.changes.label")))
+            changesFilterComboBox.model = DefaultComboBoxModel(TriStateFilter.entries.toTypedArray())
+            changesFilterComboBox.selectedItem = TriStateFilter.ALL
+            changesFilterComboBox.addActionListener { applyRowFilter() }
+            filterControlsPanel.add(changesFilterComboBox)
+
+            filterControlsPanel.add(JLabel(MyMessageBundle.message("toolwindow.MyToolWindow.filter.vulnerabilities.label")))
+            vulnerabilitiesFilterComboBox.model = DefaultComboBoxModel(TriStateFilter.entries.toTypedArray())
+            vulnerabilitiesFilterComboBox.selectedItem = TriStateFilter.ALL
+            vulnerabilitiesFilterComboBox.addActionListener { applyRowFilter() }
+            filterControlsPanel.add(vulnerabilitiesFilterComboBox)
+
+            panel.add(filterControlsPanel, BorderLayout.WEST)
 
             searchTextField.textEditor.emptyText.text =
                 MyMessageBundle.message("toolwindow.MyToolWindow.filter.search.placeholder")
@@ -1064,27 +1129,47 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
-         * Wendet den aktuellen Text- und Typfilter auf die Tabelle an.
+         * Wendet die aktuellen Filter (Suchtext, Typ, Änderungen, Sicherheitslücken) auf die Tabelle an.
          *
-         * Liest den Suchtext aus [searchTextField] und den gewählten Typ aus
-         * [typeFilterComboBox] und setzt einen entsprechenden [RowFilter] auf den
-         * [tableRowSorter]. Die Option "alle Typen" wird dabei in einen leeren Typfilter
-         * übersetzt.
+         * Liest den Suchtext aus [searchTextField], den gewählten Typ aus [typeFilterComboBox],
+         * die Filteroptionen aus [changesFilterComboBox] und [vulnerabilitiesFilterComboBox]
+         * und setzt einen entsprechenden [RowFilter] auf den [tableRowSorter].
          */
         internal fun applyRowFilter() {
             val searchText = searchTextField.text
             val selectedType = typeFilterComboBox.selectedItem as? String ?: allTypesFilterLabel
             val typeFilter = if (selectedType == allTypesFilterLabel) "" else selectedType
+            val changesFilter = changesFilterComboBox.selectedItem as? TriStateFilter ?: TriStateFilter.ALL
+            val vulnerabilitiesFilter = vulnerabilitiesFilterComboBox.selectedItem as? TriStateFilter ?: TriStateFilter.ALL
+
             tableRowSorter.rowFilter = object : RowFilter<DefaultTableModel, Int>() {
-                override fun include(entry: Entry<out DefaultTableModel, out Int>): Boolean =
-                    rowMatchesFilter(
-                        entry.getValue(GROUP_ID_COLUMN)?.toString().orEmpty(),
-                        entry.getValue(ARTIFACT_ID_COLUMN)?.toString().orEmpty(),
-                        entry.getValue(PROPERTY_COLUMN)?.toString().orEmpty(),
-                        entry.getValue(TYPE_COLUMN)?.toString().orEmpty(),
-                        searchText,
-                        typeFilter
+                override fun include(entry: Entry<out DefaultTableModel, out Int>): Boolean {
+                    val groupId = entry.getValue(GROUP_ID_COLUMN)?.toString().orEmpty()
+                    val artifactId = entry.getValue(ARTIFACT_ID_COLUMN)?.toString().orEmpty()
+                    val property = entry.getValue(PROPERTY_COLUMN)?.toString().orEmpty()
+                    val type = entry.getValue(TYPE_COLUMN)?.toString().orEmpty()
+                    val currentVersion = entry.getValue(CURRENT_VERSION_COLUMN)?.toString().orEmpty()
+                    val cell = entry.getValue(VULNERABILITIES_COLUMN) as? VulnerabilityCell
+
+                    val key = "$groupId:$artifactId"
+                    val selectedVersion = selectedVersions[key]
+                    val effectiveVersion = selectedVersion ?: currentVersion
+                    val hasChange = effectiveVersion != currentVersion && effectiveVersion.isNotEmpty()
+                    val hasVulnerabilities = cell != null && cell.allAdvisories.isNotEmpty()
+
+                    return rowMatchesFilter(
+                        groupId = groupId,
+                        artifactId = artifactId,
+                        property = property,
+                        type = type,
+                        searchText = searchText,
+                        typeFilter = typeFilter,
+                        hasChange = hasChange,
+                        changesFilter = changesFilter,
+                        hasVulnerabilities = hasVulnerabilities,
+                        vulnerabilitiesFilter = vulnerabilitiesFilter
                     )
+                }
             }
         }
 
@@ -1186,6 +1271,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             cancelActiveCellEditing()
             table.repaint()
             updateUpdateButtonState()
+            applyRowFilter()
         }
 
         /**
