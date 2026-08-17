@@ -3,6 +3,9 @@
 # MavenUp Changelog
 ## [Unreleased]
 
+### Added
+- Added Changes (All/Yes/No) and Vulnerabilities (All/Yes/No) combo box filters to the tool window filter bar to filter dependencies by pending version changes and security findings.
+
 ### Changed
 - Plugin settings are now stored globally (application level) instead of per project, so the configuration applies to all projects.
 - The **New Version** status indicator is now a text glyph (an upwards arrow "↑" or a green checkmark "✓") instead of a fixed-color icon, so the arrow renders as a real arrow and shares the version number's color, turning orange only when a version different from the current one is selected.

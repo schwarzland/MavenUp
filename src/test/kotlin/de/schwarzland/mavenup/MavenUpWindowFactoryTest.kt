@@ -16,6 +16,7 @@ import de.schwarzland.mavenup.ui.versionStatusText
 import de.schwarzland.mavenup.ui.versionStatusColor
 import de.schwarzland.mavenup.ui.versionStatusTooltip
 import de.schwarzland.mavenup.ui.createVersionPanel
+import de.schwarzland.mavenup.ui.TriStateFilter
 import com.intellij.openapi.wm.RegisterToolWindowTask
 import com.intellij.openapi.wm.ToolWindowAnchor
 import com.intellij.openapi.wm.ToolWindowManager
@@ -1109,5 +1110,74 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         settings.state.selectLatestVersion = true
     }
 
+    fun testChangesAndVulnerabilitiesFilterComboBoxDefaultsAndOptions() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
 
+        assertEquals(TriStateFilter.ALL, toolWindow.changesFilterComboBox.selectedItem)
+        assertEquals(TriStateFilter.ALL, toolWindow.vulnerabilitiesFilterComboBox.selectedItem)
+        assertEquals(3, toolWindow.changesFilterComboBox.model.size)
+        assertEquals(3, toolWindow.vulnerabilitiesFilterComboBox.model.size)
+        assertEquals(TriStateFilter.ALL, toolWindow.changesFilterComboBox.model.getElementAt(0))
+        assertEquals(TriStateFilter.YES, toolWindow.changesFilterComboBox.model.getElementAt(1))
+        assertEquals(TriStateFilter.NO, toolWindow.changesFilterComboBox.model.getElementAt(2))
+    }
+
+    fun testRowFilterWithChangesAndVulnerabilitiesFilters() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val content = toolWindow.getContent()
+        val table = findTable(content)!!
+        val model = table.model as javax.swing.table.DefaultTableModel
+
+        val advisory = VulnerabilityAdvisory(
+            id = "CVE-TEST",
+            severity = VulnerabilitySeverity.HIGH,
+            sources = setOf("OSV")
+        )
+        val vulnCell = buildVulnerabilityCell("com.example:vuln-lib:1.0.0", mapOf("com.example:vuln-lib:1.0.0" to listOf(advisory)), emptySet())
+        val cleanCell = buildVulnerabilityCell("com.example:clean-lib:1.0.0", emptyMap(), emptySet())
+
+        // Row 0: has changes, has vulnerabilities
+        model.addRow(arrayOf("com.example", "vuln-lib", "", "dependency", "1.0.0", vulnCell, listOf("2.0.0", "1.0.0")))
+        // Row 1: no changes, no vulnerabilities
+        model.addRow(arrayOf("com.example", "clean-lib", "", "dependency", "1.0.0", cleanCell, listOf("1.0.0")))
+
+        val fields = toolWindow.javaClass
+        @Suppress("UNCHECKED_CAST")
+        val selectedVersions = fields.getDeclaredField("selectedVersions")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, String>
+
+        selectedVersions["com.example:vuln-lib"] = "2.0.0"
+        selectedVersions["com.example:clean-lib"] = "1.0.0"
+
+        // Default: ALL/ALL -> both rows visible
+        toolWindow.applyRowFilter()
+        assertEquals(2, table.rowCount)
+
+        // Changes filter: YES -> only vuln-lib visible
+        toolWindow.changesFilterComboBox.selectedItem = TriStateFilter.YES
+        toolWindow.applyRowFilter()
+        assertEquals(1, table.rowCount)
+        assertEquals("vuln-lib", table.getValueAt(0, 1))
+
+        // Changes filter: NO -> only clean-lib visible
+        toolWindow.changesFilterComboBox.selectedItem = TriStateFilter.NO
+        toolWindow.applyRowFilter()
+        assertEquals(1, table.rowCount)
+        assertEquals("clean-lib", table.getValueAt(0, 1))
+
+        // Reset changes filter to ALL, filter vulnerabilities: YES -> only vuln-lib visible
+        toolWindow.changesFilterComboBox.selectedItem = TriStateFilter.ALL
+        toolWindow.vulnerabilitiesFilterComboBox.selectedItem = TriStateFilter.YES
+        toolWindow.applyRowFilter()
+        assertEquals(1, table.rowCount)
+        assertEquals("vuln-lib", table.getValueAt(0, 1))
+
+        // Filter vulnerabilities: NO -> only clean-lib visible
+        toolWindow.vulnerabilitiesFilterComboBox.selectedItem = TriStateFilter.NO
+        toolWindow.applyRowFilter()
+        assertEquals(1, table.rowCount)
+        assertEquals("clean-lib", table.getValueAt(0, 1))
+    }
 }
