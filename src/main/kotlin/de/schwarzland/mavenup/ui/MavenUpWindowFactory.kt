@@ -89,6 +89,12 @@ private val VERSION_UP_TO_DATE_COLOR = com.intellij.ui.JBColor(Color(0, 128, 0),
 /** Farbe für Abhängigkeiten, für die ein Update verfügbar ist (Light-/Dark-Mode). */
 private val VERSION_UPDATE_AVAILABLE_COLOR = com.intellij.ui.JBColor(Color(204, 120, 0), Color(255, 180, 50))
 
+/** Glyph für Abhängigkeiten auf der neuesten Version (grüner Haken „✓"). */
+private const val VERSION_UP_TO_DATE_GLYPH = "\u2713"
+
+/** Glyph für Abhängigkeiten mit verfügbarem Update (Pfeil nach oben „↑"). */
+private const val VERSION_UPDATE_AVAILABLE_GLYPH = "\u2191"
+
 /**
  * Bestimmt, ob die angegebene Version der höchsten bekannten Version entspricht.
  *
@@ -133,13 +139,16 @@ internal fun rowMatchesFilter(
 }
 
 /**
- * Liefert das passende Status-Icon für die Versionsanzeige.
+ * Liefert das passende Status-Glyph für die Versionsanzeige.
+ *
+ * Anders als ein IntelliJ-Icon lässt sich ein Text-Glyph über die Vordergrundfarbe
+ * des Labels einfärben und kann so dieselbe Farbe wie die Versionsnummer annehmen.
  *
  * @param upToDate `true`, wenn die ausgewählte Version die neueste ist.
  * @return Ein grüner Haken bei neuestem Stand, ein Pfeil nach oben sonst.
  */
-internal fun versionStatusIcon(upToDate: Boolean): Icon =
-    if (upToDate) AllIcons.RunConfigurations.TestPassed else AllIcons.General.ArrowUp
+internal fun versionStatusText(upToDate: Boolean): String =
+    if (upToDate) VERSION_UP_TO_DATE_GLYPH else VERSION_UPDATE_AVAILABLE_GLYPH
 
 /**
  * Liefert die passende Textfarbe für die Versionsanzeige.
@@ -180,22 +189,35 @@ internal fun versionStatusTooltip(currentVersion: String, selectedVersion: Strin
 }
 
 /**
- * Erstellt ein JPanel mit Status-Icon und ComboBox für die Versionsanzeige in der Tabelle.
+ * Erstellt ein JPanel mit Status-Glyph und ComboBox für die Versionsanzeige in der Tabelle.
  * Bei einer ausstehenden Änderung (ausgewählte ≠ aktuelle Version) wird die ComboBox-Schrift fett dargestellt.
+ * Das Status-Glyph wird fett gerendert und, sofern [statusColor] gesetzt ist, in dieser Farbe
+ * eingefärbt – so nimmt der Pfeil dieselbe Farbe wie die Versionsnummer an.
  *
  * @param combo Die ComboBox mit den verfügbaren Versionen.
- * @param statusIcon Das Status-Icon (grüner Haken oder Pfeil).
+ * @param statusText Das Status-Glyph (grüner Haken oder Pfeil nach oben).
+ * @param statusColor Die Farbe für das Status-Glyph, oder `null` für die Standardfarbe.
  * @param tooltip Der Tooltip-Text für das Panel.
  * @param hasChange `true`, wenn die ausgewählte Version von der aktuellen abweicht.
- * @return Ein konfiguriertes JPanel mit Icon links und ComboBox in der Mitte.
+ * @return Ein konfiguriertes JPanel mit Status-Glyph links und ComboBox in der Mitte.
  */
-internal fun createVersionPanel(combo: JComponent, statusIcon: Icon, tooltip: String, hasChange: Boolean = false): JPanel =
+internal fun createVersionPanel(
+    combo: JComponent,
+    statusText: String,
+    statusColor: Color?,
+    tooltip: String,
+    hasChange: Boolean = false
+): JPanel =
     JPanel(BorderLayout(2, 0)).apply {
         isOpaque = false
-        val iconLabel = JLabel(statusIcon).apply {
+        val statusLabel = JLabel(statusText).apply {
             border = BorderFactory.createEmptyBorder(0, 2, 0, 0)
+            font = font.deriveFont(java.awt.Font.BOLD)
+            if (statusColor != null) {
+                foreground = statusColor
+            }
         }
-        add(iconLabel, BorderLayout.WEST)
+        add(statusLabel, BorderLayout.WEST)
         if (hasChange) {
             combo.font = combo.font.deriveFont(java.awt.Font.BOLD)
         }
@@ -667,7 +689,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
                     createVersionPanel(
                         combo,
-                        versionStatusIcon(upToDate),
+                        versionStatusText(upToDate),
+                        if (hasChange) versionStatusColor(upToDate) else null,
                         versionStatusTooltip(currentVersion, effectiveVersion, newestVersion),
                         hasChange
                     )
@@ -727,7 +750,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     currentComboBox = combo
                     val panel = createVersionPanel(
                         combo,
-                        versionStatusIcon(upToDate),
+                        versionStatusText(upToDate),
+                        if (hasChange) versionStatusColor(upToDate) else null,
                         versionStatusTooltip(currentVersion, effectiveVersion, newestVersion),
                         hasChange
                     )
@@ -1183,11 +1207,11 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
-         * Aktualisiert die visuelle Darstellung (Farbe, Font, Icon, Tooltip) des Editor-Panels
+         * Aktualisiert die visuelle Darstellung (Farbe, Font, Status-Glyph, Tooltip) des Editor-Panels
          * sofort nach einer Versionsauswahl, ohne dass der Fokus die Zelle verlassen muss.
          *
          * @param combo Die ComboBox im Editor.
-         * @param panel Das umgebende JPanel mit Icon und ComboBox.
+         * @param panel Das umgebende JPanel mit Status-Glyph und ComboBox.
          * @param selected Die aktuell gewählte Version.
          * @param currentVersion Die im Projekt verwendete Version.
          * @param newestVersion Die höchste bekannte Version.
@@ -1207,8 +1231,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
             combo.font = combo.font.deriveFont(newFontStyle)
             combo.repaint()
             if (panel != null) {
-                val iconLabel = panel.getComponent(0) as? JLabel
-                iconLabel?.icon = versionStatusIcon(newUpToDate)
+                val statusLabel = panel.getComponent(0) as? JLabel
+                statusLabel?.text = versionStatusText(newUpToDate)
+                statusLabel?.foreground = newColor
                 panel.toolTipText = versionStatusTooltip(currentVersion, selected ?: currentVersion, newestVersion)
                 panel.repaint()
             }

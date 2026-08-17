@@ -5,6 +5,7 @@
 
 ### Changed
 - Plugin settings are now stored globally (application level) instead of per project, so the configuration applies to all projects.
+- The **New Version** status indicator is now a text glyph (an upwards arrow "↑" or a green checkmark "✓") instead of a fixed-color icon, so the arrow renders as a real arrow and shares the version number's color, turning orange only when a version different from the current one is selected.
 
 ### Fixed
 - Installing or updating the plugin no longer requires an IDE restart by registering the Maven import listener declaratively so the plugin can be unloaded dynamically.
