@@ -47,14 +47,17 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   GroupId, ArtifactId und Property, case-insensitiv) und einer Typ-`ComboBox`; beide Filter werden über
   einen `TableRowSorter` (nur Filtern, kein Sortieren) mittels der Top-Level-Funktion `rowMatchesFilter`
   kombiniert.
-  Die Spalte **New Version** zeigt über die Helper-Funktionen `isVersionUpToDate()`, `versionStatusIcon()`,
-  `versionStatusColor()` und `versionStatusTooltip()` Status-Icons und farbcodierten Text:
-  grüner Haken + grüner Text wenn die ausgewählte Version die neueste ist, orangefarbener Pfeil + 
-  orangefarbener Text sonst. Icon und Farbe richten sich immer nach der **ausgewählten** Version im Dropdown.
+  Die Spalte **New Version** zeigt über die Helper-Funktionen `isVersionUpToDate()`, `versionStatusText()`,
+  `versionStatusColor()` und `versionStatusTooltip()` ein Status-Glyph und farbcodierten Text:
+  grüner Haken „✓" wenn die ausgewählte Version die neueste ist, ein Pfeil nach oben „↑" sonst.
+  Das Glyph ist ein einfärbbares Text-Label (kein IntelliJ-Icon) und übernimmt dieselbe Farbe wie die
+  Versionsnummer: Es wird nur eingefärbt (grün bzw. orange), wenn eine von der aktuellen abweichende
+  Version ausgewählt ist; andernfalls verwendet es die Standardfarbe. Glyph und Farbe richten sich
+  immer nach der **ausgewählten** Version im Dropdown.
   Bei einer ausstehenden Änderung (ausgewählte ≠ aktuelle Version) wird der Dropdown-Text fett dargestellt.
-  `createVersionPanel()` baut das JPanel mit Icon und ComboBox zusammen.
+  `createVersionPanel()` baut das JPanel mit Status-Glyph und ComboBox zusammen.
   Farben verwenden `JBColor`-Doppelwerte für Light-/Dark-Mode-Kompatibilität.
-- **MavenUpSettings**: `PersistentStateComponent`, gespeichert in `mavenup_settings.xml`
+- **MavenUpSettings**: `PersistentStateComponent` auf Anwendungsebene (`Service.Level.APP`), global für alle Projekte gespeichert in `mavenup_settings.xml`
   (`jumpOnSingleClick`, `selectLatestVersion`, `hideUnstableVersions`, `hiddenVersionQualifiers`,
   `ossIndexEnabled`, `checkTransitiveDependencies`, `repositoryBrowser`, `toolbarShowText`,
   `syncMavenAfterUpdate`).

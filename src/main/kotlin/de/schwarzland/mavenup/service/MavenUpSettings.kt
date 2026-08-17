@@ -1,7 +1,7 @@
 package de.schwarzland.mavenup.service
 
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.*
-import com.intellij.openapi.project.Project
 import com.intellij.util.messages.Topic
 
 /**
@@ -33,14 +33,14 @@ enum class MavenRepositoryBrowser(val displayName: String) {
 }
 
 /**
- * Diese Klasse verwaltet die persistenten Einstellungen für das MavenUp-Plugin auf Projektebene.
+ * Diese Klasse verwaltet die persistenten Einstellungen für das MavenUp-Plugin global auf Anwendungsebene.
  *
  * Sie nutzt das IntelliJ-Framework zur Speicherung des Zustands in der Datei `mavenup_settings.xml`.
  * Die Einstellungen umfassen UI-Verhalten, Filterregeln für Versionen und Konfigurationen für den OSS Index.
  *
- * Die Klasse wird benötigt, um Benutzereinstellungen projektübergreifend zu speichern und bereitzustellen.
+ * Die Klasse wird benötigt, um Benutzereinstellungen anwendungsweit (für alle Projekte) zu speichern und bereitzustellen.
  */
-@Service(Service.Level.PROJECT)
+@Service(Service.Level.APP)
 @State(name = "MavenUpSettings", storages = [Storage("mavenup_settings.xml")])
 class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
     /**
@@ -84,8 +84,9 @@ class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
 
     companion object {
         /**
-         * Liefert die Instanz dieses Services für das angegebene Projekt.
+         * Liefert die anwendungsweite Instanz dieses Services.
          */
-        fun getInstance(project: Project): MavenUpSettings = project.getService(MavenUpSettings::class.java)
+        fun getInstance(): MavenUpSettings =
+            ApplicationManager.getApplication().getService(MavenUpSettings::class.java)
     }
 }

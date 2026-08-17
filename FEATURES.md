@@ -25,7 +25,7 @@ This document describes the key features of the MavenUp IntelliJ plugin, grouped
 
 - **Repository-based version lookup**: Retrieves available versions from Maven repositories via `maven-metadata.xml`.
 - **Selectable target versions**: Shows available versions in dropdowns for dependencies and plugins.
-- **Version status indicators**: The **New Version** column displays a green checkmark icon when the selected version equals the highest known version, or an orange arrow-up icon otherwise; hovering shows a tooltip with status details. When a version different from the current one is selected, the dropdown text is additionally displayed in bold and color-coded (green for latest, orange otherwise) to clearly indicate a pending change. When the selected version matches the current version, the text uses the default color (same as the **Current Version** column). Colors adapt to Light and Dark themes.
+- **Version status indicators**: The **New Version** column displays a green checkmark glyph ("✓") when the selected version equals the highest known version, or an upwards arrow glyph ("↑") otherwise; hovering shows a tooltip with status details. When a version different from the current one is selected, the dropdown text and the status glyph are color-coded together (green for latest, orange otherwise) and the text is shown in bold to clearly indicate a pending change. When the selected version matches the current version, the glyph and text use the default color (same as the **Current Version** column). Colors adapt to Light and Dark themes.
 - **Property-aware version handling**: Detects property-based versions (for example `${spring.version}`) and updates the property value instead of overwriting the reference.
 - **Shared-property synchronization**: Synchronizes version selection across entries that use the same Maven property.
 - **Optional unstable-version filtering**: Can hide versions by configurable qualifiers (for example `rc,beta,milestone`). The qualifier list is shown as an indented sub-setting and grows with the settings dialog width so longer lists stay readable.
@@ -65,7 +65,7 @@ This document describes the key features of the MavenUp IntelliJ plugin, grouped
 
 ## Settings & Configuration
 
-- **Project-level plugin settings**: Supports configurable behavior in `Settings > Tools > MavenUp` (click behavior, auto-select latest, unstable-version filtering), organized into three headed groups: **Appearance**, **Versions & Updates**, and **Vulnerability Check**.
+- **Global plugin settings**: Supports configurable behavior in `Settings > Tools > MavenUp` (click behavior, auto-select latest, unstable-version filtering), stored at application level so the configuration applies to all projects, organized into three headed groups: **Appearance**, **Versions & Updates**, and **Vulnerability Check**.
 - **Immediate auto-select setting application**: Toggling the "Automatically select the newest version" setting and applying it immediately updates all **New Version** selections in the open tool window without requiring a new update check.
 - **Configurable toolbar button style**: Lets users switch the tool window and Vulnerability Details dialog toolbars between icon-only buttons and buttons with text labels (default); the change applies immediately to the open tool window.
 

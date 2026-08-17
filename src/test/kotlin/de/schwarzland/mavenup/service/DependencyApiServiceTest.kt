@@ -184,7 +184,7 @@ class DependencyApiServiceTest : BasePlatformTestCase() {
     }
 
     fun testFilterVersionsBySettingsWhenDisabledKeepsAll() {
-        val settings = MavenUpSettings.getInstance(project)
+        val settings = MavenUpSettings.getInstance()
         val previousHide = settings.state.hideUnstableVersions
         val previousQualifiers = settings.state.hiddenVersionQualifiers
         settings.state.hideUnstableVersions = false
@@ -202,7 +202,7 @@ class DependencyApiServiceTest : BasePlatformTestCase() {
     }
 
     fun testFilterVersionsBySettingsRemovesConfiguredQualifiers() {
-        val settings = MavenUpSettings.getInstance(project)
+        val settings = MavenUpSettings.getInstance()
         val previousHide = settings.state.hideUnstableVersions
         val previousQualifiers = settings.state.hiddenVersionQualifiers
         settings.state.hideUnstableVersions = true
@@ -220,7 +220,7 @@ class DependencyApiServiceTest : BasePlatformTestCase() {
     }
 
     fun testFilterVersionsBySettingsWithBlankQualifiersKeepsAll() {
-        val settings = MavenUpSettings.getInstance(project)
+        val settings = MavenUpSettings.getInstance()
         val previousHide = settings.state.hideUnstableVersions
         val previousQualifiers = settings.state.hiddenVersionQualifiers
         settings.state.hideUnstableVersions = true

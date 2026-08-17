@@ -89,6 +89,12 @@ private val VERSION_UP_TO_DATE_COLOR = com.intellij.ui.JBColor(Color(0, 128, 0),
 /** Farbe für Abhängigkeiten, für die ein Update verfügbar ist (Light-/Dark-Mode). */
 private val VERSION_UPDATE_AVAILABLE_COLOR = com.intellij.ui.JBColor(Color(204, 120, 0), Color(255, 180, 50))
 
+/** Glyph für Abhängigkeiten auf der neuesten Version (grüner Haken „✓"). */
+private const val VERSION_UP_TO_DATE_GLYPH = "\u2713"
+
+/** Glyph für Abhängigkeiten mit verfügbarem Update (Pfeil nach oben „↑"). */
+private const val VERSION_UPDATE_AVAILABLE_GLYPH = "\u2191"
+
 /**
  * Bestimmt, ob die angegebene Version der höchsten bekannten Version entspricht.
  *
@@ -133,13 +139,16 @@ internal fun rowMatchesFilter(
 }
 
 /**
- * Liefert das passende Status-Icon für die Versionsanzeige.
+ * Liefert das passende Status-Glyph für die Versionsanzeige.
+ *
+ * Anders als ein IntelliJ-Icon lässt sich ein Text-Glyph über die Vordergrundfarbe
+ * des Labels einfärben und kann so dieselbe Farbe wie die Versionsnummer annehmen.
  *
  * @param upToDate `true`, wenn die ausgewählte Version die neueste ist.
  * @return Ein grüner Haken bei neuestem Stand, ein Pfeil nach oben sonst.
  */
-internal fun versionStatusIcon(upToDate: Boolean): Icon =
-    if (upToDate) AllIcons.RunConfigurations.TestPassed else AllIcons.General.ArrowUp
+internal fun versionStatusText(upToDate: Boolean): String =
+    if (upToDate) VERSION_UP_TO_DATE_GLYPH else VERSION_UPDATE_AVAILABLE_GLYPH
 
 /**
  * Liefert die passende Textfarbe für die Versionsanzeige.
@@ -180,22 +189,35 @@ internal fun versionStatusTooltip(currentVersion: String, selectedVersion: Strin
 }
 
 /**
- * Erstellt ein JPanel mit Status-Icon und ComboBox für die Versionsanzeige in der Tabelle.
+ * Erstellt ein JPanel mit Status-Glyph und ComboBox für die Versionsanzeige in der Tabelle.
  * Bei einer ausstehenden Änderung (ausgewählte ≠ aktuelle Version) wird die ComboBox-Schrift fett dargestellt.
+ * Das Status-Glyph wird fett gerendert und, sofern [statusColor] gesetzt ist, in dieser Farbe
+ * eingefärbt – so nimmt der Pfeil dieselbe Farbe wie die Versionsnummer an.
  *
  * @param combo Die ComboBox mit den verfügbaren Versionen.
- * @param statusIcon Das Status-Icon (grüner Haken oder Pfeil).
+ * @param statusText Das Status-Glyph (grüner Haken oder Pfeil nach oben).
+ * @param statusColor Die Farbe für das Status-Glyph, oder `null` für die Standardfarbe.
  * @param tooltip Der Tooltip-Text für das Panel.
  * @param hasChange `true`, wenn die ausgewählte Version von der aktuellen abweicht.
- * @return Ein konfiguriertes JPanel mit Icon links und ComboBox in der Mitte.
+ * @return Ein konfiguriertes JPanel mit Status-Glyph links und ComboBox in der Mitte.
  */
-internal fun createVersionPanel(combo: JComponent, statusIcon: Icon, tooltip: String, hasChange: Boolean = false): JPanel =
+internal fun createVersionPanel(
+    combo: JComponent,
+    statusText: String,
+    statusColor: Color?,
+    tooltip: String,
+    hasChange: Boolean = false
+): JPanel =
     JPanel(BorderLayout(2, 0)).apply {
         isOpaque = false
-        val iconLabel = JLabel(statusIcon).apply {
+        val statusLabel = JLabel(statusText).apply {
             border = BorderFactory.createEmptyBorder(0, 2, 0, 0)
+            font = font.deriveFont(java.awt.Font.BOLD)
+            if (statusColor != null) {
+                foreground = statusColor
+            }
         }
-        add(iconLabel, BorderLayout.WEST)
+        add(statusLabel, BorderLayout.WEST)
         if (hasChange) {
             combo.font = combo.font.deriveFont(java.awt.Font.BOLD)
         }
@@ -373,7 +395,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private val syncMavenCheckbox: JCheckBox = JCheckBox(
             MyMessageBundle.message("toolwindow.MyToolWindow.update.confirm.syncMaven")
         ).apply {
-            isSelected = MavenUpSettings.getInstance(project).state.syncMavenAfterUpdate
+            isSelected = MavenUpSettings.getInstance().state.syncMavenAfterUpdate
         }
 
         init {
@@ -475,7 +497,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * Einstellungsänderungen die bereits getroffene Versionsauswahl nicht zurücksetzen.
          */
         private var lastSelectLatestVersion =
-            MavenUpSettings.getInstance(project).state.selectLatestVersion
+            MavenUpSettings.getInstance().state.selectLatestVersion
 
         /** Die Tabelle der Abhängigkeiten; wird im Property-Initializer von [content] zugewiesen. */
         private var table: JBTable
@@ -531,7 +553,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         val effectiveVersion = selectedVersions["$groupId:$artifactId"] ?: currentVersion
                         return versionStatusTooltip(currentVersion, effectiveVersion, newestVersion)
                     }
-                    val settings = MavenUpSettings.getInstance(project)
+                    val settings = MavenUpSettings.getInstance()
                     return if (settings.state.jumpOnSingleClick)
                         MyMessageBundle.message("toolwindow.MyToolWindow.table.row.tooltip.singleClick")
                     else
@@ -568,7 +590,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         return
                     }
 
-                    val settings = MavenUpSettings.getInstance(project)
+                    val settings = MavenUpSettings.getInstance()
                     val requiredClickCount = if (settings.state.jumpOnSingleClick) 1 else 2
 
                     if (e.clickCount == requiredClickCount) {
@@ -596,7 +618,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     popup.add(JMenuItem(MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.navigateToPom")).apply {
                         addActionListener { navigateToDependency(groupId, artifactId, type) }
                     })
-                    val browserName = MavenUpSettings.getInstance(project).state.repositoryBrowser.displayName
+                    val browserName = MavenUpSettings.getInstance().state.repositoryBrowser.displayName
                     popup.add(JMenuItem(MyMessageBundle.message(
                         TOOLWINDOW_MY_TOOL_WINDOW_CONTEXT_MENU_OPEN_IN_MVN_REPOSITORY, browserName)).apply {
                         addActionListener { openInMavenRepository(groupId, artifactId, currentVersion) }
@@ -667,7 +689,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
                     createVersionPanel(
                         combo,
-                        versionStatusIcon(upToDate),
+                        versionStatusText(upToDate),
+                        if (hasChange) versionStatusColor(upToDate) else null,
                         versionStatusTooltip(currentVersion, effectiveVersion, newestVersion),
                         hasChange
                     )
@@ -727,7 +750,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     currentComboBox = combo
                     val panel = createVersionPanel(
                         combo,
-                        versionStatusIcon(upToDate),
+                        versionStatusText(upToDate),
+                        if (hasChange) versionStatusColor(upToDate) else null,
                         versionStatusTooltip(currentVersion, effectiveVersion, newestVersion),
                         hasChange
                     )
@@ -845,7 +869,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         val dialog = UpdateConfirmationDialog(project, updates)
                         if (dialog.showAndGet()) {
                             val shouldSyncMaven = dialog.isSyncMavenSelected()
-                            MavenUpSettings.getInstance(project).state.syncMavenAfterUpdate = shouldSyncMaven
+                            MavenUpSettings.getInstance().state.syncMavenAfterUpdate = shouldSyncMaven
                             ProgressManager.getInstance().run(object : Task.Backgroundable(
                                 project,
                                 MyMessageBundle.message("toolwindow.MyToolWindow.update.progress"),
@@ -1011,7 +1035,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * @return `true`, wenn Text-Buttons angezeigt werden sollen.
          */
         internal fun isToolbarTextEnabled(): Boolean =
-            MavenUpSettings.getInstance(project).state.toolbarShowText
+            MavenUpSettings.getInstance().state.toolbarShowText
 
         /**
          * Erstellt die Filterzeile mit Textfeld und Typ-Combobox unterhalb der Aktionsleiste.
@@ -1128,7 +1152,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * bereits getroffene **New Version**-Auswahl nicht mehr zurück.
          */
         internal fun applySelectLatestVersionSettingIfChanged() {
-            val selectLatest = MavenUpSettings.getInstance(project).state.selectLatestVersion
+            val selectLatest = MavenUpSettings.getInstance().state.selectLatestVersion
             if (selectLatest != lastSelectLatestVersion) {
                 lastSelectLatestVersion = selectLatest
                 applySelectLatestVersionSetting()
@@ -1145,7 +1169,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
          */
         internal fun applySelectLatestVersionSetting() {
             if (availableVersions.isEmpty()) return
-            val selectLatest = MavenUpSettings.getInstance(project).state.selectLatestVersion
+            val selectLatest = MavenUpSettings.getInstance().state.selectLatestVersion
             for ((key, versions) in availableVersions) {
                 if (versions.isEmpty()) continue
                 val currentVersion = knownDependencies[key] ?: ""
@@ -1183,11 +1207,11 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
-         * Aktualisiert die visuelle Darstellung (Farbe, Font, Icon, Tooltip) des Editor-Panels
+         * Aktualisiert die visuelle Darstellung (Farbe, Font, Status-Glyph, Tooltip) des Editor-Panels
          * sofort nach einer Versionsauswahl, ohne dass der Fokus die Zelle verlassen muss.
          *
          * @param combo Die ComboBox im Editor.
-         * @param panel Das umgebende JPanel mit Icon und ComboBox.
+         * @param panel Das umgebende JPanel mit Status-Glyph und ComboBox.
          * @param selected Die aktuell gewählte Version.
          * @param currentVersion Die im Projekt verwendete Version.
          * @param newestVersion Die höchste bekannte Version.
@@ -1207,8 +1231,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
             combo.font = combo.font.deriveFont(newFontStyle)
             combo.repaint()
             if (panel != null) {
-                val iconLabel = panel.getComponent(0) as? JLabel
-                iconLabel?.icon = versionStatusIcon(newUpToDate)
+                val statusLabel = panel.getComponent(0) as? JLabel
+                statusLabel?.text = versionStatusText(newUpToDate)
+                statusLabel?.foreground = newColor
                 panel.toolTipText = versionStatusTooltip(currentVersion, selected ?: currentVersion, newestVersion)
                 panel.repaint()
             }
@@ -1272,7 +1297,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * @return Der lokalisierte Aktionstext mit eingesetztem Browser-Namen.
          */
         internal fun currentOpenInRepositoryText(): String {
-            val browserName = MavenUpSettings.getInstance(project).state.repositoryBrowser.displayName
+            val browserName = MavenUpSettings.getInstance().state.repositoryBrowser.displayName
             return MyMessageBundle.message(
                 TOOLWINDOW_MY_TOOL_WINDOW_CONTEXT_MENU_OPEN_IN_MVN_REPOSITORY, browserName
             )
@@ -1717,7 +1742,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             dependencies: List<Triple<String, String, String>>,
             indicator: ProgressIndicator
         ): OssIndexScanResult {
-            val settings = MavenUpSettings.getInstance(project).state
+            val settings = MavenUpSettings.getInstance().state
             if (!settings.ossIndexEnabled || indicator.isCanceled) {
                 return OssIndexScanResult(emptyMap(), null)
             }
@@ -1790,7 +1815,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             directDependencies: List<Triple<String, String, String>>
         ): VulnerabilityScanTargets {
             val dependencies = LinkedHashSet(directDependencies)
-            if (!MavenUpSettings.getInstance(project).state.checkTransitiveDependencies) {
+            if (!MavenUpSettings.getInstance().state.checkTransitiveDependencies) {
                 return VulnerabilityScanTargets(dependencies, emptySet(), emptyMap())
             }
 
@@ -2000,9 +2025,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
             depKeys.forEach { depKey ->
                 availableVersions[depKey] = sortedCommonVersions
-                if (sortedCommonVersions.isNotEmpty() && MavenUpSettings.getInstance(project).state.selectLatestVersion) {
+                if (sortedCommonVersions.isNotEmpty() && MavenUpSettings.getInstance().state.selectLatestVersion) {
                     selectedVersions[depKey] = sortedCommonVersions.first()
-                } else if (sortedCommonVersions.isNotEmpty() && !MavenUpSettings.getInstance(project).state.selectLatestVersion) {
+                } else if (sortedCommonVersions.isNotEmpty() && !MavenUpSettings.getInstance().state.selectLatestVersion) {
                     selectedVersions[depKey] = knownDependencies[depKey] ?: ""
                 }
             }
@@ -2027,9 +2052,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     val key = "$groupId:$artifactId"
                     availableVersions[key] = versions
                     // Pre-select the newest version if it's different from the current one and setting is enabled
-                    if (versions.first() != version && MavenUpSettings.getInstance(project).state.selectLatestVersion) {
+                    if (versions.first() != version && MavenUpSettings.getInstance().state.selectLatestVersion) {
                         selectedVersions[key] = versions.first()
-                    } else if (!MavenUpSettings.getInstance(project).state.selectLatestVersion) {
+                    } else if (!MavenUpSettings.getInstance().state.selectLatestVersion) {
                         selectedVersions[key] = version
                     }
                 }
@@ -2192,7 +2217,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * Der verwendete Repository-Browser wird aus den Plugin-Einstellungen gelesen.
          */
         private fun openInMavenRepository(groupId: String, artifactId: String, version: String) {
-            val browser = MavenUpSettings.getInstance(project).state.repositoryBrowser
+            val browser = MavenUpSettings.getInstance().state.repositoryBrowser
             BrowserUtil.browse(buildMavenRepositoryUrl(groupId, artifactId, version, browser))
         }
     }

@@ -17,7 +17,7 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
 
     override fun tearDown() {
         try {
-            val settings = MavenUpSettings.getInstance(project)
+            val settings = MavenUpSettings.getInstance()
             settings.loadState(MavenUpSettings.State())
         } finally {
             super.tearDown()
@@ -34,7 +34,7 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
     }
 
     fun testResetLoadsCurrentSettingsIntoComponent() {
-        val settings = MavenUpSettings.getInstance(project)
+        val settings = MavenUpSettings.getInstance()
         settings.state.jumpOnSingleClick = true
         settings.state.selectLatestVersion = false
         settings.state.hideUnstableVersions = true
@@ -50,7 +50,7 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
     }
 
     fun testIsModifiedDetectsCheckboxAndFieldChanges() {
-        val settings = MavenUpSettings.getInstance(project)
+        val settings = MavenUpSettings.getInstance()
         settings.state.hideUnstableVersions = false
 
         val configurable = MavenUpConfigurable(project)
@@ -105,7 +105,7 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
     }
 
     fun testApplyPersistsComponentValuesToSettings() {
-        val settings = MavenUpSettings.getInstance(project)
+        val settings = MavenUpSettings.getInstance()
         settings.state.jumpOnSingleClick = false
         settings.state.selectLatestVersion = true
         settings.state.hideUnstableVersions = false
@@ -186,7 +186,7 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
                 return Credentials("user@example.test", "secret-token")
             }
         }
-        val settings = MavenUpSettings.getInstance(project)
+        val settings = MavenUpSettings.getInstance()
         settings.state.ossIndexEnabled = true
         val configurable = MavenUpConfigurable(project, credentialStore)
 
@@ -206,7 +206,7 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
     }
 
     fun testRepositoryBrowserSelectionIsPersistedOnApply() {
-        val settings = MavenUpSettings.getInstance(project)
+        val settings = MavenUpSettings.getInstance()
         settings.state.repositoryBrowser = MavenRepositoryBrowser.MVN_REPOSITORY
 
         val configurable = MavenUpConfigurable(project)
@@ -232,7 +232,7 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
     }
 
     fun testToolbarShowTextSelectionIsPersistedOnApply() {
-        val settings = MavenUpSettings.getInstance(project)
+        val settings = MavenUpSettings.getInstance()
         settings.state.toolbarShowText = false
 
         val configurable = MavenUpConfigurable(project)
@@ -255,7 +255,7 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
     }
 
     fun testSyncMavenAfterUpdateSelectionIsPersistedOnApply() {
-        val settings = MavenUpSettings.getInstance(project)
+        val settings = MavenUpSettings.getInstance()
         settings.state.syncMavenAfterUpdate = true
 
         val configurable = MavenUpConfigurable(project)

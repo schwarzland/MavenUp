@@ -68,7 +68,7 @@ class MavenUpConfigurable internal constructor(
      * Erstellt die Benutzeroberfläche für die Einstellungen unter Verwendung des IntelliJ UI DSL.
      */
     override fun createComponent(): JComponent {
-        val settings = MavenUpSettings.getInstance(project)
+        val settings = MavenUpSettings.getInstance()
         return panel {
             group(MyMessageBundle.message("settings.group.appearance")) {
                 row {
@@ -181,7 +181,7 @@ class MavenUpConfigurable internal constructor(
      * Prüft, ob der Benutzer Änderungen an den Einstellungen vorgenommen hat, die noch nicht gespeichert wurden.
      */
     override fun isModified(): Boolean {
-        val settings = MavenUpSettings.getInstance(project)
+        val settings = MavenUpSettings.getInstance()
         return jumpOnSingleClickCheckBox?.isSelected != settings.state.jumpOnSingleClick ||
                 repositoryBrowserComboBox?.selectedItem != settings.state.repositoryBrowser ||
                 toolbarShowTextCheckBox?.isSelected != settings.state.toolbarShowText ||
@@ -199,7 +199,7 @@ class MavenUpConfigurable internal constructor(
      * @throws ConfigurationException wenn erforderliche Zugangsdaten fehlen.
      */
     override fun apply() {
-        val settings = MavenUpSettings.getInstance(project)
+        val settings = MavenUpSettings.getInstance()
         val ossIndexEnabled = ossIndexEnabledCheckBox?.isSelected ?: false
         val ossIndexToken = currentToken()
         if (ossIndexEnabled && credentialsLoaded && ossIndexToken.isBlank()) {
@@ -228,7 +228,7 @@ class MavenUpConfigurable internal constructor(
      * Lädt dabei auch die Zugangsdaten asynchron aus dem Passwort-Safe.
      */
     override fun reset() {
-        val settings = MavenUpSettings.getInstance(project)
+        val settings = MavenUpSettings.getInstance()
         jumpOnSingleClickCheckBox?.isSelected = settings.state.jumpOnSingleClick
         repositoryBrowserComboBox?.selectedItem = settings.state.repositoryBrowser
         toolbarShowTextCheckBox?.isSelected = settings.state.toolbarShowText
