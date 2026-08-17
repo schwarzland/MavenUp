@@ -20,8 +20,13 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
 - **`ui`**: Tool-Window, Dialoge, Settings-UI, I18n-Bundle.
 
 ### Komponenten
-- **MavenUpStartupActivity**: `ProjectActivity`, steuert Verfügbarkeit des Tool-Windows
-  beim Projektstart (wartet auf `MavenProjectsManager`, reagiert auf `MavenImportListener`).
+- **MavenUpStartupActivity**: `ProjectActivity`, macht das Tool-Window beim Projektstart
+  verfügbar, sobald bereits Maven-Projekte vorhanden sind (wartet auf `MavenProjectsManager`).
+- **MavenUpMavenImportListener**: deklarativ über `<projectListeners>` registrierter
+  `MavenImportListener`, der das Tool-Window nach abgeschlossenem Maven-Import verfügbar macht;
+  die deklarative Registrierung ermöglicht Plugin-Updates ohne IDE-Neustart.
+- **MavenUpToolWindowActivator**: gemeinsames, idempotentes Hilfsobjekt zum Verfügbarmachen
+  des Tool-Windows, genutzt von Startup-Aktivität und Import-Listener.
 - **MavenUpWindowFactory**: Zentrale `ToolWindowFactory` + `MyToolWindow`.
   Navigation zur pom.xml-Definition sowie Multi-Source-Vulnerability-Checks für direkte und transitive
   Dependencies in Hintergrund-Tasks. Per Rechtsklick auf eine Zeile öffnet sich ein Kontextmenü mit

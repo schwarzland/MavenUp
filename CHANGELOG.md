@@ -1,6 +1,11 @@
 <!-- Keep a Changelog guide -> https://keepachangelog.com -->
 
 # MavenUp Changelog
+## [Unreleased]
+
+### Fixed
+- Installing or updating the plugin no longer requires an IDE restart by registering the Maven import listener declaratively so the plugin can be unloaded dynamically.
+
 ## [2.1.0]
 
 ### Added

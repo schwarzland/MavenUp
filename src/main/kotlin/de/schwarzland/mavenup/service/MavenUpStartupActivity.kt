@@ -1,11 +1,8 @@
 package de.schwarzland.mavenup.service
 
-import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.startup.ProjectActivity
-import com.intellij.openapi.wm.ToolWindowManager
-import org.jetbrains.idea.maven.project.MavenImportListener
 import org.jetbrains.idea.maven.project.MavenProjectsManager
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.time.Duration.Companion.milliseconds
@@ -14,17 +11,19 @@ import kotlin.time.Duration.Companion.milliseconds
  * Startup-Aktivität, die das MavenUp Tool Window beim Öffnen eines Projekts verfügbar macht.
  *
  * Diese Klasse implementiert [ProjectActivity] und wird beim Laden eines IntelliJ-Projektes ausgeführt.
- * Sie prüft, ob Maven-Projekte vorhanden sind, und macht das MavenUp Tool Window entsprechend sichtbar:
- * - Falls Maven-Projekte bereits importiert sind, wird das Tool Window sofort verfügbar gemacht
- * - Falls noch kein Import stattgefunden hat, wird auf den [MavenImportListener] gehört und das Tool Window
- *   wird verfügbar gemacht, sobald der Maven-Import abgeschlossen ist
+ * Sind bereits Maven-Projekte importiert, wird das Tool Window sofort verfügbar gemacht. Andernfalls
+ * übernimmt der deklarativ registrierte [MavenUpMavenImportListener] die Aktivierung, sobald der
+ * nächste Maven-Import abgeschlossen ist.
  *
- * Diese Implementierung enthält auch einen Mechanismus zur Vermeidung von Race Conditions nach Plugin-Updates,
- * indem sie auf die vollständige Maven-Indizierung wartet.
+ * Die Aktivierung erfolgt über [MavenUpToolWindowActivator], damit Startup-Aktivität und Import-Listener
+ * dieselbe, idempotente Logik verwenden.
+ *
+ * Diese Implementierung enthält außerdem einen Mechanismus zur Vermeidung von Race Conditions nach
+ * Plugin-Updates, indem sie auf die Initialisierung des Maven-Projektmanagers wartet.
  *
  * @see ProjectActivity
  * @see MavenProjectsManager
- * @see MavenImportListener
+ * @see MavenUpMavenImportListener
  */
 
 private val LOG = Logger.getInstance(MavenUpStartupActivity::class.java)
@@ -33,7 +32,8 @@ private const val MAVEN_INDEXING_TIMEOUT_MS = 30000L // 30 Sekunden Timeout
 class MavenUpStartupActivity : ProjectActivity {
     /**
      * Wird beim Start eines IntelliJ-Projekts aufgerufen. Prüft, ob Maven-Projekte vorhanden sind,
-     * und aktiviert das MavenUp Tool Window direkt oder nach dem nächsten Maven-Import.
+     * und aktiviert das MavenUp Tool Window direkt. Sind noch keine Projekte vorhanden, wird die
+     * Aktivierung dem deklarativen [MavenUpMavenImportListener] überlassen.
      */
     override suspend fun execute(project: Project) {
         try {
@@ -46,17 +46,17 @@ class MavenUpStartupActivity : ProjectActivity {
 
             if (mavenManager.hasProjects()) {
                 LOG.debug("Maven-Projekte gefunden. Tool Window wird verfügbar gemacht.")
-                makeToolWindowAvailable(project)
+                MavenUpToolWindowActivator.makeToolWindowAvailable(project)
                 return
             }
 
-            LOG.debug("Keine Maven-Projekte in StartupActivity gefunden. Registriere Import-Listener...")
+            LOG.debug(
+                "Keine Maven-Projekte in StartupActivity gefunden. " +
+                        "Der deklarative MavenImportListener übernimmt die Aktivierung."
+            )
         } catch (e: Exception) {
             LOG.warn("Fehler beim Initialisieren der Maven-Projektverwaltung: ${e.message}", e)
         }
-
-        // Registriere einen Listener für zukünftige Maven-Importe
-        registerMavenImportListener(project)
     }
 
     /**
@@ -89,69 +89,6 @@ class MavenUpStartupActivity : ProjectActivity {
 
         if (result == null) {
             LOG.warn("Timeout beim Warten auf Maven-ProjectManager ($MAVEN_INDEXING_TIMEOUT_MS ms)")
-        }
-    }
-
-    /**
-     * Registriert einen Listener für Maven-Importe.
-     * Dies ist wichtig, wenn beim Startup noch keine Projekte vorhanden sind.
-     */
-    private fun registerMavenImportListener(project: Project) {
-        val connection = project.messageBus.connect()
-        connection.subscribe(
-            MavenImportListener.TOPIC,
-            object : MavenImportListener {
-                override fun importFinished(
-                    importedProjects: Collection<org.jetbrains.idea.maven.project.MavenProject>,
-                    newModules: List<com.intellij.openapi.module.Module>
-                ) {
-                    LOG.debug(
-                        "Maven-Import abgeschlossen (${importedProjects.size} Projekte, " +
-                                "${newModules.size} Module). Tool Window wird verfügbar gemacht."
-                    )
-                    makeToolWindowAvailable(project)
-                    // Listener kann nach erster Verwendung auch wieder abmelden
-                    connection.disconnect()
-                }
-            }
-        )
-    }
-
-    /**
-     * Macht das MavenUp Tool Window für Maven-Projekte sichtbar.
-     * Diese Methode wird auf dem EDT ausgeführt und enthält umfangreiche Fehlerbehandlung.
-     */
-    private fun makeToolWindowAvailable(project: Project) {
-        ApplicationManager.getApplication().invokeLater {
-            try {
-                if (project.isDisposed) {
-                    LOG.debug("Projekt ist disposed. Tool Window wird nicht verfügbar gemacht.")
-                    return@invokeLater
-                }
-
-                val mavenManager = MavenProjectsManager.getInstance(project)
-                if (!mavenManager.hasProjects()) {
-                    LOG.debug("Keine Maven-Projekte vorhanden. Tool Window bleibt nicht verfügbar.")
-                    return@invokeLater
-                }
-
-                val toolWindowManager = ToolWindowManager.getInstance(project)
-                val tw = toolWindowManager.getToolWindow("MavenUp")
-
-                if (tw == null) {
-                    LOG.warn("MavenUp Tool Window konnte nicht gefunden werden (Tool Window nicht registriert?)")
-                    return@invokeLater
-                }
-
-                if (!tw.isAvailable) {
-                    tw.setAvailable(true)
-                    LOG.info("MavenUp Tool Window ist nun verfügbar für ${mavenManager.projects.size} Maven-Projekt(e).")
-                } else {
-                    LOG.debug("MavenUp Tool Window war bereits verfügbar.")
-                }
-            } catch (e: Exception) {
-                LOG.error("Fehler beim Verfügbarmachen des Tool Windows: ${e.message}", e)
-            }
         }
     }
 }
