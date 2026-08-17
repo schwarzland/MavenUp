@@ -1,7 +1,7 @@
 <!-- Keep a Changelog guide -> https://keepachangelog.com -->
 
 # MavenUp Changelog
-## [Unreleased]
+## [2.2.0]
 
 ### Added
 - Added Changes (All/Yes/No) and Vulnerabilities (All/Yes/No) combo box filters to the tool window filter bar to filter dependencies by pending version changes and security findings.
