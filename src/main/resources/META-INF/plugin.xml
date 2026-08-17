@@ -29,7 +29,7 @@
             <li><b>Project Settings:</b> Configure navigation, automatic version selection, Maven sync after update, unstable-version filters, transitive scans, and optional OSS Index integration under <b>Settings | Tools | MavenUp</b>, grouped into <b>Appearance</b>, <b>Versions &amp; Updates</b>, and <b>Vulnerability Check</b>.</li>
             <li><b>Two-Tier Action Toolbar:</b> A top toolbar groups the core actions (Refresh, Find New Versions, Scan for Vulnerabilities, Update) and, separated by a divider, the selection-dependent actions (Open on [browser], Vulnerability Details), with Settings at the end; the <b>Open on [browser]</b> action opens the current version of the selected dependency in the configured repository browser. Toolbar buttons can optionally show text labels instead of icons only.</li>
         </ul>
-        Background processing and a layered internal architecture keep long-running operations responsive and maintainable.
+        Background processing and a layered internal architecture keep long-running operations responsive and maintainable. The plugin loads and updates dynamically, so installing or updating it does not require an IDE restart.
         ]]></description>
 
     <!-- Product and plugin compatibility requirements.
@@ -55,5 +55,12 @@
 
         <postStartupActivity implementation="de.schwarzland.mavenup.service.MavenUpStartupActivity"/>
     </extensions>
+
+    <!-- Projektgebundene Listener. Deklarativ registriert, damit sie beim Entladen des Plugins
+         automatisch abgemeldet werden und ein dynamisches Update ohne IDE-Neustart möglich bleibt. -->
+    <projectListeners>
+        <listener class="de.schwarzland.mavenup.service.MavenUpMavenImportListener"
+                  topic="org.jetbrains.idea.maven.project.MavenImportListener"/>
+    </projectListeners>
 
 </idea-plugin>

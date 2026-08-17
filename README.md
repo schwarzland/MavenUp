@@ -37,6 +37,7 @@ Eine vollständige, englische Feature-Liste steht in `FEATURES.md`.
 - **Central-first mit Short-Circuit**: Fragt Maven Central priorisiert zuerst ab; ist die Abfrage dort erfolgreich, werden für dieselbe Dependency keine weiteren privaten Repositories mehr abgefragt.
 - **Kompaktes Diagnose-Logging**: Protokolliert Parsing-Fehler für `settings.xml`, nicht auflösbare Credential-Variablen sowie fehlgeschlagene Repository-Abfragen (inkl. HTTP-Status). Umfangreiche Versions- und Komponentenlisten erscheinen ausschließlich gekürzt auf DEBUG-Ebene, damit `idea.log` klein und responsiv bleibt.
 - **Expliziter Refresh-Flow**: Der interne Refresh unterscheidet klar zwischen „New Version zurücksetzen“ (manueller Refresh) und „New Version behalten“ (Refresh nach Update-Check).
+- **Installation und Update ohne IDE-Neustart**: Das Plugin nutzt ausschließlich dynamische Extension-Points und registriert den `MavenImportListener` deklarativ über `<projectListeners>`, sodass es dynamisch geladen, entladen und aktualisiert werden kann, ohne die IDE neu zu starten.
 
 ## Benutzung
 
@@ -128,7 +129,9 @@ Das Plugin ist klar in drei Schichten gegliedert:
 - Enthält schlanke DTOs für den UI-/Service-Datenaustausch, z. B. `DependencyUpdate` und `VulnerabilityAdvisory`.
 
 ### Service (`de.schwarzland.mavenup.service`)
-- `MavenUpStartupActivity`: steuert die Verfügbarkeit des Tool-Windows beim Projektstart.
+- `MavenUpStartupActivity`: macht das Tool-Window beim Projektstart verfügbar, sobald bereits Maven-Projekte vorhanden sind.
+- `MavenUpMavenImportListener`: deklarativ (`<projectListeners>`) registrierter `MavenImportListener`, der das Tool-Window nach jedem abgeschlossenen Maven-Import verfügbar macht; die deklarative Registrierung wird beim Entladen des Plugins automatisch abgemeldet und ermöglicht Updates ohne IDE-Neustart.
+- `MavenUpToolWindowActivator`: gemeinsames, idempotentes Hilfsobjekt, das Startup-Aktivität und Import-Listener zum Verfügbarmachen des Tool-Windows nutzen.
 - `MavenUpSettings`: projektbezogener Persistenz-Service (`PersistentStateComponent`) in `mavenup_settings.xml`; das OSS-Index-Token wird getrennt über `OssIndexCredentialService` im Password Safe gespeichert. Für die HTTP Basic Authentication wird ein fester Platzhalter-Benutzername verwendet, da Sonatype nur das Token auswertet.
 - `DependencyApiService`, `VulnerabilityApiService` und `OssIndexApiService`: kapseln externe API-Abfragen für Versionen und Vulnerabilities außerhalb der UI.
 - `VulnerabilityMerger`: dedupliziert Befunde aus mehreren Quellen anhand von Advisory-IDs und Aliasen.
