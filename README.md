@@ -89,6 +89,33 @@ Unter `Settings > Tools > MavenUp` können folgende Optionen konfiguriert werden
 - **Include resolved transitive dependencies**: Nimmt standardmäßig den aufgelösten Maven-Dependency-Tree in den Vulnerability-Check auf.
 - **Use Sonatype OSS Index as an additional source**: Aktiviert die optionale zweite Datenquelle. Sonatype authentifiziert Anfragen ausschließlich über das API-Token; daher wird nur das Token benötigt und bei aktivierter Option als Pflichtfeld angezeigt. Das Token wird ausschließlich im IntelliJ Password Safe gespeichert, außerhalb des Event Dispatch Thread geladen und nicht in `mavenup_settings.xml` abgelegt. Fehlt das Token bei einer bereits gespeicherten Konfiguration, wird die OSS-Index-Abfrage übersprungen; OSV.dev wird weiterhin abgefragt. Ist das Token ungültig oder abgelaufen, wird eine qualifizierte Fehlermeldung angezeigt. Ein Link öffnet die Sonatype-Kontoeinstellungen zum Erzeugen oder Kopieren eines Tokens.
 
+## Datenschutz & Datenübertragung
+
+MavenUp legt großen Wert auf Transparenz und Datensparsamkeit beim Zugriff auf externe Netzwerkdienste.
+
+### Übertragene Daten
+- **Ausschließlich Maven-Koordinaten:** Bei Versionsprüfungen und Vulnerability-Scans werden ausschließlich die Standard-Maven-Koordinaten (`groupId`, `artifactId`, `version`) der im Projekt deklarierten oder aufgelösten Komponenten über HTTPS übertragen.
+- **Keine sensiblen Projektdaten:** Es werden **keine Quelltexte, Dateiinhalte, Dateipfade, Passwörter oder Benutzerdaten** an externe Dienste übermittelt.
+- **Sichere Credential-Verwaltung:** Zugangsdaten für private Repositories (aus `settings.xml`) verbleiben lokal bzw. werden ausschließlich gegenüber dem jeweils konfigurierten Repository-Server verwendet. Das optionale API-Token für Sonatype OSS Index wird sicher im IntelliJ Password Safe gespeichert und nicht in Konfigurationsdateien abgelegt.
+
+### Externe Dienste und Endpunkte
+1. **Maven Central & Repositories (`repo1.maven.org` / konfigurierte Server):**
+   - **Zweck:** Ermittlung neuerer Versionen über `maven-metadata.xml`.
+   - **Übertragung:** HTTP-GET-Anfragen mit Pfaden basierend auf `groupId` und `artifactId`.
+2. **OSV.dev (`api.osv.dev`):**
+   - **Zweck:** Standardmäßiger Multi-Source-Vulnerability-Check (Google / OpenSSF).
+   - **Übertragung:** Batch- und Detailabfragen mit `groupId`, `artifactId` und `version` (PURL / Ecosystem `Maven`).
+   - **Authentifizierung:** Keine erforderlich.
+3. **Sonatype OSS Index (`ossindex.sonatype.org`):**
+   - **Zweck:** Optionale Anreicherung mit Maven-spezifischen Sicherheitsbefunden (Opt-In).
+   - **Übertragung:** Komponentenabfragen mit Maven-PURLs (`pkg:maven/groupId/artifactId@version`).
+   - **Authentifizierung:** Persönliches API-Token des Nutzers.
+4. **Repository-Browser (Webbrowser):**
+   - **Zweck:** Optionale benutzerinitiierte Navigation zu `mvnrepository.com` oder `central.sonatype.com` bei Klick auf Weblinks im Standard-Webbrowser des Nutzers.
+
+### Hinweis für Unternehmensumgebungen
+In vertraulichen Unternehmensumgebungen ist zu beachten, dass bei einem Versions- oder Vulnerability-Check auch die Koordinaten interner oder privater Abhängigkeiten (z. B. `com.meinefirma.intern:mein-modul:1.0.0`) in Anfragen an die konfigurierten externen Dienste auftauchen können, sofern diese im Projekt vorhanden sind.
+
 ## Gradle Proxy-Konfiguration
 
 Wenn der Zugriff auf Maven Central im Unternehmensnetzwerk nur über Proxy funktioniert, sollten Proxy-Settings **nicht** in der projektweiten `gradle.properties` gepflegt werden.  
