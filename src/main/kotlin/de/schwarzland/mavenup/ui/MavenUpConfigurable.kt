@@ -46,6 +46,7 @@ class MavenUpConfigurable internal constructor(
     private var repositoryBrowserComboBox: ComboBox<MavenRepositoryBrowser>? = null
     private var toolbarShowTextCheckBox: JBCheckBox? = null
     private var syncMavenAfterUpdateCheckBox: JBCheckBox? = null
+    private var stopAfterCentralSuccessCheckBox: JBCheckBox? = null
     private var selectLatestVersionCheckBox: JBCheckBox? = null
     private var hideUnstableVersionsCheckBox: JBCheckBox? = null
     private var hiddenVersionQualifiersLabel: JLabel? = null
@@ -76,6 +77,7 @@ class MavenUpConfigurable internal constructor(
                     repositoryBrowserComboBox = comboBox(MavenRepositoryBrowser.entries)
                         .applyToComponent {
                             selectedItem = settings.state.repositoryBrowser
+                            toolTipText = MyMessageBundle.message("settings.repositoryBrowser.tooltip")
                             renderer = object : SimpleListCellRenderer<MavenRepositoryBrowser>() {
                                 override fun customize(
                                     list: javax.swing.JList<out MavenRepositoryBrowser>,
@@ -92,24 +94,36 @@ class MavenUpConfigurable internal constructor(
                 }
                 row {
                     toolbarShowTextCheckBox = checkBox(MyMessageBundle.message("settings.toolbarShowText"))
-                        .applyToComponent { isSelected = settings.state.toolbarShowText }
+                        .applyToComponent {
+                            isSelected = settings.state.toolbarShowText
+                            toolTipText = MyMessageBundle.message("settings.toolbarShowText.tooltip")
+                        }
                         .component
                 }
                 row {
                     jumpOnSingleClickCheckBox = checkBox(MyMessageBundle.message("settings.jumpOnSingleClick"))
-                        .applyToComponent { isSelected = settings.state.jumpOnSingleClick }
+                        .applyToComponent {
+                            isSelected = settings.state.jumpOnSingleClick
+                            toolTipText = MyMessageBundle.message("settings.jumpOnSingleClick.tooltip")
+                        }
                         .component
                 }
             }
             group(MyMessageBundle.message("settings.group.versions")) {
                 row {
                     selectLatestVersionCheckBox = checkBox(MyMessageBundle.message("settings.selectLatestVersion"))
-                        .applyToComponent { isSelected = settings.state.selectLatestVersion }
+                        .applyToComponent {
+                            isSelected = settings.state.selectLatestVersion
+                            toolTipText = MyMessageBundle.message("settings.selectLatestVersion.tooltip")
+                        }
                         .component
                 }
                 row {
                     hideUnstableVersionsCheckBox = checkBox(MyMessageBundle.message("settings.hideUnstableVersions"))
-                        .applyToComponent { isSelected = settings.state.hideUnstableVersions }
+                        .applyToComponent {
+                            isSelected = settings.state.hideUnstableVersions
+                            toolTipText = MyMessageBundle.message("settings.hideUnstableVersions.tooltip")
+                        }
                         .component
                 }
                 indent {
@@ -126,8 +140,19 @@ class MavenUpConfigurable internal constructor(
                     }
                 }
                 row {
+                    stopAfterCentralSuccessCheckBox = checkBox(MyMessageBundle.message("settings.stopAfterCentralSuccess"))
+                        .applyToComponent {
+                            isSelected = settings.state.stopAfterCentralSuccess
+                            toolTipText = MyMessageBundle.message("settings.stopAfterCentralSuccess.tooltip")
+                        }
+                        .component
+                }
+                row {
                     syncMavenAfterUpdateCheckBox = checkBox(MyMessageBundle.message("settings.syncMavenAfterUpdate"))
-                        .applyToComponent { isSelected = settings.state.syncMavenAfterUpdate }
+                        .applyToComponent {
+                            isSelected = settings.state.syncMavenAfterUpdate
+                            toolTipText = MyMessageBundle.message("settings.syncMavenAfterUpdate.tooltip")
+                        }
                         .component
                 }
             }
@@ -135,12 +160,18 @@ class MavenUpConfigurable internal constructor(
                 row {
                     checkTransitiveDependenciesCheckBox =
                         checkBox(MyMessageBundle.message("settings.checkTransitiveDependencies"))
-                            .applyToComponent { isSelected = settings.state.checkTransitiveDependencies }
+                            .applyToComponent {
+                                isSelected = settings.state.checkTransitiveDependencies
+                                toolTipText = MyMessageBundle.message("settings.checkTransitiveDependencies.tooltip")
+                            }
                             .component
                 }
                 row {
                     ossIndexEnabledCheckBox = checkBox(MyMessageBundle.message("settings.ossIndex.enabled"))
-                        .applyToComponent { isSelected = settings.state.ossIndexEnabled }
+                        .applyToComponent {
+                            isSelected = settings.state.ossIndexEnabled
+                            toolTipText = MyMessageBundle.message("settings.ossIndex.enabled.tooltip")
+                        }
                         .component
                 }
                 indent {
@@ -186,6 +217,7 @@ class MavenUpConfigurable internal constructor(
                 repositoryBrowserComboBox?.selectedItem != settings.state.repositoryBrowser ||
                 toolbarShowTextCheckBox?.isSelected != settings.state.toolbarShowText ||
                 syncMavenAfterUpdateCheckBox?.isSelected != settings.state.syncMavenAfterUpdate ||
+                stopAfterCentralSuccessCheckBox?.isSelected != settings.state.stopAfterCentralSuccess ||
                 selectLatestVersionCheckBox?.isSelected != settings.state.selectLatestVersion ||
                 hideUnstableVersionsCheckBox?.isSelected != settings.state.hideUnstableVersions ||
                 hiddenVersionQualifiersField?.text != settings.state.hiddenVersionQualifiers ||
@@ -211,6 +243,7 @@ class MavenUpConfigurable internal constructor(
             ?: MavenRepositoryBrowser.MVN_REPOSITORY
         settings.state.toolbarShowText = toolbarShowTextCheckBox?.isSelected ?: false
         settings.state.syncMavenAfterUpdate = syncMavenAfterUpdateCheckBox?.isSelected ?: true
+        settings.state.stopAfterCentralSuccess = stopAfterCentralSuccessCheckBox?.isSelected ?: true
         settings.state.selectLatestVersion = selectLatestVersionCheckBox?.isSelected ?: true
         settings.state.hideUnstableVersions = hideUnstableVersionsCheckBox?.isSelected ?: false
         settings.state.hiddenVersionQualifiers = hiddenVersionQualifiersField?.text?.trim().orEmpty()
@@ -233,6 +266,7 @@ class MavenUpConfigurable internal constructor(
         repositoryBrowserComboBox?.selectedItem = settings.state.repositoryBrowser
         toolbarShowTextCheckBox?.isSelected = settings.state.toolbarShowText
         syncMavenAfterUpdateCheckBox?.isSelected = settings.state.syncMavenAfterUpdate
+        stopAfterCentralSuccessCheckBox?.isSelected = settings.state.stopAfterCentralSuccess
         selectLatestVersionCheckBox?.isSelected = settings.state.selectLatestVersion
         hideUnstableVersionsCheckBox?.isSelected = settings.state.hideUnstableVersions
         hiddenVersionQualifiersField?.text = settings.state.hiddenVersionQualifiers
@@ -257,6 +291,7 @@ class MavenUpConfigurable internal constructor(
         repositoryBrowserComboBox = null
         toolbarShowTextCheckBox = null
         syncMavenAfterUpdateCheckBox = null
+        stopAfterCentralSuccessCheckBox = null
         selectLatestVersionCheckBox = null
         hideUnstableVersionsCheckBox = null
         hiddenVersionQualifiersLabel = null

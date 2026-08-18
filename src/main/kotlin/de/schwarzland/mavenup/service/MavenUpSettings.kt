@@ -55,6 +55,7 @@ class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
      * @property repositoryBrowser Der Maven-Repository-Browser, der für Links auf Abhängigkeits-Versionsseiten verwendet wird.
      * @property toolbarShowText Bestimmt, ob die Aktionsleisten Text-Buttons statt reiner Icon-Buttons anzeigen.
      * @property syncMavenAfterUpdate Bestimmt, ob nach dem Schreiben der `pom.xml` automatisch der Maven-Sync der IDE ausgelöst wird.
+     * @property stopAfterCentralSuccess Bestimmt, ob nach einer erfolgreichen Abfrage von Maven Central keine weiteren privaten Repositories abgefragt werden.
      */
     data class State(
         var jumpOnSingleClick: Boolean = false,
@@ -65,8 +66,37 @@ class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
         var checkTransitiveDependencies: Boolean = true,
         var repositoryBrowser: MavenRepositoryBrowser = MavenRepositoryBrowser.MVN_REPOSITORY,
         var toolbarShowText: Boolean = true,
-        var syncMavenAfterUpdate: Boolean = true
-    )
+        var syncMavenAfterUpdate: Boolean = true,
+        var stopAfterCentralSuccess: Boolean = true
+    ) {
+        /**
+         * Sekundärer Konstruktor zur Binärkompatibilität mit bereits kompiliertem Code,
+         * der den früheren Zustand ohne `stopAfterCentralSuccess` erwartet.
+         */
+        @Suppress("LongParameterList")
+        constructor(
+            jumpOnSingleClick: Boolean,
+            selectLatestVersion: Boolean,
+            hideUnstableVersions: Boolean,
+            hiddenVersionQualifiers: String,
+            ossIndexEnabled: Boolean,
+            checkTransitiveDependencies: Boolean,
+            repositoryBrowser: MavenRepositoryBrowser,
+            toolbarShowText: Boolean,
+            syncMavenAfterUpdate: Boolean
+        ) : this(
+            jumpOnSingleClick = jumpOnSingleClick,
+            selectLatestVersion = selectLatestVersion,
+            hideUnstableVersions = hideUnstableVersions,
+            hiddenVersionQualifiers = hiddenVersionQualifiers,
+            ossIndexEnabled = ossIndexEnabled,
+            checkTransitiveDependencies = checkTransitiveDependencies,
+            repositoryBrowser = repositoryBrowser,
+            toolbarShowText = toolbarShowText,
+            syncMavenAfterUpdate = syncMavenAfterUpdate,
+            stopAfterCentralSuccess = true
+        )
+    }
 
     private var myState = State()
 
