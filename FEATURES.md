@@ -37,7 +37,7 @@ This document describes the key features of the MavenUp IntelliJ plugin, grouped
 - **Private repository authentication**: Uses credentials from Maven `settings.xml` for authenticated repository access and falls back to `${user.home}/.m2/settings.xml` when no explicit Maven user settings path is configured in the IDE.
 - **Credential placeholder resolution**: Resolves `${env.VAR_NAME}` and `${VAR_NAME}` placeholders for repository credentials.
 - **Credential matching fallbacks**: Matches credentials by repository ID, then repository URL, then repository host.
-- **Configurable Central-first repository strategy**: Queries Maven Central first and can either stop after a successful Central response (default, faster) or continue with private repositories to include private-only versions.
+- **Configurable Central-first repository strategy**: Queries Maven Central first and can either stop after a successful Central response (default, faster) or continue with private repositories to include private-only versions. In the settings dialog, the Central short-circuit option is placed before the general Maven sync toggle so the lookup flow reads naturally from Central to private repositories before the post-update sync action.
 - **Configurable Maven Repository Browser**: The repository browser used for opening artifact version pages can be selected under **Settings > Tools > MavenUp**. Two options are available: **MVN Repository** (default, `mvnrepository.com`) and **Sonatype Central** (`central.sonatype.com`). The selection applies to both the context menu in the main table and the Vulnerability Details row context menu (all columns except **References**).
 
 ---

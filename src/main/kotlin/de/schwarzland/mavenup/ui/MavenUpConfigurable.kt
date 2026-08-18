@@ -140,18 +140,18 @@ class MavenUpConfigurable internal constructor(
                     }
                 }
                 row {
-                    syncMavenAfterUpdateCheckBox = checkBox(MyMessageBundle.message("settings.syncMavenAfterUpdate"))
-                        .applyToComponent {
-                            isSelected = settings.state.syncMavenAfterUpdate
-                            toolTipText = MyMessageBundle.message("settings.syncMavenAfterUpdate.tooltip")
-                        }
-                        .component
-                }
-                row {
                     stopAfterCentralSuccessCheckBox = checkBox(MyMessageBundle.message("settings.stopAfterCentralSuccess"))
                         .applyToComponent {
                             isSelected = settings.state.stopAfterCentralSuccess
                             toolTipText = MyMessageBundle.message("settings.stopAfterCentralSuccess.tooltip")
+                        }
+                        .component
+                }
+                row {
+                    syncMavenAfterUpdateCheckBox = checkBox(MyMessageBundle.message("settings.syncMavenAfterUpdate"))
+                        .applyToComponent {
+                            isSelected = settings.state.syncMavenAfterUpdate
+                            toolTipText = MyMessageBundle.message("settings.syncMavenAfterUpdate.tooltip")
                         }
                         .component
                 }

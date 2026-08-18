@@ -84,8 +84,8 @@ Unter `Settings > Tools > MavenUp` können folgende Optionen konfiguriert werden
 - **Automatically select newest version**: Wählt nach einem Update-Check automatisch die jeweils neueste verfügbare Version in der Dropdown-Liste aus. Wird diese Einstellung geändert und mit **Apply** oder **OK** bestätigt, aktualisiert sich die **New Version**-Auswahl im offenen Tool-Window sofort, ohne dass ein erneuter Update-Check nötig ist. Das Ändern anderer Einstellungen setzt eine bereits getroffene Versionsauswahl nicht zurück.
 - **Hide unstable versions**: Blendet instabile Versionen (z.B. RC/Beta) aus den auswählbaren Update-Versionen aus.
 - **Hidden version qualifiers (comma-separated)**: Liste der auszublendenden Typen, z.B. `rc,beta,milestone` (als eingerückter Unterpunkt im IntelliJ-Settings-Style; Label und Feld nur aktiv, wenn der Filter eingeschaltet ist; das Feld passt sich an die Dialogbreite an, damit auch längere Listen gut lesbar bleiben).
-- **Sync Maven changes after update**: Legt fest, ob nach dem Schreiben der `pom.xml` automatisch der Maven-Sync der IDE ausgelöst wird (Standard: an). Diese Einstellung ist mit der gleichnamigen Checkbox im Bestätigungsdialog **Confirm Changes** synchronisiert; die dort zuletzt getroffene Auswahl wird gespeichert.
 - **Stop after a successful Maven Central lookup**: Legt fest, ob nach einer erfolgreichen Abfrage von Maven Central keine weiteren privaten Repositories abgefragt werden (Standard: an). Bei deaktivierter Option werden private Repositories auch nach erfolgreicher Central-Abfrage weiterhin geprüft, um private-only Versionen zu finden.
+- **Sync Maven changes after update**: Legt fest, ob nach dem Schreiben der `pom.xml` automatisch der Maven-Sync der IDE ausgelöst wird (Standard: an). Diese Einstellung ist mit der gleichnamigen Checkbox im Bestätigungsdialog **Confirm Changes** synchronisiert; die dort zuletzt getroffene Auswahl wird gespeichert.
 
 **Vulnerability Check**
 

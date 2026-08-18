@@ -10,6 +10,7 @@
 ### Changed
 - Changed Maven settings resolution to use the IDE-configured user settings path first and fall back to `${user.home}/.m2/settings.xml` when needed.
 - Changed repository version lookup to keep Maven Central first while making the Central short-circuit behavior configurable.
+- Reordered the settings dialog so the Central short-circuit option appears before the Maven-sync toggle to match the repository lookup flow.
 
 ### Fixed
 - Fixed missing private repository discovery on machines where IntelliJ uses the default Maven settings file without an explicit user settings path.
