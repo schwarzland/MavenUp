@@ -177,7 +177,7 @@ class DependencyApiService(private val project: Project) {
             candidates.add(File(expandSettingsPath(configuredPath, userHomePath)))
         }
         if (userHomePath.isNotBlank()) {
-            candidates.add(File(userHomePath, ".m2\\settings.xml"))
+            candidates.add(File(File(userHomePath, ".m2"), "settings.xml"))
         }
         return candidates.distinctBy { it.absolutePath.lowercase(Locale.getDefault()) }
     }
@@ -191,7 +191,10 @@ class DependencyApiService(private val project: Project) {
             expandedPath = when {
                 expandedPath == "~" -> userHomePath
                 expandedPath.startsWith("~\\") || expandedPath.startsWith("~/") -> {
-                    userHomePath + expandedPath.substring(1).replace('/', '\\')
+                    val relativePath = expandedPath.substring(2)
+                        .replace('\\', File.separatorChar)
+                        .replace('/', File.separatorChar)
+                    File(userHomePath, relativePath).path
                 }
                 else -> expandedPath
             }

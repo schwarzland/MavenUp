@@ -11,6 +11,7 @@
 
 ### Fixed
 - Fixed missing private repository discovery on machines where IntelliJ uses the default Maven settings file without an explicit user settings path.
+- Fixed fallback path construction for the default Maven `settings.xml` so it resolves correctly on all operating systems.
 
 ## [2.2.0]
 
