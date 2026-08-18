@@ -2,13 +2,13 @@
 
 Bei **jeder** Änderung im Repository sind diese Punkte immer zu berücksichtigen:
 
-1. **README.md** ergänzen/aktualisieren, wenn sich Verhalten, Nutzung, Konfiguration oder Architektur ändert. Dabei gelten folgende Regeln:
-   - Jede neue oder geänderte Funktion muss im Abschnitt **Funktionen** (Deutsch) aufgeführt sein.
-   - Jede neue Benutzeraktion muss im Abschnitt **Benutzung** (Deutsch **und** Englisch) beschrieben sein.
-   - Jede neue Einstellung muss im Abschnitt **Einstellungen** (Deutsch) ergänzt werden.
+1. **README.md** ergänzen/aktualisieren, wenn sich Nutzung, Konfiguration oder Architektur ändert. Dabei gelten folgende Regeln:
+   - **Sprache: Deutsch.** README.md wird nur auf Deutsch gepflegt.
+   - **Features: FEATURES.md ist die Single Source of Truth.** Ergänze oder aktualisiere neue/geänderte Funktionen ausschließlich in `FEATURES.md` (Englisch); die README.md-Abschnitte referenzieren auf FEATURES.md statt Features zu duplizieren.
+   - Jede neue Einstellung muss im Abschnitt **Einstellungen** ergänzt werden.
    - Veraltete Formulierungen (z. B. „jetzt", „neu") sind beim Bearbeiten zu entfernen.
    - Keine inhaltlichen Dopplungen zwischen den Abschnitten – jeder Punkt gehört genau an eine Stelle.
-   - Nach jeder Änderung alle Abschnitte (Funktionen, Benutzung DE/EN, Einstellungen, Architektur) auf Vollständigkeit und Konsistenz prüfen.
+   - Nach jeder Änderung die Abschnitte (Benutzung, Einstellungen, Architektur) auf Vollständigkeit und Konsistenz prüfen.
 2. **CHANGELOG.md** ergänzen/aktualisieren mit einem passenden Eintrag zur Änderung. Dabei gelten folgende Regeln:
    - Ermittle zunächst mit `git rev-parse --abbrev-ref HEAD`, ob du dich in einem Feature-Branch (erkennbar an `feature/*`) befindest.
    - Wenn du dich in einem Feature-Branch befindest, prüfe, ob eine Sektion `## [Unreleased]` existiert. Fehlt sie, füge sie ganz oben in der Datei als erste Überschrift hinzu.
