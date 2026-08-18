@@ -77,6 +77,7 @@ class MavenUpConfigurable internal constructor(
                     repositoryBrowserComboBox = comboBox(MavenRepositoryBrowser.entries)
                         .applyToComponent {
                             selectedItem = settings.state.repositoryBrowser
+                            toolTipText = MyMessageBundle.message("settings.repositoryBrowser.tooltip")
                             renderer = object : SimpleListCellRenderer<MavenRepositoryBrowser>() {
                                 override fun customize(
                                     list: javax.swing.JList<out MavenRepositoryBrowser>,
@@ -93,24 +94,36 @@ class MavenUpConfigurable internal constructor(
                 }
                 row {
                     toolbarShowTextCheckBox = checkBox(MyMessageBundle.message("settings.toolbarShowText"))
-                        .applyToComponent { isSelected = settings.state.toolbarShowText }
+                        .applyToComponent {
+                            isSelected = settings.state.toolbarShowText
+                            toolTipText = MyMessageBundle.message("settings.toolbarShowText.tooltip")
+                        }
                         .component
                 }
                 row {
                     jumpOnSingleClickCheckBox = checkBox(MyMessageBundle.message("settings.jumpOnSingleClick"))
-                        .applyToComponent { isSelected = settings.state.jumpOnSingleClick }
+                        .applyToComponent {
+                            isSelected = settings.state.jumpOnSingleClick
+                            toolTipText = MyMessageBundle.message("settings.jumpOnSingleClick.tooltip")
+                        }
                         .component
                 }
             }
             group(MyMessageBundle.message("settings.group.versions")) {
                 row {
                     selectLatestVersionCheckBox = checkBox(MyMessageBundle.message("settings.selectLatestVersion"))
-                        .applyToComponent { isSelected = settings.state.selectLatestVersion }
+                        .applyToComponent {
+                            isSelected = settings.state.selectLatestVersion
+                            toolTipText = MyMessageBundle.message("settings.selectLatestVersion.tooltip")
+                        }
                         .component
                 }
                 row {
                     hideUnstableVersionsCheckBox = checkBox(MyMessageBundle.message("settings.hideUnstableVersions"))
-                        .applyToComponent { isSelected = settings.state.hideUnstableVersions }
+                        .applyToComponent {
+                            isSelected = settings.state.hideUnstableVersions
+                            toolTipText = MyMessageBundle.message("settings.hideUnstableVersions.tooltip")
+                        }
                         .component
                 }
                 indent {
@@ -128,12 +141,18 @@ class MavenUpConfigurable internal constructor(
                 }
                 row {
                     syncMavenAfterUpdateCheckBox = checkBox(MyMessageBundle.message("settings.syncMavenAfterUpdate"))
-                        .applyToComponent { isSelected = settings.state.syncMavenAfterUpdate }
+                        .applyToComponent {
+                            isSelected = settings.state.syncMavenAfterUpdate
+                            toolTipText = MyMessageBundle.message("settings.syncMavenAfterUpdate.tooltip")
+                        }
                         .component
                 }
                 row {
                     stopAfterCentralSuccessCheckBox = checkBox(MyMessageBundle.message("settings.stopAfterCentralSuccess"))
-                        .applyToComponent { isSelected = settings.state.stopAfterCentralSuccess }
+                        .applyToComponent {
+                            isSelected = settings.state.stopAfterCentralSuccess
+                            toolTipText = MyMessageBundle.message("settings.stopAfterCentralSuccess.tooltip")
+                        }
                         .component
                 }
             }
@@ -141,12 +160,18 @@ class MavenUpConfigurable internal constructor(
                 row {
                     checkTransitiveDependenciesCheckBox =
                         checkBox(MyMessageBundle.message("settings.checkTransitiveDependencies"))
-                            .applyToComponent { isSelected = settings.state.checkTransitiveDependencies }
+                            .applyToComponent {
+                                isSelected = settings.state.checkTransitiveDependencies
+                                toolTipText = MyMessageBundle.message("settings.checkTransitiveDependencies.tooltip")
+                            }
                             .component
                 }
                 row {
                     ossIndexEnabledCheckBox = checkBox(MyMessageBundle.message("settings.ossIndex.enabled"))
-                        .applyToComponent { isSelected = settings.state.ossIndexEnabled }
+                        .applyToComponent {
+                            isSelected = settings.state.ossIndexEnabled
+                            toolTipText = MyMessageBundle.message("settings.ossIndex.enabled.tooltip")
+                        }
                         .component
                 }
                 indent {
