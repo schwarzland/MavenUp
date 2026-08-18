@@ -1,6 +1,17 @@
 <!-- Keep a Changelog guide -> https://keepachangelog.com -->
 
 # MavenUp Changelog
+## [Unreleased]
+
+### Added
+- Added DEBUG logging that reports which Maven `settings.xml` file is used for repository and credential lookups.
+
+### Changed
+- Changed Maven settings resolution to use the IDE-configured user settings path first and fall back to `${user.home}/.m2/settings.xml` when needed.
+
+### Fixed
+- Fixed missing private repository discovery on machines where IntelliJ uses the default Maven settings file without an explicit user settings path.
+
 ## [2.2.0]
 
 ### Added

@@ -1,6 +1,7 @@
 package de.schwarzland.mavenup.service
 
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import java.nio.file.Files
 
 class DependencyApiServiceTest : BasePlatformTestCase() {
     fun testResolveCredentialValueWithSystemPropertyPlaceholder() {
@@ -251,5 +252,56 @@ class DependencyApiServiceTest : BasePlatformTestCase() {
         assertEquals("my-id", service.normalizeSettingsId("  my-id  "))
         assertNull(service.normalizeSettingsId(""))
         assertNull(service.normalizeSettingsId(null))
+    }
+
+    fun testResolveMavenUserSettingsFilePrefersConfiguredPath() {
+        val service = DependencyApiService(project)
+        val tempDir = Files.createTempDirectory("mavenup-settings-prefers-configured")
+        val configuredFile = tempDir.resolve("custom-settings.xml")
+        val defaultDir = tempDir.resolve("home").resolve(".m2")
+        Files.createDirectories(defaultDir)
+        val defaultFile = defaultDir.resolve("settings.xml")
+        Files.writeString(configuredFile, "<settings/>")
+        Files.writeString(defaultFile, "<settings/>")
+
+        val resolved = service.resolveMavenUserSettingsFile(configuredFile.toString(), tempDir.resolve("home").toString())
+
+        assertEquals(configuredFile.toFile().canonicalFile, resolved?.canonicalFile)
+    }
+
+    fun testResolveMavenUserSettingsFileFallsBackToDefaultWhenConfiguredMissing() {
+        val service = DependencyApiService(project)
+        val tempDir = Files.createTempDirectory("mavenup-settings-fallback-default")
+        val missingConfigured = tempDir.resolve("does-not-exist.xml")
+        val defaultDir = tempDir.resolve("home").resolve(".m2")
+        Files.createDirectories(defaultDir)
+        val defaultFile = defaultDir.resolve("settings.xml")
+        Files.writeString(defaultFile, "<settings/>")
+
+        val resolved = service.resolveMavenUserSettingsFile(missingConfigured.toString(), tempDir.resolve("home").toString())
+
+        assertEquals(defaultFile.toFile().canonicalFile, resolved?.canonicalFile)
+    }
+
+    fun testResolveMavenUserSettingsFileFallsBackToDefaultWhenConfiguredBlank() {
+        val service = DependencyApiService(project)
+        val tempDir = Files.createTempDirectory("mavenup-settings-fallback-blank")
+        val defaultDir = tempDir.resolve("home").resolve(".m2")
+        Files.createDirectories(defaultDir)
+        val defaultFile = defaultDir.resolve("settings.xml")
+        Files.writeString(defaultFile, "<settings/>")
+
+        val resolved = service.resolveMavenUserSettingsFile("   ", tempDir.resolve("home").toString())
+
+        assertEquals(defaultFile.toFile().canonicalFile, resolved?.canonicalFile)
+    }
+
+    fun testResolveMavenUserSettingsFileReturnsNullWhenNothingExists() {
+        val service = DependencyApiService(project)
+        val tempDir = Files.createTempDirectory("mavenup-settings-none")
+
+        val resolved = service.resolveMavenUserSettingsFile("", tempDir.toString())
+
+        assertNull(resolved)
     }
 }

@@ -10,6 +10,7 @@ import java.net.URI
 import java.util.Base64
 import java.util.Locale
 import javax.xml.parsers.DocumentBuilderFactory
+import org.w3c.dom.Document
 
 private const val CENTRAL_REPOSITORY_ID = "central"
 private const val CENTRAL_REPOSITORY_URL = "https://repo1.maven.org/maven2"
@@ -21,6 +22,8 @@ private val LOG = Logger.getInstance(DependencyApiService::class.java)
  *
  * Die Hauptaufgaben dieser Klasse umfassen:
  * - Auslesen von konfigurierten Maven-Repositories und Server-Zugangsdaten aus der `settings.xml`.
+ *   Wenn in den Maven-IDE-Einstellungen kein expliziter Pfad gesetzt ist, wird auf
+ *   `${user.home}/.m2/settings.xml` zurückgefallen.
  * - Abfrage von `maven-metadata.xml` von verschiedenen Repositories (z. B. Maven Central oder privaten Repos).
  * - Auflösung von Platzhaltern für Zugangsdaten (Umgebungsvariablen oder System-Properties).
  * - Filtern und Sortieren der gefundenen Versionen basierend auf den Plugin-Einstellungen (z. B. Ausschluss von Beta/Snapshot-Versionen).
@@ -70,41 +73,47 @@ class DependencyApiService(private val project: Project) {
     }
 
     /**
+     * Ermittelt die effektiv zu verwendende Maven-`settings.xml`.
+     *
+     * Zuerst wird der in den Maven-IDE-Einstellungen konfigurierte Pfad geprüft.
+     * Falls dort kein Pfad gesetzt ist oder die Datei nicht existiert, wird auf
+     * `${user.home}/.m2/settings.xml` zurückgegriffen.
+     *
+     * @param configuredUserSettingsPath der konfigurierte Pfad aus den IDE-Maven-Einstellungen.
+     * @param userHomePath Home-Verzeichnis des Benutzers zur Auflösung des Standardpfads.
+     * @return die gefundene Datei oder `null`, wenn keine lesbare `settings.xml` vorhanden ist.
+     */
+    fun resolveMavenUserSettingsFile(
+        configuredUserSettingsPath: String?,
+        userHomePath: String = System.getProperty("user.home").orEmpty()
+    ): File? {
+        val candidates = collectMavenUserSettingsCandidates(configuredUserSettingsPath, userHomePath)
+        return candidates.firstOrNull { it.isFile }
+    }
+
+    /**
      * Extrahiert Benutzername und Passwort für Maven-Server aus der `settings.xml`.
      */
     fun getMavenServerCredentials(): Map<String, Pair<String?, String?>> {
         val credentials = mutableMapOf<String, Pair<String?, String?>>()
-        val generalSettings = MavenProjectsManager.getInstance(project).generalSettings
-        val userSettingsPath = generalSettings.userSettingsFile
-
-        if (userSettingsPath.isNotBlank()) {
-            val userSettingsFile = File(userSettingsPath)
-            if (userSettingsFile.exists()) {
-                try {
-                    val factory = DocumentBuilderFactory.newInstance()
-                    val builder = factory.newDocumentBuilder()
-                    val doc = builder.parse(userSettingsFile)
-                    val serverNodes = doc.getElementsByTagName("server")
-                    for (i in 0 until serverNodes.length) {
-                        val serverNode = serverNodes.item(i) as? org.w3c.dom.Element ?: continue
-                        val id = normalizeSettingsId(serverNode.getElementsByTagName("id").item(0)?.textContent)
-                        if (id != null) {
-                            val username = resolveCredentialValue(
-                                serverNode.getElementsByTagName("username").item(0)?.textContent,
-                                id,
-                                "username"
-                            )
-                            val password = resolveCredentialValue(
-                                serverNode.getElementsByTagName("password").item(0)?.textContent,
-                                id,
-                                "password"
-                            )
-                            credentials[id] = Pair(username, password)
-                        }
-                    }
-                } catch (e: Exception) {
-                    LOG.error("Failed to parse Maven settings file for credentials: ${userSettingsFile.path}", e)
-                }
+        val settingsFile = resolveConfiguredOrDefaultMavenSettingsFile() ?: return credentials
+        val doc = parseMavenSettingsDocument(settingsFile, "credentials") ?: return credentials
+        val serverNodes = doc.getElementsByTagName("server")
+        for (i in 0 until serverNodes.length) {
+            val serverNode = serverNodes.item(i) as? org.w3c.dom.Element ?: continue
+            val id = normalizeSettingsId(serverNode.getElementsByTagName("id").item(0)?.textContent)
+            if (id != null) {
+                val username = resolveCredentialValue(
+                    serverNode.getElementsByTagName("username").item(0)?.textContent,
+                    id,
+                    "username"
+                )
+                val password = resolveCredentialValue(
+                    serverNode.getElementsByTagName("password").item(0)?.textContent,
+                    id,
+                    "password"
+                )
+                credentials[id] = Pair(username, password)
             }
         }
         return credentials
@@ -115,28 +124,16 @@ class DependencyApiService(private val project: Project) {
      */
     fun getMavenRepositoryInfos(): List<Pair<String?, String>> {
         val infos = mutableListOf<Pair<String?, String>>(Pair(CENTRAL_REPOSITORY_ID, CENTRAL_REPOSITORY_URL))
-
-        val generalSettings = MavenProjectsManager.getInstance(project).generalSettings
-        val userSettingsPath = generalSettings.userSettingsFile
-
-        if (userSettingsPath.isNotBlank()) {
-            val userSettingsFile = File(userSettingsPath)
-            if (userSettingsFile.exists()) {
-                try {
-                    val factory = DocumentBuilderFactory.newInstance()
-                    val builder = factory.newDocumentBuilder()
-                    val doc = builder.parse(userSettingsFile)
-                    val repoNodes = doc.getElementsByTagName("repository")
-                    for (i in 0 until repoNodes.length) {
-                        val repoNode = repoNodes.item(i) as? org.w3c.dom.Element ?: continue
-                        val id = normalizeSettingsId(repoNode.getElementsByTagName("id").item(0)?.textContent)
-                        val url = repoNode.getElementsByTagName("url").item(0)?.textContent
-                        if (url != null && url.isNotBlank()) {
-                            infos.add(Pair(id, url.trim().trimEnd('/')))
-                        }
-                    }
-                } catch (e: Exception) {
-                    LOG.error("Failed to parse Maven settings file for repositories: ${userSettingsFile.path}", e)
+        val settingsFile = resolveConfiguredOrDefaultMavenSettingsFile()
+        val doc = if (settingsFile != null) parseMavenSettingsDocument(settingsFile, "repositories") else null
+        val repoNodes = doc?.getElementsByTagName("repository")
+        if (repoNodes != null) {
+            for (i in 0 until repoNodes.length) {
+                val repoNode = repoNodes.item(i) as? org.w3c.dom.Element ?: continue
+                val id = normalizeSettingsId(repoNode.getElementsByTagName("id").item(0)?.textContent)
+                val url = repoNode.getElementsByTagName("url").item(0)?.textContent
+                if (url != null && url.isNotBlank()) {
+                    infos.add(Pair(id, url.trim().trimEnd('/')))
                 }
             }
         }
@@ -147,6 +144,80 @@ class DependencyApiService(private val project: Project) {
             .map { repositoriesWithSameUrl ->
                 repositoriesWithSameUrl.firstOrNull { it.first != null } ?: repositoriesWithSameUrl.first()
             }
+    }
+
+    /**
+     * Ermittelt die effektiv verwendete `settings.xml` aus IDE-Konfiguration und Standardpfad.
+     */
+    private fun resolveConfiguredOrDefaultMavenSettingsFile(): File? {
+        val configuredPath = MavenProjectsManager.getInstance(project).generalSettings.userSettingsFile
+        val userHomePath = System.getProperty("user.home").orEmpty()
+        val settingsFile = resolveMavenUserSettingsFile(configuredPath, userHomePath)
+        if (settingsFile != null) {
+            LOG.debug("Using Maven settings file: ${settingsFile.path}")
+            return settingsFile
+        }
+
+        val checkedCandidates = collectMavenUserSettingsCandidates(configuredPath, userHomePath)
+            .joinToString(", ") { it.path }
+        LOG.debug("No Maven settings file found. Checked: $checkedCandidates")
+        return null
+    }
+
+    /**
+     * Liefert mögliche Kandidatenpfade für die Maven-`settings.xml` in Prioritätsreihenfolge.
+     */
+    private fun collectMavenUserSettingsCandidates(
+        configuredUserSettingsPath: String?,
+        userHomePath: String
+    ): List<File> {
+        val candidates = mutableListOf<File>()
+        val configuredPath = configuredUserSettingsPath?.trim().orEmpty()
+        if (configuredPath.isNotEmpty()) {
+            candidates.add(File(expandSettingsPath(configuredPath, userHomePath)))
+        }
+        if (userHomePath.isNotBlank()) {
+            candidates.add(File(userHomePath, ".m2\\settings.xml"))
+        }
+        return candidates.distinctBy { it.absolutePath.lowercase(Locale.getDefault()) }
+    }
+
+    /**
+     * Löst Platzhalter in Dateipfaden auf (`~`, `%ENV%`, `${prop}`).
+     */
+    private fun expandSettingsPath(rawPath: String, userHomePath: String): String {
+        var expandedPath = rawPath.trim()
+        if (userHomePath.isNotBlank()) {
+            expandedPath = when {
+                expandedPath == "~" -> userHomePath
+                expandedPath.startsWith("~\\") || expandedPath.startsWith("~/") -> {
+                    userHomePath + expandedPath.substring(1).replace('/', '\\')
+                }
+                else -> expandedPath
+            }
+        }
+        expandedPath = Regex("%([^%]+)%").replace(expandedPath) { match ->
+            System.getenv(match.groupValues[1]) ?: match.value
+        }
+        expandedPath = Regex("""\$\{([^}]+)}""").replace(expandedPath) { match ->
+            val key = match.groupValues[1]
+            System.getProperty(key) ?: System.getenv(key) ?: match.value
+        }
+        return expandedPath
+    }
+
+    /**
+     * Parst die Maven-`settings.xml` und gibt das XML-Dokument zurück.
+     */
+    private fun parseMavenSettingsDocument(settingsFile: File, purpose: String): Document? {
+        return try {
+            val factory = DocumentBuilderFactory.newInstance()
+            val builder = factory.newDocumentBuilder()
+            builder.parse(settingsFile)
+        } catch (e: Exception) {
+            LOG.error("Failed to parse Maven settings file for $purpose: ${settingsFile.path}", e)
+            null
+        }
     }
 
     /**

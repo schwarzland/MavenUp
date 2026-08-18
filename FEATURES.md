@@ -34,7 +34,7 @@ This document describes the key features of the MavenUp IntelliJ plugin, grouped
 
 ## Repository & Authentication
 
-- **Private repository authentication**: Uses credentials from Maven `settings.xml` for authenticated repository access.
+- **Private repository authentication**: Uses credentials from Maven `settings.xml` for authenticated repository access and falls back to `${user.home}/.m2/settings.xml` when no explicit Maven user settings path is configured in the IDE.
 - **Credential placeholder resolution**: Resolves `${env.VAR_NAME}` and `${VAR_NAME}` placeholders for repository credentials.
 - **Credential matching fallbacks**: Matches credentials by repository ID, then repository URL, then repository host.
 - **Central-first repository strategy**: Queries Maven Central first and skips additional private repository requests for the same dependency when Central succeeds.

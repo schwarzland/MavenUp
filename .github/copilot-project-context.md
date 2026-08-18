@@ -85,8 +85,9 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   zurückgezogener Advisories. Umfangreiche Komponenten- und Versionslisten werden nur gekürzt auf
   DEBUG-Ebene protokolliert, um starkes Wachstum der von der IDE überwachten `idea.log` zu vermeiden.
 - **DependencyApiService**: Liest Maven-Repository-Infos und Server-Credentials aus `settings.xml`,
-  fragt `maven-metadata.xml` für Versionslisten ab, löst Credential-Platzhalter auf und filtert
-  Versionen gemäß Plugin-Einstellungen (Qualifier-Filter, Sortierung).
+  nutzt bei fehlendem explizitem IDE-Pfad automatisch `${user.home}/.m2/settings.xml`, protokolliert
+  den verwendeten Settings-Pfad auf DEBUG-Ebene, fragt `maven-metadata.xml` für Versionslisten ab,
+  löst Credential-Platzhalter auf und filtert Versionen gemäß Plugin-Einstellungen (Qualifier-Filter, Sortierung).
 - **OssIndexApiService / OssIndexCredentialService**: optionale Sonatype-Abfrage über Maven-purl
   und sichere Zugangsdatenablage; wirft `OssIndexAuthenticationException` bei ungültigem/abgelaufenem
   Token (HTTP 401/403) für eine qualifizierte Fehlermeldung.
