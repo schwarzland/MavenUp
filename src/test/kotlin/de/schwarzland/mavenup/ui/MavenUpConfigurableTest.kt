@@ -254,6 +254,10 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
         assertTrue(MavenUpSettings.State().syncMavenAfterUpdate)
     }
 
+    fun testStopAfterCentralSuccessDefaultIsTrue() {
+        assertTrue(MavenUpSettings.State().stopAfterCentralSuccess)
+    }
+
     fun testSyncMavenAfterUpdateSelectionIsPersistedOnApply() {
         val settings = MavenUpSettings.getInstance()
         settings.state.syncMavenAfterUpdate = true
@@ -271,6 +275,25 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
         assertFalse(settings.state.syncMavenAfterUpdate)
 
         settings.state.syncMavenAfterUpdate = true
+    }
+
+    fun testStopAfterCentralSuccessSelectionIsPersistedOnApply() {
+        val settings = MavenUpSettings.getInstance()
+        settings.state.stopAfterCentralSuccess = true
+
+        val configurable = MavenUpConfigurable(project)
+        configurable.createComponent()
+        configurable.reset()
+        assertFalse(configurable.isModified)
+
+        val checkBox = configurable.field<com.intellij.ui.components.JBCheckBox>("stopAfterCentralSuccessCheckBox")
+        checkBox.isSelected = false
+        assertTrue("Änderung der Checkbox sollte isModified() true machen", configurable.isModified)
+
+        configurable.apply()
+        assertFalse(settings.state.stopAfterCentralSuccess)
+
+        settings.state.stopAfterCentralSuccess = true
     }
 
     fun testMavenRepositoryBrowserUrlPatterns() {

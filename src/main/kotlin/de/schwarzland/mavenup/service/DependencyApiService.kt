@@ -328,11 +328,15 @@ class DependencyApiService(private val project: Project) {
     }
 
     /**
-     * Sammelt Versionen über mehrere Repositories hinweg. Wenn Maven Central erfolgreich abgefragt wurde,
-     * wird die Suche abgebrochen, um die Last zu verringern.
+     * Sammelt Versionen über mehrere Repositories hinweg.
+     *
+     * Wenn [stopAfterCentralSuccess] aktiviert ist, wird die Suche nach einer erfolgreichen
+     * Abfrage von Maven Central beendet, um Netzwerk-Last zu verringern. Ist die Option deaktiviert,
+     * werden anschließend auch private Repositories abgefragt.
      */
     fun collectVersionsFromRepositories(
         repositoryInfos: List<Pair<String?, String>>,
+        stopAfterCentralSuccess: Boolean,
         fetchVersionsForRepository: (Pair<String?, String>) -> Pair<Boolean, List<String>>
     ): Set<String> {
         val allVersions = mutableSetOf<String>()
@@ -341,7 +345,7 @@ class DependencyApiService(private val project: Project) {
         for (repoInfo in orderedRepositoryInfos) {
             val (requestSucceeded, versions) = fetchVersionsForRepository(repoInfo)
             allVersions.addAll(versions)
-            if (repoInfo.second == CENTRAL_REPOSITORY_URL && requestSucceeded) {
+            if (stopAfterCentralSuccess && repoInfo.second == CENTRAL_REPOSITORY_URL && requestSucceeded) {
                 break
             }
         }
@@ -389,10 +393,14 @@ class DependencyApiService(private val project: Project) {
      * Führt Repository-Suche, Credential-Auflösung, Filterung und Sortierung zusammen.
      */
     fun fetchVersions(groupId: String, artifactId: String, currentVersion: String): List<String> {
+        val settings = MavenUpSettings.getInstance().state
         val repositoryInfos = getMavenRepositoryInfos()
         val serverCredentials = getMavenServerCredentials()
         val currentComparable = ComparableVersion(currentVersion)
-        val allVersions = collectVersionsFromRepositories(repositoryInfos) { repoInfo ->
+        val allVersions = collectVersionsFromRepositories(
+            repositoryInfos,
+            settings.stopAfterCentralSuccess
+        ) { repoInfo ->
             fetchVersionsFromRepository(repoInfo, groupId, artifactId, currentComparable, serverCredentials)
         }
         val sortedVersions = allVersions.sortedWith { v1, v2 ->

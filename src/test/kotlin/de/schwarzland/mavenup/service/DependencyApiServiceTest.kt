@@ -148,7 +148,7 @@ class DependencyApiServiceTest : BasePlatformTestCase() {
             }
         }
 
-        val versions = service.collectVersionsFromRepositories(repositories, fetcher)
+        val versions = service.collectVersionsFromRepositories(repositories, true, fetcher)
 
         assertEquals(listOf("https://repo1.maven.org/maven2"), called)
         assertEquals(setOf("1.2.0"), versions)
@@ -171,7 +171,7 @@ class DependencyApiServiceTest : BasePlatformTestCase() {
             }
         }
 
-        val versions = service.collectVersionsFromRepositories(repositories, fetcher)
+        val versions = service.collectVersionsFromRepositories(repositories, true, fetcher)
 
         assertEquals(
             listOf(
@@ -182,6 +182,36 @@ class DependencyApiServiceTest : BasePlatformTestCase() {
             called
         )
         assertEquals(setOf("1.0.0"), versions)
+    }
+
+    fun testCollectVersionsFromRepositoriesContinuesAfterCentralWhenShortCircuitDisabled() {
+        val service = DependencyApiService(project)
+        val repositories = listOf(
+            Pair<String?, String>("private-1", "https://private-1.example.org/maven"),
+            Pair<String?, String>("central", "https://repo1.maven.org/maven2"),
+            Pair<String?, String>("private-2", "https://private-2.example.org/maven")
+        )
+        val called = mutableListOf<String>()
+        val fetcher: (Pair<String?, String>) -> Pair<Boolean, List<String>> = { repo ->
+            called.add(repo.second)
+            if (repo.second == "https://repo1.maven.org/maven2") {
+                Pair(true, listOf("1.2.0"))
+            } else {
+                Pair(true, listOf("9.9.9"))
+            }
+        }
+
+        val versions = service.collectVersionsFromRepositories(repositories, false, fetcher)
+
+        assertEquals(
+            listOf(
+                "https://repo1.maven.org/maven2",
+                "https://private-1.example.org/maven",
+                "https://private-2.example.org/maven"
+            ),
+            called
+        )
+        assertEquals(setOf("1.2.0", "9.9.9"), versions)
     }
 
     fun testFilterVersionsBySettingsWhenDisabledKeepsAll() {

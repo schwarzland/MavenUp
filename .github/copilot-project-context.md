@@ -60,7 +60,7 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
 - **MavenUpSettings**: `PersistentStateComponent` auf Anwendungsebene (`Service.Level.APP`), global für alle Projekte gespeichert in `mavenup_settings.xml`
   (`jumpOnSingleClick`, `selectLatestVersion`, `hideUnstableVersions`, `hiddenVersionQualifiers`,
   `ossIndexEnabled`, `checkTransitiveDependencies`, `repositoryBrowser`, `toolbarShowText`,
-  `syncMavenAfterUpdate`).
+  `syncMavenAfterUpdate`, `stopAfterCentralSuccess`).
   Für die OSS-Index-Abfrage ist nur das Token erforderlich; Sonatype wertet bei der HTTP-Basic-Authentifizierung
   nur das Token aus, weshalb ein fester Platzhalter-Benutzername verwendet wird.
   Das Token liegt ausschließlich im IntelliJ Password Safe; fehlt es, wird
@@ -78,6 +78,8 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   Die Optionen sind in drei Gruppen (`group`) gegliedert: **Appearance**, **Versions & Updates** und **Vulnerability Check**.
   Bietet u.a. die Checkbox für Text-Buttons in der Aktionsleiste (`toolbarShowText`) und veröffentlicht
   beim Speichern den `MAVEN_UP_SETTINGS_TOPIC`.
+  Die Gruppe **Versions & Updates** enthält zusätzlich die Option `stopAfterCentralSuccess` zur Steuerung,
+  ob nach erfolgreicher Maven-Central-Abfrage weitere private Repositories abgefragt werden.
   Die OSS-Index-Sektion kennzeichnet das Token bei Aktivierung als Pflichtfeld und
   verlinkt auf die Sonatype-Kontoeinstellungen zur Token-Erzeugung. Das Token wird außerhalb des EDT
   aus dem Password Safe geladen und für `isModified()` im UI-Modell gecacht.
@@ -87,7 +89,8 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
 - **DependencyApiService**: Liest Maven-Repository-Infos und Server-Credentials aus `settings.xml`,
   nutzt bei fehlendem explizitem IDE-Pfad automatisch `${user.home}/.m2/settings.xml`, protokolliert
   den verwendeten Settings-Pfad auf DEBUG-Ebene, fragt `maven-metadata.xml` für Versionslisten ab,
-  löst Credential-Platzhalter auf und filtert Versionen gemäß Plugin-Einstellungen (Qualifier-Filter, Sortierung).
+  löst Credential-Platzhalter auf, filtert Versionen gemäß Plugin-Einstellungen (Qualifier-Filter, Sortierung)
+  und berücksichtigt die konfigurierbare Central-first-Short-Circuit-Strategie (`stopAfterCentralSuccess`).
 - **OssIndexApiService / OssIndexCredentialService**: optionale Sonatype-Abfrage über Maven-purl
   und sichere Zugangsdatenablage; wirft `OssIndexAuthenticationException` bei ungültigem/abgelaufenem
   Token (HTTP 401/403) für eine qualifizierte Fehlermeldung.
