@@ -1,7 +1,7 @@
 <!-- Keep a Changelog guide -> https://keepachangelog.com -->
 
 # MavenUp Changelog
-## [Unreleased]
+## [2.2.1]
 
 ### Added
 - Added DEBUG logging that reports which Maven `settings.xml` file is used for repository and credential lookups.

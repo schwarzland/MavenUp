@@ -24,6 +24,7 @@ Bei **jeder** Änderung im Repository sind diese Punkte immer zu berücksichtige
    - Nach jeder Änderung die gesamte Liste auf Dopplungen und Lücken im Vergleich zur aktuellen Implementierung prüfen.
 4. **src/main/resources/META-INF/plugin.xml** – die Sektion `<description>` aktualisieren, wenn neue Funktionen hinzugefügt oder bestehende Funktionen geändert werden. Dabei gelten folgende Regeln:
    - Sprache: Englisch. Die Description wird auf dem JetBrains Marketplace und im IDE Plugin Manager angezeigt – sie muss für Endanwender verständlich formuliert sein.
+   - **Struktur & Hierarchie**: Beginne mit einem prägnanten Lead-Satz (max. 2 Sätze), der das Plugin kurzfristig zusammenfasst. Danach: **Core Features** (Haupt-Features, 3–5 Punkte) oben prominent platzieren und mit `<b>` hervorheben, gefolgt von **Advanced Capabilities** (erweiterte Features) für Power-User. Diese Hierarchie macht sofort klar, wofür das Plugin ist.
    - Jeder `<li>`-Eintrag beschreibt **genau eine** Funktion kompakt in einem Satz.
    - Neue Funktionen als neuen `<li>`-Eintrag ergänzen; geänderte Funktionen im bestehenden `<li>` aktualisieren – keine Dopplungen.
    - Beschreibungen müssen die tatsächliche Implementierung korrekt widerspiegeln – keine produktspezifischen Hardcodierungen, die durch Einstellungen variieren können (z. B. nie einen festen Repository-Namen nennen, wenn der Browser konfigurierbar ist).
