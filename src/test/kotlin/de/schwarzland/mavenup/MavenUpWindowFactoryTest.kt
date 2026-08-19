@@ -1412,4 +1412,129 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertEquals(1, table.rowCount)
         assertEquals("clean-lib", table.getValueAt(0, 1))
     }
+
+    /**
+     * Liefert die drei per Reflection zugänglichen Versions-Maps eines Tool-Windows.
+     */
+    @Suppress("UNCHECKED_CAST")
+    private fun versionMaps(
+        toolWindow: MavenUpWindowFactory.MyToolWindow
+    ): Triple<MutableMap<String, List<String>>, MutableMap<String, String>, MutableMap<String, String>> {
+        val fields = toolWindow.javaClass
+        val availableVersions = fields.getDeclaredField("availableVersions")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, List<String>>
+        val selectedVersions = fields.getDeclaredField("selectedVersions")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, String>
+        val knownDependencies = fields.getDeclaredField("knownDependencies")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, String>
+        return Triple(availableVersions, selectedVersions, knownDependencies)
+    }
+
+    fun testSelectHighestMajorVersionForAllSelectsNewestOverall() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+        val (availableVersions, selectedVersions, knownDependencies) = versionMaps(toolWindow)
+
+        val key = "com.example:major-all"
+        availableVersions[key] = listOf("3.1.0", "3.0.0", "2.9.9", "2.5.0")
+        knownDependencies[key] = "2.5.0"
+
+        toolWindow.selectHighestMajorVersionForAll()
+
+        assertEquals("3.1.0", selectedVersions[key])
+    }
+
+    fun testSelectHighestMinorVersionForAllStaysWithinCurrentMajor() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+        val (availableVersions, selectedVersions, knownDependencies) = versionMaps(toolWindow)
+
+        val key = "com.example:minor-all"
+        availableVersions[key] = listOf("3.1.0", "3.0.0", "2.9.9", "2.5.0")
+        knownDependencies[key] = "2.5.0"
+
+        toolWindow.selectHighestMinorVersionForAll()
+
+        assertEquals("2.9.9", selectedVersions[key])
+    }
+
+    fun testSelectHighestMinorVersionForAllKeepsCurrentWhenNoSameMajorExists() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+        val (availableVersions, selectedVersions, knownDependencies) = versionMaps(toolWindow)
+
+        val key = "com.example:minor-none"
+        availableVersions[key] = listOf("3.2.0", "3.1.0")
+        knownDependencies[key] = "2.8.0"
+
+        toolWindow.selectHighestMinorVersionForAll()
+
+        assertNull(
+            "Ohne Version derselben Major-Linie darf keine abweichende Auswahl gesetzt werden.",
+            selectedVersions[key]
+        )
+    }
+
+    fun testResetAllVersionsToCurrentClearsSelections() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+        val (availableVersions, selectedVersions, knownDependencies) = versionMaps(toolWindow)
+
+        val key = "com.example:reset-all"
+        availableVersions[key] = listOf("2.0.0", "1.0.0")
+        knownDependencies[key] = "1.0.0"
+        selectedVersions[key] = "2.0.0"
+
+        toolWindow.resetAllVersionsToCurrent()
+
+        assertNull(
+            "Nach dem Zurücksetzen darf keine abweichende Auswahl mehr vorhanden sein.",
+            selectedVersions[key]
+        )
+        assertFalse(toolWindow.hasSelectedUpdates())
+    }
+
+    fun testBulkSelectionDoesNothingWhenNoVersionsLoaded() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+        val (_, selectedVersions, _) = versionMaps(toolWindow)
+
+        selectedVersions["com.example:existing"] = "1.0.0"
+
+        toolWindow.selectHighestMajorVersionForAll()
+        toolWindow.selectHighestMinorVersionForAll()
+
+        assertEquals("1.0.0", selectedVersions["com.example:existing"])
+    }
+
+    fun testBulkSelectionEnabledReflectsLoadedVersions() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+        val (availableVersions, _, _) = versionMaps(toolWindow)
+
+        assertFalse(toolWindow.isBulkVersionSelectionEnabled())
+
+        availableVersions["com.example:with-versions"] = listOf("1.0.0")
+
+        assertTrue(toolWindow.isBulkVersionSelectionEnabled())
+    }
+
+    fun testResetVersionsEnabledReflectsPendingChanges() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+        val (availableVersions, selectedVersions, knownDependencies) = versionMaps(toolWindow)
+
+        val key = "com.example:reset-enabled"
+        availableVersions[key] = listOf("2.0.0", "1.0.0")
+        knownDependencies[key] = "1.0.0"
+
+        assertFalse(toolWindow.isResetVersionsEnabled())
+
+        selectedVersions[key] = "2.0.0"
+
+        assertTrue(toolWindow.isResetVersionsEnabled())
+    }
 }

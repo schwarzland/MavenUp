@@ -1049,6 +1049,22 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     { isUpdateActionEnabled() }
                 ) { updateAction() })
                 addSeparator()
+                add(toolbarAction(
+                    "toolwindow.MyToolWindow.selectHighestMajor.button",
+                    AllIcons.Actions.Play_last,
+                    { isBulkVersionSelectionEnabled() }
+                ) { selectHighestMajorVersionForAll() })
+                add(toolbarAction(
+                    "toolwindow.MyToolWindow.selectHighestMinor.button",
+                    AllIcons.Actions.Play_forward,
+                    { isBulkVersionSelectionEnabled() }
+                ) { selectHighestMinorVersionForAll() })
+                add(toolbarAction(
+                    "toolwindow.MyToolWindow.resetVersions.button",
+                    AllIcons.Actions.Undo,
+                    { isResetVersionsEnabled() }
+                ) { resetAllVersionsToCurrent() })
+                addSeparator()
                 add(openInRepositoryAction)
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.vulnerabilityDetails.button",
@@ -1294,6 +1310,79 @@ class MavenUpWindowFactory : ToolWindowFactory {
             updateUpdateButtonState()
             applyRowFilter()
         }
+
+        /**
+         * Wählt für alle geladenen Abhängigkeiten die höchste verfügbare Version (über alle Major-Linien hinweg) aus.
+         *
+         * Die neueste Version steht jeweils an erster Stelle der von
+         * [DependencyApiService.fetchVersions] gelieferten Liste.
+         */
+        internal fun selectHighestMajorVersionForAll() {
+            applyBulkVersionSelection { _, versions -> versions.firstOrNull().orEmpty() }
+        }
+
+        /**
+         * Wählt für alle geladenen Abhängigkeiten die höchste Version innerhalb derselben Major-Linie
+         * wie die aktuell verwendete Version aus.
+         *
+         * Existiert keine passende Version derselben Major-Linie, bleibt die aktuelle Version erhalten.
+         */
+        internal fun selectHighestMinorVersionForAll() {
+            applyBulkVersionSelection { current, versions ->
+                latestVersionWithinSameMajor(current, versions) ?: current
+            }
+        }
+
+        /**
+         * Verwirft alle getroffenen Versionsauswahlen und setzt jede Abhängigkeit auf ihre aktuell
+         * verwendete Version zurück.
+         */
+        internal fun resetAllVersionsToCurrent() {
+            applyBulkVersionSelection { current, _ -> current }
+        }
+
+        /**
+         * Wendet eine Auswahlstrategie auf alle geladenen Abhängigkeiten an und aktualisiert die Tabelle.
+         *
+         * Für jede Abhängigkeit wird die von [chooser] gelieferte Zielversion übernommen. Entspricht sie
+         * der aktuellen Version (oder ist leer), wird der Eintrag aus [selectedVersions] entfernt, sodass
+         * keine Änderung angezeigt wird.
+         *
+         * @param chooser Funktion, die aus der aktuellen Version und den verfügbaren Versionen die Zielversion ermittelt.
+         */
+        private fun applyBulkVersionSelection(chooser: (String, List<String>) -> String) {
+            if (availableVersions.isEmpty()) return
+            for ((key, versions) in availableVersions) {
+                if (versions.isEmpty()) continue
+                val currentVersion = knownDependencies[key] ?: ""
+                val chosen = chooser(currentVersion, versions)
+                if (chosen.isNotEmpty() && chosen != currentVersion) {
+                    selectedVersions[key] = chosen
+                } else {
+                    selectedVersions.remove(key)
+                }
+            }
+            cancelActiveCellEditing()
+            table.repaint()
+            updateUpdateButtonState()
+            applyRowFilter()
+        }
+
+        /**
+         * Prüft, ob die Sammelaktionen zur Versionsauswahl ausführbar sind.
+         *
+         * @return `true`, wenn keine Aktualisierung läuft und mindestens eine Abhängigkeit auswählbare Versionen besitzt.
+         */
+        internal fun isBulkVersionSelectionEnabled(): Boolean =
+            !isUpdating && availableVersions.values.any { it.isNotEmpty() }
+
+        /**
+         * Prüft, ob das Zurücksetzen aller Versionsauswahlen ausführbar ist.
+         *
+         * @return `true`, wenn keine Aktualisierung läuft und mindestens eine abweichende Version ausgewählt ist.
+         */
+        internal fun isResetVersionsEnabled(): Boolean =
+            !isUpdating && hasSelectedUpdates()
 
         /**
          * Synchronisiert die Version-Auswahl über alle Einträge, die dieselbe Maven-Property verwenden.
