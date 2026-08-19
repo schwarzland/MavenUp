@@ -455,6 +455,21 @@ class DependencyApiService(private val project: Project) {
     }
 
     /**
+     * Bestimmt die untere Versionsgrenze für die Filterung der angebotenen Versionen.
+     *
+     * Ist [offerAllVersions] aktiviert, wird eine minimale [ComparableVersion] (leerer String)
+     * zurückgegeben, sodass jede vom Repository gemeldete Version die `>=`-Bedingung erfüllt und
+     * auch ältere Versionen als Downgrade-Kandidaten angeboten werden. Andernfalls wird die
+     * aktuelle Version als Grenze verwendet, sodass nur Upgrades angeboten werden.
+     *
+     * @param currentVersion Die aktuell verwendete Version des Artefakts.
+     * @param offerAllVersions Ob alle Versionen (inklusive älterer) angeboten werden sollen.
+     * @return Die als untere Grenze zu verwendende [ComparableVersion].
+     */
+    internal fun resolveVersionFloor(currentVersion: String, offerAllVersions: Boolean): ComparableVersion =
+        if (offerAllVersions) ComparableVersion("") else ComparableVersion(currentVersion)
+
+    /**
      * Die Hauptmethode zum Abrufen aller relevanten Update-Versionen für ein Artefakt.
      * Führt Repository-Suche, Credential-Auflösung, Filterung und Sortierung zusammen.
      *
@@ -462,12 +477,16 @@ class DependencyApiService(private val project: Project) {
      * als neueste deklarierte Version (`<release>`/`<latest>`) wird jedoch an den Anfang gestellt,
      * damit nachgelagerte Logik (Statusanzeige, Auto-Auswahl der höchsten Version) die tatsächlich
      * zuletzt veröffentlichte Version als neueste behandelt.
+     *
+     * Ist die Einstellung [MavenUpSettings.State.offerAllVersions] aktiviert, werden alle vom
+     * Repository gemeldeten Versionen (auch ältere als die aktuelle) angeboten; andernfalls werden
+     * nur Versionen `>=` der aktuellen Version berücksichtigt.
      */
     fun fetchVersions(groupId: String, artifactId: String, currentVersion: String): List<String> {
         val settings = MavenUpSettings.getInstance().state
         val repositoryInfos = getMavenRepositoryInfos()
         val serverCredentials = getMavenServerCredentials()
-        val currentComparable = ComparableVersion(currentVersion)
+        val currentComparable = resolveVersionFloor(currentVersion, settings.offerAllVersions)
         val collected = collectVersionsFromRepositories(
             repositoryInfos,
             settings.stopAfterCentralSuccess

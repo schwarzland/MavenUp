@@ -2073,6 +2073,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 PsiManager.getInstance(project).findFile(mavenProject.file) as? XmlFile
             } ?: return
 
+            val effectiveProperties =
+                mavenProject.properties.entries.associate { (k, v) -> k.toString() to v.toString() }
+
             ApplicationManager.getApplication().runReadAction {
                 val rootTag = psiFile.document?.rootTag ?: return@runReadAction
 
@@ -2083,38 +2086,47 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     val a = parentTag.findFirstSubTag("artifactId")?.value?.text ?: ""
                     val v = parentTag.findFirstSubTag("version")?.value?.text ?: ""
                     if (g.isNotEmpty() && a.isNotEmpty() && !allKeysWithVersions.containsKey("$g:$a")) {
-                        allKeysWithVersions["$g:$a"] = v
+                        allKeysWithVersions["$g:$a"] = resolveVersionPlaceholder(v, effectiveProperties)
                     }
                 }
 
                 // dependencies
-                collectTags(rootTag.findFirstSubTag("dependencies"), "dependency", allKeysWithVersions)
+                collectTags(rootTag.findFirstSubTag("dependencies"), "dependency", allKeysWithVersions, effectiveProperties)
 
                 // dependencyManagement
                 val dmTag = rootTag.findFirstSubTag("dependencyManagement")
-                collectTags(dmTag?.findFirstSubTag("dependencies"), "dependency", allKeysWithVersions)
+                collectTags(dmTag?.findFirstSubTag("dependencies"), "dependency", allKeysWithVersions, effectiveProperties)
 
                 // build/plugins
                 val buildTag = rootTag.findFirstSubTag("build")
-                collectTags(buildTag?.findFirstSubTag("plugins"), "plugin", allKeysWithVersions)
+                collectTags(buildTag?.findFirstSubTag("plugins"), "plugin", allKeysWithVersions, effectiveProperties)
 
                 // build/pluginManagement
                 val pmTag = buildTag?.findFirstSubTag("pluginManagement")
-                collectTags(pmTag?.findFirstSubTag("plugins"), "plugin", allKeysWithVersions)
+                collectTags(pmTag?.findFirstSubTag("plugins"), "plugin", allKeysWithVersions, effectiveProperties)
             }
         }
 
         /**
          * Extrahiert groupId, artifactId und Version aus den Kind-Tags eines XML-Parent-Tags
          * und fügt neue Einträge der Ziel-Map hinzu (bereits vorhandene Schlüssel werden nicht überschrieben).
+         *
+         * Property-basierte Versionen (z. B. `${netty-bom.version}`) werden über [effectiveProperties]
+         * aufgelöst, damit der anschließende Update-Check gegen die tatsächliche Version filtert und
+         * nicht gegen den rohen Platzhalter.
          */
-        private fun collectTags(parentTag: XmlTag?, tagName: String, allKeysWithVersions: MutableMap<String, String>) {
+        private fun collectTags(
+            parentTag: XmlTag?,
+            tagName: String,
+            allKeysWithVersions: MutableMap<String, String>,
+            effectiveProperties: Map<String, String>
+        ) {
             parentTag?.findSubTags(tagName)?.forEach { tag ->
                 val g = tag.findFirstSubTag("groupId")?.value?.text ?: ""
                 val a = tag.findFirstSubTag("artifactId")?.value?.text ?: ""
                 val v = tag.findFirstSubTag("version")?.value?.text ?: ""
                 if (g.isNotEmpty() && a.isNotEmpty() && !allKeysWithVersions.containsKey("$g:$a")) {
-                    allKeysWithVersions["$g:$a"] = v
+                    allKeysWithVersions["$g:$a"] = resolveVersionPlaceholder(v, effectiveProperties)
                 }
             }
         }

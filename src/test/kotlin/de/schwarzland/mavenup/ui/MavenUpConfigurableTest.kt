@@ -301,6 +301,29 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
         settings.state.stopAfterCentralSuccess = true
     }
 
+    fun testOfferAllVersionsDefaultIsFalse() {
+        assertFalse(MavenUpSettings.State().offerAllVersions)
+    }
+
+    fun testOfferAllVersionsSelectionIsPersistedOnApply() {
+        val settings = MavenUpSettings.getInstance()
+        settings.state.offerAllVersions = false
+
+        val configurable = MavenUpConfigurable(project)
+        configurable.createComponent()
+        configurable.reset()
+        assertFalse(configurable.isModified)
+
+        val checkBox = configurable.field<com.intellij.ui.components.JBCheckBox>("offerAllVersionsCheckBox")
+        checkBox.isSelected = true
+        assertTrue("Änderung der Checkbox sollte isModified() true machen", configurable.isModified)
+
+        configurable.apply()
+        assertTrue(settings.state.offerAllVersions)
+
+        settings.state.offerAllVersions = false
+    }
+
     fun testVersionAutoSelectionModeSelectionIsPersistedOnApply() {
         val settings = MavenUpSettings.getInstance()
         settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.LATEST

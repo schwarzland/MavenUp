@@ -1,6 +1,7 @@
 package de.schwarzland.mavenup.service
 
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import org.apache.maven.artifact.versioning.ComparableVersion
 import org.w3c.dom.Document
 import java.io.ByteArrayInputStream
 import java.nio.file.Files
@@ -302,6 +303,26 @@ class DependencyApiServiceTest : BasePlatformTestCase() {
     private fun parseMetadata(xml: String): Document {
         val builder = DocumentBuilderFactory.newInstance().newDocumentBuilder()
         return builder.parse(ByteArrayInputStream(xml.toByteArray(Charsets.UTF_8)))
+    }
+
+    fun testResolveVersionFloorUsesCurrentVersionWhenOfferAllDisabled() {
+        val service = DependencyApiService(project)
+
+        val floor = service.resolveVersionFloor("2.0.0", offerAllVersions = false)
+
+        assertEquals(ComparableVersion("2.0.0"), floor)
+        assertTrue("Neuere Version sollte über der Grenze liegen", ComparableVersion("2.1.0") >= floor)
+        assertFalse("Ältere Version sollte unter der Grenze liegen", ComparableVersion("1.9.0") >= floor)
+    }
+
+    fun testResolveVersionFloorAllowsOlderVersionsWhenOfferAllEnabled() {
+        val service = DependencyApiService(project)
+
+        val floor = service.resolveVersionFloor("2.0.0", offerAllVersions = true)
+
+        assertTrue("Ältere Version sollte bei 'alle anbieten' die Grenze erfüllen", ComparableVersion("1.0.0") >= floor)
+        assertTrue("Aktuelle Version sollte die Grenze erfüllen", ComparableVersion("2.0.0") >= floor)
+        assertTrue("Neuere Version sollte die Grenze erfüllen", ComparableVersion("3.0.0") >= floor)
     }
 
     fun testFilterVersionsBySettingsWhenDisabledKeepsAll() {

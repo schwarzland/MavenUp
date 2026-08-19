@@ -60,7 +60,7 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
 - **MavenUpSettings**: `PersistentStateComponent` auf Anwendungsebene (`Service.Level.APP`), global für alle Projekte gespeichert in `mavenup_settings.xml`
   (`jumpOnSingleClick`, `versionAutoSelectionMode` mit `DISABLED`, `LATEST`, `LATEST_MINOR`, `hideUnstableVersions`, `hiddenVersionQualifiers`,
   `ossIndexEnabled`, `checkTransitiveDependencies`, `repositoryBrowser`, `toolbarShowText`,
-  `syncMavenAfterUpdate`, `stopAfterCentralSuccess`; Legacy-Migrationsfelder: `selectLatestVersion`, `selectLatestMinorVersion`).
+  `syncMavenAfterUpdate`, `stopAfterCentralSuccess`, `offerAllVersions`; Legacy-Migrationsfelder: `selectLatestVersion`, `selectLatestMinorVersion`).
   Für die OSS-Index-Abfrage ist nur das Token erforderlich; Sonatype wertet bei der HTTP-Basic-Authentifizierung
   nur das Token aus, weshalb ein fester Platzhalter-Benutzername verwendet wird.
   Das Token liegt ausschließlich im IntelliJ Password Safe; fehlt es, wird
