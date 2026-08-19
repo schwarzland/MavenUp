@@ -2188,23 +2188,23 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /**
          * Ermittelt die automatisch vorausgewählte Zielversion für eine Abhängigkeit.
          *
-         * Bei [VersionAutoSelectionMode.LATEST_MINOR] wird bevorzugt die höchste Version innerhalb
-         * derselben Major-Linie wie [currentVersion] verwendet. Falls keine passende Major-Version
-         * gefunden werden kann, wird auf die global höchste verfügbare Version zurückgefallen.
+         * Die neueste Version ist das erste Element von [versions]; die Liste wird von
+         * [DependencyApiService.fetchVersions] so aufgebaut, dass die vom Repository deklarierte
+         * neueste Version (`<release>`/`<latest>`) vorne steht.
+         *
+         * Bei [VersionAutoSelectionMode.LATEST_MINOR] wird die höchste Version innerhalb derselben
+         * Major-Linie wie [currentVersion] verwendet. Existiert keine passende Version derselben
+         * Major-Linie, bleibt die aktuelle Version erhalten (keine Fremd-Major-Vorauswahl).
          */
         private fun chooseAutoSelectedVersion(currentVersion: String, versions: List<String>): String {
-           val sortedVersions = versions.sortedWith { v1, v2 ->
-               ComparableVersion(v2).compareTo(ComparableVersion(v1))
-           }
-           val newestVersion = sortedVersions.firstOrNull().orEmpty()
-           if (newestVersion.isEmpty() || newestVersion == currentVersion) return currentVersion
-           return when (MavenUpSettings.getInstance().state.versionAutoSelectionMode) {
-               VersionAutoSelectionMode.DISABLED -> currentVersion
-               VersionAutoSelectionMode.LATEST -> newestVersion
-               VersionAutoSelectionMode.LATEST_MINOR -> {
-                   latestVersionWithinSameMajor(currentVersion, sortedVersions) ?: currentVersion
-               }
-           }
+            val newestVersion = versions.firstOrNull().orEmpty()
+            if (newestVersion.isEmpty() || newestVersion == currentVersion) return currentVersion
+            return when (MavenUpSettings.getInstance().state.versionAutoSelectionMode) {
+                VersionAutoSelectionMode.DISABLED -> currentVersion
+                VersionAutoSelectionMode.LATEST -> newestVersion
+                VersionAutoSelectionMode.LATEST_MINOR ->
+                    latestVersionWithinSameMajor(currentVersion, versions) ?: currentVersion
+            }
         }
 
         /**

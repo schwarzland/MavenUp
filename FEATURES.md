@@ -23,9 +23,9 @@ This document describes the key features of the MavenUp IntelliJ plugin, grouped
 
 ## Version Management
 
-- **Repository-based version lookup**: Retrieves available versions from Maven repositories via `maven-metadata.xml`.
-- **Selectable target versions**: Shows available versions in dropdowns for dependencies and plugins.
-- **Configurable auto-selection strategy**: After an update check, MavenUp provides a 3-state strategy (disabled, highest version, latest minor in current major line) for preselecting the target version, and it sorts candidate versions before choosing so unsorted or major-jump version lists still pick the newest valid target.
+- **Repository-based version lookup**: Retrieves available versions from Maven repositories via `maven-metadata.xml`, and determines the newest version from the repository-declared `<release>`/`<latest>` fields (preferring Maven Central) with comparator-based ordering as fallback, so date-based versions do not falsely outrank the actual latest release.
+- **Selectable target versions**: Shows available versions in dropdowns for dependencies and plugins; the New Version cell defaults to the current version when no target is preselected.
+- **Configurable auto-selection strategy**: After an update check, MavenUp provides a 3-state strategy for preselecting the target version — disabled (keep current), highest version (may cross major lines), or latest minor within the current major line (never preselects a different major line).
 - **Version status indicators**: The **New Version** column displays a green checkmark glyph ("✓") when the selected version equals the highest known version, or an upwards arrow glyph ("↑") otherwise; hovering shows a tooltip with status details. When a version different from the current one is selected, the dropdown text and the status glyph are color-coded together (green for latest, orange otherwise) and the text is shown in bold to clearly indicate a pending change. When the selected version matches the current version, the glyph and text use the default color (same as the **Current Version** column). Colors adapt to Light and Dark themes.
 - **Property-aware version handling**: Detects property-based versions (for example `${spring.version}`) and updates the property value instead of overwriting the reference.
 - **Shared-property synchronization**: Synchronizes version selection across entries that use the same Maven property.

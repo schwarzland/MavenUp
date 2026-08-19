@@ -8,6 +8,7 @@
 
 ### Changed
 - Changed the settings UI from two checkboxes to a single combobox for version auto-selection strategy.
+- Changed the newest-version reference to use the repository-declared `<release>`/`<latest>` fields from `maven-metadata.xml` (preferring Maven Central), falling back to comparator-based ordering, so date-based versions no longer outrank the actual latest release.
 
 ### Fixed
 - Fixed the New Version cell defaulting to the numerically highest version, which caused an unintended jump (for example from 24.0 to a date-based 2023-... version) and could be committed as an update; it now defaults to the current version when no target is preselected.

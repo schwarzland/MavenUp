@@ -17,6 +17,30 @@ private const val CENTRAL_REPOSITORY_URL = "https://repo1.maven.org/maven2"
 private val LOG = Logger.getInstance(DependencyApiService::class.java)
 
 /**
+ * Ergebnis einer Versionsabfrage gegen ein einzelnes Maven-Repository.
+ *
+ * @property requestSucceeded `true`, wenn die HTTP-Abfrage erfolgreich war (HTTP 200).
+ * @property versions Die gefundenen Versionen, gefiltert auf `>= aktuelle Version`.
+ * @property newestVersion Die vom Repository deklarierte neueste Version aus `<release>` bzw. `<latest>`, oder `null`.
+ */
+internal data class RepositoryVersions(
+    val requestSucceeded: Boolean,
+    val versions: List<String>,
+    val newestVersion: String?
+)
+
+/**
+ * Aggregiertes Ergebnis der Versionsabfrage über mehrere Repositories.
+ *
+ * @property versions Die zusammengeführten Versionen aller abgefragten Repositories.
+ * @property newestVersion Die als neueste bestimmte Referenzversion (bevorzugt aus Maven Central), oder `null`.
+ */
+internal data class CollectedVersions(
+    val versions: Set<String>,
+    val newestVersion: String?
+)
+
+/**
  * Dieser Service ist für die Interaktion mit Maven-Repositories zuständig, um verfügbare
  * Versionen von Abhängigkeiten abzufragen.
  *
@@ -268,6 +292,10 @@ class DependencyApiService(private val project: Project) {
     /**
      * Liest die verfügbaren Versionen aus dem InputStream der HTTP-Verbindung und filtert sie,
      * so dass nur Versionen größer oder gleich der aktuellen Version zurückgegeben werden.
+     *
+     * Zusätzlich wird die vom Repository deklarierte neueste Version aus den `<release>`- bzw.
+     * `<latest>`-Feldern der `maven-metadata.xml` ausgelesen, da diese verlässlicher die zuletzt
+     * veröffentlichte Version angeben als eine rein numerische Sortierung.
      */
     private fun readVersionsFromConnection(
         connection: HttpURLConnection,
@@ -275,14 +303,14 @@ class DependencyApiService(private val project: Project) {
         groupId: String,
         artifactId: String,
         repositoryUrl: String
-    ): Pair<Boolean, List<String>> {
+    ): RepositoryVersions {
         val responseCode = connection.responseCode
         if (responseCode != HttpURLConnection.HTTP_OK) {
             LOG.warn(
                 "Failed to fetch versions for $groupId:$artifactId from $repositoryUrl. " +
                     "HTTP $responseCode ${connection.responseMessage}"
             )
-            return Pair(false, emptyList())
+            return RepositoryVersions(false, emptyList(), null)
         }
 
         val versions = mutableListOf<String>()
@@ -296,61 +324,99 @@ class DependencyApiService(private val project: Project) {
                 versions.add(version)
             }
         }
+        val newestVersion = extractNewestFromMetadata(doc)
         LOG.info(
             "Fetched ${versions.size} versions for $groupId:$artifactId from $repositoryUrl. " +
-                "Current version: $currentComparable"
+                "Current version: $currentComparable, declared newest: ${newestVersion ?: "n/a"}"
         )
         LOG.debug(
             "Fetched versions for $groupId:$artifactId: " +
                 summarizeForDebugLog(versions)
         )
-        return Pair(true, versions)
+        return RepositoryVersions(true, versions, newestVersion)
+    }
+
+    /**
+     * Liest die vom Repository deklarierte neueste Version aus der `maven-metadata.xml`.
+     *
+     * Bevorzugt wird das `<release>`-Feld (neueste Nicht-SNAPSHOT-Release) verwendet; fehlt es,
+     * wird auf `<latest>` zurückgegriffen. Diese Felder spiegeln die zuletzt veröffentlichte
+     * Version wider und sind damit robuster gegen numerisch irreführende Versionsschemata
+     * (z. B. datumsbasierte Versionen).
+     *
+     * @param doc Das geparste `maven-metadata.xml`-Dokument.
+     * @return Die deklarierte neueste Version oder `null`, wenn weder `<release>` noch `<latest>` gesetzt ist.
+     */
+    internal fun extractNewestFromMetadata(doc: Document): String? {
+        val release = doc.getElementsByTagName("release").item(0)?.textContent?.trim()
+        if (!release.isNullOrEmpty()) {
+            return release
+        }
+        val latest = doc.getElementsByTagName("latest").item(0)?.textContent?.trim()
+        return latest?.takeIf { it.isNotEmpty() }
     }
 
     /**
      * Ruft die Versionen für ein Artefakt von einem spezifischen Repository ab.
      */
-    fun fetchVersionsFromRepository(
+    internal fun fetchVersionsFromRepository(
         repositoryInfo: Pair<String?, String>,
         groupId: String,
         artifactId: String,
         currentComparable: ComparableVersion,
         serverCredentials: Map<String, Pair<String?, String?>>
-    ): Pair<Boolean, List<String>> {
+    ): RepositoryVersions {
         return try {
             val connection = createMetadataConnection(repositoryInfo.second, groupId, artifactId)
             applyCredentials(connection, repositoryInfo, serverCredentials)
             readVersionsFromConnection(connection, currentComparable, groupId, artifactId, repositoryInfo.second)
         } catch (e: Exception) {
             LOG.warn("Failed to fetch versions for $groupId:$artifactId from ${repositoryInfo.second}", e)
-            Pair(false, emptyList())
+            RepositoryVersions(false, emptyList(), null)
         }
     }
 
     /**
-     * Sammelt Versionen über mehrere Repositories hinweg.
+     * Sammelt Versionen über mehrere Repositories hinweg und bestimmt eine neueste Referenzversion.
      *
      * Wenn [stopAfterCentralSuccess] aktiviert ist, wird die Suche nach einer erfolgreichen
      * Abfrage von Maven Central beendet, um Netzwerk-Last zu verringern. Ist die Option deaktiviert,
      * werden anschließend auch private Repositories abgefragt.
+     *
+     * Als neueste Referenzversion wird bevorzugt die von Maven Central deklarierte Version verwendet;
+     * fehlt sie, wird die höchste deklarierte Version der übrigen Repositories herangezogen. So bleibt
+     * die Bestimmung der neuesten Version auch bei numerisch irreführenden Versionsschemata robust.
      */
-    fun collectVersionsFromRepositories(
+    internal fun collectVersionsFromRepositories(
         repositoryInfos: List<Pair<String?, String>>,
         stopAfterCentralSuccess: Boolean,
-        fetchVersionsForRepository: (Pair<String?, String>) -> Pair<Boolean, List<String>>
-    ): Set<String> {
+        fetchVersionsForRepository: (Pair<String?, String>) -> RepositoryVersions
+    ): CollectedVersions {
         val allVersions = mutableSetOf<String>()
+        var centralNewest: String? = null
+        var fallbackNewest: String? = null
         val orderedRepositoryInfos = repositoryInfos.sortedBy { if (it.second == CENTRAL_REPOSITORY_URL) 0 else 1 }
 
         for (repoInfo in orderedRepositoryInfos) {
-            val (requestSucceeded, versions) = fetchVersionsForRepository(repoInfo)
-            allVersions.addAll(versions)
-            if (stopAfterCentralSuccess && repoInfo.second == CENTRAL_REPOSITORY_URL && requestSucceeded) {
+            val result = fetchVersionsForRepository(repoInfo)
+            allVersions.addAll(result.versions)
+            val declaredNewest = result.newestVersion?.trim()?.takeIf { it.isNotEmpty() }
+            if (declaredNewest != null) {
+                if (repoInfo.second == CENTRAL_REPOSITORY_URL) {
+                    centralNewest = declaredNewest
+                }
+                if (fallbackNewest == null ||
+                    ComparableVersion(declaredNewest) > ComparableVersion(fallbackNewest)
+                ) {
+                    fallbackNewest = declaredNewest
+                }
+            }
+            if (stopAfterCentralSuccess && repoInfo.second == CENTRAL_REPOSITORY_URL && result.requestSucceeded) {
                 break
             }
         }
 
-        return allVersions
+        return CollectedVersions(allVersions, centralNewest ?: fallbackNewest)
     }
 
     /**
@@ -391,21 +457,43 @@ class DependencyApiService(private val project: Project) {
     /**
      * Die Hauptmethode zum Abrufen aller relevanten Update-Versionen für ein Artefakt.
      * Führt Repository-Suche, Credential-Auflösung, Filterung und Sortierung zusammen.
+     *
+     * Die zurückgegebene Liste ist absteigend nach [ComparableVersion] sortiert; die vom Repository
+     * als neueste deklarierte Version (`<release>`/`<latest>`) wird jedoch an den Anfang gestellt,
+     * damit nachgelagerte Logik (Statusanzeige, Auto-Auswahl der höchsten Version) die tatsächlich
+     * zuletzt veröffentlichte Version als neueste behandelt.
      */
     fun fetchVersions(groupId: String, artifactId: String, currentVersion: String): List<String> {
         val settings = MavenUpSettings.getInstance().state
         val repositoryInfos = getMavenRepositoryInfos()
         val serverCredentials = getMavenServerCredentials()
         val currentComparable = ComparableVersion(currentVersion)
-        val allVersions = collectVersionsFromRepositories(
+        val collected = collectVersionsFromRepositories(
             repositoryInfos,
             settings.stopAfterCentralSuccess
         ) { repoInfo ->
             fetchVersionsFromRepository(repoInfo, groupId, artifactId, currentComparable, serverCredentials)
         }
-        val sortedVersions = allVersions.sortedWith { v1, v2 ->
+        val sortedVersions = collected.versions.sortedWith { v1, v2 ->
             ComparableVersion(v2).compareTo(ComparableVersion(v1))
         }
-        return filterVersionsBySettings(sortedVersions)
+        val filteredVersions = filterVersionsBySettings(sortedVersions)
+        return orderWithNewestFirst(filteredVersions, collected.newestVersion)
+    }
+
+    /**
+     * Stellt die vom Repository als neueste deklarierte Version an den Anfang der Liste, sofern sie
+     * in [versions] enthalten ist. Andernfalls bleibt die Reihenfolge unverändert.
+     *
+     * @param versions Die bereits gefilterte, absteigend sortierte Versionsliste.
+     * @param newestVersion Die deklarierte neueste Version oder `null`.
+     * @return Eine Liste, deren erstes Element die neueste Version ist, sofern bekannt und enthalten.
+     */
+    internal fun orderWithNewestFirst(versions: List<String>, newestVersion: String?): List<String> {
+        val newest = newestVersion?.takeIf { it in versions } ?: return versions
+        if (versions.firstOrNull() == newest) {
+            return versions
+        }
+        return listOf(newest) + versions.filter { it != newest }
     }
 }

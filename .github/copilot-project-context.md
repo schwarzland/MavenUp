@@ -92,6 +92,9 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   den verwendeten Settings-Pfad auf DEBUG-Ebene, fragt `maven-metadata.xml` für Versionslisten ab,
   löst Credential-Platzhalter auf, filtert Versionen gemäß Plugin-Einstellungen (Qualifier-Filter, Sortierung)
   und berücksichtigt die konfigurierbare Central-first-Short-Circuit-Strategie (`stopAfterCentralSuccess`).
+  Die neueste Version wird über `extractNewestFromMetadata` aus den `<release>`/`<latest>`-Feldern bestimmt
+  (Central bevorzugt) und via `orderWithNewestFirst` an den Listenanfang gestellt; Rückgabetypen sind
+  `RepositoryVersions` (pro Repository) und `CollectedVersions` (aggregiert).
 - **OssIndexApiService / OssIndexCredentialService**: optionale Sonatype-Abfrage über Maven-purl
   und sichere Zugangsdatenablage; wirft `OssIndexAuthenticationException` bei ungültigem/abgelaufenem
   Token (HTTP 401/403) für eine qualifizierte Fehlermeldung.

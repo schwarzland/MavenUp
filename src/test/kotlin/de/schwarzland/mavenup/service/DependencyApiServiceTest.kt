@@ -1,7 +1,10 @@
 package de.schwarzland.mavenup.service
 
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import org.w3c.dom.Document
+import java.io.ByteArrayInputStream
 import java.nio.file.Files
+import javax.xml.parsers.DocumentBuilderFactory
 
 class DependencyApiServiceTest : BasePlatformTestCase() {
     fun testResolveCredentialValueWithSystemPropertyPlaceholder() {
@@ -139,19 +142,20 @@ class DependencyApiServiceTest : BasePlatformTestCase() {
             Pair<String?, String>("private-2", "https://private-2.example.org/maven")
         )
         val called = mutableListOf<String>()
-        val fetcher: (Pair<String?, String>) -> Pair<Boolean, List<String>> = { repo ->
+        val fetcher: (Pair<String?, String>) -> RepositoryVersions = { repo ->
             called.add(repo.second)
             if (repo.second == "https://repo1.maven.org/maven2") {
-                Pair(true, listOf("1.2.0"))
+                RepositoryVersions(true, listOf("1.2.0"), "1.2.0")
             } else {
-                Pair(true, listOf("9.9.9"))
+                RepositoryVersions(true, listOf("9.9.9"), "9.9.9")
             }
         }
 
-        val versions = service.collectVersionsFromRepositories(repositories, true, fetcher)
+        val collected = service.collectVersionsFromRepositories(repositories, true, fetcher)
 
         assertEquals(listOf("https://repo1.maven.org/maven2"), called)
-        assertEquals(setOf("1.2.0"), versions)
+        assertEquals(setOf("1.2.0"), collected.versions)
+        assertEquals("1.2.0", collected.newestVersion)
     }
 
     fun testCollectVersionsFromRepositoriesContinuesWhenCentralFails() {
@@ -162,16 +166,16 @@ class DependencyApiServiceTest : BasePlatformTestCase() {
             Pair<String?, String>("private-2", "https://private-2.example.org/maven")
         )
         val called = mutableListOf<String>()
-        val fetcher: (Pair<String?, String>) -> Pair<Boolean, List<String>> = { repo ->
+        val fetcher: (Pair<String?, String>) -> RepositoryVersions = { repo ->
             called.add(repo.second)
             if (repo.second == "https://repo1.maven.org/maven2") {
-                Pair(false, emptyList())
+                RepositoryVersions(false, emptyList(), null)
             } else {
-                Pair(true, listOf("1.0.0"))
+                RepositoryVersions(true, listOf("1.0.0"), "1.0.0")
             }
         }
 
-        val versions = service.collectVersionsFromRepositories(repositories, true, fetcher)
+        val collected = service.collectVersionsFromRepositories(repositories, true, fetcher)
 
         assertEquals(
             listOf(
@@ -181,7 +185,8 @@ class DependencyApiServiceTest : BasePlatformTestCase() {
             ),
             called
         )
-        assertEquals(setOf("1.0.0"), versions)
+        assertEquals(setOf("1.0.0"), collected.versions)
+        assertEquals("1.0.0", collected.newestVersion)
     }
 
     fun testCollectVersionsFromRepositoriesContinuesAfterCentralWhenShortCircuitDisabled() {
@@ -192,16 +197,16 @@ class DependencyApiServiceTest : BasePlatformTestCase() {
             Pair<String?, String>("private-2", "https://private-2.example.org/maven")
         )
         val called = mutableListOf<String>()
-        val fetcher: (Pair<String?, String>) -> Pair<Boolean, List<String>> = { repo ->
+        val fetcher: (Pair<String?, String>) -> RepositoryVersions = { repo ->
             called.add(repo.second)
             if (repo.second == "https://repo1.maven.org/maven2") {
-                Pair(true, listOf("1.2.0"))
+                RepositoryVersions(true, listOf("1.2.0"), "1.2.0")
             } else {
-                Pair(true, listOf("9.9.9"))
+                RepositoryVersions(true, listOf("9.9.9"), "9.9.9")
             }
         }
 
-        val versions = service.collectVersionsFromRepositories(repositories, false, fetcher)
+        val collected = service.collectVersionsFromRepositories(repositories, false, fetcher)
 
         assertEquals(
             listOf(
@@ -211,7 +216,92 @@ class DependencyApiServiceTest : BasePlatformTestCase() {
             ),
             called
         )
-        assertEquals(setOf("1.2.0", "9.9.9"), versions)
+        assertEquals(setOf("1.2.0", "9.9.9"), collected.versions)
+        // Maven Central wird als Referenz bevorzugt, auch wenn ein privates Repo eine numerisch höhere Version meldet.
+        assertEquals("1.2.0", collected.newestVersion)
+    }
+
+    fun testExtractNewestFromMetadataPrefersReleaseOverLatest() {
+        val service = DependencyApiService(project)
+        val doc = parseMetadata(
+            """
+            <metadata>
+              <versioning>
+                <latest>2025-1234</latest>
+                <release>24.0</release>
+                <versions>
+                  <version>2022-1234</version>
+                  <version>2023-1234</version>
+                  <version>24.0</version>
+                  <version>2025-1234</version>
+                </versions>
+              </versioning>
+            </metadata>
+            """.trimIndent()
+        )
+
+        assertEquals("24.0", service.extractNewestFromMetadata(doc))
+    }
+
+    fun testExtractNewestFromMetadataFallsBackToLatestWhenReleaseMissing() {
+        val service = DependencyApiService(project)
+        val doc = parseMetadata(
+            """
+            <metadata>
+              <versioning>
+                <latest>3.2.0-SNAPSHOT</latest>
+                <versions>
+                  <version>3.1.0</version>
+                  <version>3.2.0-SNAPSHOT</version>
+                </versions>
+              </versioning>
+            </metadata>
+            """.trimIndent()
+        )
+
+        assertEquals("3.2.0-SNAPSHOT", service.extractNewestFromMetadata(doc))
+    }
+
+    fun testExtractNewestFromMetadataReturnsNullWhenAbsent() {
+        val service = DependencyApiService(project)
+        val doc = parseMetadata(
+            """
+            <metadata>
+              <versioning>
+                <versions>
+                  <version>1.0.0</version>
+                </versions>
+              </versioning>
+            </metadata>
+            """.trimIndent()
+        )
+
+        assertNull(service.extractNewestFromMetadata(doc))
+    }
+
+    fun testOrderWithNewestFirstMovesDeclaredNewestToFront() {
+        val service = DependencyApiService(project)
+        // Absteigend nach ComparableVersion; datumsbasierte Versionen stehen dadurch vor 24.0.
+        val versions = listOf("2025-1234", "2023-1234", "2022-1234", "24.0")
+
+        val ordered = service.orderWithNewestFirst(versions, "24.0")
+
+        assertEquals(listOf("24.0", "2025-1234", "2023-1234", "2022-1234"), ordered)
+    }
+
+    fun testOrderWithNewestFirstKeepsOrderWhenNewestNullOrAbsent() {
+        val service = DependencyApiService(project)
+        val versions = listOf("2.0.0", "1.5.0", "1.0.0")
+
+        assertEquals(versions, service.orderWithNewestFirst(versions, null))
+        assertEquals(versions, service.orderWithNewestFirst(versions, "9.9.9"))
+        // Bereits vorne stehende neueste Version bleibt unverändert.
+        assertEquals(versions, service.orderWithNewestFirst(versions, "2.0.0"))
+    }
+
+    private fun parseMetadata(xml: String): Document {
+        val builder = DocumentBuilderFactory.newInstance().newDocumentBuilder()
+        return builder.parse(ByteArrayInputStream(xml.toByteArray(Charsets.UTF_8)))
     }
 
     fun testFilterVersionsBySettingsWhenDisabledKeepsAll() {
