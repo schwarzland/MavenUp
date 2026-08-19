@@ -543,6 +543,15 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private var lastSelectLatestVersion =
             MavenUpSettings.getInstance().state.selectLatestVersion
 
+        /**
+         * Zuletzt bekannter Wert der Einstellung [MavenUpSettings.State.selectLatestMinorVersion].
+         *
+         * Dient analog zu [lastSelectLatestVersion] dazu, eine Neuberechnung der Vorauswahl nur dann
+         * auszuführen, wenn sich die Minor-Strategie tatsächlich geändert hat.
+         */
+        private var lastSelectLatestMinorVersion =
+            MavenUpSettings.getInstance().state.selectLatestMinorVersion
+
         /** Die Tabelle der Abhängigkeiten; wird im Property-Initializer von [content] zugewiesen. */
         private var table: JBTable
 
@@ -1231,15 +1240,18 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
         /**
          * Wendet die Einstellung [MavenUpSettings.State.selectLatestVersion] nur dann erneut an,
-         * wenn sich ihr Wert seit dem letzten Aufruf tatsächlich geändert hat.
+         * wenn sich ihr Wert oder die Minor-Strategie seit dem letzten Aufruf tatsächlich geändert hat.
          *
          * Dadurch setzt das Ändern anderer Einstellungen (z.B. Text-Buttons oder Maven-Sync) die
          * bereits getroffene **New Version**-Auswahl nicht mehr zurück.
          */
         internal fun applySelectLatestVersionSettingIfChanged() {
-            val selectLatest = MavenUpSettings.getInstance().state.selectLatestVersion
-            if (selectLatest != lastSelectLatestVersion) {
+            val settings = MavenUpSettings.getInstance().state
+            val selectLatest = settings.selectLatestVersion
+            val selectLatestMinor = settings.selectLatestMinorVersion
+            if (selectLatest != lastSelectLatestVersion || selectLatestMinor != lastSelectLatestMinorVersion) {
                 lastSelectLatestVersion = selectLatest
+                lastSelectLatestMinorVersion = selectLatestMinor
                 applySelectLatestVersionSetting()
             }
         }
@@ -1249,18 +1261,22 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * geladenen Abhängigkeiten an. Wird aufgerufen, wenn sich die Einstellung ändert, damit
          * die "New Version"-Spalte sofort die korrekte Auswahl widerspiegelt.
          *
-         * Bei aktivierter Einstellung wird für jede Abhängigkeit die neueste verfügbare Version
-         * vorausgewählt; bei deaktivierter Einstellung wird die aktuelle Version beibehalten.
+         * Bei aktivierter Einstellung wird für jede Abhängigkeit automatisch eine Zielversion
+         * vorausgewählt (entweder global neueste Version oder neueste Minor-Version in derselben
+         * Major-Linie, abhängig von den Einstellungen); bei deaktivierter Einstellung wird die
+         * aktuelle Version beibehalten.
          */
         internal fun applySelectLatestVersionSetting() {
             if (availableVersions.isEmpty()) return
-            val selectLatest = MavenUpSettings.getInstance().state.selectLatestVersion
+            val settings = MavenUpSettings.getInstance().state
+            val selectLatest = settings.selectLatestVersion
             for ((key, versions) in availableVersions) {
                 if (versions.isEmpty()) continue
                 val currentVersion = knownDependencies[key] ?: ""
                 if (selectLatest) {
-                    if (versions.first() != currentVersion) {
-                        selectedVersions[key] = versions.first()
+                    val autoSelectedVersion = chooseAutoSelectedVersion(currentVersion, versions)
+                    if (autoSelectedVersion != currentVersion) {
+                        selectedVersions[key] = autoSelectedVersion
                     } else {
                         selectedVersions.remove(key)
                     }
@@ -2092,7 +2108,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
         /**
          * Reduziert die verfügbaren Versionen für eine Gruppe von Abhängigkeiten auf deren gemeinsame
-         * Schnittmenge und wählt bei aktivierter Einstellung automatisch die neueste Version vor.
+         * Schnittmenge und wählt bei aktivierter Einstellung automatisch die konfigurierte Zielversion vor.
          */
         private fun intersectVersions(depKeys: List<String>) {
             var commonVersions: List<String>? = null
@@ -2112,7 +2128,13 @@ class MavenUpWindowFactory : ToolWindowFactory {
             depKeys.forEach { depKey ->
                 availableVersions[depKey] = sortedCommonVersions
                 if (sortedCommonVersions.isNotEmpty() && MavenUpSettings.getInstance().state.selectLatestVersion) {
-                    selectedVersions[depKey] = sortedCommonVersions.first()
+                    val currentVersion = knownDependencies[depKey] ?: ""
+                    val autoSelectedVersion = chooseAutoSelectedVersion(currentVersion, sortedCommonVersions)
+                    if (autoSelectedVersion != currentVersion) {
+                        selectedVersions[depKey] = autoSelectedVersion
+                    } else {
+                        selectedVersions.remove(depKey)
+                    }
                 } else if (sortedCommonVersions.isNotEmpty() && !MavenUpSettings.getInstance().state.selectLatestVersion) {
                     selectedVersions[depKey] = knownDependencies[depKey] ?: ""
                 }
@@ -2137,14 +2159,56 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 if (versions.isNotEmpty()) {
                     val key = "$groupId:$artifactId"
                     availableVersions[key] = versions
-                    // Pre-select the newest version if it's different from the current one and setting is enabled
-                    if (versions.first() != version && MavenUpSettings.getInstance().state.selectLatestVersion) {
-                        selectedVersions[key] = versions.first()
+                    if (MavenUpSettings.getInstance().state.selectLatestVersion) {
+                        val autoSelectedVersion = chooseAutoSelectedVersion(version, versions)
+                        if (autoSelectedVersion != version) {
+                            selectedVersions[key] = autoSelectedVersion
+                        } else {
+                            selectedVersions.remove(key)
+                        }
                     } else if (!MavenUpSettings.getInstance().state.selectLatestVersion) {
                         selectedVersions[key] = version
                     }
                 }
             }
+        }
+
+        /**
+         * Ermittelt die automatisch vorausgewählte Zielversion für eine Abhängigkeit.
+         *
+         * Bei aktivierter Minor-Strategie wird bevorzugt die höchste Version innerhalb derselben
+         * Major-Linie wie [currentVersion] verwendet. Falls keine passende Major-Version gefunden
+         * werden kann, wird auf die global höchste verfügbare Version zurückgefallen.
+         */
+        private fun chooseAutoSelectedVersion(currentVersion: String, versions: List<String>): String {
+            val newestVersion = versions.firstOrNull().orEmpty()
+            if (newestVersion.isEmpty()) return currentVersion
+            val settings = MavenUpSettings.getInstance().state
+            if (!settings.selectLatestMinorVersion) {
+                return newestVersion
+            }
+            return latestVersionWithinSameMajor(currentVersion, versions) ?: newestVersion
+        }
+
+        /**
+         * Sucht die höchste verfügbare Version mit derselben numerischen Major-Version wie [currentVersion].
+         *
+         * @return Die gefundene Version oder `null`, wenn die aktuelle Version keine numerische Major-Version
+         * besitzt oder keine passende Kandidaten-Version vorhanden ist.
+         */
+        private fun latestVersionWithinSameMajor(currentVersion: String, versions: List<String>): String? {
+            val currentMajor = extractLeadingMajorNumber(currentVersion) ?: return null
+            return versions.firstOrNull { extractLeadingMajorNumber(it) == currentMajor }
+        }
+
+        /**
+         * Extrahiert die führende numerische Major-Version aus einem Versionsstring.
+         *
+         * Beispiele: `2.7.18` -> `2`, `1-RC1` -> `1`. Bei nicht-numerischem Präfix wird `null` geliefert.
+         */
+        private fun extractLeadingMajorNumber(version: String): Int? {
+            val match = Regex("""^(\d+)""").find(version.trim()) ?: return null
+            return match.groupValues[1].toIntOrNull()
         }
 
         /**

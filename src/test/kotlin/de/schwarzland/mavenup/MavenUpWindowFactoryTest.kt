@@ -974,6 +974,73 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         // Reset
         settings.state.selectLatestVersion = true
+        settings.state.selectLatestMinorVersion = false
+    }
+
+    fun testApplySelectLatestVersionSettingSelectsLatestMinorWhenConfigured() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+        val settings = MavenUpSettings.getInstance()
+
+        val fields = toolWindow.javaClass
+        @Suppress("UNCHECKED_CAST")
+        val availableVersions = fields.getDeclaredField("availableVersions")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, List<String>>
+        @Suppress("UNCHECKED_CAST")
+        val selectedVersions = fields.getDeclaredField("selectedVersions")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, String>
+        @Suppress("UNCHECKED_CAST")
+        val knownDependencies = fields.getDeclaredField("knownDependencies")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, String>
+
+        val key = "com.example:minor-test"
+        availableVersions[key] = listOf("3.0.0", "2.9.9", "2.7.5", "2.5.0")
+        knownDependencies[key] = "2.5.0"
+
+        settings.state.selectLatestVersion = true
+        settings.state.selectLatestMinorVersion = true
+
+        toolWindow.applySelectLatestVersionSetting()
+
+        assertEquals("2.9.9", selectedVersions[key])
+
+        settings.state.selectLatestMinorVersion = false
+    }
+
+    fun testApplySelectLatestVersionSettingFallsBackToNewestWhenMajorDoesNotMatch() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+        val settings = MavenUpSettings.getInstance()
+
+        val fields = toolWindow.javaClass
+        @Suppress("UNCHECKED_CAST")
+        val availableVersions = fields.getDeclaredField("availableVersions")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, List<String>>
+        @Suppress("UNCHECKED_CAST")
+        val selectedVersions = fields.getDeclaredField("selectedVersions")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, String>
+        @Suppress("UNCHECKED_CAST")
+        val knownDependencies = fields.getDeclaredField("knownDependencies")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, String>
+
+        val key = "com.example:major-fallback"
+        availableVersions[key] = listOf("3.2.0", "3.1.0")
+        knownDependencies[key] = "2.8.0"
+
+        settings.state.selectLatestVersion = true
+        settings.state.selectLatestMinorVersion = true
+
+        toolWindow.applySelectLatestVersionSetting()
+
+        assertEquals("3.2.0", selectedVersions[key])
+
+        settings.state.selectLatestMinorVersion = false
     }
 
     fun testApplySelectLatestVersionSettingRemovesSelectionWhenAlreadyLatest() {
@@ -1108,6 +1175,44 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         )
 
         settings.state.selectLatestVersion = true
+    }
+
+    fun testSettingsChangeReappliesSelectionWhenSelectLatestMinorChanged() {
+        val settings = MavenUpSettings.getInstance()
+        settings.state.selectLatestVersion = true
+        settings.state.selectLatestMinorVersion = false
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        val fields = toolWindow.javaClass
+        @Suppress("UNCHECKED_CAST")
+        val availableVersions = fields.getDeclaredField("availableVersions")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, List<String>>
+        @Suppress("UNCHECKED_CAST")
+        val selectedVersions = fields.getDeclaredField("selectedVersions")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, String>
+        @Suppress("UNCHECKED_CAST")
+        val knownDependencies = fields.getDeclaredField("knownDependencies")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, String>
+
+        val key = "com.example:minor-setting-change"
+        availableVersions[key] = listOf("3.0.0", "2.9.9", "2.6.0")
+        knownDependencies[key] = "2.6.0"
+        selectedVersions[key] = "3.0.0"
+
+        settings.state.selectLatestMinorVersion = true
+        toolWindow.applySelectLatestVersionSettingIfChanged()
+
+        assertEquals(
+            "Beim Ändern von selectLatestMinorVersion soll eine passende Minor-Version vorausgewählt werden",
+            "2.9.9",
+            selectedVersions[key]
+        )
+
+        settings.state.selectLatestMinorVersion = false
     }
 
     fun testChangesAndVulnerabilitiesFilterComboBoxDefaultsAndOptions() {

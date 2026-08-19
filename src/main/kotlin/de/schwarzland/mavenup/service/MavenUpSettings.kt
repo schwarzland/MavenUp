@@ -56,6 +56,7 @@ class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
      * @property toolbarShowText Bestimmt, ob die Aktionsleisten Text-Buttons statt reiner Icon-Buttons anzeigen.
      * @property syncMavenAfterUpdate Bestimmt, ob nach dem Schreiben der `pom.xml` automatisch der Maven-Sync der IDE ausgelöst wird.
      * @property stopAfterCentralSuccess Bestimmt, ob nach einer erfolgreichen Abfrage von Maven Central keine weiteren privaten Repositories abgefragt werden.
+     * @property selectLatestMinorVersion Bestimmt, ob bei aktivierter Auto-Auswahl bevorzugt die höchste Version innerhalb derselben Major-Version gewählt wird.
      */
     data class State(
         var jumpOnSingleClick: Boolean = false,
@@ -67,11 +68,12 @@ class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
         var repositoryBrowser: MavenRepositoryBrowser = MavenRepositoryBrowser.MVN_REPOSITORY,
         var toolbarShowText: Boolean = true,
         var syncMavenAfterUpdate: Boolean = true,
-        var stopAfterCentralSuccess: Boolean = true
+        var stopAfterCentralSuccess: Boolean = true,
+        var selectLatestMinorVersion: Boolean = false
     ) {
         /**
          * Sekundärer Konstruktor zur Binärkompatibilität mit bereits kompiliertem Code,
-         * der den früheren Zustand ohne `stopAfterCentralSuccess` erwartet.
+         * der den früheren Zustand ohne `stopAfterCentralSuccess` und `selectLatestMinorVersion` erwartet.
          */
         @Suppress("LongParameterList")
         constructor(
@@ -94,7 +96,8 @@ class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
             repositoryBrowser = repositoryBrowser,
             toolbarShowText = toolbarShowText,
             syncMavenAfterUpdate = syncMavenAfterUpdate,
-            stopAfterCentralSuccess = true
+            stopAfterCentralSuccess = true,
+            selectLatestMinorVersion = false
         )
     }
 

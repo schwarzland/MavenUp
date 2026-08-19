@@ -48,6 +48,7 @@ class MavenUpConfigurable internal constructor(
     private var syncMavenAfterUpdateCheckBox: JBCheckBox? = null
     private var stopAfterCentralSuccessCheckBox: JBCheckBox? = null
     private var selectLatestVersionCheckBox: JBCheckBox? = null
+    private var selectLatestMinorVersionCheckBox: JBCheckBox? = null
     private var hideUnstableVersionsCheckBox: JBCheckBox? = null
     private var hiddenVersionQualifiersLabel: JLabel? = null
     private var hiddenVersionQualifiersField: JTextField? = null
@@ -117,6 +118,16 @@ class MavenUpConfigurable internal constructor(
                             toolTipText = MyMessageBundle.message("settings.selectLatestVersion.tooltip")
                         }
                         .component
+                }
+                indent {
+                    row {
+                        selectLatestMinorVersionCheckBox = checkBox(MyMessageBundle.message("settings.selectLatestMinorVersion"))
+                            .applyToComponent {
+                                isSelected = settings.state.selectLatestMinorVersion
+                                toolTipText = MyMessageBundle.message("settings.selectLatestMinorVersion.tooltip")
+                            }
+                            .component
+                    }
                 }
                 row {
                     hideUnstableVersionsCheckBox = checkBox(MyMessageBundle.message("settings.hideUnstableVersions"))
@@ -197,6 +208,10 @@ class MavenUpConfigurable internal constructor(
                 }
             }
 
+            updateSelectLatestMinorControlEnabled(settings.state.selectLatestVersion)
+            selectLatestVersionCheckBox?.addActionListener {
+                updateSelectLatestMinorControlEnabled(selectLatestVersionCheckBox?.isSelected == true)
+            }
             updateHiddenQualifierControlsEnabled(settings.state.hideUnstableVersions)
             hideUnstableVersionsCheckBox?.addActionListener {
                 updateHiddenQualifierControlsEnabled(hideUnstableVersionsCheckBox?.isSelected == true)
@@ -219,6 +234,7 @@ class MavenUpConfigurable internal constructor(
                 syncMavenAfterUpdateCheckBox?.isSelected != settings.state.syncMavenAfterUpdate ||
                 stopAfterCentralSuccessCheckBox?.isSelected != settings.state.stopAfterCentralSuccess ||
                 selectLatestVersionCheckBox?.isSelected != settings.state.selectLatestVersion ||
+                selectLatestMinorVersionCheckBox?.isSelected != settings.state.selectLatestMinorVersion ||
                 hideUnstableVersionsCheckBox?.isSelected != settings.state.hideUnstableVersions ||
                 hiddenVersionQualifiersField?.text != settings.state.hiddenVersionQualifiers ||
                 checkTransitiveDependenciesCheckBox?.isSelected != settings.state.checkTransitiveDependencies ||
@@ -245,6 +261,7 @@ class MavenUpConfigurable internal constructor(
         settings.state.syncMavenAfterUpdate = syncMavenAfterUpdateCheckBox?.isSelected ?: true
         settings.state.stopAfterCentralSuccess = stopAfterCentralSuccessCheckBox?.isSelected ?: true
         settings.state.selectLatestVersion = selectLatestVersionCheckBox?.isSelected ?: true
+        settings.state.selectLatestMinorVersion = selectLatestMinorVersionCheckBox?.isSelected ?: false
         settings.state.hideUnstableVersions = hideUnstableVersionsCheckBox?.isSelected ?: false
         settings.state.hiddenVersionQualifiers = hiddenVersionQualifiersField?.text?.trim().orEmpty()
         settings.state.checkTransitiveDependencies = checkTransitiveDependenciesCheckBox?.isSelected ?: true
@@ -268,6 +285,7 @@ class MavenUpConfigurable internal constructor(
         syncMavenAfterUpdateCheckBox?.isSelected = settings.state.syncMavenAfterUpdate
         stopAfterCentralSuccessCheckBox?.isSelected = settings.state.stopAfterCentralSuccess
         selectLatestVersionCheckBox?.isSelected = settings.state.selectLatestVersion
+        selectLatestMinorVersionCheckBox?.isSelected = settings.state.selectLatestMinorVersion
         hideUnstableVersionsCheckBox?.isSelected = settings.state.hideUnstableVersions
         hiddenVersionQualifiersField?.text = settings.state.hiddenVersionQualifiers
         checkTransitiveDependenciesCheckBox?.isSelected = settings.state.checkTransitiveDependencies
@@ -275,6 +293,7 @@ class MavenUpConfigurable internal constructor(
         credentialsLoaded = false
         storedToken = ""
         ossIndexTokenField?.text = ""
+        updateSelectLatestMinorControlEnabled(settings.state.selectLatestVersion)
         updateHiddenQualifierControlsEnabled(settings.state.hideUnstableVersions)
         updateOssIndexControlsEnabled(settings.state.ossIndexEnabled)
         loadCredentials()
@@ -293,6 +312,7 @@ class MavenUpConfigurable internal constructor(
         syncMavenAfterUpdateCheckBox = null
         stopAfterCentralSuccessCheckBox = null
         selectLatestVersionCheckBox = null
+        selectLatestMinorVersionCheckBox = null
         hideUnstableVersionsCheckBox = null
         hiddenVersionQualifiersLabel = null
         hiddenVersionQualifiersField = null
@@ -333,6 +353,13 @@ class MavenUpConfigurable internal constructor(
                 project.disposed
             )
         }
+    }
+
+    /**
+     * Aktiviert oder deaktiviert die Unteroption zur Minor-Versionsauswahl basierend auf der Auto-Auswahl-Checkbox.
+     */
+    private fun updateSelectLatestMinorControlEnabled(enabled: Boolean) {
+        selectLatestMinorVersionCheckBox?.isEnabled = enabled
     }
 
     /**

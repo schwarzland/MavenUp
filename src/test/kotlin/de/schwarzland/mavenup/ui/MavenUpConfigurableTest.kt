@@ -258,6 +258,10 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
         assertTrue(MavenUpSettings.State().stopAfterCentralSuccess)
     }
 
+    fun testSelectLatestMinorVersionDefaultIsFalse() {
+        assertFalse(MavenUpSettings.State().selectLatestMinorVersion)
+    }
+
     fun testSyncMavenAfterUpdateSelectionIsPersistedOnApply() {
         val settings = MavenUpSettings.getInstance()
         settings.state.syncMavenAfterUpdate = true
@@ -294,6 +298,26 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
         assertFalse(settings.state.stopAfterCentralSuccess)
 
         settings.state.stopAfterCentralSuccess = true
+    }
+
+    fun testSelectLatestMinorVersionSelectionIsPersistedOnApply() {
+        val settings = MavenUpSettings.getInstance()
+        settings.state.selectLatestVersion = true
+        settings.state.selectLatestMinorVersion = false
+
+        val configurable = MavenUpConfigurable(project)
+        configurable.createComponent()
+        configurable.reset()
+        assertFalse(configurable.isModified)
+
+        val checkBox = configurable.field<com.intellij.ui.components.JBCheckBox>("selectLatestMinorVersionCheckBox")
+        checkBox.isSelected = true
+        assertTrue("Änderung der Checkbox sollte isModified() true machen", configurable.isModified)
+
+        configurable.apply()
+        assertTrue(settings.state.selectLatestMinorVersion)
+
+        settings.state.selectLatestMinorVersion = false
     }
 
     fun testMavenRepositoryBrowserUrlPatterns() {

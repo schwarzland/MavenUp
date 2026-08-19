@@ -1,6 +1,17 @@
 <!-- Keep a Changelog guide -> https://keepachangelog.com -->
 
 # MavenUp Changelog
+## [Unreleased]
+
+### Added
+- Added a new setting to auto-select the latest minor version within the current major line after checking for updates.
+
+### Changed
+- Changed the New Version auto-selection logic to respect the new minor-strategy toggle across update checks, shared-property intersections, and live setting updates.
+
+### Fixed
+- Fixed settings-change detection so changing the minor auto-selection strategy immediately reapplies the New Version preselection in the open tool window.
+
 ## [2.2.1]
 
 ### Added
