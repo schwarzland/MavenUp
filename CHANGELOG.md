@@ -6,6 +6,7 @@
 ### Added
 - Added a 3-state auto-selection mode setting for update checks (disabled, highest version, latest minor in current major line).
 - Added an "Offer all versions" setting that also lists versions older than the current one, enabling downgrades; disabled by default so only versions greater than or equal to the current one are offered.
+- Added a "(current)" marker in bold to the currently used version in the version selection dropdown so it stands out, especially when older versions are offered.
 
 ### Changed
 - Changed the settings UI from two checkboxes to a single combobox for version auto-selection strategy.

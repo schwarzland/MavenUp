@@ -205,6 +205,25 @@ internal fun versionStatusColor(upToDate: Boolean): Color =
     if (upToDate) VERSION_UP_TO_DATE_COLOR else VERSION_UPDATE_AVAILABLE_COLOR
 
 /**
+ * Ermittelt den Anzeigetext für einen Eintrag der Versions-Dropdown-Liste.
+ *
+ * Entspricht [value] der aktuell verwendeten Version [currentVersion], wird der Eintrag mit
+ * einem lokalisierten Marker („(current)") versehen, damit die aktuelle Version – insbesondere
+ * bei aktivierter Option „alle Versionen anzeigen" – in der Liste hervorsticht. Andernfalls wird
+ * der unveränderte Versionswert zurückgegeben.
+ *
+ * @param value Der Versionswert des Dropdown-Eintrags.
+ * @param currentVersion Die aktuell verwendete Version der Abhängigkeit.
+ * @return Der ggf. mit Marker versehene Anzeigetext.
+ */
+internal fun versionDropdownItemText(value: String, currentVersion: String): String =
+    if (currentVersion.isNotEmpty() && value == currentVersion) {
+        MyMessageBundle.message("toolwindow.MyToolWindow.version.currentMarker", value)
+    } else {
+        value
+    }
+
+/**
  * Erzeugt den lokalisierten Tooltip-Text für die Versionszelle.
  *
  * Berücksichtigt vier Zustände:
@@ -778,11 +797,15 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     }
 
                     // Custom-Renderer, der Farbe und Font nur im Anzeigefeld übernimmt (nicht im Dropdown)
+                    // und die aktuelle Version in der Dropdown-Liste hervorhebt.
                     combo.setRenderer { _, value, index, _, _ ->
                         JLabel(value ?: "").apply {
                             if (index == -1) {
                                 foreground = combo.foreground
                                 font = combo.font
+                            } else if (value != null && value == currentVersion) {
+                                text = versionDropdownItemText(value, currentVersion)
+                                font = font.deriveFont(java.awt.Font.BOLD)
                             }
                         }
                     }

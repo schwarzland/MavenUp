@@ -16,6 +16,7 @@ import de.schwarzland.mavenup.ui.isVersionUpToDate
 import de.schwarzland.mavenup.ui.versionStatusText
 import de.schwarzland.mavenup.ui.versionStatusColor
 import de.schwarzland.mavenup.ui.versionStatusTooltip
+import de.schwarzland.mavenup.ui.versionDropdownItemText
 import de.schwarzland.mavenup.ui.createVersionPanel
 import de.schwarzland.mavenup.ui.TriStateFilter
 import com.intellij.openapi.wm.RegisterToolWindowTask
@@ -1010,6 +1011,20 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertTrue(tooltip.contains("1.0.0"))
         assertTrue(tooltip.contains("1.5.0"))
         assertTrue(tooltip.contains("2.0.0"))
+    }
+
+    fun testVersionDropdownItemTextMarksCurrentVersion() {
+        val text = versionDropdownItemText("1.0.0", "1.0.0")
+        assertTrue("Aktuelle Version sollte den Versionswert enthalten", text.contains("1.0.0"))
+        assertTrue("Aktuelle Version sollte als current markiert sein", text.contains("current"))
+    }
+
+    fun testVersionDropdownItemTextLeavesOtherVersionsUnchanged() {
+        assertEquals("2.0.0", versionDropdownItemText("2.0.0", "1.0.0"))
+    }
+
+    fun testVersionDropdownItemTextWithBlankCurrentVersionLeavesValueUnchanged() {
+        assertEquals("1.0.0", versionDropdownItemText("1.0.0", ""))
     }
 
     fun testCreateVersionPanelContainsStatusLabelAndComboBox() {

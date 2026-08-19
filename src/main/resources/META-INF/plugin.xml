@@ -27,7 +27,7 @@
         <ul>
             <li><b>Property-Aware Versions:</b> Recognizes and updates Maven properties (e.g., <code>${spring.version}</code>) across all references.</li>
             <li><b>Flexible Filtering:</b> Filter by name, type, or pending updates; quickly locate the dependencies you need.</li>
-            <li><b>Optional Downgrades:</b> Enable an "offer all versions" setting to also list versions older than the current one when a rollback is needed.</li>
+            <li><b>Optional Downgrades:</b> Enable an "offer all versions" setting to also list versions older than the current one when a rollback is needed; the current version is marked in the selection dropdown.</li>
             <li><b>Repository Browser Options:</b> Choose between MVN Repository and Sonatype Central for artifact links.</li>
             <li><b>Private Repository Support:</b> Access authenticated repositories from <code>settings.xml</code> with fallback to standard Maven user settings.</li>
             <li><b>Detailed Security Reports:</b> View advisories with severity, CVSS scores, summaries, and sources for each finding.</li>
