@@ -4,13 +4,14 @@
 ## [Unreleased]
 
 ### Added
-- Added a new setting to auto-select the latest minor version within the current major line after checking for updates.
+- Added a 3-state auto-selection mode setting for update checks (disabled, highest version, latest minor in current major line).
 
 ### Changed
-- Changed the New Version auto-selection logic to respect the new minor-strategy toggle across update checks, shared-property intersections, and live setting updates.
+- Changed the settings UI from two checkboxes to a single combobox for version auto-selection strategy.
 
 ### Fixed
-- Fixed settings-change detection so changing the minor auto-selection strategy immediately reapplies the New Version preselection in the open tool window.
+- Fixed duplicate dependency rows in the tool window by deduplicating entries within each scope while keeping managed and regular dependencies visible separately.
+- Fixed New Version preselection recalculation so changes to the auto-selection mode are applied immediately in open tool windows.
 
 ## [2.2.1]
 

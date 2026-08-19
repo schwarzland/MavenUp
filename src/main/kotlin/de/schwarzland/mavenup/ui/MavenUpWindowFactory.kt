@@ -10,6 +10,7 @@ import de.schwarzland.mavenup.service.MAVEN_UP_SETTINGS_TOPIC
 import de.schwarzland.mavenup.service.OssIndexApiService
 import de.schwarzland.mavenup.service.OssIndexAuthenticationException
 import de.schwarzland.mavenup.service.OssIndexCredentialService
+import de.schwarzland.mavenup.service.VersionAutoSelectionMode
 import de.schwarzland.mavenup.service.VulnerabilityApiService
 import de.schwarzland.mavenup.service.VulnerabilityMerger
 import com.intellij.openapi.actionSystem.ActionManager
@@ -534,23 +535,13 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private var refreshGeneration = 0
 
         /**
-         * Zuletzt bekannter Wert der Einstellung [MavenUpSettings.State.selectLatestVersion].
+         * Zuletzt bekannter Wert der Auto-Selektionsstrategie.
          *
-         * Dient dazu, bei einer Einstellungsänderung zu erkennen, ob sich gerade diese Option
-         * geändert hat. Nur dann wird die "New Version"-Auswahl neu berechnet, damit andere
-         * Einstellungsänderungen die bereits getroffene Versionsauswahl nicht zurücksetzen.
+         * Dient dazu, bei einer Einstellungsänderung nur dann die "New Version"-Auswahl
+         * neu zu berechnen, wenn sich die Strategie tatsächlich geändert hat.
          */
-        private var lastSelectLatestVersion =
-            MavenUpSettings.getInstance().state.selectLatestVersion
-
-        /**
-         * Zuletzt bekannter Wert der Einstellung [MavenUpSettings.State.selectLatestMinorVersion].
-         *
-         * Dient analog zu [lastSelectLatestVersion] dazu, eine Neuberechnung der Vorauswahl nur dann
-         * auszuführen, wenn sich die Minor-Strategie tatsächlich geändert hat.
-         */
-        private var lastSelectLatestMinorVersion =
-            MavenUpSettings.getInstance().state.selectLatestMinorVersion
+        private var lastVersionAutoSelectionMode =
+            MavenUpSettings.getInstance().state.versionAutoSelectionMode
 
         /** Die Tabelle der Abhängigkeiten; wird im Property-Initializer von [content] zugewiesen. */
         private var table: JBTable
@@ -1239,41 +1230,32 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
-         * Wendet die Einstellung [MavenUpSettings.State.selectLatestVersion] nur dann erneut an,
-         * wenn sich ihr Wert oder die Minor-Strategie seit dem letzten Aufruf tatsächlich geändert hat.
+         * Wendet die Auto-Selektionsstrategie nur dann erneut an, wenn sich ihr Wert geändert hat.
          *
          * Dadurch setzt das Ändern anderer Einstellungen (z.B. Text-Buttons oder Maven-Sync) die
          * bereits getroffene **New Version**-Auswahl nicht mehr zurück.
          */
         internal fun applySelectLatestVersionSettingIfChanged() {
-            val settings = MavenUpSettings.getInstance().state
-            val selectLatest = settings.selectLatestVersion
-            val selectLatestMinor = settings.selectLatestMinorVersion
-            if (selectLatest != lastSelectLatestVersion || selectLatestMinor != lastSelectLatestMinorVersion) {
-                lastSelectLatestVersion = selectLatest
-                lastSelectLatestMinorVersion = selectLatestMinor
+            val autoSelectionMode = MavenUpSettings.getInstance().state.versionAutoSelectionMode
+            if (autoSelectionMode != lastVersionAutoSelectionMode) {
+                lastVersionAutoSelectionMode = autoSelectionMode
                 applySelectLatestVersionSetting()
             }
         }
 
         /**
-         * Wendet die Einstellung [MavenUpSettings.State.selectLatestVersion] auf alle bereits
-         * geladenen Abhängigkeiten an. Wird aufgerufen, wenn sich die Einstellung ändert, damit
-         * die "New Version"-Spalte sofort die korrekte Auswahl widerspiegelt.
+         * Wendet die konfigurierte Auto-Selektionsstrategie auf alle bereits geladenen Abhängigkeiten an.
          *
-         * Bei aktivierter Einstellung wird für jede Abhängigkeit automatisch eine Zielversion
-         * vorausgewählt (entweder global neueste Version oder neueste Minor-Version in derselben
-         * Major-Linie, abhängig von den Einstellungen); bei deaktivierter Einstellung wird die
-         * aktuelle Version beibehalten.
+         * Wird aufgerufen, wenn sich die Einstellung ändert, damit die "New Version"-Spalte sofort
+         * die korrekte Auswahl widerspiegelt.
          */
         internal fun applySelectLatestVersionSetting() {
             if (availableVersions.isEmpty()) return
-            val settings = MavenUpSettings.getInstance().state
-            val selectLatest = settings.selectLatestVersion
+            val autoSelectionMode = MavenUpSettings.getInstance().state.versionAutoSelectionMode
             for ((key, versions) in availableVersions) {
                 if (versions.isEmpty()) continue
                 val currentVersion = knownDependencies[key] ?: ""
-                if (selectLatest) {
+                if (autoSelectionMode != VersionAutoSelectionMode.DISABLED) {
                     val autoSelectedVersion = chooseAutoSelectedVersion(currentVersion, versions)
                     if (autoSelectedVersion != currentVersion) {
                         selectedVersions[key] = autoSelectedVersion
@@ -1589,32 +1571,64 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
                 val resolvedDependencies =
                     mavenProject.dependencyTree.associateBy { "${it.artifact.groupId}:${it.artifact.artifactId}" }
-                (localDependencies.keys + managedDependencies.keys).forEach { key ->
+                val seenLocalDependencyKeys = mutableSetOf<String>()
+                val seenManagedDependencyKeys = mutableSetOf<String>()
+                localDependencies.forEach { (key, value) ->
+                    if (!seenLocalDependencyKeys.add(key)) return@forEach
                     rows.add(
                         RefreshRow(
                             groupId = key.substringBefore(":"),
                             artifactId = key.substringAfter(":"),
                             propertyName = properties[key].orEmpty(),
-                            type = if (managedDependencies.containsKey(key)) managedDependencyType else "dependency",
+                            type = "dependency",
                             currentVersion = resolvedDependencies[key]?.artifact?.version
-                                ?: managedDependencies[key]
-                                ?: localDependencies[key]
+                                ?: value
+                                ?: ""
+                        )
+                    )
+                }
+                managedDependencies.forEach { (key, value) ->
+                    if (!seenManagedDependencyKeys.add(key)) return@forEach
+                    rows.add(
+                        RefreshRow(
+                            groupId = key.substringBefore(":"),
+                            artifactId = key.substringAfter(":"),
+                            propertyName = properties[key].orEmpty(),
+                            type = managedDependencyType,
+                            currentVersion = resolvedDependencies[key]?.artifact?.version
+                                ?: value
                                 ?: ""
                         )
                     )
                 }
 
                 val resolvedPlugins = mavenProject.plugins.associateBy { "${it.groupId}:${it.artifactId}" }
-                (localPlugins.keys + managedPlugins.keys).forEach { key ->
+                val seenLocalPluginKeys = mutableSetOf<String>()
+                val seenManagedPluginKeys = mutableSetOf<String>()
+                localPlugins.forEach { (key, value) ->
+                    if (!seenLocalPluginKeys.add(key)) return@forEach
                     rows.add(
                         RefreshRow(
                             groupId = key.substringBefore(":"),
                             artifactId = key.substringAfter(":"),
                             propertyName = properties[key].orEmpty(),
-                            type = if (managedPlugins.containsKey(key)) MANAGED_PLUGIN else "plugin",
+                            type = "plugin",
                             currentVersion = resolvedPlugins[key]?.version
-                                ?: managedPlugins[key]
-                                ?: localPlugins[key]
+                                ?: value
+                                ?: ""
+                        )
+                    )
+                }
+                managedPlugins.forEach { (key, value) ->
+                    if (!seenManagedPluginKeys.add(key)) return@forEach
+                    rows.add(
+                        RefreshRow(
+                            groupId = key.substringBefore(":"),
+                            artifactId = key.substringAfter(":"),
+                            propertyName = properties[key].orEmpty(),
+                            type = MANAGED_PLUGIN,
+                            currentVersion = resolvedPlugins[key]?.version
+                                ?: value
                                 ?: ""
                         )
                     )
@@ -2127,7 +2141,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
             depKeys.forEach { depKey ->
                 availableVersions[depKey] = sortedCommonVersions
-                if (sortedCommonVersions.isNotEmpty() && MavenUpSettings.getInstance().state.selectLatestVersion) {
+                if (sortedCommonVersions.isNotEmpty() &&
+                    MavenUpSettings.getInstance().state.versionAutoSelectionMode != VersionAutoSelectionMode.DISABLED
+                ) {
                     val currentVersion = knownDependencies[depKey] ?: ""
                     val autoSelectedVersion = chooseAutoSelectedVersion(currentVersion, sortedCommonVersions)
                     if (autoSelectedVersion != currentVersion) {
@@ -2135,7 +2151,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     } else {
                         selectedVersions.remove(depKey)
                     }
-                } else if (sortedCommonVersions.isNotEmpty() && !MavenUpSettings.getInstance().state.selectLatestVersion) {
+                } else if (sortedCommonVersions.isNotEmpty()) {
                     selectedVersions[depKey] = knownDependencies[depKey] ?: ""
                 }
             }
@@ -2159,14 +2175,14 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 if (versions.isNotEmpty()) {
                     val key = "$groupId:$artifactId"
                     availableVersions[key] = versions
-                    if (MavenUpSettings.getInstance().state.selectLatestVersion) {
+                    if (MavenUpSettings.getInstance().state.versionAutoSelectionMode != VersionAutoSelectionMode.DISABLED) {
                         val autoSelectedVersion = chooseAutoSelectedVersion(version, versions)
                         if (autoSelectedVersion != version) {
                             selectedVersions[key] = autoSelectedVersion
                         } else {
                             selectedVersions.remove(key)
                         }
-                    } else if (!MavenUpSettings.getInstance().state.selectLatestVersion) {
+                    } else {
                         selectedVersions[key] = version
                     }
                 }
@@ -2176,18 +2192,19 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /**
          * Ermittelt die automatisch vorausgewählte Zielversion für eine Abhängigkeit.
          *
-         * Bei aktivierter Minor-Strategie wird bevorzugt die höchste Version innerhalb derselben
-         * Major-Linie wie [currentVersion] verwendet. Falls keine passende Major-Version gefunden
-         * werden kann, wird auf die global höchste verfügbare Version zurückgefallen.
+         * Bei [VersionAutoSelectionMode.LATEST_MINOR] wird bevorzugt die höchste Version innerhalb
+         * derselben Major-Linie wie [currentVersion] verwendet. Falls keine passende Major-Version
+         * gefunden werden kann, wird auf die global höchste verfügbare Version zurückgefallen.
          */
         private fun chooseAutoSelectedVersion(currentVersion: String, versions: List<String>): String {
             val newestVersion = versions.firstOrNull().orEmpty()
             if (newestVersion.isEmpty()) return currentVersion
-            val settings = MavenUpSettings.getInstance().state
-            if (!settings.selectLatestMinorVersion) {
-                return newestVersion
+            return when (MavenUpSettings.getInstance().state.versionAutoSelectionMode) {
+                VersionAutoSelectionMode.DISABLED -> currentVersion
+                VersionAutoSelectionMode.LATEST -> newestVersion
+                VersionAutoSelectionMode.LATEST_MINOR ->
+                    latestVersionWithinSameMajor(currentVersion, versions) ?: newestVersion
             }
-            return latestVersionWithinSameMajor(currentVersion, versions) ?: newestVersion
         }
 
         /**

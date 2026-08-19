@@ -5,6 +5,7 @@ import de.schwarzland.mavenup.model.VulnerabilitySeverity
 import de.schwarzland.mavenup.model.DependencyUpdate
 import de.schwarzland.mavenup.service.MavenUpSettings
 import de.schwarzland.mavenup.service.MavenRepositoryBrowser
+import de.schwarzland.mavenup.service.VersionAutoSelectionMode
 import de.schwarzland.mavenup.ui.buildMavenRepositoryUrl
 import de.schwarzland.mavenup.ui.MavenUpWindowFactory
 import de.schwarzland.mavenup.ui.RefreshSnapshot
@@ -233,7 +234,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertEquals("1.2.0", propertiesTag?.findFirstSubTag("example.version")?.value?.text)
     }
 
-    fun testSelectLatestVersionSetting() {
+    fun testVersionAutoSelectionModeSetting() {
         val factory = MavenUpWindowFactory()
         val toolWindowInstance = factory.MyToolWindow(project)
         val settings = MavenUpSettings.getInstance()
@@ -243,8 +244,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val versions = listOf("1.1.0", "1.0.0")
         val currentVersion = "1.0.0"
 
-        // Test with selectLatestVersion = true (default)
-        assertTrue(settings.state.selectLatestVersion)
+        settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.LATEST
         
         // Use reflection to access internal maps for verification
         val availableVersionsField = toolWindowInstance.javaClass.getDeclaredField("availableVersions").apply { isAccessible = true }
@@ -260,9 +260,11 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         // Simulate checkArtifactUpdate logic manually for testing the selection logic
         fun simulateCheck(v: String) {
             availableVersions[key] = versions
-            if (versions.first() != v && settings.state.selectLatestVersion) {
+            if (versions.first() != v &&
+                settings.state.versionAutoSelectionMode != VersionAutoSelectionMode.DISABLED
+            ) {
                 selectedVersions[key] = versions.first()
-            } else if (!settings.state.selectLatestVersion) {
+            } else if (settings.state.versionAutoSelectionMode == VersionAutoSelectionMode.DISABLED) {
                 selectedVersions[key] = v
             }
         }
@@ -270,13 +272,13 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         simulateCheck(currentVersion)
         assertEquals("1.1.0", selectedVersions[key])
 
-        // Test with selectLatestVersion = false
-        settings.state.selectLatestVersion = false
+        // Test with VersionAutoSelectionMode.DISABLED
+        settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.DISABLED
         selectedVersions.clear()
         simulateCheck(currentVersion)
         assertEquals("1.0.0", selectedVersions[key])
         
-        settings.state.selectLatestVersion = true
+        settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.LATEST
     }
 
     fun testJumpOnSingleClickSetting() {
@@ -962,19 +964,18 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         availableVersions[key] = listOf("2.0.0", "1.5.0", "1.0.0")
         knownDependencies[key] = "1.0.0"
 
-        // With selectLatestVersion enabled, the newest should be selected
-        settings.state.selectLatestVersion = true
+        // With LATEST mode enabled, the newest should be selected
+        settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.LATEST
         toolWindow.applySelectLatestVersionSetting()
         assertEquals("2.0.0", selectedVersions[key])
 
-        // With selectLatestVersion disabled, the current version should be selected
-        settings.state.selectLatestVersion = false
+        // With DISABLED mode, the current version should be selected
+        settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.DISABLED
         toolWindow.applySelectLatestVersionSetting()
         assertEquals("1.0.0", selectedVersions[key])
 
         // Reset
-        settings.state.selectLatestVersion = true
-        settings.state.selectLatestMinorVersion = false
+        settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.LATEST
     }
 
     fun testApplySelectLatestVersionSettingSelectsLatestMinorWhenConfigured() {
@@ -1000,14 +1001,13 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         availableVersions[key] = listOf("3.0.0", "2.9.9", "2.7.5", "2.5.0")
         knownDependencies[key] = "2.5.0"
 
-        settings.state.selectLatestVersion = true
-        settings.state.selectLatestMinorVersion = true
+        settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.LATEST_MINOR
 
         toolWindow.applySelectLatestVersionSetting()
 
         assertEquals("2.9.9", selectedVersions[key])
 
-        settings.state.selectLatestMinorVersion = false
+        settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.DISABLED
     }
 
     fun testApplySelectLatestVersionSettingFallsBackToNewestWhenMajorDoesNotMatch() {
@@ -1033,14 +1033,13 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         availableVersions[key] = listOf("3.2.0", "3.1.0")
         knownDependencies[key] = "2.8.0"
 
-        settings.state.selectLatestVersion = true
-        settings.state.selectLatestMinorVersion = true
+        settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.LATEST_MINOR
 
         toolWindow.applySelectLatestVersionSetting()
 
         assertEquals("3.2.0", selectedVersions[key])
 
-        settings.state.selectLatestMinorVersion = false
+        settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.DISABLED
     }
 
     fun testApplySelectLatestVersionSettingRemovesSelectionWhenAlreadyLatest() {
@@ -1069,7 +1068,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         // When current version is already the latest and selectLatest is enabled,
         // the entry should be removed from selectedVersions (no change needed)
-        settings.state.selectLatestVersion = true
+        settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.LATEST
         toolWindow.applySelectLatestVersionSetting()
         assertNull(
             "Wenn die aktuelle Version bereits die neueste ist, soll kein Eintrag in selectedVersions stehen",
@@ -1077,7 +1076,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         )
 
         // Reset
-        settings.state.selectLatestVersion = true
+        settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.LATEST
     }
 
     fun testApplySelectLatestVersionSettingDoesNothingWhenNoVersionsLoaded() {
@@ -1094,17 +1093,17 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         selectedVersions["com.example:existing"] = "1.0.0"
 
         // With no available versions loaded, the method should not modify selectedVersions
-        settings.state.selectLatestVersion = true
+        settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.LATEST
         toolWindow.applySelectLatestVersionSetting()
         assertEquals("1.0.0", selectedVersions["com.example:existing"])
 
         // Reset
-        settings.state.selectLatestVersion = true
+        settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.LATEST
     }
 
     fun testSettingsChangeKeepsSelectionWhenSelectLatestUnchanged() {
         val settings = MavenUpSettings.getInstance()
-        settings.state.selectLatestVersion = false
+        settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.DISABLED
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         toolWindow.getContent()
 
@@ -1136,12 +1135,12 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
             selectedVersions[key]
         )
 
-        settings.state.selectLatestVersion = true
+        settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.LATEST
     }
 
     fun testSettingsChangeReappliesSelectionWhenSelectLatestChanged() {
         val settings = MavenUpSettings.getInstance()
-        settings.state.selectLatestVersion = false
+        settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.DISABLED
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         toolWindow.getContent()
 
@@ -1164,23 +1163,22 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         knownDependencies[key] = "1.0.0"
         selectedVersions[key] = "1.0.0"
 
-        // Die Einstellung selectLatestVersion wird tatsächlich geändert -> Auswahl wird neu berechnet
-        settings.state.selectLatestVersion = true
+        // Die Einstellung VersionAutoSelectionMode wird tatsächlich geändert -> Auswahl wird neu berechnet
+        settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.LATEST
         toolWindow.applySelectLatestVersionSettingIfChanged()
 
         assertEquals(
-            "Beim Ändern von selectLatestVersion soll die neueste Version vorausgewählt werden",
+            "Beim Ändern auf LATEST soll die neueste Version vorausgewählt werden",
             "2.0.0",
             selectedVersions[key]
         )
 
-        settings.state.selectLatestVersion = true
+        settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.LATEST
     }
 
     fun testSettingsChangeReappliesSelectionWhenSelectLatestMinorChanged() {
         val settings = MavenUpSettings.getInstance()
-        settings.state.selectLatestVersion = true
-        settings.state.selectLatestMinorVersion = false
+        settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.LATEST
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         toolWindow.getContent()
 
@@ -1203,16 +1201,16 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         knownDependencies[key] = "2.6.0"
         selectedVersions[key] = "3.0.0"
 
-        settings.state.selectLatestMinorVersion = true
+        settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.LATEST_MINOR
         toolWindow.applySelectLatestVersionSettingIfChanged()
 
         assertEquals(
-            "Beim Ändern von selectLatestMinorVersion soll eine passende Minor-Version vorausgewählt werden",
+            "Beim Ändern auf LATEST_MINOR soll eine passende Minor-Version vorausgewählt werden",
             "2.9.9",
             selectedVersions[key]
         )
 
-        settings.state.selectLatestMinorVersion = false
+        settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.DISABLED
     }
 
     fun testChangesAndVulnerabilitiesFilterComboBoxDefaultsAndOptions() {

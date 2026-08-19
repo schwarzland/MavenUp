@@ -3,6 +3,7 @@ package de.schwarzland.mavenup.ui
 import de.schwarzland.mavenup.service.MavenRepositoryBrowser
 import de.schwarzland.mavenup.service.MavenUpSettings
 import de.schwarzland.mavenup.service.OssIndexCredentialStore
+import de.schwarzland.mavenup.service.VersionAutoSelectionMode
 import com.intellij.credentialStore.Credentials
 import com.intellij.openapi.options.ConfigurationException
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
@@ -36,7 +37,7 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
     fun testResetLoadsCurrentSettingsIntoComponent() {
         val settings = MavenUpSettings.getInstance()
         settings.state.jumpOnSingleClick = true
-        settings.state.selectLatestVersion = false
+        settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.DISABLED
         settings.state.hideUnstableVersions = true
         settings.state.hiddenVersionQualifiers = "rc,beta"
         settings.state.checkTransitiveDependencies = false
@@ -107,7 +108,7 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
     fun testApplyPersistsComponentValuesToSettings() {
         val settings = MavenUpSettings.getInstance()
         settings.state.jumpOnSingleClick = false
-        settings.state.selectLatestVersion = true
+        settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.LATEST
         settings.state.hideUnstableVersions = false
         settings.state.hiddenVersionQualifiers = "rc"
         settings.state.checkTransitiveDependencies = true
@@ -258,8 +259,8 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
         assertTrue(MavenUpSettings.State().stopAfterCentralSuccess)
     }
 
-    fun testSelectLatestMinorVersionDefaultIsFalse() {
-        assertFalse(MavenUpSettings.State().selectLatestMinorVersion)
+    fun testVersionAutoSelectionModeDefaultIsDisabled() {
+        assertEquals(VersionAutoSelectionMode.DISABLED, MavenUpSettings.State().versionAutoSelectionMode)
     }
 
     fun testSyncMavenAfterUpdateSelectionIsPersistedOnApply() {
@@ -300,24 +301,26 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
         settings.state.stopAfterCentralSuccess = true
     }
 
-    fun testSelectLatestMinorVersionSelectionIsPersistedOnApply() {
+    fun testVersionAutoSelectionModeSelectionIsPersistedOnApply() {
         val settings = MavenUpSettings.getInstance()
-        settings.state.selectLatestVersion = true
-        settings.state.selectLatestMinorVersion = false
+        settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.LATEST
 
         val configurable = MavenUpConfigurable(project)
         configurable.createComponent()
         configurable.reset()
         assertFalse(configurable.isModified)
 
-        val checkBox = configurable.field<com.intellij.ui.components.JBCheckBox>("selectLatestMinorVersionCheckBox")
-        checkBox.isSelected = true
-        assertTrue("Änderung der Checkbox sollte isModified() true machen", configurable.isModified)
+        @Suppress("UNCHECKED_CAST")
+        val comboBox = configurable.field<com.intellij.openapi.ui.ComboBox<VersionAutoSelectionMode>>(
+            "versionAutoSelectionModeComboBox"
+        )
+        comboBox.selectedItem = VersionAutoSelectionMode.LATEST_MINOR
+        assertTrue("Änderung der Combobox sollte isModified() true machen", configurable.isModified)
 
         configurable.apply()
-        assertTrue(settings.state.selectLatestMinorVersion)
+        assertEquals(VersionAutoSelectionMode.LATEST_MINOR, settings.state.versionAutoSelectionMode)
 
-        settings.state.selectLatestMinorVersion = false
+        settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.DISABLED
     }
 
     fun testMavenRepositoryBrowserUrlPatterns() {
