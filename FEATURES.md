@@ -23,10 +23,12 @@ This document describes the key features of the MavenUp IntelliJ plugin, grouped
 
 ## Version Management
 
-- **Repository-based version lookup**: Retrieves available versions from Maven repositories via `maven-metadata.xml`.
-- **Selectable target versions**: Shows available versions in dropdowns for dependencies and plugins.
+- **Repository-based version lookup**: Retrieves available versions from Maven repositories via `maven-metadata.xml`, and determines the newest version from the repository-declared `<release>`/`<latest>` fields (preferring Maven Central) with comparator-based ordering as fallback, so date-based versions do not falsely outrank the actual latest release.
+- **Selectable target versions**: Shows available versions in dropdowns for dependencies and plugins; the New Version cell defaults to the current version when no target is preselected.
+- **Optional downgrade support**: An "Offer all versions" setting also lists versions older than the current one so downgrades become possible; when disabled (default), only versions greater than or equal to the current version are offered. In the version dropdown the currently used version is marked with a "(current)" label and shown in bold so it stands out among older and newer entries.
+- **Configurable auto-selection strategy**: After an update check, MavenUp provides a 3-state strategy for preselecting the target version — disabled (keep current), highest version (may cross major lines), or latest minor within the current major line (never preselects a different major line).
 - **Version status indicators**: The **New Version** column displays a green checkmark glyph ("✓") when the selected version equals the highest known version, or an upwards arrow glyph ("↑") otherwise; hovering shows a tooltip with status details. When a version different from the current one is selected, the dropdown text and the status glyph are color-coded together (green for latest, orange otherwise) and the text is shown in bold to clearly indicate a pending change. When the selected version matches the current version, the glyph and text use the default color (same as the **Current Version** column). Colors adapt to Light and Dark themes.
-- **Property-aware version handling**: Detects property-based versions (for example `${spring.version}`) and updates the property value instead of overwriting the reference.
+- **Property-aware version handling**: Detects property-based versions (for example `${spring.version}`) and updates the property value instead of overwriting the reference; the **Current Version** column resolves such placeholders against the effective Maven properties so it shows the actual version even for `dependencyManagement` entries that are not part of the resolved dependency tree.
 - **Shared-property synchronization**: Synchronizes version selection across entries that use the same Maven property.
 - **Optional unstable-version filtering**: Can hide versions by configurable qualifiers (for example `rc,beta,milestone`). The qualifier list is shown as an indented sub-setting and grows with the settings dialog width so longer lists stay readable.
 
@@ -66,8 +68,8 @@ This document describes the key features of the MavenUp IntelliJ plugin, grouped
 
 ## Settings & Configuration
 
-- **Global plugin settings**: Supports configurable behavior in `Settings > Tools > MavenUp` (click behavior, auto-select latest, unstable-version filtering, and Central-short-circuit behavior), stored at application level so the configuration applies to all projects, organized into three headed groups: **Appearance**, **Versions & Updates**, and **Vulnerability Check**.
-- **Immediate auto-select setting application**: Toggling the "Automatically select the newest version" setting and applying it immediately updates all **New Version** selections in the open tool window without requiring a new update check.
+- **Global plugin settings**: Supports configurable behavior in `Settings > Tools > MavenUp` (click behavior, auto-select strategy, unstable-version filtering, and Central-short-circuit behavior), stored at application level so the configuration applies to all projects, organized into three headed groups: **Appearance**, **Versions & Updates**, and **Vulnerability Check**.
+- **Immediate auto-select setting application**: Changing the auto-selection mode in settings and applying it immediately updates all **New Version** selections in the open tool window without requiring a new update check.
 - **Configurable toolbar button style**: Lets users switch the tool window and Vulnerability Details dialog toolbars between icon-only buttons and buttons with text labels (default); the change applies immediately to the open tool window.
 
 ---

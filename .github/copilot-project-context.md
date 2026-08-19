@@ -58,9 +58,9 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   `createVersionPanel()` baut das JPanel mit Status-Glyph und ComboBox zusammen.
   Farben verwenden `JBColor`-Doppelwerte für Light-/Dark-Mode-Kompatibilität.
 - **MavenUpSettings**: `PersistentStateComponent` auf Anwendungsebene (`Service.Level.APP`), global für alle Projekte gespeichert in `mavenup_settings.xml`
-  (`jumpOnSingleClick`, `selectLatestVersion`, `hideUnstableVersions`, `hiddenVersionQualifiers`,
+  (`jumpOnSingleClick`, `versionAutoSelectionMode` mit `DISABLED`, `LATEST`, `LATEST_MINOR`, `hideUnstableVersions`, `hiddenVersionQualifiers`,
   `ossIndexEnabled`, `checkTransitiveDependencies`, `repositoryBrowser`, `toolbarShowText`,
-  `syncMavenAfterUpdate`, `stopAfterCentralSuccess`).
+  `syncMavenAfterUpdate`, `stopAfterCentralSuccess`, `offerAllVersions`; Legacy-Migrationsfelder: `selectLatestVersion`, `selectLatestMinorVersion`).
   Für die OSS-Index-Abfrage ist nur das Token erforderlich; Sonatype wertet bei der HTTP-Basic-Authentifizierung
   nur das Token aus, weshalb ein fester Platzhalter-Benutzername verwendet wird.
   Das Token liegt ausschließlich im IntelliJ Password Safe; fehlt es, wird
@@ -68,7 +68,7 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
 - **MAVEN_UP_SETTINGS_TOPIC**: `Topic<Runnable>` in `service`, über das `MavenUpConfigurable.apply()`
   Einstellungsänderungen veröffentlicht, damit offene UI-Komponenten (z.B. die Tool-Window-Aktionsleiste
   und die Versionsvorauswahl) sofort reagieren können. Beim Empfang wird die Toolbar neu aufgebaut und
-  `applySelectLatestVersionSetting()` nur dann aufgerufen, wenn sich die `selectLatestVersion`-Einstellung
+  `applySelectLatestVersionSetting()` nur dann aufgerufen, wenn sich `versionAutoSelectionMode`
   tatsächlich geändert hat, damit andere Einstellungsänderungen die bereits getroffene **New Version**-Auswahl
   nicht zurücksetzen.
 - **MavenRepositoryBrowser**: Enum in `service`, definiert die zwei konfigurierbaren
@@ -79,7 +79,8 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   Bietet u.a. die Checkbox für Text-Buttons in der Aktionsleiste (`toolbarShowText`) und veröffentlicht
   beim Speichern den `MAVEN_UP_SETTINGS_TOPIC`.
   Die Gruppe **Versions & Updates** enthält zusätzlich die Option `stopAfterCentralSuccess` zur Steuerung,
-  ob nach erfolgreicher Maven-Central-Abfrage weitere private Repositories abgefragt werden.
+  ob nach erfolgreicher Maven-Central-Abfrage weitere private Repositories abgefragt werden, sowie die
+  Combobox `versionAutoSelectionMode` mit drei Zuständen für die Auto-Auswahl bei Update-Prüfungen.
   Die OSS-Index-Sektion kennzeichnet das Token bei Aktivierung als Pflichtfeld und
   verlinkt auf die Sonatype-Kontoeinstellungen zur Token-Erzeugung. Das Token wird außerhalb des EDT
   aus dem Password Safe geladen und für `isModified()` im UI-Modell gecacht.
@@ -91,6 +92,9 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   den verwendeten Settings-Pfad auf DEBUG-Ebene, fragt `maven-metadata.xml` für Versionslisten ab,
   löst Credential-Platzhalter auf, filtert Versionen gemäß Plugin-Einstellungen (Qualifier-Filter, Sortierung)
   und berücksichtigt die konfigurierbare Central-first-Short-Circuit-Strategie (`stopAfterCentralSuccess`).
+  Die neueste Version wird über `extractNewestFromMetadata` aus den `<release>`/`<latest>`-Feldern bestimmt
+  (Central bevorzugt) und via `orderWithNewestFirst` an den Listenanfang gestellt; Rückgabetypen sind
+  `RepositoryVersions` (pro Repository) und `CollectedVersions` (aggregiert).
 - **OssIndexApiService / OssIndexCredentialService**: optionale Sonatype-Abfrage über Maven-purl
   und sichere Zugangsdatenablage; wirft `OssIndexAuthenticationException` bei ungültigem/abgelaufenem
   Token (HTTP 401/403) für eine qualifizierte Fehlermeldung.

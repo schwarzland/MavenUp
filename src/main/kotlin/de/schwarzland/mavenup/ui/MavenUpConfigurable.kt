@@ -5,6 +5,7 @@ import de.schwarzland.mavenup.service.MavenUpSettings
 import de.schwarzland.mavenup.service.MAVEN_UP_SETTINGS_TOPIC
 import de.schwarzland.mavenup.service.OssIndexCredentialService
 import de.schwarzland.mavenup.service.OssIndexCredentialStore
+import de.schwarzland.mavenup.service.VersionAutoSelectionMode
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.diagnostic.Logger
@@ -47,7 +48,8 @@ class MavenUpConfigurable internal constructor(
     private var toolbarShowTextCheckBox: JBCheckBox? = null
     private var syncMavenAfterUpdateCheckBox: JBCheckBox? = null
     private var stopAfterCentralSuccessCheckBox: JBCheckBox? = null
-    private var selectLatestVersionCheckBox: JBCheckBox? = null
+    private var versionAutoSelectionModeComboBox: ComboBox<VersionAutoSelectionMode>? = null
+    private var offerAllVersionsCheckBox: JBCheckBox? = null
     private var hideUnstableVersionsCheckBox: JBCheckBox? = null
     private var hiddenVersionQualifiersLabel: JLabel? = null
     private var hiddenVersionQualifiersField: JTextField? = null
@@ -111,20 +113,40 @@ class MavenUpConfigurable internal constructor(
             }
             group(MyMessageBundle.message("settings.group.versions")) {
                 row {
-                    selectLatestVersionCheckBox = checkBox(MyMessageBundle.message("settings.selectLatestVersion"))
+                    label(MyMessageBundle.message("settings.versionAutoSelectionMode"))
+                    versionAutoSelectionModeComboBox = comboBox(VersionAutoSelectionMode.entries)
                         .applyToComponent {
-                            isSelected = settings.state.selectLatestVersion
-                            toolTipText = MyMessageBundle.message("settings.selectLatestVersion.tooltip")
+                            selectedItem = settings.state.versionAutoSelectionMode
+                            toolTipText = MyMessageBundle.message("settings.versionAutoSelectionMode.tooltip")
+                            renderer = object : SimpleListCellRenderer<VersionAutoSelectionMode>() {
+                                override fun customize(
+                                    list: javax.swing.JList<out VersionAutoSelectionMode>,
+                                    value: VersionAutoSelectionMode?,
+                                    index: Int,
+                                    selected: Boolean,
+                                    hasFocus: Boolean
+                                ) {
+                                    text = if (value == null) "" else MyMessageBundle.message(value.messageKey)
+                                }
+                            }
+                        }
+                        .component
+                }
+                row {
+                    offerAllVersionsCheckBox = checkBox(MyMessageBundle.message("settings.offerAllVersions"))
+                        .applyToComponent {
+                            isSelected = settings.state.offerAllVersions
+                            toolTipText = MyMessageBundle.message("settings.offerAllVersions.tooltip")
                         }
                         .component
                 }
                 row {
                     hideUnstableVersionsCheckBox = checkBox(MyMessageBundle.message("settings.hideUnstableVersions"))
-                        .applyToComponent {
-                            isSelected = settings.state.hideUnstableVersions
-                            toolTipText = MyMessageBundle.message("settings.hideUnstableVersions.tooltip")
-                        }
-                        .component
+                            .applyToComponent {
+                                isSelected = settings.state.hideUnstableVersions
+                                toolTipText = MyMessageBundle.message("settings.hideUnstableVersions.tooltip")
+                            }
+                            .component
                 }
                 indent {
                     row {
@@ -196,7 +218,6 @@ class MavenUpConfigurable internal constructor(
                     }
                 }
             }
-
             updateHiddenQualifierControlsEnabled(settings.state.hideUnstableVersions)
             hideUnstableVersionsCheckBox?.addActionListener {
                 updateHiddenQualifierControlsEnabled(hideUnstableVersionsCheckBox?.isSelected == true)
@@ -218,7 +239,8 @@ class MavenUpConfigurable internal constructor(
                 toolbarShowTextCheckBox?.isSelected != settings.state.toolbarShowText ||
                 syncMavenAfterUpdateCheckBox?.isSelected != settings.state.syncMavenAfterUpdate ||
                 stopAfterCentralSuccessCheckBox?.isSelected != settings.state.stopAfterCentralSuccess ||
-                selectLatestVersionCheckBox?.isSelected != settings.state.selectLatestVersion ||
+                versionAutoSelectionModeComboBox?.selectedItem != settings.state.versionAutoSelectionMode ||
+                offerAllVersionsCheckBox?.isSelected != settings.state.offerAllVersions ||
                 hideUnstableVersionsCheckBox?.isSelected != settings.state.hideUnstableVersions ||
                 hiddenVersionQualifiersField?.text != settings.state.hiddenVersionQualifiers ||
                 checkTransitiveDependenciesCheckBox?.isSelected != settings.state.checkTransitiveDependencies ||
@@ -244,7 +266,12 @@ class MavenUpConfigurable internal constructor(
         settings.state.toolbarShowText = toolbarShowTextCheckBox?.isSelected ?: false
         settings.state.syncMavenAfterUpdate = syncMavenAfterUpdateCheckBox?.isSelected ?: true
         settings.state.stopAfterCentralSuccess = stopAfterCentralSuccessCheckBox?.isSelected ?: true
-        settings.state.selectLatestVersion = selectLatestVersionCheckBox?.isSelected ?: true
+        settings.state.versionAutoSelectionMode =
+            versionAutoSelectionModeComboBox?.selectedItem as? VersionAutoSelectionMode
+                ?: VersionAutoSelectionMode.DISABLED
+        settings.state.selectLatestVersion = settings.state.versionAutoSelectionMode != VersionAutoSelectionMode.DISABLED
+        settings.state.selectLatestMinorVersion = settings.state.versionAutoSelectionMode == VersionAutoSelectionMode.LATEST_MINOR
+        settings.state.offerAllVersions = offerAllVersionsCheckBox?.isSelected ?: false
         settings.state.hideUnstableVersions = hideUnstableVersionsCheckBox?.isSelected ?: false
         settings.state.hiddenVersionQualifiers = hiddenVersionQualifiersField?.text?.trim().orEmpty()
         settings.state.checkTransitiveDependencies = checkTransitiveDependenciesCheckBox?.isSelected ?: true
@@ -267,7 +294,8 @@ class MavenUpConfigurable internal constructor(
         toolbarShowTextCheckBox?.isSelected = settings.state.toolbarShowText
         syncMavenAfterUpdateCheckBox?.isSelected = settings.state.syncMavenAfterUpdate
         stopAfterCentralSuccessCheckBox?.isSelected = settings.state.stopAfterCentralSuccess
-        selectLatestVersionCheckBox?.isSelected = settings.state.selectLatestVersion
+        versionAutoSelectionModeComboBox?.selectedItem = settings.state.versionAutoSelectionMode
+        offerAllVersionsCheckBox?.isSelected = settings.state.offerAllVersions
         hideUnstableVersionsCheckBox?.isSelected = settings.state.hideUnstableVersions
         hiddenVersionQualifiersField?.text = settings.state.hiddenVersionQualifiers
         checkTransitiveDependenciesCheckBox?.isSelected = settings.state.checkTransitiveDependencies
@@ -292,7 +320,8 @@ class MavenUpConfigurable internal constructor(
         toolbarShowTextCheckBox = null
         syncMavenAfterUpdateCheckBox = null
         stopAfterCentralSuccessCheckBox = null
-        selectLatestVersionCheckBox = null
+        versionAutoSelectionModeComboBox = null
+        offerAllVersionsCheckBox = null
         hideUnstableVersionsCheckBox = null
         hiddenVersionQualifiersLabel = null
         hiddenVersionQualifiersField = null

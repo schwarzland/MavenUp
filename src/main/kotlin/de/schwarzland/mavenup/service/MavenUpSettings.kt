@@ -33,6 +33,22 @@ enum class MavenRepositoryBrowser(val displayName: String) {
 }
 
 /**
+ * Beschreibt die Strategie zur automatischen Vorauswahl einer Zielversion nach einem Update-Check.
+ *
+ * @property messageKey Schlüssel für den lokalisierten Anzeigetext in den Einstellungen.
+ */
+enum class VersionAutoSelectionMode(val messageKey: String) {
+    /** Keine automatische Auswahl; die aktuelle Version bleibt vorausgewählt. */
+    DISABLED("settings.versionAutoSelectionMode.disabled"),
+
+    /** Wählt immer die höchste bekannte Version vor. */
+    LATEST("settings.versionAutoSelectionMode.latest"),
+
+    /** Wählt bevorzugt die höchste Version innerhalb derselben Major-Linie vor. */
+    LATEST_MINOR("settings.versionAutoSelectionMode.latestMinor")
+}
+
+/**
  * Diese Klasse verwaltet die persistenten Einstellungen für das MavenUp-Plugin global auf Anwendungsebene.
  *
  * Sie nutzt das IntelliJ-Framework zur Speicherung des Zustands in der Datei `mavenup_settings.xml`.
@@ -47,7 +63,7 @@ class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
      * Repräsentiert den Zustand der Plugin-Einstellungen.
      *
      * @property jumpOnSingleClick Bestimmt, ob ein einfacher Klick ausreicht, um zur Abhängigkeit im Code zu springen.
-     * @property selectLatestVersion Bestimmt, ob standardmäßig die neueste verfügbare Version ausgewählt werden soll.
+     * @property versionAutoSelectionMode Bestimmt die Vorauswahl-Strategie für die Spalte "New Version" nach einem Update-Check.
      * @property hideUnstableVersions Gibt an, ob instabile Versionen in der Auswahl ausgeblendet werden sollen.
      * @property hiddenVersionQualifiers Kommagetrennte Liste von Qualifizierern (z.B. "beta", "alpha"), die als instabil gelten.
      * @property ossIndexEnabled Gibt an, ob die Prüfung auf Sicherheitslücken via Sonatype OSS Index aktiviert ist.
@@ -56,10 +72,11 @@ class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
      * @property toolbarShowText Bestimmt, ob die Aktionsleisten Text-Buttons statt reiner Icon-Buttons anzeigen.
      * @property syncMavenAfterUpdate Bestimmt, ob nach dem Schreiben der `pom.xml` automatisch der Maven-Sync der IDE ausgelöst wird.
      * @property stopAfterCentralSuccess Bestimmt, ob nach einer erfolgreichen Abfrage von Maven Central keine weiteren privaten Repositories abgefragt werden.
+     * @property offerAllVersions Bestimmt, ob in der Versionsauswahl alle verfügbaren Versionen (inklusive älterer) angeboten werden, statt nur Versionen `>=` der aktuellen Version.
      */
     data class State(
         var jumpOnSingleClick: Boolean = false,
-        var selectLatestVersion: Boolean = false,
+        var versionAutoSelectionMode: VersionAutoSelectionMode = VersionAutoSelectionMode.DISABLED,
         var hideUnstableVersions: Boolean = false,
         var hiddenVersionQualifiers: String = "rc,beta,alpha,ea,milestone,preview,cr,nightly,snapshot",
         var ossIndexEnabled: Boolean = false,
@@ -67,11 +84,14 @@ class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
         var repositoryBrowser: MavenRepositoryBrowser = MavenRepositoryBrowser.MVN_REPOSITORY,
         var toolbarShowText: Boolean = true,
         var syncMavenAfterUpdate: Boolean = true,
-        var stopAfterCentralSuccess: Boolean = true
+        var stopAfterCentralSuccess: Boolean = true,
+        var selectLatestVersion: Boolean = false,
+        var selectLatestMinorVersion: Boolean = false,
+        var offerAllVersions: Boolean = false
     ) {
         /**
          * Sekundärer Konstruktor zur Binärkompatibilität mit bereits kompiliertem Code,
-         * der den früheren Zustand ohne `stopAfterCentralSuccess` erwartet.
+         * der den früheren Zustand ohne `stopAfterCentralSuccess` und `versionAutoSelectionMode` erwartet.
          */
         @Suppress("LongParameterList")
         constructor(
@@ -86,7 +106,7 @@ class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
             syncMavenAfterUpdate: Boolean
         ) : this(
             jumpOnSingleClick = jumpOnSingleClick,
-            selectLatestVersion = selectLatestVersion,
+            versionAutoSelectionMode = if (selectLatestVersion) VersionAutoSelectionMode.LATEST else VersionAutoSelectionMode.DISABLED,
             hideUnstableVersions = hideUnstableVersions,
             hiddenVersionQualifiers = hiddenVersionQualifiers,
             ossIndexEnabled = ossIndexEnabled,
@@ -94,8 +114,32 @@ class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
             repositoryBrowser = repositoryBrowser,
             toolbarShowText = toolbarShowText,
             syncMavenAfterUpdate = syncMavenAfterUpdate,
-            stopAfterCentralSuccess = true
+            stopAfterCentralSuccess = true,
+            selectLatestVersion = selectLatestVersion,
+            selectLatestMinorVersion = false
         )
+
+        /**
+         * Normalisiert den geladenen Zustand und migriert Legacy-Bool-Flags auf [versionAutoSelectionMode].
+         *
+         * Wenn ein Zustand aus älteren Plugin-Versionen geladen wird, kann [versionAutoSelectionMode]
+         * noch auf dem Standardwert stehen und die alten Flags enthalten die tatsächliche Benutzerwahl.
+         * In diesem Fall wird die Strategie aus den Legacy-Feldern abgeleitet.
+         */
+        fun migrateLegacyAutoSelection(): State {
+            if (versionAutoSelectionMode == VersionAutoSelectionMode.DISABLED &&
+                (selectLatestVersion || selectLatestMinorVersion)
+            ) {
+                versionAutoSelectionMode = if (selectLatestMinorVersion) {
+                    VersionAutoSelectionMode.LATEST_MINOR
+                } else {
+                    VersionAutoSelectionMode.LATEST
+                }
+            }
+            selectLatestVersion = versionAutoSelectionMode != VersionAutoSelectionMode.DISABLED
+            selectLatestMinorVersion = versionAutoSelectionMode == VersionAutoSelectionMode.LATEST_MINOR
+            return this
+        }
     }
 
     private var myState = State()
@@ -109,7 +153,7 @@ class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
      * Lädt einen gespeicherten Zustand in die Komponente. Wird vom IntelliJ-Framework aufgerufen.
      */
     override fun loadState(state: State) {
-        myState = state
+        myState = state.migrateLegacyAutoSelection()
     }
 
     companion object {
