@@ -1583,7 +1583,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
                             type = "dependency",
                             currentVersion = resolvedDependencies[key]?.artifact?.version
                                 ?: value
-                                ?: ""
                         )
                     )
                 }
@@ -1597,7 +1596,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
                             type = managedDependencyType,
                             currentVersion = resolvedDependencies[key]?.artifact?.version
                                 ?: value
-                                ?: ""
                         )
                     )
                 }
@@ -1615,7 +1613,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
                             type = "plugin",
                             currentVersion = resolvedPlugins[key]?.version
                                 ?: value
-                                ?: ""
                         )
                     )
                 }
@@ -1629,7 +1626,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
                             type = MANAGED_PLUGIN,
                             currentVersion = resolvedPlugins[key]?.version
                                 ?: value
-                                ?: ""
                         )
                     )
                 }
