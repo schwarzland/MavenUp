@@ -1437,6 +1437,26 @@ class MavenUpWindowFactory : ToolWindowFactory {
             }
         }
 
+        /**
+         * Löst einen Versionswert auf, der als Maven-Property-Platzhalter der Form
+         * `${property.name}` vorliegen kann. Wird häufig für Einträge im
+         * `dependencyManagement` benötigt, deren Version über eine Property (z. B.
+         * `${netty-bom.version}`) definiert ist und die nicht im aufgelösten
+         * Abhängigkeitsbaum auftauchen.
+         *
+         * Ist [value] kein Platzhalter oder die Property in [properties] nicht (mit
+         * nicht-leerem Wert) vorhanden, wird [value] unverändert zurückgegeben.
+         *
+         * @param value Der möglicherweise als Platzhalter vorliegende Versionswert.
+         * @param properties Die effektiven Maven-Properties (Property-Name -> Wert).
+         * @return Die aufgelöste Version oder der ursprüngliche Wert.
+         */
+        internal fun resolveVersionPlaceholder(value: String, properties: Map<String, String>): String {
+            if (!value.startsWith("\${") || !value.endsWith("}")) return value
+            val propertyName = value.substring(2, value.length - 1)
+            return properties[propertyName]?.takeIf { it.isNotBlank() } ?: value
+        }
+
         @Suppress("unused")
         private fun collectDependenciesAndProperties(
             parentTag: XmlTag?,
@@ -1569,6 +1589,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     )
                 }
 
+                val effectiveProperties =
+                    mavenProject.properties.entries.associate { (k, v) -> k.toString() to v.toString() }
                 val resolvedDependencies =
                     mavenProject.dependencyTree.associateBy { "${it.artifact.groupId}:${it.artifact.artifactId}" }
                 val seenLocalDependencyKeys = mutableSetOf<String>()
@@ -1582,7 +1604,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                             propertyName = properties[key].orEmpty(),
                             type = "dependency",
                             currentVersion = resolvedDependencies[key]?.artifact?.version
-                                ?: value
+                                ?: resolveVersionPlaceholder(value, effectiveProperties)
                         )
                     )
                 }
@@ -1595,7 +1617,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                             propertyName = properties[key].orEmpty(),
                             type = managedDependencyType,
                             currentVersion = resolvedDependencies[key]?.artifact?.version
-                                ?: value
+                                ?: resolveVersionPlaceholder(value, effectiveProperties)
                         )
                     )
                 }
@@ -1612,7 +1634,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                             propertyName = properties[key].orEmpty(),
                             type = "plugin",
                             currentVersion = resolvedPlugins[key]?.version
-                                ?: value
+                                ?: resolveVersionPlaceholder(value, effectiveProperties)
                         )
                     )
                 }
@@ -1625,7 +1647,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                             propertyName = properties[key].orEmpty(),
                             type = MANAGED_PLUGIN,
                             currentVersion = resolvedPlugins[key]?.version
-                                ?: value
+                                ?: resolveVersionPlaceholder(value, effectiveProperties)
                         )
                     )
                 }

@@ -817,6 +817,48 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertEquals("boot.version", properties["org.springframework.boot:spring-boot-starter-parent"])
     }
 
+    fun testResolveVersionPlaceholderResolvesProperty() {
+        val factory = MavenUpWindowFactory()
+        val toolWindowInstance = factory.MyToolWindow(project)
+
+        val properties = mapOf("netty-bom.version" to "4.1.100.Final")
+
+        assertEquals(
+            "4.1.100.Final",
+            toolWindowInstance.resolveVersionPlaceholder("\${netty-bom.version}", properties)
+        )
+    }
+
+    fun testResolveVersionPlaceholderReturnsLiteralVersionUnchanged() {
+        val factory = MavenUpWindowFactory()
+        val toolWindowInstance = factory.MyToolWindow(project)
+
+        assertEquals(
+            "1.2.3",
+            toolWindowInstance.resolveVersionPlaceholder("1.2.3", mapOf("some.version" to "9.9.9"))
+        )
+    }
+
+    fun testResolveVersionPlaceholderKeepsPlaceholderWhenPropertyMissing() {
+        val factory = MavenUpWindowFactory()
+        val toolWindowInstance = factory.MyToolWindow(project)
+
+        assertEquals(
+            "\${unknown.version}",
+            toolWindowInstance.resolveVersionPlaceholder("\${unknown.version}", emptyMap())
+        )
+    }
+
+    fun testResolveVersionPlaceholderKeepsPlaceholderWhenPropertyBlank() {
+        val factory = MavenUpWindowFactory()
+        val toolWindowInstance = factory.MyToolWindow(project)
+
+        assertEquals(
+            "\${blank.version}",
+            toolWindowInstance.resolveVersionPlaceholder("\${blank.version}", mapOf("blank.version" to "   "))
+        )
+    }
+
     fun testCollectParentDependencyReturnsNullWithoutParentTag() {
         val pomContent = """
             <project>

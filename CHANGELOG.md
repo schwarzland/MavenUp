@@ -15,6 +15,7 @@
 - Fixed latest-minor auto-selection for version jumps and unsorted version lists by sorting candidates before choosing the newest or same-major release.
 - Fixed duplicate dependency rows in the tool window by deduplicating entries within each scope while keeping managed and regular dependencies visible separately.
 - Fixed New Version preselection recalculation so changes to the auto-selection mode are applied immediately in open tool windows.
+- Fixed the Current Version column showing the raw property placeholder (for example `${netty-bom.version}`) for `dependencyManagement` entries whose version is defined via a property; it now resolves the placeholder against the effective Maven properties.
 
 ## [2.2.1]
 
