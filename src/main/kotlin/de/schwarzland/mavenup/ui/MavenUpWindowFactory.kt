@@ -725,8 +725,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     val hasChange = effectiveVersion != currentVersion && effectiveVersion.isNotEmpty()
 
                     val combo = ComboBox(versions.toTypedArray()).apply {
-                        if (selectedVersion != null) {
-                            selectedItem = selectedVersion
+                        if (effectiveVersion.isNotEmpty()) {
+                            selectedItem = effectiveVersion
                         }
                         if (hasChange) {
                             foreground = versionStatusColor(upToDate)
@@ -766,11 +766,11 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     val newestVersion = versions.firstOrNull() ?: ""
 
                     val selectedVersion = if (currentKey != null) selectedVersions[currentKey!!] else null
-                    if (selectedVersion != null) {
-                        combo.selectedItem = selectedVersion
+                    val effectiveVersion = selectedVersion ?: currentVersion
+                    if (effectiveVersion.isNotEmpty()) {
+                        combo.selectedItem = effectiveVersion
                     }
 
-                    val effectiveVersion = selectedVersion ?: currentVersion
                     val upToDate = isVersionUpToDate(effectiveVersion, newestVersion)
                     val hasChange = effectiveVersion != currentVersion && effectiveVersion.isNotEmpty()
                     if (hasChange) {

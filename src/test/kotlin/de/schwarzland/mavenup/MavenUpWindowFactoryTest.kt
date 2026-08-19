@@ -361,6 +361,40 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         return null
     }
 
+    private fun findComboBox(container: Container): javax.swing.JComboBox<*>? {
+        container.components.forEach { component ->
+            if (component is javax.swing.JComboBox<*>) return component
+            if (component is Container) findComboBox(component)?.let { return it }
+        }
+        return null
+    }
+
+    fun testNewVersionCellDefaultsToCurrentVersionWhenNoSelectionStored() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val content = toolWindow.getContent()
+        val table = findTable(content)
+        assertNotNull("Die Haupttabelle sollte vorhanden sein", table)
+
+        val model = table!!.model as javax.swing.table.DefaultTableModel
+        // Versionen wie vom Fetch geliefert: absteigend nach ComparableVersion sortiert,
+        // wodurch datumsbasierte Versionen (Major 2023/2025) vor der aktuellen 24.0 stehen.
+        val versions = listOf("2025-1234", "2023-1234", "24.0")
+        model.addRow(
+            arrayOf("com.example", "jump-lib", "", "dependency", "24.0", null, versions)
+        )
+
+        val renderer = table.columnModel.getColumn(6).cellRenderer
+        val component = renderer.getTableCellRendererComponent(table, versions, false, false, 0, 6) as Container
+        val combo = findComboBox(component)
+
+        assertNotNull("Die New-Version-Zelle sollte eine ComboBox rendern", combo)
+        assertEquals(
+            "Ohne gespeicherte Auswahl muss die aktuelle Version angezeigt werden, nicht die numerisch höchste",
+            "24.0",
+            combo!!.selectedItem
+        )
+    }
+
     fun testMainTableUsesSingleSelection() {
         val content = MavenUpWindowFactory().MyToolWindow(project).getContent()
 

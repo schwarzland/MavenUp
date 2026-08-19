@@ -10,6 +10,7 @@
 - Changed the settings UI from two checkboxes to a single combobox for version auto-selection strategy.
 
 ### Fixed
+- Fixed the New Version cell defaulting to the numerically highest version, which caused an unintended jump (for example from 24.0 to a date-based 2023-... version) and could be committed as an update; it now defaults to the current version when no target is preselected.
 - Fixed latest-minor auto-selection for version jumps and unsorted version lists by sorting candidates before choosing the newest or same-major release.
 - Fixed duplicate dependency rows in the tool window by deduplicating entries within each scope while keeping managed and regular dependencies visible separately.
 - Fixed New Version preselection recalculation so changes to the auto-selection mode are applied immediately in open tool windows.
