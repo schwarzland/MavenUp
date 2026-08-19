@@ -281,6 +281,41 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.LATEST
     }
 
+    fun testLatestMinorSelectionIgnoresOtherMajorLinesAndKeepsCurrentVersion() {
+        val factory = MavenUpWindowFactory()
+        val toolWindowInstance = factory.MyToolWindow(project)
+        val settings = MavenUpSettings.getInstance()
+        val originalMode = settings.state.versionAutoSelectionMode
+        try {
+            settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.LATEST_MINOR
+
+            val availableVersionsField = toolWindowInstance.javaClass.getDeclaredField("availableVersions")
+                .apply { isAccessible = true }
+            val selectedVersionsField = toolWindowInstance.javaClass.getDeclaredField("selectedVersions")
+                .apply { isAccessible = true }
+            val knownDependenciesField = toolWindowInstance.javaClass.getDeclaredField("knownDependencies")
+                .apply { isAccessible = true }
+
+            val availableVersions = availableVersionsField.get(toolWindowInstance) as MutableMap<String, List<String>>
+            val selectedVersions = selectedVersionsField.get(toolWindowInstance) as MutableMap<String, String>
+            val knownDependencies = knownDependenciesField.get(toolWindowInstance) as MutableMap<String, String>
+
+            val key = "com.example:jumped-artifact"
+            knownDependencies[key] = "24.0"
+            availableVersions[key] = listOf("2023-1234", "2022-1234", "2025-1234")
+
+            toolWindowInstance.applySelectLatestVersionSetting()
+
+            assertNull("Versionen aus einer anderen Major-Linie dürfen nicht als LATEST_MINOR-Auswahl dienen", selectedVersions[key])
+
+            availableVersions[key] = listOf("24.9", "24.3", "25.0")
+            toolWindowInstance.applySelectLatestVersionSetting()
+            assertEquals("24.9", selectedVersions[key])
+        } finally {
+            settings.state.versionAutoSelectionMode = originalMode
+        }
+    }
+
     fun testJumpOnSingleClickSetting() {
         val settings = MavenUpSettings.getInstance()
         
@@ -1010,7 +1045,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.DISABLED
     }
 
-    fun testApplySelectLatestVersionSettingFallsBackToNewestWhenMajorDoesNotMatch() {
+    fun testApplySelectLatestVersionSettingDoesNotSelectOtherMajorLinesWhenNoSameMajorExists() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         toolWindow.getContent()
         val settings = MavenUpSettings.getInstance()
@@ -1037,7 +1072,10 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         toolWindow.applySelectLatestVersionSetting()
 
-        assertEquals("3.2.0", selectedVersions[key])
+        assertNull(
+            "Wenn keine Version derselben Major-Linie existiert, darf keine fremde Major-Version vorausgewählt werden",
+            selectedVersions[key]
+        )
 
         settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.DISABLED
     }

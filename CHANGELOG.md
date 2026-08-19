@@ -10,6 +10,7 @@
 - Changed the settings UI from two checkboxes to a single combobox for version auto-selection strategy.
 
 ### Fixed
+- Fixed latest-minor auto-selection for version jumps and unsorted version lists by sorting candidates before choosing the newest or same-major release.
 - Fixed duplicate dependency rows in the tool window by deduplicating entries within each scope while keeping managed and regular dependencies visible separately.
 - Fixed New Version preselection recalculation so changes to the auto-selection mode are applied immediately in open tool windows.
 

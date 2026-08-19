@@ -2193,14 +2193,18 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * gefunden werden kann, wird auf die global höchste verfügbare Version zurückgefallen.
          */
         private fun chooseAutoSelectedVersion(currentVersion: String, versions: List<String>): String {
-            val newestVersion = versions.firstOrNull().orEmpty()
-            if (newestVersion.isEmpty()) return currentVersion
-            return when (MavenUpSettings.getInstance().state.versionAutoSelectionMode) {
-                VersionAutoSelectionMode.DISABLED -> currentVersion
-                VersionAutoSelectionMode.LATEST -> newestVersion
-                VersionAutoSelectionMode.LATEST_MINOR ->
-                    latestVersionWithinSameMajor(currentVersion, versions) ?: newestVersion
-            }
+           val sortedVersions = versions.sortedWith { v1, v2 ->
+               ComparableVersion(v2).compareTo(ComparableVersion(v1))
+           }
+           val newestVersion = sortedVersions.firstOrNull().orEmpty()
+           if (newestVersion.isEmpty() || newestVersion == currentVersion) return currentVersion
+           return when (MavenUpSettings.getInstance().state.versionAutoSelectionMode) {
+               VersionAutoSelectionMode.DISABLED -> currentVersion
+               VersionAutoSelectionMode.LATEST -> newestVersion
+               VersionAutoSelectionMode.LATEST_MINOR -> {
+                   latestVersionWithinSameMajor(currentVersion, sortedVersions) ?: currentVersion
+               }
+           }
         }
 
         /**
@@ -2210,8 +2214,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * besitzt oder keine passende Kandidaten-Version vorhanden ist.
          */
         private fun latestVersionWithinSameMajor(currentVersion: String, versions: List<String>): String? {
-            val currentMajor = extractLeadingMajorNumber(currentVersion) ?: return null
-            return versions.firstOrNull { extractLeadingMajorNumber(it) == currentMajor }
+           val currentMajor = extractLeadingMajorNumber(currentVersion) ?: return null
+           return versions
+               .sortedWith { v1, v2 -> ComparableVersion(v2).compareTo(ComparableVersion(v1)) }
+               .firstOrNull { extractLeadingMajorNumber(it) == currentMajor }
         }
 
         /**
