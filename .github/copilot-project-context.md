@@ -48,8 +48,8 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   einen `TableRowSorter` mittels der Top-Level-Funktion `rowMatchesFilter`
   kombiniert. Derselbe `TableRowSorter` übernimmt zusätzlich die spaltenweise Sortierung über die Kopfzeile:
   ein überschriebenes `toggleSortOrder` schaltet zyklisch zwischen aufsteigend, absteigend und
-  unsortiert (pom.xml-Reihenfolge) um; **Current Version** wird versionsbewusst via `ComparableVersion`
-  sortiert, während die Spalten **Vulnerabilities (Current)** und **New Version** nicht sortierbar sind.
+  unsortiert (pom.xml-Reihenfolge) um; die Spalten **Current Version**, **Vulnerabilities (Current)**
+  und **New Version** sind nicht sortierbar.
   Die Spalte **New Version** zeigt über die Helper-Funktionen `isVersionUpToDate()`, `versionStatusText()`,
   `versionStatusColor()` und `versionStatusTooltip()` ein Status-Glyph und farbcodierten Text:
   grüner Haken „✓" wenn die ausgewählte Version die neueste ist, ein Pfeil nach oben „↑" sonst.

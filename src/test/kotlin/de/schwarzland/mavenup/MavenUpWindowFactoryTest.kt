@@ -62,7 +62,8 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         @Suppress("UNCHECKED_CAST")
         val sorter = table.rowSorter as javax.swing.table.TableRowSorter<javax.swing.table.DefaultTableModel>
 
-        // Vulnerabilities- und New-Version-Spalte sind nicht sortierbar.
+        // Vulnerabilities-, Current-Version- und New-Version-Spalte sind nicht sortierbar.
+        assertFalse(sorter.isSortable(4))
         assertFalse(sorter.isSortable(5))
         assertFalse(sorter.isSortable(6))
         assertTrue(sorter.isSortable(0))
@@ -83,7 +84,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertEquals("org.b", table.getValueAt(0, 0))
     }
 
-    fun testCurrentVersionColumnSortsVersionAware() {
+    fun testCurrentVersionColumnIsNotSortable() {
         val table = findTable(MavenUpWindowFactory().MyToolWindow(project).getContent())
         assertNotNull(table)
 
@@ -93,9 +94,11 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         @Suppress("UNCHECKED_CAST")
         val sorter = table.rowSorter as javax.swing.table.TableRowSorter<javax.swing.table.DefaultTableModel>
-        sorter.toggleSortOrder(4)
+        assertFalse(sorter.isSortable(4))
 
-        // Versionsbewusst: 1.9.0 vor 1.10.0 (nicht lexikografisch).
+        // Ein Klick auf die Kopfzeile ändert die Reihenfolge nicht.
+        sorter.toggleSortOrder(4)
+        assertTrue(sorter.sortKeys.isEmpty())
         assertEquals("1.9.0", table.getValueAt(0, 4))
         assertEquals("1.10.0", table.getValueAt(1, 4))
     }

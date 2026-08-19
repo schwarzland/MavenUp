@@ -739,23 +739,17 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     sortKeys = if (next == SortOrder.UNSORTED) {
                         emptyList()
                     } else {
-                        listOf(RowSorter.SortKey(column, next))
+                        listOf(SortKey(column, next))
                     }
                 }
             }
             val textComparator = Comparator<Any?> { a, b ->
                 String.CASE_INSENSITIVE_ORDER.compare(a?.toString().orEmpty(), b?.toString().orEmpty())
             }
-            val versionComparator = Comparator<Any?> { a, b ->
-                ComparableVersion(a?.toString().orEmpty()).compareTo(ComparableVersion(b?.toString().orEmpty()))
-            }
             for (columnIndex in 0 until tableModel.columnCount) {
                 when (columnIndex) {
-                    VULNERABILITIES_COLUMN, NEW_VERSION_COLUMN -> tableRowSorter.setSortable(columnIndex, false)
-                    CURRENT_VERSION_COLUMN -> {
-                        tableRowSorter.setSortable(columnIndex, true)
-                        tableRowSorter.setComparator(columnIndex, versionComparator)
-                    }
+                    CURRENT_VERSION_COLUMN, VULNERABILITIES_COLUMN, NEW_VERSION_COLUMN ->
+                        tableRowSorter.setSortable(columnIndex, false)
                     else -> {
                         tableRowSorter.setSortable(columnIndex, true)
                         tableRowSorter.setComparator(columnIndex, textComparator)
