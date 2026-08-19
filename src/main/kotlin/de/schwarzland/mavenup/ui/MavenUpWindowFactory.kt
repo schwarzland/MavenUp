@@ -131,6 +131,40 @@ internal enum class TriStateFilter(val labelKey: String) {
 }
 
 /**
+ * Fasst die filterrelevanten Werte einer einzelnen Tabellenzeile zusammen.
+ *
+ * @property groupId Die GroupId der Zeile.
+ * @property artifactId Die ArtifactId der Zeile.
+ * @property property Der Property-Name der Zeile.
+ * @property type Der Typ der Zeile.
+ * @property hasChange `true`, wenn für die Zeile eine Versionsänderung vorliegt.
+ * @property hasVulnerabilities `true`, wenn für die Zeile mindestens eine Sicherheitslücke gemeldet ist.
+ */
+internal data class FilterRow(
+    val groupId: String,
+    val artifactId: String,
+    val property: String,
+    val type: String,
+    val hasChange: Boolean = false,
+    val hasVulnerabilities: Boolean = false
+)
+
+/**
+ * Fasst die aktiven Filterkriterien der Haupttabelle zusammen.
+ *
+ * @property searchText Der eingegebene Suchtext (wird getrimmt und case-insensitiv verglichen).
+ * @property typeFilter Der ausgewählte Typ oder ein leerer String für "alle Typen".
+ * @property changesFilter Die ausgewählte Filteroption für Änderungen (Alle, Ja, Nein).
+ * @property vulnerabilitiesFilter Die ausgewählte Filteroption für Sicherheitslücken (Alle, Ja, Nein).
+ */
+internal data class FilterCriteria(
+    val searchText: String,
+    val typeFilter: String,
+    val changesFilter: TriStateFilter = TriStateFilter.ALL,
+    val vulnerabilitiesFilter: TriStateFilter = TriStateFilter.ALL
+)
+
+/**
  * Prüft, ob eine Tabellenzeile den aktuellen Filterkriterien entspricht.
  *
  * Der Textfilter wird case-insensitiv gegen GroupId, ArtifactId und Property geprüft;
@@ -140,45 +174,26 @@ internal enum class TriStateFilter(val labelKey: String) {
  * ob Änderungen bzw. Sicherheitslücken vorliegen (`YES`), nicht vorliegen (`NO`) oder
  * der Filter inaktiv ist (`ALL`).
  *
- * @param groupId Die GroupId der Zeile.
- * @param artifactId Die ArtifactId der Zeile.
- * @param property Der Property-Name der Zeile.
- * @param type Der Typ der Zeile.
- * @param searchText Der eingegebene Suchtext (wird getrimmt und case-insensitiv verglichen).
- * @param typeFilter Der ausgewählte Typ oder ein leerer String für "alle Typen".
- * @param hasChange `true`, wenn für die Zeile eine Versionsänderung vorliegt.
- * @param changesFilter Die ausgewählte Filteroption für Änderungen (Alle, Ja, Nein).
- * @param hasVulnerabilities `true`, wenn für die Zeile mindestens eine Sicherheitslücke gemeldet ist.
- * @param vulnerabilitiesFilter Die ausgewählte Filteroption für Sicherheitslücken (Alle, Ja, Nein).
+ * @param row Die filterrelevanten Werte der zu prüfenden Zeile.
+ * @param criteria Die aktuell aktiven Filterkriterien.
  * @return `true`, wenn die Zeile allen aktiven Filterkriterien entspricht.
  */
-internal fun rowMatchesFilter(
-    groupId: String,
-    artifactId: String,
-    property: String,
-    type: String,
-    searchText: String,
-    typeFilter: String,
-    hasChange: Boolean = false,
-    changesFilter: TriStateFilter = TriStateFilter.ALL,
-    hasVulnerabilities: Boolean = false,
-    vulnerabilitiesFilter: TriStateFilter = TriStateFilter.ALL
-): Boolean {
-    val needle = searchText.trim().lowercase()
+internal fun rowMatchesFilter(row: FilterRow, criteria: FilterCriteria): Boolean {
+    val needle = criteria.searchText.trim().lowercase()
     val textMatches = needle.isEmpty() ||
-        groupId.lowercase().contains(needle) ||
-        artifactId.lowercase().contains(needle) ||
-        property.lowercase().contains(needle)
-    val typeMatches = typeFilter.isEmpty() || type == typeFilter
-    val changesMatches = when (changesFilter) {
+        row.groupId.lowercase().contains(needle) ||
+        row.artifactId.lowercase().contains(needle) ||
+        row.property.lowercase().contains(needle)
+    val typeMatches = criteria.typeFilter.isEmpty() || row.type == criteria.typeFilter
+    val changesMatches = when (criteria.changesFilter) {
         TriStateFilter.ALL -> true
-        TriStateFilter.YES -> hasChange
-        TriStateFilter.NO -> !hasChange
+        TriStateFilter.YES -> row.hasChange
+        TriStateFilter.NO -> !row.hasChange
     }
-    val vulnerabilitiesMatches = when (vulnerabilitiesFilter) {
+    val vulnerabilitiesMatches = when (criteria.vulnerabilitiesFilter) {
         TriStateFilter.ALL -> true
-        TriStateFilter.YES -> hasVulnerabilities
-        TriStateFilter.NO -> !hasVulnerabilities
+        TriStateFilter.YES -> row.hasVulnerabilities
+        TriStateFilter.NO -> !row.hasVulnerabilities
     }
     return textMatches && typeMatches && changesMatches && vulnerabilitiesMatches
 }
@@ -453,7 +468,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
      * durchzuführenden Änderungen (Gruppe, Artefakt, Version alt/neu).
      */
     class UpdateConfirmationDialog(
-        private val project: Project,
+        project: Project,
         private val updates: List<DependencyUpdate>
     ) : DialogWrapper(project) {
         private val syncMavenCheckbox: JCheckBox = JCheckBox(
@@ -1231,16 +1246,20 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     val hasVulnerabilities = cell != null && cell.allAdvisories.isNotEmpty()
 
                     return rowMatchesFilter(
-                        groupId = groupId,
-                        artifactId = artifactId,
-                        property = property,
-                        type = type,
-                        searchText = searchText,
-                        typeFilter = typeFilter,
-                        hasChange = hasChange,
-                        changesFilter = changesFilter,
-                        hasVulnerabilities = hasVulnerabilities,
-                        vulnerabilitiesFilter = vulnerabilitiesFilter
+                        FilterRow(
+                            groupId = groupId,
+                            artifactId = artifactId,
+                            property = property,
+                            type = type,
+                            hasChange = hasChange,
+                            hasVulnerabilities = hasVulnerabilities
+                        ),
+                        FilterCriteria(
+                            searchText = searchText,
+                            typeFilter = typeFilter,
+                            changesFilter = changesFilter,
+                            vulnerabilitiesFilter = vulnerabilitiesFilter
+                        )
                     )
                 }
             }

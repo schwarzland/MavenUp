@@ -12,175 +12,294 @@ class RowMatchesFilterTest {
 
     @Test
     fun testEmptySearchAndEmptyTypeMatchesEverything() {
-        assertTrue(rowMatchesFilter("org.a", "lib", "a.version", "dependency", "", ""))
+        assertTrue(
+            rowMatchesFilter(
+                FilterRow("org.a", "lib", "a.version", "dependency"),
+                FilterCriteria("", "")
+            )
+        )
     }
 
     @Test
     fun testSearchMatchesGroupIdCaseInsensitive() {
-        assertTrue(rowMatchesFilter("org.Apache", "lib", "p", "dependency", "apache", ""))
+        assertTrue(
+            rowMatchesFilter(
+                FilterRow("org.Apache", "lib", "p", "dependency"),
+                FilterCriteria("apache", "")
+            )
+        )
     }
 
     @Test
     fun testSearchMatchesArtifactId() {
-        assertTrue(rowMatchesFilter("org.a", "commons-lang", "p", "dependency", "lang", ""))
+        assertTrue(
+            rowMatchesFilter(
+                FilterRow("org.a", "commons-lang", "p", "dependency"),
+                FilterCriteria("lang", "")
+            )
+        )
     }
 
     @Test
     fun testSearchMatchesProperty() {
-        assertTrue(rowMatchesFilter("org.a", "lib", "spring.version", "dependency", "spring", ""))
+        assertTrue(
+            rowMatchesFilter(
+                FilterRow("org.a", "lib", "spring.version", "dependency"),
+                FilterCriteria("spring", "")
+            )
+        )
     }
 
     @Test
     fun testSearchIsTrimmedBeforeMatching() {
-        assertTrue(rowMatchesFilter("org.a", "commons-lang", "p", "dependency", "  lang  ", ""))
+        assertTrue(
+            rowMatchesFilter(
+                FilterRow("org.a", "commons-lang", "p", "dependency"),
+                FilterCriteria("  lang  ", "")
+            )
+        )
     }
 
     @Test
     fun testSearchNotInAnyColumnDoesNotMatch() {
-        assertFalse(rowMatchesFilter("org.a", "lib", "p", "dependency", "zzz", ""))
+        assertFalse(
+            rowMatchesFilter(
+                FilterRow("org.a", "lib", "p", "dependency"),
+                FilterCriteria("zzz", "")
+            )
+        )
     }
 
     @Test
     fun testSearchDoesNotConsiderTypeColumn() {
-        assertFalse(rowMatchesFilter("org.a", "lib", "p", "dependency", "dependency", ""))
+        assertFalse(
+            rowMatchesFilter(
+                FilterRow("org.a", "lib", "p", "dependency"),
+                FilterCriteria("dependency", "")
+            )
+        )
     }
 
     @Test
     fun testTypeFilterMatchesExactType() {
-        assertTrue(rowMatchesFilter("org.a", "lib", "p", "plugin", "", "plugin"))
+        assertTrue(
+            rowMatchesFilter(
+                FilterRow("org.a", "lib", "p", "plugin"),
+                FilterCriteria("", "plugin")
+            )
+        )
     }
 
     @Test
     fun testTypeFilterRejectsOtherType() {
-        assertFalse(rowMatchesFilter("org.a", "lib", "p", "dependency", "", "plugin"))
+        assertFalse(
+            rowMatchesFilter(
+                FilterRow("org.a", "lib", "p", "dependency"),
+                FilterCriteria("", "plugin")
+            )
+        )
     }
 
     @Test
     fun testTextAndTypeMustBothMatch() {
-        assertTrue(rowMatchesFilter("org.a", "lib", "p", "plugin", "lib", "plugin"))
-        assertFalse(rowMatchesFilter("org.a", "lib", "p", "dependency", "lib", "plugin"))
-        assertFalse(rowMatchesFilter("org.a", "lib", "p", "plugin", "zzz", "plugin"))
+        assertTrue(
+            rowMatchesFilter(
+                FilterRow("org.a", "lib", "p", "plugin"),
+                FilterCriteria("lib", "plugin")
+            )
+        )
+        assertFalse(
+            rowMatchesFilter(
+                FilterRow("org.a", "lib", "p", "dependency"),
+                FilterCriteria("lib", "plugin")
+            )
+        )
+        assertFalse(
+            rowMatchesFilter(
+                FilterRow("org.a", "lib", "p", "plugin"),
+                FilterCriteria("zzz", "plugin")
+            )
+        )
     }
 
     @Test
     fun testEmptyPropertyDoesNotBreakMatching() {
-        assertTrue(rowMatchesFilter("org.a", "lib", "", "dependency", "lib", ""))
+        assertTrue(
+            rowMatchesFilter(
+                FilterRow("org.a", "lib", "", "dependency"),
+                FilterCriteria("lib", "")
+            )
+        )
     }
 
     @Test
     fun testChangesFilterAllAcceptsBothStates() {
-        assertTrue(rowMatchesFilter("org.a", "lib", "p", "dependency", "", "", hasChange = true, changesFilter = TriStateFilter.ALL))
-        assertTrue(rowMatchesFilter("org.a", "lib", "p", "dependency", "", "", hasChange = false, changesFilter = TriStateFilter.ALL))
+        assertTrue(
+            rowMatchesFilter(
+                FilterRow("org.a", "lib", "p", "dependency", hasChange = true),
+                FilterCriteria("", "", changesFilter = TriStateFilter.ALL)
+            )
+        )
+        assertTrue(
+            rowMatchesFilter(
+                FilterRow("org.a", "lib", "p", "dependency", hasChange = false),
+                FilterCriteria("", "", changesFilter = TriStateFilter.ALL)
+            )
+        )
     }
 
     @Test
     fun testChangesFilterYesOnlyAcceptsRowsWithChanges() {
-        assertTrue(rowMatchesFilter("org.a", "lib", "p", "dependency", "", "", hasChange = true, changesFilter = TriStateFilter.YES))
-        assertFalse(rowMatchesFilter("org.a", "lib", "p", "dependency", "", "", hasChange = false, changesFilter = TriStateFilter.YES))
+        assertTrue(
+            rowMatchesFilter(
+                FilterRow("org.a", "lib", "p", "dependency", hasChange = true),
+                FilterCriteria("", "", changesFilter = TriStateFilter.YES)
+            )
+        )
+        assertFalse(
+            rowMatchesFilter(
+                FilterRow("org.a", "lib", "p", "dependency", hasChange = false),
+                FilterCriteria("", "", changesFilter = TriStateFilter.YES)
+            )
+        )
     }
 
     @Test
     fun testChangesFilterNoOnlyAcceptsRowsWithoutChanges() {
-        assertFalse(rowMatchesFilter("org.a", "lib", "p", "dependency", "", "", hasChange = true, changesFilter = TriStateFilter.NO))
-        assertTrue(rowMatchesFilter("org.a", "lib", "p", "dependency", "", "", hasChange = false, changesFilter = TriStateFilter.NO))
+        assertFalse(
+            rowMatchesFilter(
+                FilterRow("org.a", "lib", "p", "dependency", hasChange = true),
+                FilterCriteria("", "", changesFilter = TriStateFilter.NO)
+            )
+        )
+        assertTrue(
+            rowMatchesFilter(
+                FilterRow("org.a", "lib", "p", "dependency", hasChange = false),
+                FilterCriteria("", "", changesFilter = TriStateFilter.NO)
+            )
+        )
     }
 
     @Test
     fun testVulnerabilitiesFilterAllAcceptsBothStates() {
-        assertTrue(rowMatchesFilter("org.a", "lib", "p", "dependency", "", "", hasVulnerabilities = true, vulnerabilitiesFilter = TriStateFilter.ALL))
-        assertTrue(rowMatchesFilter("org.a", "lib", "p", "dependency", "", "", hasVulnerabilities = false, vulnerabilitiesFilter = TriStateFilter.ALL))
+        assertTrue(
+            rowMatchesFilter(
+                FilterRow("org.a", "lib", "p", "dependency", hasVulnerabilities = true),
+                FilterCriteria("", "", vulnerabilitiesFilter = TriStateFilter.ALL)
+            )
+        )
+        assertTrue(
+            rowMatchesFilter(
+                FilterRow("org.a", "lib", "p", "dependency", hasVulnerabilities = false),
+                FilterCriteria("", "", vulnerabilitiesFilter = TriStateFilter.ALL)
+            )
+        )
     }
 
     @Test
     fun testVulnerabilitiesFilterYesOnlyAcceptsRowsWithVulnerabilities() {
-        assertTrue(rowMatchesFilter("org.a", "lib", "p", "dependency", "", "", hasVulnerabilities = true, vulnerabilitiesFilter = TriStateFilter.YES))
-        assertFalse(rowMatchesFilter("org.a", "lib", "p", "dependency", "", "", hasVulnerabilities = false, vulnerabilitiesFilter = TriStateFilter.YES))
+        assertTrue(
+            rowMatchesFilter(
+                FilterRow("org.a", "lib", "p", "dependency", hasVulnerabilities = true),
+                FilterCriteria("", "", vulnerabilitiesFilter = TriStateFilter.YES)
+            )
+        )
+        assertFalse(
+            rowMatchesFilter(
+                FilterRow("org.a", "lib", "p", "dependency", hasVulnerabilities = false),
+                FilterCriteria("", "", vulnerabilitiesFilter = TriStateFilter.YES)
+            )
+        )
     }
 
     @Test
     fun testVulnerabilitiesFilterNoOnlyAcceptsRowsWithoutVulnerabilities() {
-        assertFalse(rowMatchesFilter("org.a", "lib", "p", "dependency", "", "", hasVulnerabilities = true, vulnerabilitiesFilter = TriStateFilter.NO))
-        assertTrue(rowMatchesFilter("org.a", "lib", "p", "dependency", "", "", hasVulnerabilities = false, vulnerabilitiesFilter = TriStateFilter.NO))
+        assertFalse(
+            rowMatchesFilter(
+                FilterRow("org.a", "lib", "p", "dependency", hasVulnerabilities = true),
+                FilterCriteria("", "", vulnerabilitiesFilter = TriStateFilter.NO)
+            )
+        )
+        assertTrue(
+            rowMatchesFilter(
+                FilterRow("org.a", "lib", "p", "dependency", hasVulnerabilities = false),
+                FilterCriteria("", "", vulnerabilitiesFilter = TriStateFilter.NO)
+            )
+        )
     }
 
     @Test
     fun testAllFiltersCombinedMatching() {
+        val matchingRow = FilterRow(
+            groupId = "org.apache.commons",
+            artifactId = "commons-lang3",
+            property = "commons-lang3.version",
+            type = "dependency",
+            hasChange = true,
+            hasVulnerabilities = true
+        )
+
         assertTrue(
             rowMatchesFilter(
-                groupId = "org.apache.commons",
-                artifactId = "commons-lang3",
-                property = "commons-lang3.version",
-                type = "dependency",
-                searchText = "commons",
-                typeFilter = "dependency",
-                hasChange = true,
-                changesFilter = TriStateFilter.YES,
-                hasVulnerabilities = true,
-                vulnerabilitiesFilter = TriStateFilter.YES
+                matchingRow,
+                FilterCriteria(
+                    searchText = "commons",
+                    typeFilter = "dependency",
+                    changesFilter = TriStateFilter.YES,
+                    vulnerabilitiesFilter = TriStateFilter.YES
+                )
             )
         )
 
         // Text mismatch
         assertFalse(
             rowMatchesFilter(
-                groupId = "org.apache.commons",
-                artifactId = "commons-lang3",
-                property = "commons-lang3.version",
-                type = "dependency",
-                searchText = "spring",
-                typeFilter = "dependency",
-                hasChange = true,
-                changesFilter = TriStateFilter.YES,
-                hasVulnerabilities = true,
-                vulnerabilitiesFilter = TriStateFilter.YES
+                matchingRow,
+                FilterCriteria(
+                    searchText = "spring",
+                    typeFilter = "dependency",
+                    changesFilter = TriStateFilter.YES,
+                    vulnerabilitiesFilter = TriStateFilter.YES
+                )
             )
         )
 
         // Type mismatch
         assertFalse(
             rowMatchesFilter(
-                groupId = "org.apache.commons",
-                artifactId = "commons-lang3",
-                property = "commons-lang3.version",
-                type = "dependency",
-                searchText = "commons",
-                typeFilter = "plugin",
-                hasChange = true,
-                changesFilter = TriStateFilter.YES,
-                hasVulnerabilities = true,
-                vulnerabilitiesFilter = TriStateFilter.YES
+                matchingRow,
+                FilterCriteria(
+                    searchText = "commons",
+                    typeFilter = "plugin",
+                    changesFilter = TriStateFilter.YES,
+                    vulnerabilitiesFilter = TriStateFilter.YES
+                )
             )
         )
 
         // Changes mismatch
         assertFalse(
             rowMatchesFilter(
-                groupId = "org.apache.commons",
-                artifactId = "commons-lang3",
-                property = "commons-lang3.version",
-                type = "dependency",
-                searchText = "commons",
-                typeFilter = "dependency",
-                hasChange = false,
-                changesFilter = TriStateFilter.YES,
-                hasVulnerabilities = true,
-                vulnerabilitiesFilter = TriStateFilter.YES
+                matchingRow.copy(hasChange = false),
+                FilterCriteria(
+                    searchText = "commons",
+                    typeFilter = "dependency",
+                    changesFilter = TriStateFilter.YES,
+                    vulnerabilitiesFilter = TriStateFilter.YES
+                )
             )
         )
 
         // Vulnerabilities mismatch
         assertFalse(
             rowMatchesFilter(
-                groupId = "org.apache.commons",
-                artifactId = "commons-lang3",
-                property = "commons-lang3.version",
-                type = "dependency",
-                searchText = "commons",
-                typeFilter = "dependency",
-                hasChange = true,
-                changesFilter = TriStateFilter.YES,
-                hasVulnerabilities = false,
-                vulnerabilitiesFilter = TriStateFilter.YES
+                matchingRow.copy(hasVulnerabilities = false),
+                FilterCriteria(
+                    searchText = "commons",
+                    typeFilter = "dependency",
+                    changesFilter = TriStateFilter.YES,
+                    vulnerabilitiesFilter = TriStateFilter.YES
+                )
             )
         )
     }
