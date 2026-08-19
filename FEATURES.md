@@ -18,6 +18,7 @@ This document describes the key features of the MavenUp IntelliJ plugin, grouped
 - **Two-tier action toolbar**: Tool window and Vulnerability Details dialog present their actions in a top IntelliJ `ActionToolbar`; core actions (Refresh, Find New Versions, Scan for Vulnerabilities, Update) are separated by a separator from the bulk version-selection actions (Select Highest Major Version, Select Highest Minor Version, Reset to Current Versions), followed by the selection-dependent actions (Open in Repository, Vulnerability Details / References), with Settings placed at the end. Actions render either as icon-only buttons (with tooltips) or as buttons with text labels (default), configurable in the settings.
 - **Fixed column order**: All plugin tables enforce single-row selection and prevent column reordering, so columns keep their defined order and cannot be dragged around.
 - **Dependency table filtering**: A filter row above the main table combines a text field that filters by GroupId, ArtifactId or Property (case-insensitive substring match) with three combo boxes filtering by dependency type, pending version changes (All, Yes, No), and security findings (All, Yes, No); only rows matching all active filters remain visible.
+- **Column-header sorting**: Clicking a column header cycles the dependency table through ascending, descending, and the original pom.xml order; the Current Version column sorts version-aware (for example `1.10` after `1.9`), while the Vulnerabilities and New Version columns stay unsorted.
 
 ---
 

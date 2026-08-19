@@ -590,7 +590,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /** Container für Aktionsleiste und Filterzeile im Nordbereich. */
         private val topPanel = JBPanel<JBPanel<*>>(BorderLayout())
 
-        /** Row-Sorter der Tabelle, der ausschließlich zum Filtern verwendet wird. */
+        /**
+         * Row-Sorter der Tabelle, der sowohl das Filtern der Zeilen als auch das
+         * spaltenweise Sortieren über die Kopfzeile übernimmt.
+         */
         private var tableRowSorter: TableRowSorter<DefaultTableModel>
 
         private val content = JBPanel<JBPanel<*>>(BorderLayout()).apply {
@@ -718,9 +721,46 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 }
             }
 
-            tableRowSorter = TableRowSorter(tableModel)
+            tableRowSorter = object : TableRowSorter<DefaultTableModel>(tableModel) {
+                /**
+                 * Schaltet die Sortierung einer Spalte zyklisch weiter: aufsteigend →
+                 * absteigend → unsortiert (Reihenfolge wie in der pom.xml).
+                 *
+                 * @param column Modellindex der angeklickten Spalte.
+                 */
+                override fun toggleSortOrder(column: Int) {
+                    if (!isSortable(column)) return
+                    val current = sortKeys.firstOrNull { it.column == column }?.sortOrder
+                    val next = when (current) {
+                        SortOrder.ASCENDING -> SortOrder.DESCENDING
+                        SortOrder.DESCENDING -> SortOrder.UNSORTED
+                        else -> SortOrder.ASCENDING
+                    }
+                    sortKeys = if (next == SortOrder.UNSORTED) {
+                        emptyList()
+                    } else {
+                        listOf(RowSorter.SortKey(column, next))
+                    }
+                }
+            }
+            val textComparator = Comparator<Any?> { a, b ->
+                String.CASE_INSENSITIVE_ORDER.compare(a?.toString().orEmpty(), b?.toString().orEmpty())
+            }
+            val versionComparator = Comparator<Any?> { a, b ->
+                ComparableVersion(a?.toString().orEmpty()).compareTo(ComparableVersion(b?.toString().orEmpty()))
+            }
             for (columnIndex in 0 until tableModel.columnCount) {
-                tableRowSorter.setSortable(columnIndex, false)
+                when (columnIndex) {
+                    VULNERABILITIES_COLUMN, NEW_VERSION_COLUMN -> tableRowSorter.setSortable(columnIndex, false)
+                    CURRENT_VERSION_COLUMN -> {
+                        tableRowSorter.setSortable(columnIndex, true)
+                        tableRowSorter.setComparator(columnIndex, versionComparator)
+                    }
+                    else -> {
+                        tableRowSorter.setSortable(columnIndex, true)
+                        tableRowSorter.setComparator(columnIndex, textComparator)
+                    }
+                }
             }
             table.rowSorter = tableRowSorter
             applyRowFilter()

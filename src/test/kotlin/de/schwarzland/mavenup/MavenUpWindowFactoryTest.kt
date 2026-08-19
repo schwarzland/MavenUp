@@ -51,6 +51,55 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertTrue(table.model.isCellEditable(0, 6))
     }
 
+    fun testColumnHeaderSortingCyclesAscendingDescendingPomOrder() {
+        val table = findTable(MavenUpWindowFactory().MyToolWindow(project).getContent())
+        assertNotNull(table)
+
+        val model = table!!.model as javax.swing.table.DefaultTableModel
+        model.addRow(arrayOf<Any?>("org.b", "b-lib", null, "dependency", "1.0.0", null, emptyList<String>()))
+        model.addRow(arrayOf<Any?>("org.a", "a-lib", null, "dependency", "2.0.0", null, emptyList<String>()))
+
+        @Suppress("UNCHECKED_CAST")
+        val sorter = table.rowSorter as javax.swing.table.TableRowSorter<javax.swing.table.DefaultTableModel>
+
+        // Vulnerabilities- und New-Version-Spalte sind nicht sortierbar.
+        assertFalse(sorter.isSortable(5))
+        assertFalse(sorter.isSortable(6))
+        assertTrue(sorter.isSortable(0))
+
+        // Erster Klick: aufsteigend -> org.a vor org.b.
+        sorter.toggleSortOrder(0)
+        assertEquals(javax.swing.SortOrder.ASCENDING, sorter.sortKeys.first().sortOrder)
+        assertEquals("org.a", table.getValueAt(0, 0))
+
+        // Zweiter Klick: absteigend -> org.b vor org.a.
+        sorter.toggleSortOrder(0)
+        assertEquals(javax.swing.SortOrder.DESCENDING, sorter.sortKeys.first().sortOrder)
+        assertEquals("org.b", table.getValueAt(0, 0))
+
+        // Dritter Klick: unsortiert -> ursprüngliche pom.xml-Reihenfolge.
+        sorter.toggleSortOrder(0)
+        assertTrue(sorter.sortKeys.isEmpty())
+        assertEquals("org.b", table.getValueAt(0, 0))
+    }
+
+    fun testCurrentVersionColumnSortsVersionAware() {
+        val table = findTable(MavenUpWindowFactory().MyToolWindow(project).getContent())
+        assertNotNull(table)
+
+        val model = table!!.model as javax.swing.table.DefaultTableModel
+        model.addRow(arrayOf<Any?>("org.x", "x-lib", null, "dependency", "1.9.0", null, emptyList<String>()))
+        model.addRow(arrayOf<Any?>("org.y", "y-lib", null, "dependency", "1.10.0", null, emptyList<String>()))
+
+        @Suppress("UNCHECKED_CAST")
+        val sorter = table.rowSorter as javax.swing.table.TableRowSorter<javax.swing.table.DefaultTableModel>
+        sorter.toggleSortOrder(4)
+
+        // Versionsbewusst: 1.9.0 vor 1.10.0 (nicht lexikografisch).
+        assertEquals("1.9.0", table.getValueAt(0, 4))
+        assertEquals("1.10.0", table.getValueAt(1, 4))
+    }
+
     fun testTransitiveVulnerabilitiesAreIncludedAndMarkedInDependencyCell() {
         val directCoordinate = "com.example:direct:1.0.0"
         val transitiveCoordinate = "com.example:transitive:2.0.0"

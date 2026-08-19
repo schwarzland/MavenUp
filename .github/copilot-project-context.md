@@ -45,8 +45,11 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   wird bei geänderten Einstellungen über den `MAVEN_UP_SETTINGS_TOPIC`-Message-Bus sofort neu aufgebaut.
   Unterhalb der Aktionsleiste liegt eine Filterzeile mit drei `ComboBox`-Elementen (Typ, anstehende Änderungen via `TriStateFilter` [All/Yes/No], Sicherheitslücken via `TriStateFilter` [All/Yes/No]) und einem `SearchTextField` (Textfilter über
   GroupId, ArtifactId und Property, case-insensitiv); alle Filter werden über
-  einen `TableRowSorter` (nur Filtern, kein Sortieren) mittels der Top-Level-Funktion `rowMatchesFilter`
-  kombiniert.
+  einen `TableRowSorter` mittels der Top-Level-Funktion `rowMatchesFilter`
+  kombiniert. Derselbe `TableRowSorter` übernimmt zusätzlich die spaltenweise Sortierung über die Kopfzeile:
+  ein überschriebenes `toggleSortOrder` schaltet zyklisch zwischen aufsteigend, absteigend und
+  unsortiert (pom.xml-Reihenfolge) um; **Current Version** wird versionsbewusst via `ComparableVersion`
+  sortiert, während die Spalten **Vulnerabilities (Current)** und **New Version** nicht sortierbar sind.
   Die Spalte **New Version** zeigt über die Helper-Funktionen `isVersionUpToDate()`, `versionStatusText()`,
   `versionStatusColor()` und `versionStatusTooltip()` ein Status-Glyph und farbcodierten Text:
   grüner Haken „✓" wenn die ausgewählte Version die neueste ist, ein Pfeil nach oben „↑" sonst.
