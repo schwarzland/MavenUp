@@ -586,6 +586,12 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private val vulnerabilityAdvisories = mutableMapOf<String, List<VulnerabilityAdvisory>>()
         private val transitiveCoordinates = mutableSetOf<String>()
         private val transitiveDependenciesByDirect = mutableMapOf<String, Set<String>>()
+
+        /**
+         * `true`, sobald mindestens eine erfolgreiche Vulnerability-Prüfung ("Scan for Vulnerabilities")
+         * abgeschlossen wurde. Steuert die Aktivierung des Vulnerabilities-Filters.
+         */
+        private var vulnerabilityScanPerformed = false
         private var isUpdating = false
         private var isRefreshing = false
         private var refreshGeneration = 0
@@ -966,6 +972,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     vulnerabilityAdvisories.clear()
                     transitiveCoordinates.clear()
                     transitiveDependenciesByDirect.clear()
+                    vulnerabilityScanPerformed = false
                 }
                 dependencyToProperty.clear()
                 knownDependencies.clear()
@@ -1005,6 +1012,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         updateUpdateButtonState()
                         updateTypeFilterOptions()
                         updateUpdatesFilterState()
+                        updateVulnerabilitiesFilterState()
 
                         if (checkUpdates) {
                             performUpdateCheck {
@@ -1247,6 +1255,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             vulnerabilitiesFilterComboBox.selectedItem = TriStateFilter.ALL
             vulnerabilitiesFilterComboBox.toolTipText =
                 MyMessageBundle.message("toolwindow.MyToolWindow.filter.vulnerabilities.tooltip")
+            vulnerabilitiesFilterComboBox.isEnabled = isVulnerabilitiesFilterAvailable()
             vulnerabilitiesFilterComboBox.addActionListener { applyRowFilter() }
             filterControlsPanel.add(vulnerabilitiesFilterComboBox)
 
@@ -1425,6 +1434,30 @@ class MavenUpWindowFactory : ToolWindowFactory {
             updatesFilterComboBox.isEnabled = available
             if (!available && updatesFilterComboBox.selectedItem != TriStateFilter.ALL) {
                 updatesFilterComboBox.selectedItem = TriStateFilter.ALL
+            }
+        }
+
+        /**
+         * Prüft, ob der Vulnerabilities-Filter verwendet werden darf.
+         *
+         * Der Filter setzt eine erfolgreiche Sicherheitsprüfung ("Scan for Vulnerabilities") voraus.
+         *
+         * @return `true`, wenn mindestens eine Sicherheitsprüfung abgeschlossen wurde.
+         */
+        internal fun isVulnerabilitiesFilterAvailable(): Boolean = vulnerabilityScanPerformed
+
+        /**
+         * Aktualisiert den Aktivierungszustand des Vulnerabilities-Filters.
+         *
+         * Der Filter wird nur aktiviert, wenn eine erfolgreiche Sicherheitsprüfung durchgeführt wurde
+         * (siehe [isVulnerabilitiesFilterAvailable]). Ist er nicht verfügbar, wird die Auswahl auf
+         * [TriStateFilter.ALL] zurückgesetzt, damit keine unsichtbare Filterung aktiv bleibt.
+         */
+        internal fun updateVulnerabilitiesFilterState() {
+            val available = isVulnerabilitiesFilterAvailable()
+            vulnerabilitiesFilterComboBox.isEnabled = available
+            if (!available && vulnerabilitiesFilterComboBox.selectedItem != TriStateFilter.ALL) {
+                vulnerabilitiesFilterComboBox.selectedItem = TriStateFilter.ALL
             }
         }
 
@@ -2226,6 +2259,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             transitiveCoordinates.addAll(scanTargets.transitiveCoordinates)
             transitiveDependenciesByDirect.clear()
             transitiveDependenciesByDirect.putAll(scanTargets.transitiveDependenciesByDirect)
+            vulnerabilityScanPerformed = true
         }
 
         /**

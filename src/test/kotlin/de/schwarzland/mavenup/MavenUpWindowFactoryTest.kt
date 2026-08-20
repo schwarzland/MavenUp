@@ -380,6 +380,38 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertEquals(TriStateFilter.ALL, toolWindowInstance.updatesFilterComboBox.selectedItem)
     }
 
+    fun testVulnerabilitiesFilterIsDisabledUntilSuccessfulVulnerabilityScan() {
+        val toolWindowInstance = MavenUpWindowFactory().MyToolWindow(project)
+
+        assertFalse(toolWindowInstance.isVulnerabilitiesFilterAvailable())
+        assertFalse(toolWindowInstance.vulnerabilitiesFilterComboBox.isEnabled)
+
+        val scanPerformedField = toolWindowInstance.javaClass
+            .getDeclaredField("vulnerabilityScanPerformed").apply { isAccessible = true }
+
+        scanPerformedField.setBoolean(toolWindowInstance, true)
+        toolWindowInstance.updateVulnerabilitiesFilterState()
+        assertTrue(toolWindowInstance.isVulnerabilitiesFilterAvailable())
+        assertTrue(toolWindowInstance.vulnerabilitiesFilterComboBox.isEnabled)
+    }
+
+    fun testVulnerabilitiesFilterSelectionResetsWhenScanStateCleared() {
+        val toolWindowInstance = MavenUpWindowFactory().MyToolWindow(project)
+
+        val scanPerformedField = toolWindowInstance.javaClass
+            .getDeclaredField("vulnerabilityScanPerformed").apply { isAccessible = true }
+
+        scanPerformedField.setBoolean(toolWindowInstance, true)
+        toolWindowInstance.updateVulnerabilitiesFilterState()
+        toolWindowInstance.vulnerabilitiesFilterComboBox.selectedItem = TriStateFilter.YES
+
+        scanPerformedField.setBoolean(toolWindowInstance, false)
+        toolWindowInstance.updateVulnerabilitiesFilterState()
+
+        assertFalse(toolWindowInstance.vulnerabilitiesFilterComboBox.isEnabled)
+        assertEquals(TriStateFilter.ALL, toolWindowInstance.vulnerabilitiesFilterComboBox.selectedItem)
+    }
+
     fun testLatestMinorSelectionIgnoresOtherMajorLinesAndKeepsCurrentVersion() {
         val factory = MavenUpWindowFactory()
         val toolWindowInstance = factory.MyToolWindow(project)
