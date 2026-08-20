@@ -1165,6 +1165,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 messageKey: String,
                 icon: Icon,
                 isEnabled: () -> Boolean,
+                descriptionProvider: (() -> String)? = null,
                 onPerform: () -> Unit
             ): AnAction {
                 val label = MyMessageBundle.message(messageKey)
@@ -1172,6 +1173,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
                     override fun update(e: AnActionEvent) {
                         e.presentation.isEnabled = isEnabled()
+                        descriptionProvider?.let { e.presentation.description = it() }
                         e.presentation.putClientProperty(ActionUtil.SHOW_TEXT_IN_TOOLBAR, isToolbarTextEnabled())
                     }
 
@@ -1218,12 +1220,22 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.selectHighestMajor.button",
                     AllIcons.Actions.Play_last,
-                    { isBulkVersionSelectionEnabled() }
+                    { isBulkVersionSelectionEnabled() },
+                    descriptionProvider = {
+                        bulkSelectionActionDescription(
+                            MyMessageBundle.message("toolwindow.MyToolWindow.selectHighestMajor.button")
+                        )
+                    }
                 ) { selectHighestMajorVersionForAll() })
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.selectHighestMinor.button",
                     AllIcons.Actions.Play_forward,
-                    { isBulkVersionSelectionEnabled() }
+                    { isBulkVersionSelectionEnabled() },
+                    descriptionProvider = {
+                        bulkSelectionActionDescription(
+                            MyMessageBundle.message("toolwindow.MyToolWindow.selectHighestMinor.button")
+                        )
+                    }
                 ) { selectHighestMinorVersionForAll() })
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.resetVersions.button",
@@ -1692,23 +1704,25 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
-         * Wählt für alle geladenen Abhängigkeiten die höchste verfügbare Version (über alle Major-Linien hinweg) aus.
+         * Wählt für alle aktuell in der Tabelle sichtbaren Abhängigkeiten die höchste verfügbare Version
+         * (über alle Major-Linien hinweg) aus.
          *
-         * Die neueste Version steht jeweils an erster Stelle der von
-         * [DependencyApiService.fetchVersions] gelieferten Liste.
+         * Ist ein Filter aktiv, werden ausgeblendete Einträge bewusst nicht verändert. Die neueste Version
+         * steht jeweils an erster Stelle der von [DependencyApiService.fetchVersions] gelieferten Liste.
          */
         internal fun selectHighestMajorVersionForAll() {
-            applyBulkVersionSelection { _, versions -> versions.firstOrNull().orEmpty() }
+            applyBulkVersionSelection(visibleOnly = true) { _, versions -> versions.firstOrNull().orEmpty() }
         }
 
         /**
-         * Wählt für alle geladenen Abhängigkeiten die höchste Version innerhalb derselben Major-Linie
-         * wie die aktuell verwendete Version aus.
+         * Wählt für alle aktuell in der Tabelle sichtbaren Abhängigkeiten die höchste Version innerhalb
+         * derselben Major-Linie wie die aktuell verwendete Version aus.
          *
-         * Existiert keine passende Version derselben Major-Linie, bleibt die aktuelle Version erhalten.
+         * Ist ein Filter aktiv, werden ausgeblendete Einträge bewusst nicht verändert. Existiert keine
+         * passende Version derselben Major-Linie, bleibt die aktuelle Version erhalten.
          */
         internal fun selectHighestMinorVersionForAll() {
-            applyBulkVersionSelection { current, versions ->
+            applyBulkVersionSelection(visibleOnly = true) { current, versions ->
                 latestVersionWithinSameMajor(current, versions) ?: current
             }
         }
@@ -1716,24 +1730,31 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /**
          * Verwirft alle getroffenen Versionsauswahlen und setzt jede Abhängigkeit auf ihre aktuell
          * verwendete Version zurück.
+         *
+         * Diese Aktion wirkt bewusst global (auch auf ausgefilterte Einträge), damit ein Zurücksetzen
+         * garantiert alle offenen Änderungen entfernt.
          */
         internal fun resetAllVersionsToCurrent() {
-            applyBulkVersionSelection { current, _ -> current }
+            applyBulkVersionSelection(visibleOnly = false) { current, _ -> current }
         }
 
         /**
-         * Wendet eine Auswahlstrategie auf alle geladenen Abhängigkeiten an und aktualisiert die Tabelle.
+         * Wendet eine Auswahlstrategie auf Abhängigkeiten an und aktualisiert die Tabelle.
          *
-         * Für jede Abhängigkeit wird die von [chooser] gelieferte Zielversion übernommen. Entspricht sie
-         * der aktuellen Version (oder ist leer), wird der Eintrag aus [selectedVersions] entfernt, sodass
-         * keine Änderung angezeigt wird.
+         * Für jede berücksichtigte Abhängigkeit wird die von [chooser] gelieferte Zielversion übernommen.
+         * Entspricht sie der aktuellen Version (oder ist leer), wird der Eintrag aus [selectedVersions]
+         * entfernt, sodass keine Änderung angezeigt wird.
          *
+         * @param visibleOnly Wenn `true`, werden nur aktuell in der Tabelle sichtbare (nicht ausgefilterte)
+         *   Abhängigkeiten berücksichtigt; ansonsten alle geladenen Abhängigkeiten.
          * @param chooser Funktion, die aus der aktuellen Version und den verfügbaren Versionen die Zielversion ermittelt.
          */
-        private fun applyBulkVersionSelection(chooser: (String, List<String>) -> String) {
+        private fun applyBulkVersionSelection(visibleOnly: Boolean, chooser: (String, List<String>) -> String) {
             if (availableVersions.isEmpty()) return
+            val visibleKeys = if (visibleOnly) collectVisibleDependencyKeys() else null
             for ((key, versions) in availableVersions) {
                 if (versions.isEmpty()) continue
+                if (visibleKeys != null && key !in visibleKeys) continue
                 val currentVersion = knownDependencies[key] ?: ""
                 val chosen = chooser(currentVersion, versions)
                 if (chosen.isNotEmpty() && chosen != currentVersion) {
@@ -1747,6 +1768,49 @@ class MavenUpWindowFactory : ToolWindowFactory {
             updateUpdateButtonState()
             applyRowFilter()
         }
+
+        /**
+         * Ermittelt die Schlüssel (`groupId:artifactId`) aller aktuell in der Tabelle sichtbaren Zeilen.
+         *
+         * Ausgefilterte Zeilen werden nicht berücksichtigt.
+         *
+         * @return Menge der sichtbaren Dependency-Schlüssel.
+         */
+        private fun collectVisibleDependencyKeys(): Set<String> {
+            val model = table.model
+            val keys = HashSet<String>()
+            for (viewRow in 0 until table.rowCount) {
+                val modelRow = table.convertRowIndexToModel(viewRow)
+                val groupId = model.getValueAt(modelRow, GROUP_ID_COLUMN)?.toString().orEmpty()
+                val artifactId = model.getValueAt(modelRow, ARTIFACT_ID_COLUMN)?.toString().orEmpty()
+                keys.add("$groupId:$artifactId")
+            }
+            return keys
+        }
+
+        /**
+         * Prüft, ob der aktive Zeilenfilter aktuell Einträge ausblendet.
+         *
+         * @return `true`, wenn weniger Zeilen sichtbar sind als das Tabellenmodell enthält.
+         */
+        internal fun isRowFilterHidingEntries(): Boolean {
+            val model = table.model as? DefaultTableModel ?: return false
+            return table.rowCount < model.rowCount
+        }
+
+        /**
+         * Erzeugt die Tooltip-Beschreibung für die Sammelauswahl-Aktionen und ergänzt bei aktivem Filter
+         * einen Hinweis, dass nur sichtbare Abhängigkeiten betroffen sind.
+         *
+         * @param baseLabel Die Basisbeschriftung der Aktion.
+         * @return Die Beschriftung, ggf. um den Filterhinweis erweitert.
+         */
+        internal fun bulkSelectionActionDescription(baseLabel: String): String =
+            if (isRowFilterHidingEntries()) {
+                "$baseLabel \u2014 ${MyMessageBundle.message("toolwindow.MyToolWindow.bulkSelection.filterActiveHint")}"
+            } else {
+                baseLabel
+            }
 
         /**
          * Prüft, ob die Sammelaktionen zur Versionsauswahl ausführbar sind.

@@ -1710,12 +1710,15 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
     fun testSelectHighestMajorVersionForAllSelectsNewestOverall() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
-        toolWindow.getContent()
+        val content = toolWindow.getContent()
+        val model = findTable(content)!!.model as javax.swing.table.DefaultTableModel
         val (availableVersions, selectedVersions, knownDependencies) = versionMaps(toolWindow)
 
         val key = "com.example:major-all"
         availableVersions[key] = listOf("3.1.0", "3.0.0", "2.9.9", "2.5.0")
         knownDependencies[key] = "2.5.0"
+        model.addRow(arrayOf("com.example", "major-all", "", "dependency", "2.5.0", null, availableVersions[key]))
+        toolWindow.applyRowFilter()
 
         toolWindow.selectHighestMajorVersionForAll()
 
@@ -1724,12 +1727,15 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
     fun testSelectHighestMinorVersionForAllStaysWithinCurrentMajor() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
-        toolWindow.getContent()
+        val content = toolWindow.getContent()
+        val model = findTable(content)!!.model as javax.swing.table.DefaultTableModel
         val (availableVersions, selectedVersions, knownDependencies) = versionMaps(toolWindow)
 
         val key = "com.example:minor-all"
         availableVersions[key] = listOf("3.1.0", "3.0.0", "2.9.9", "2.5.0")
         knownDependencies[key] = "2.5.0"
+        model.addRow(arrayOf("com.example", "minor-all", "", "dependency", "2.5.0", null, availableVersions[key]))
+        toolWindow.applyRowFilter()
 
         toolWindow.selectHighestMinorVersionForAll()
 
@@ -1738,12 +1744,15 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
     fun testSelectHighestMinorVersionForAllKeepsCurrentWhenNoSameMajorExists() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
-        toolWindow.getContent()
+        val content = toolWindow.getContent()
+        val model = findTable(content)!!.model as javax.swing.table.DefaultTableModel
         val (availableVersions, selectedVersions, knownDependencies) = versionMaps(toolWindow)
 
         val key = "com.example:minor-none"
         availableVersions[key] = listOf("3.2.0", "3.1.0")
         knownDependencies[key] = "2.8.0"
+        model.addRow(arrayOf("com.example", "minor-none", "", "dependency", "2.8.0", null, availableVersions[key]))
+        toolWindow.applyRowFilter()
 
         toolWindow.selectHighestMinorVersionForAll()
 
@@ -1751,6 +1760,86 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
             "Ohne Version derselben Major-Linie darf keine abweichende Auswahl gesetzt werden.",
             selectedVersions[key]
         )
+    }
+
+    fun testBulkSelectionSkipsRowsHiddenByFilter() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val content = toolWindow.getContent()
+        val model = findTable(content)!!.model as javax.swing.table.DefaultTableModel
+        val (availableVersions, selectedVersions, knownDependencies) = versionMaps(toolWindow)
+
+        val visibleKey = "com.example:visible-lib"
+        val hiddenKey = "com.example:hidden-lib"
+        availableVersions[visibleKey] = listOf("2.0.0", "1.0.0")
+        availableVersions[hiddenKey] = listOf("2.0.0", "1.0.0")
+        knownDependencies[visibleKey] = "1.0.0"
+        knownDependencies[hiddenKey] = "1.0.0"
+        model.addRow(arrayOf("com.example", "visible-lib", "", "dependency", "1.0.0", null, availableVersions[visibleKey]))
+        model.addRow(arrayOf("com.example", "hidden-lib", "", "plugin", "1.0.0", null, availableVersions[hiddenKey]))
+
+        // Nur Zeilen vom Typ "dependency" sichtbar lassen.
+        toolWindow.updateTypeFilterOptions()
+        toolWindow.typeFilterComboBox.selectedItem = "dependency"
+        toolWindow.applyRowFilter()
+        assertTrue(toolWindow.isRowFilterHidingEntries())
+
+        toolWindow.selectHighestMajorVersionForAll()
+
+        assertEquals("2.0.0", selectedVersions[visibleKey])
+        assertNull(
+            "Eine ausgefilterte Zeile darf durch die Sammelauswahl nicht verändert werden.",
+            selectedVersions[hiddenKey]
+        )
+    }
+
+    fun testResetAllVersionsToCurrentClearsHiddenSelections() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val content = toolWindow.getContent()
+        val model = findTable(content)!!.model as javax.swing.table.DefaultTableModel
+        val (availableVersions, selectedVersions, knownDependencies) = versionMaps(toolWindow)
+
+        val visibleKey = "com.example:reset-visible"
+        val hiddenKey = "com.example:reset-hidden"
+        availableVersions[visibleKey] = listOf("2.0.0", "1.0.0")
+        availableVersions[hiddenKey] = listOf("2.0.0", "1.0.0")
+        knownDependencies[visibleKey] = "1.0.0"
+        knownDependencies[hiddenKey] = "1.0.0"
+        selectedVersions[visibleKey] = "2.0.0"
+        selectedVersions[hiddenKey] = "2.0.0"
+        model.addRow(arrayOf("com.example", "reset-visible", "", "dependency", "1.0.0", null, availableVersions[visibleKey]))
+        model.addRow(arrayOf("com.example", "reset-hidden", "", "plugin", "1.0.0", null, availableVersions[hiddenKey]))
+
+        toolWindow.updateTypeFilterOptions()
+        toolWindow.typeFilterComboBox.selectedItem = "dependency"
+        toolWindow.applyRowFilter()
+
+        toolWindow.resetAllVersionsToCurrent()
+
+        assertNull(
+            "Das Zurücksetzen muss auch ausgefilterte Auswahlen entfernen.",
+            selectedVersions[hiddenKey]
+        )
+        assertNull(selectedVersions[visibleKey])
+    }
+
+    fun testBulkSelectionActionDescriptionAppendsHintWhenFilterHidesRows() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val content = toolWindow.getContent()
+        val model = findTable(content)!!.model as javax.swing.table.DefaultTableModel
+
+        model.addRow(arrayOf("com.example", "lib-a", "", "dependency", "1.0.0", null, listOf("1.0.0")))
+        model.addRow(arrayOf("com.example", "lib-b", "", "plugin", "1.0.0", null, listOf("1.0.0")))
+
+        toolWindow.applyRowFilter()
+        assertFalse(toolWindow.isRowFilterHidingEntries())
+        assertEquals("Base", toolWindow.bulkSelectionActionDescription("Base"))
+
+        toolWindow.updateTypeFilterOptions()
+        toolWindow.typeFilterComboBox.selectedItem = "dependency"
+        toolWindow.applyRowFilter()
+        assertTrue(toolWindow.isRowFilterHidingEntries())
+        assertTrue(toolWindow.bulkSelectionActionDescription("Base").startsWith("Base"))
+        assertTrue(toolWindow.bulkSelectionActionDescription("Base").length > "Base".length)
     }
 
     fun testResetAllVersionsToCurrentClearsSelections() {

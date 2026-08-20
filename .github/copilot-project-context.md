@@ -62,10 +62,12 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   Bei einer ausstehenden Änderung (ausgewählte ≠ aktuelle Version) wird der Dropdown-Text fett dargestellt.
   `createVersionPanel()` baut das JPanel mit Status-Glyph und ComboBox zusammen.
   Farben verwenden `JBColor`-Doppelwerte für Light-/Dark-Mode-Kompatibilität.
-  Die Sammelaktionen setzen die **New Version**-Auswahl für alle geladenen Dependencies gemeinsam:
+  Die Sammelaktionen setzen die **New Version**-Auswahl gemeinsam:
   `selectHighestMajorVersionForAll()` wählt die höchste verfügbare Version, `selectHighestMinorVersionForAll()`
-  die höchste Version innerhalb der aktuellen Major-Linie und `resetAllVersionsToCurrent()` verwirft alle
-  Auswahlen; ihre Aktivierung steuern `isBulkVersionSelectionEnabled()` und `isResetVersionsEnabled()`.
+  die höchste Version innerhalb der aktuellen Major-Linie – beide nur für die aktuell sichtbaren
+  (nicht ausgefilterten) Zeilen (`collectVisibleDependencyKeys()`) – und `resetAllVersionsToCurrent()` verwirft alle
+  Auswahlen unabhängig vom Filter; ihre Aktivierung steuern `isBulkVersionSelectionEnabled()` und `isResetVersionsEnabled()`.
+  `isRowFilterHidingEntries()` und `bulkSelectionActionDescription()` erweitern den Tooltip der "Select Highest"-Aktionen bei aktivem Filter um einen Hinweis.
 - **MavenUpSettings**: `PersistentStateComponent` auf Anwendungsebene (`Service.Level.APP`), global für alle Projekte gespeichert in `mavenup_settings.xml`
   (`jumpOnSingleClick`, `versionAutoSelectionMode` mit `DISABLED`, `LATEST`, `LATEST_MINOR`, `hideUnstableVersions`, `hiddenVersionQualifiers`,
   `ossIndexEnabled`, `checkTransitiveDependencies`, `repositoryBrowser`, `toolbarShowText`,
