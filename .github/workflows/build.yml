@@ -4,9 +4,9 @@ name: Feature Build and Test
 
 on:
   push:
-    # Nur Feature-Branches bauen; main wird ueber einen eigenen Workflow abgedeckt.
     branches:
       - feature/**
+      - release/**
 
 # Least-Privilege: Der Job benoetigt nur Lesezugriff auf das Repository.
 permissions:
