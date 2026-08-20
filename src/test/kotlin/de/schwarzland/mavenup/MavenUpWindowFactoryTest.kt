@@ -22,6 +22,7 @@ import de.schwarzland.mavenup.ui.versionStatusTooltip
 import de.schwarzland.mavenup.ui.versionDropdownItemText
 import de.schwarzland.mavenup.ui.createVersionPanel
 import de.schwarzland.mavenup.ui.TriStateFilter
+import de.schwarzland.mavenup.ui.sortableHeaderIcon
 import com.intellij.openapi.wm.RegisterToolWindowTask
 import com.intellij.openapi.wm.ToolWindowAnchor
 import com.intellij.openapi.wm.ToolWindowManager
@@ -104,6 +105,26 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertTrue(sorter.sortKeys.isEmpty())
         assertEquals("1.9.0", table.getValueAt(0, 4))
         assertEquals("1.10.0", table.getValueAt(1, 4))
+    }
+
+    fun testSortableHeaderIconReflectsSortState() {
+        // Nicht sortierbare Spalten erhalten kein Icon.
+        assertNull(sortableHeaderIcon(sortable = false, sortOrder = null))
+        assertNull(sortableHeaderIcon(sortable = false, sortOrder = javax.swing.SortOrder.ASCENDING))
+
+        // Sortierbare, aber unsortierte Spalten erhalten einen (gedämpften) Doppelpfeil.
+        assertNotNull(sortableHeaderIcon(sortable = true, sortOrder = null))
+        assertNotNull(sortableHeaderIcon(sortable = true, sortOrder = javax.swing.SortOrder.UNSORTED))
+
+        // Aktive Sortierung zeigt die passenden Richtungspfeile.
+        assertSame(
+            com.intellij.icons.AllIcons.General.ArrowUp,
+            sortableHeaderIcon(sortable = true, sortOrder = javax.swing.SortOrder.ASCENDING)
+        )
+        assertSame(
+            com.intellij.icons.AllIcons.General.ArrowDown,
+            sortableHeaderIcon(sortable = true, sortOrder = javax.swing.SortOrder.DESCENDING)
+        )
     }
 
     fun testTransitiveVulnerabilitiesAreIncludedAndMarkedInDependencyCell() {
