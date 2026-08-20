@@ -107,6 +107,19 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertEquals("1.10.0", table.getValueAt(1, 4))
     }
 
+    fun testToolWindowIconResourceIsAvailable() {
+        // Das eigene Tool-Window-Icon muss als Ressource im Klassenpfad vorhanden sein,
+        // damit die in plugin.xml referenzierte Datei zur Laufzeit geladen werden kann.
+        assertNotNull(
+            "Icon /icons/mavenUpToolWindow.svg fehlt im Klassenpfad",
+            javaClass.getResource("/icons/mavenUpToolWindow.svg")
+        )
+        assertNotNull(
+            "Dark-Variante /icons/mavenUpToolWindow_dark.svg fehlt im Klassenpfad",
+            javaClass.getResource("/icons/mavenUpToolWindow_dark.svg")
+        )
+    }
+
     fun testSortableHeaderIconReflectsSortState() {
         // Nicht sortierbare Spalten erhalten kein Icon.
         assertNull(sortableHeaderIcon(sortable = false, sortOrder = null))

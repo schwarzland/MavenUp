@@ -6,7 +6,7 @@ This document describes the key features of the MavenUp IntelliJ plugin, grouped
 
 ## Tool Window & UI
 
-- **Maven-only tool window availability**: The MavenUp tool window is shown for Maven projects and becomes available after Maven import if needed.
+- **Maven-only tool window availability**: The MavenUp tool window is shown for Maven projects and becomes available after Maven import if needed. It appears in the tool window bar with a dedicated MavenUp icon (with a Light and Dark theme variant) instead of a generic IntelliJ icon.
 - **Dependency and plugin overview**: Displays dependencies, plugins, and the parent POM from `pom.xml` in a table.
 - **Parent POM support**: The `<parent>` section of each `pom.xml` is listed as a dependency with type "parent", including version checks and updates.
 - **Support for managed scopes**: Includes `dependencyManagement` and `pluginManagement` entries.

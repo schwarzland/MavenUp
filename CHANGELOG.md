@@ -4,6 +4,7 @@
 ## [2.3.0]
 
 ### Added
+- Added a dedicated MavenUp tool window icon (with Light and Dark theme variants) shown in the tool window bar instead of a generic IntelliJ icon.
 - Added toolbar actions to bulk-select the highest major version, the highest minor version within the current major line, or reset all selections to the current versions; the two "Select Highest" actions apply only to the currently visible (non-filtered) dependencies and show a tooltip hint when a filter hides entries, while the reset clears all selections regardless of filtering.
 - Added a 3-state auto-selection mode setting for update checks (disabled, highest version, latest minor in current major line).
 - Added an "Offer all versions" setting that also lists versions older than the current one, enabling downgrades; disabled by default so only versions greater than or equal to the current one are offered.

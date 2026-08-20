@@ -11,6 +11,7 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
 - Group: `de.schwarzland`, aktuelle Version: siehe `gradle.properties` (`version=...`)
 - Sprache Code: Kotlin; Build: Gradle (`build.gradle.kts`, `settings.gradle.kts`)
 - Plugin-Descriptor: `src/main/resources/META-INF/plugin.xml`
+- Tool-Window-Icon: `src/main/resources/icons/mavenUpToolWindow.svg` (Light) und `mavenUpToolWindow_dark.svg` (Dark), in `plugin.xml` über das `icon`-Attribut des `<toolWindow>` referenziert.
 
 ## Kernkomponenten (`src/main/kotlin/de/schwarzland/mavenup/`)
 

@@ -6,7 +6,7 @@ Eine vollständige, englische Feature-Liste steht in `FEATURES.md`.
 
 ## Benutzung
 
-Das Plugin öffnet ein Tool-Window namens **MavenUp** (meist am linken oder unteren Rand der IDE).
+Das Plugin öffnet ein Tool-Window namens **MavenUp** (meist am linken oder unteren Rand der IDE). In der Werkzeugleiste ist es an einem eigenen MavenUp-Icon (mit Light- und Dark-Variante) erkennbar.
 
 1. **Refresh**: Lädt die Projektdaten neu, befüllt die Tabelle und setzt die Spalte **New Version** zurück. Währenddessen ist **Scan for Vulnerabilities** deaktiviert. (Beim **Find New Versions** bleiben die neu geladenen Werte erhalten.)
 2. **Find New Versions**: Sucht online nach verfügbaren Versionen für alle gelisteten Einträge; **Scan for Vulnerabilities** bleibt bis zum Abschluss deaktiviert.

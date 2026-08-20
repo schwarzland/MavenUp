@@ -51,7 +51,7 @@
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
     <extensions defaultExtensionNs="com.intellij">
         <toolWindow id="MavenUp" factoryClass="de.schwarzland.mavenup.ui.MavenUpWindowFactory"
-                    icon="AllIcons.Toolwindows.ToolWindowPalette"
+                    icon="/icons/mavenUpToolWindow.svg"
                     anchor="bottom"
                     secondary="false"
                     doNotActivateOnStart="true"/>
