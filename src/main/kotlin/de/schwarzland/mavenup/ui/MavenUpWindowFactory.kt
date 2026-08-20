@@ -1192,18 +1192,22 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
             filterControlsPanel.add(JLabel(MyMessageBundle.message("toolwindow.MyToolWindow.filter.type.label")))
             typeFilterComboBox.model = DefaultComboBoxModel(arrayOf(allTypesFilterLabel))
+            typeFilterComboBox.toolTipText = MyMessageBundle.message("toolwindow.MyToolWindow.filter.type.tooltip")
             typeFilterComboBox.addActionListener { applyRowFilter() }
             filterControlsPanel.add(typeFilterComboBox)
 
             filterControlsPanel.add(JLabel(MyMessageBundle.message("toolwindow.MyToolWindow.filter.changes.label")))
             changesFilterComboBox.model = DefaultComboBoxModel(TriStateFilter.entries.toTypedArray())
             changesFilterComboBox.selectedItem = TriStateFilter.ALL
+            changesFilterComboBox.toolTipText = MyMessageBundle.message("toolwindow.MyToolWindow.filter.changes.tooltip")
             changesFilterComboBox.addActionListener { applyRowFilter() }
             filterControlsPanel.add(changesFilterComboBox)
 
             filterControlsPanel.add(JLabel(MyMessageBundle.message("toolwindow.MyToolWindow.filter.vulnerabilities.label")))
             vulnerabilitiesFilterComboBox.model = DefaultComboBoxModel(TriStateFilter.entries.toTypedArray())
             vulnerabilitiesFilterComboBox.selectedItem = TriStateFilter.ALL
+            vulnerabilitiesFilterComboBox.toolTipText =
+                MyMessageBundle.message("toolwindow.MyToolWindow.filter.vulnerabilities.tooltip")
             vulnerabilitiesFilterComboBox.addActionListener { applyRowFilter() }
             filterControlsPanel.add(vulnerabilitiesFilterComboBox)
 
@@ -1211,6 +1215,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
             searchTextField.textEditor.emptyText.text =
                 MyMessageBundle.message("toolwindow.MyToolWindow.filter.search.placeholder")
+            searchTextField.toolTipText = MyMessageBundle.message("toolwindow.MyToolWindow.filter.search.tooltip")
+            searchTextField.textEditor.toolTipText =
+                MyMessageBundle.message("toolwindow.MyToolWindow.filter.search.tooltip")
             searchTextField.addDocumentListener(object : DocumentAdapter() {
                 override fun textChanged(e: DocumentEvent) = applyRowFilter()
             })
@@ -1231,8 +1238,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * @return Die Toolbar-Komponente mit der Reset-Aktion.
          */
         private fun buildFilterResetToolbar(): JComponent {
-            val resetLabel = MyMessageBundle.message("toolwindow.MyToolWindow.filter.reset.button")
-            val resetAction = object : AnAction(resetLabel, resetLabel, AllIcons.General.Reset) {
+            val resetTitle = MyMessageBundle.message("toolwindow.MyToolWindow.filter.reset.button")
+            val resetAction = object : AnAction(resetTitle, null, AllIcons.General.Reset) {
                 override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
                 override fun update(e: AnActionEvent) {
                     e.presentation.isEnabled = isResetFiltersEnabled()

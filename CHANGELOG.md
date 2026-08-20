@@ -10,6 +10,7 @@
 - Added a "(current)" marker in bold to the currently used version in the version selection dropdown so it stands out, especially when older versions are offered.
 - Added column-header sorting to the dependency table that cycles through ascending, descending, and the original pom.xml order, excluding the Current Version, Vulnerabilities, and New Version columns.
 - Added a reset button at the end of the filter row that clears the search text and the type, changes, and vulnerabilities filters at once.
+- Added tooltips to the filter row controls that explain the search field and the type, changes, and vulnerabilities filters.
 
 ### Changed
 - Changed the settings UI from two checkboxes to a single combobox for version auto-selection strategy.

@@ -10,6 +10,7 @@ import de.schwarzland.mavenup.service.MavenRepositoryBrowser
 import de.schwarzland.mavenup.service.VersionAutoSelectionMode
 import de.schwarzland.mavenup.ui.buildMavenRepositoryUrl
 import de.schwarzland.mavenup.ui.MavenUpWindowFactory
+import de.schwarzland.mavenup.ui.MyMessageBundle
 import de.schwarzland.mavenup.ui.RefreshSnapshot
 import de.schwarzland.mavenup.ui.buildVulnerabilityCell
 import de.schwarzland.mavenup.ui.canCheckVulnerabilities
@@ -1465,6 +1466,28 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         toolWindow.applyRowFilter()
         assertEquals(1, table.rowCount)
         assertEquals("clean-lib", table.getValueAt(0, 1))
+    }
+
+    fun testFilterControlsHaveTooltips() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        assertEquals(
+            MyMessageBundle.message("toolwindow.MyToolWindow.filter.type.tooltip"),
+            toolWindow.typeFilterComboBox.toolTipText
+        )
+        assertEquals(
+            MyMessageBundle.message("toolwindow.MyToolWindow.filter.changes.tooltip"),
+            toolWindow.changesFilterComboBox.toolTipText
+        )
+        assertEquals(
+            MyMessageBundle.message("toolwindow.MyToolWindow.filter.vulnerabilities.tooltip"),
+            toolWindow.vulnerabilitiesFilterComboBox.toolTipText
+        )
+        assertEquals(
+            MyMessageBundle.message("toolwindow.MyToolWindow.filter.search.tooltip"),
+            toolWindow.searchTextField.toolTipText
+        )
     }
 
     fun testResetFiltersEnabledReflectsActiveFilters() {
