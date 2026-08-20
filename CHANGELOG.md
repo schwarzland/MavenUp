@@ -9,6 +9,7 @@
 - Added an "Offer all versions" setting that also lists versions older than the current one, enabling downgrades; disabled by default so only versions greater than or equal to the current one are offered.
 - Added a "(current)" marker in bold to the currently used version in the version selection dropdown so it stands out, especially when older versions are offered.
 - Added column-header sorting to the dependency table that cycles through ascending, descending, and the original pom.xml order, excluding the Current Version, Vulnerabilities, and New Version columns.
+- Added a reset button at the end of the filter row that clears the search text and the type, changes, and vulnerabilities filters at once.
 
 ### Changed
 - Changed the settings UI from two checkboxes to a single combobox for version auto-selection strategy.
@@ -18,7 +19,7 @@
 - Fixed the New Version cell defaulting to the numerically highest version, which caused an unintended jump (for example from 24.0 to a date-based 2023-... version) and could be committed as an update; it now defaults to the current version when no target is preselected.
 - Fixed latest-minor auto-selection for version jumps and unsorted version lists by sorting candidates before choosing the newest or same-major release.
 - Fixed duplicate dependency rows in the tool window by deduplicating entries within each scope while keeping managed and regular dependencies visible separately.
-- Fixed New Version preselection recalculation so changes to the auto-selection mode are applied immediately in open tool windows.
+- Fixed New Version preselection recalculation, so changes to the auto-selection mode are applied immediately in open tool windows.
 - Fixed the Current Version column showing the raw property placeholder (for example `${netty-bom.version}`) for `dependencyManagement` entries whose version is defined via a property; it now resolves the placeholder against the effective Maven properties.
 - Fixed the update check offering older versions for property-based `dependencyManagement` entries by resolving the version placeholder before filtering, so the "greater than or equal to current" filter compares against the real version instead of the raw placeholder.
 

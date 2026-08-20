@@ -1467,6 +1467,54 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertEquals("clean-lib", table.getValueAt(0, 1))
     }
 
+    fun testResetFiltersEnabledReflectsActiveFilters() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        assertFalse(toolWindow.isResetFiltersEnabled())
+
+        toolWindow.searchTextField.text = "example"
+        assertTrue(toolWindow.isResetFiltersEnabled())
+        toolWindow.searchTextField.text = ""
+        assertFalse(toolWindow.isResetFiltersEnabled())
+
+        toolWindow.changesFilterComboBox.selectedItem = TriStateFilter.YES
+        assertTrue(toolWindow.isResetFiltersEnabled())
+        toolWindow.changesFilterComboBox.selectedItem = TriStateFilter.ALL
+        assertFalse(toolWindow.isResetFiltersEnabled())
+
+        toolWindow.vulnerabilitiesFilterComboBox.selectedItem = TriStateFilter.NO
+        assertTrue(toolWindow.isResetFiltersEnabled())
+        toolWindow.vulnerabilitiesFilterComboBox.selectedItem = TriStateFilter.ALL
+        assertFalse(toolWindow.isResetFiltersEnabled())
+    }
+
+    fun testResetAllFiltersRestoresDefaultsAndShowsAllRows() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val content = toolWindow.getContent()
+        val table = findTable(content)!!
+        val model = table.model as javax.swing.table.DefaultTableModel
+
+        model.addRow(arrayOf("com.example", "lib-a", "", "dependency", "1.0.0", null, listOf("1.0.0")))
+        model.addRow(arrayOf("com.example", "lib-b", "", "plugin", "1.0.0", null, listOf("1.0.0")))
+
+        toolWindow.updateTypeFilterOptions()
+        toolWindow.searchTextField.text = "lib-a"
+        toolWindow.typeFilterComboBox.selectedItem = "dependency"
+        toolWindow.changesFilterComboBox.selectedItem = TriStateFilter.NO
+        toolWindow.vulnerabilitiesFilterComboBox.selectedItem = TriStateFilter.NO
+        toolWindow.applyRowFilter()
+        assertEquals(1, table.rowCount)
+
+        toolWindow.resetAllFilters()
+
+        assertEquals("", toolWindow.searchTextField.text)
+        assertEquals(TriStateFilter.ALL, toolWindow.changesFilterComboBox.selectedItem)
+        assertEquals(TriStateFilter.ALL, toolWindow.vulnerabilitiesFilterComboBox.selectedItem)
+        assertFalse(toolWindow.isResetFiltersEnabled())
+        assertEquals(2, table.rowCount)
+    }
+
     /**
      * Liefert die drei per Reflection zugänglichen Versions-Maps eines Tool-Windows.
      */

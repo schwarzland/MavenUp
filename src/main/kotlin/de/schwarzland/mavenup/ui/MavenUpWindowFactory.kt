@@ -605,6 +605,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /** Container für Aktionsleiste und Filterzeile im Nordbereich. */
         private val topPanel = JBPanel<JBPanel<*>>(BorderLayout())
 
+        /** Aktionsleiste am Ende der Filterzeile zum Zurücksetzen aller Filter. */
+        private var filterResetToolbar: ActionToolbar? = null
+
         /**
          * Row-Sorter der Tabelle, der sowohl das Filtern der Zeilen als auch das
          * spaltenweise Sortieren über die Kopfzeile übernimmt.
@@ -1213,7 +1216,65 @@ class MavenUpWindowFactory : ToolWindowFactory {
             })
             panel.add(searchTextField, BorderLayout.CENTER)
 
+            panel.add(buildFilterResetToolbar(), BorderLayout.EAST)
+
             return panel
+        }
+
+        /**
+         * Erstellt eine schmale Aktionsleiste mit einem einzelnen Icon-Button, der alle Filter
+         * der Filterzeile zurücksetzt.
+         *
+         * Der Button wird am Ende der Filterzeile platziert und ist nur aktiv, solange mindestens
+         * ein Filter aktiv ist (siehe [isResetFiltersEnabled]).
+         *
+         * @return Die Toolbar-Komponente mit der Reset-Aktion.
+         */
+        private fun buildFilterResetToolbar(): JComponent {
+            val resetLabel = MyMessageBundle.message("toolwindow.MyToolWindow.filter.reset.button")
+            val resetAction = object : AnAction(resetLabel, resetLabel, AllIcons.Actions.Cancel) {
+                override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
+                override fun update(e: AnActionEvent) {
+                    e.presentation.isEnabled = isResetFiltersEnabled()
+                }
+
+                override fun actionPerformed(e: AnActionEvent) = resetAllFilters()
+            }
+            val group = DefaultActionGroup().apply { add(resetAction) }
+            val toolbar = ActionManager.getInstance()
+                .createActionToolbar("MavenUpFilterReset", group, true)
+            toolbar.targetComponent = searchTextField
+            filterResetToolbar = toolbar
+            return toolbar.component
+        }
+
+        /**
+         * Prüft, ob aktuell mindestens ein Filter der Filterzeile aktiv ist.
+         *
+         * @return `true`, wenn Suchtext, Typ-, Änderungs- oder Vulnerabilities-Filter von ihrem
+         *         Standardwert abweichen.
+         */
+        internal fun isResetFiltersEnabled(): Boolean {
+            val searchActive = searchTextField.text.isNotEmpty()
+            val typeActive = (typeFilterComboBox.selectedItem as? String ?: allTypesFilterLabel) != allTypesFilterLabel
+            val changesActive = (changesFilterComboBox.selectedItem as? TriStateFilter ?: TriStateFilter.ALL) != TriStateFilter.ALL
+            val vulnerabilitiesActive =
+                (vulnerabilitiesFilterComboBox.selectedItem as? TriStateFilter ?: TriStateFilter.ALL) != TriStateFilter.ALL
+            return searchActive || typeActive || changesActive || vulnerabilitiesActive
+        }
+
+        /**
+         * Setzt alle Filter der Filterzeile auf ihren Standardwert zurück und aktualisiert die
+         * Tabellenansicht.
+         *
+         * Zurückgesetzt werden Suchtext, Typ-, Änderungs- und Vulnerabilities-Filter.
+         */
+        internal fun resetAllFilters() {
+            searchTextField.text = ""
+            typeFilterComboBox.selectedItem = allTypesFilterLabel
+            changesFilterComboBox.selectedItem = TriStateFilter.ALL
+            vulnerabilitiesFilterComboBox.selectedItem = TriStateFilter.ALL
+            applyRowFilter()
         }
 
         /**
@@ -1263,6 +1324,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     )
                 }
             }
+            filterResetToolbar?.updateActionsAsync()
         }
 
         /**

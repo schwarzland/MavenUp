@@ -46,7 +46,7 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   Unterhalb der Aktionsleiste liegt eine Filterzeile mit drei `ComboBox`-Elementen (Typ, anstehende Änderungen via `TriStateFilter` [All/Yes/No], Sicherheitslücken via `TriStateFilter` [All/Yes/No]) und einem `SearchTextField` (Textfilter über
   GroupId, ArtifactId und Property, case-insensitiv); alle Filter werden über
   einen `TableRowSorter` mittels der Top-Level-Funktion `rowMatchesFilter`
-  kombiniert. Derselbe `TableRowSorter` übernimmt zusätzlich die spaltenweise Sortierung über die Kopfzeile:
+  kombiniert. Am Ende der Filterzeile setzt eine `ActionToolbar` mit einer einzelnen Reset-Aktion (`resetAllFilters`) alle Filter zurück; sie ist nur aktiv, solange `isResetFiltersEnabled` mindestens einen aktiven Filter meldet. Derselbe `TableRowSorter` übernimmt zusätzlich die spaltenweise Sortierung über die Kopfzeile:
   ein überschriebenes `toggleSortOrder` schaltet zyklisch zwischen aufsteigend, absteigend und
   unsortiert (pom.xml-Reihenfolge) um; die Spalten **Current Version**, **Vulnerabilities (Current)**
   und **New Version** sind nicht sortierbar.
