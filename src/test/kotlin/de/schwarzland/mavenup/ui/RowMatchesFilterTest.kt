@@ -229,6 +229,61 @@ class RowMatchesFilterTest {
     }
 
     @Test
+    fun testUpdatesFilterAllAcceptsBothStates() {
+        assertTrue(
+            rowMatchesFilter(
+                FilterRow("org.a", "lib", "p", "dependency", hasUpdate = true),
+                FilterCriteria("", "", updatesFilter = TriStateFilter.ALL)
+            )
+        )
+        assertTrue(
+            rowMatchesFilter(
+                FilterRow("org.a", "lib", "p", "dependency", hasUpdate = false),
+                FilterCriteria("", "", updatesFilter = TriStateFilter.ALL)
+            )
+        )
+    }
+
+    @Test
+    fun testUpdatesFilterYesOnlyAcceptsRowsWithUpdates() {
+        assertTrue(
+            rowMatchesFilter(
+                FilterRow("org.a", "lib", "p", "dependency", hasUpdate = true),
+                FilterCriteria("", "", updatesFilter = TriStateFilter.YES)
+            )
+        )
+        assertFalse(
+            rowMatchesFilter(
+                FilterRow("org.a", "lib", "p", "dependency", hasUpdate = false),
+                FilterCriteria("", "", updatesFilter = TriStateFilter.YES)
+            )
+        )
+    }
+
+    @Test
+    fun testUpdatesFilterNoOnlyAcceptsRowsWithoutUpdates() {
+        assertFalse(
+            rowMatchesFilter(
+                FilterRow("org.a", "lib", "p", "dependency", hasUpdate = true),
+                FilterCriteria("", "", updatesFilter = TriStateFilter.NO)
+            )
+        )
+        assertTrue(
+            rowMatchesFilter(
+                FilterRow("org.a", "lib", "p", "dependency", hasUpdate = false),
+                FilterCriteria("", "", updatesFilter = TriStateFilter.NO)
+            )
+        )
+    }
+
+    @Test
+    fun testHasNewerVersionDetectsAvailableUpdate() {
+        assertTrue(hasNewerVersion("1.0.0", "2.0.0"))
+        assertFalse(hasNewerVersion("2.0.0", "2.0.0"))
+        assertFalse(hasNewerVersion("1.0.0", ""))
+    }
+
+    @Test
     fun testAllFiltersCombinedMatching() {
         val matchingRow = FilterRow(
             groupId = "org.apache.commons",
@@ -236,6 +291,7 @@ class RowMatchesFilterTest {
             property = "commons-lang3.version",
             type = "dependency",
             hasChange = true,
+            hasUpdate = true,
             hasVulnerabilities = true
         )
 
@@ -246,6 +302,7 @@ class RowMatchesFilterTest {
                     searchText = "commons",
                     typeFilter = "dependency",
                     changesFilter = TriStateFilter.YES,
+                    updatesFilter = TriStateFilter.YES,
                     vulnerabilitiesFilter = TriStateFilter.YES
                 )
             )
@@ -259,6 +316,7 @@ class RowMatchesFilterTest {
                     searchText = "spring",
                     typeFilter = "dependency",
                     changesFilter = TriStateFilter.YES,
+                    updatesFilter = TriStateFilter.YES,
                     vulnerabilitiesFilter = TriStateFilter.YES
                 )
             )
@@ -272,6 +330,7 @@ class RowMatchesFilterTest {
                     searchText = "commons",
                     typeFilter = "plugin",
                     changesFilter = TriStateFilter.YES,
+                    updatesFilter = TriStateFilter.YES,
                     vulnerabilitiesFilter = TriStateFilter.YES
                 )
             )
@@ -285,6 +344,21 @@ class RowMatchesFilterTest {
                     searchText = "commons",
                     typeFilter = "dependency",
                     changesFilter = TriStateFilter.YES,
+                    updatesFilter = TriStateFilter.YES,
+                    vulnerabilitiesFilter = TriStateFilter.YES
+                )
+            )
+        )
+
+        // Updates mismatch
+        assertFalse(
+            rowMatchesFilter(
+                matchingRow.copy(hasUpdate = false),
+                FilterCriteria(
+                    searchText = "commons",
+                    typeFilter = "dependency",
+                    changesFilter = TriStateFilter.YES,
+                    updatesFilter = TriStateFilter.YES,
                     vulnerabilitiesFilter = TriStateFilter.YES
                 )
             )
@@ -298,6 +372,7 @@ class RowMatchesFilterTest {
                     searchText = "commons",
                     typeFilter = "dependency",
                     changesFilter = TriStateFilter.YES,
+                    updatesFilter = TriStateFilter.YES,
                     vulnerabilitiesFilter = TriStateFilter.YES
                 )
             )

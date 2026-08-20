@@ -11,6 +11,7 @@
 - Added column-header sorting to the dependency table that cycles through ascending, descending, and the original pom.xml order, excluding the Current Version, Vulnerabilities, and New Version columns.
 - Added a reset button at the end of the filter row that clears the search text and the type, changes, and vulnerabilities filters at once.
 - Added tooltips to the filter row controls that explain the search field and the type, changes, and vulnerabilities filters.
+- Added an "Updates" filter that shows only rows with a newer version available and is enabled only after a successful "Scan new Versions".
 
 ### Changed
 - Changed the settings UI from two checkboxes to a single combobox for version auto-selection strategy.

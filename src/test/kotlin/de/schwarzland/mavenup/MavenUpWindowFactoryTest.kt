@@ -337,6 +337,49 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.LATEST
     }
 
+    fun testUpdatesFilterIsDisabledUntilSuccessfulVersionScan() {
+        val toolWindowInstance = MavenUpWindowFactory().MyToolWindow(project)
+
+        assertFalse(toolWindowInstance.isUpdatesFilterAvailable())
+        assertFalse(toolWindowInstance.updatesFilterComboBox.isEnabled)
+
+        val availableVersionsField = toolWindowInstance.javaClass
+            .getDeclaredField("availableVersions").apply { isAccessible = true }
+        val availableVersions =
+            availableVersionsField.get(toolWindowInstance) as MutableMap<String, List<String>>
+
+        // A scan that returned no versions must keep the filter disabled.
+        availableVersions["com.example:empty"] = emptyList()
+        toolWindowInstance.updateUpdatesFilterState()
+        assertFalse(toolWindowInstance.isUpdatesFilterAvailable())
+        assertFalse(toolWindowInstance.updatesFilterComboBox.isEnabled)
+
+        // A successful scan with results enables the filter.
+        availableVersions["com.example:lib"] = listOf("2.0.0", "1.0.0")
+        toolWindowInstance.updateUpdatesFilterState()
+        assertTrue(toolWindowInstance.isUpdatesFilterAvailable())
+        assertTrue(toolWindowInstance.updatesFilterComboBox.isEnabled)
+    }
+
+    fun testUpdatesFilterSelectionResetsWhenScanResultsCleared() {
+        val toolWindowInstance = MavenUpWindowFactory().MyToolWindow(project)
+
+        val availableVersionsField = toolWindowInstance.javaClass
+            .getDeclaredField("availableVersions").apply { isAccessible = true }
+        val availableVersions =
+            availableVersionsField.get(toolWindowInstance) as MutableMap<String, List<String>>
+
+        availableVersions["com.example:lib"] = listOf("2.0.0", "1.0.0")
+        toolWindowInstance.updateUpdatesFilterState()
+        toolWindowInstance.updatesFilterComboBox.selectedItem = TriStateFilter.YES
+
+        availableVersions.clear()
+        toolWindowInstance.updateUpdatesFilterState()
+
+        assertFalse(toolWindowInstance.updatesFilterComboBox.isEnabled)
+        assertEquals(TriStateFilter.ALL, toolWindowInstance.updatesFilterComboBox.selectedItem)
+    }
+
     fun testLatestMinorSelectionIgnoresOtherMajorLinesAndKeepsCurrentVersion() {
         val factory = MavenUpWindowFactory()
         val toolWindowInstance = factory.MyToolWindow(project)

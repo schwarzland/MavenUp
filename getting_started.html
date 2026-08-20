@@ -34,9 +34,10 @@
 <h3>Navigate and inspect entries</h3>
 <ul>
     <li><strong>Filter the table</strong>: Type in the filter field above the table to narrow the list by GroupId,
-        ArtifactId or Property, and use the combo boxes to filter by dependency type, pending version changes, or
-        security findings. All filters combine so only matching rows remain visible. Use the reset button at the end
-        of the filter row to clear all filters at once.</li>
+        ArtifactId or Property, and use the combo boxes to filter by dependency type, pending version changes,
+        available updates, or security findings. The updates filter becomes available after a successful
+        "Scan new Versions" and then shows only rows with a newer version. All filters combine so only matching
+        rows remain visible. Use the reset button at the end of the filter row to clear all filters at once.</li>
     <li><strong>Sort the table</strong>: Click a column header to cycle through ascending, descending, and the original
         pom.xml order; the Current Version, Vulnerabilities, and New Version columns stay unsorted.</li>
     <li><strong>Jump to the source</strong>: Double-click a row (or single-click if configured) to open the matching

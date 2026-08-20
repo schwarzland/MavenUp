@@ -107,6 +107,19 @@ internal fun isVersionUpToDate(version: String, newestVersion: String): Boolean 
     version == newestVersion && version.isNotEmpty()
 
 /**
+ * Bestimmt, ob für eine Abhängigkeit eine neuere Version verfügbar ist.
+ *
+ * Eine neuere Version liegt vor, wenn eine höchste bekannte Version existiert und diese
+ * von der aktuell verwendeten Version abweicht.
+ *
+ * @param currentVersion Die aktuell verwendete Version.
+ * @param newestVersion Die höchste bekannte Version (erstes Element der Versionsliste).
+ * @return `true`, wenn eine neuere Version verfügbar ist.
+ */
+internal fun hasNewerVersion(currentVersion: String, newestVersion: String): Boolean =
+    newestVersion.isNotEmpty() && newestVersion != currentVersion
+
+/**
  * Filteroption für dreiwertige Filterkriterien (Alle, Ja, Nein) in der Filterzeile.
  *
  * @property labelKey Der Schlüssel des lokalisierten Anzeigetextes im Message-Bundle.
@@ -138,6 +151,7 @@ internal enum class TriStateFilter(val labelKey: String) {
  * @property property Der Property-Name der Zeile.
  * @property type Der Typ der Zeile.
  * @property hasChange `true`, wenn für die Zeile eine Versionsänderung vorliegt.
+ * @property hasUpdate `true`, wenn für die Zeile eine neuere Version verfügbar ist.
  * @property hasVulnerabilities `true`, wenn für die Zeile mindestens eine Sicherheitslücke gemeldet ist.
  */
 internal data class FilterRow(
@@ -146,6 +160,7 @@ internal data class FilterRow(
     val property: String,
     val type: String,
     val hasChange: Boolean = false,
+    val hasUpdate: Boolean = false,
     val hasVulnerabilities: Boolean = false
 )
 
@@ -155,12 +170,14 @@ internal data class FilterRow(
  * @property searchText Der eingegebene Suchtext (wird getrimmt und case-insensitiv verglichen).
  * @property typeFilter Der ausgewählte Typ oder ein leerer String für "alle Typen".
  * @property changesFilter Die ausgewählte Filteroption für Änderungen (Alle, Ja, Nein).
+ * @property updatesFilter Die ausgewählte Filteroption für verfügbare Updates (Alle, Ja, Nein).
  * @property vulnerabilitiesFilter Die ausgewählte Filteroption für Sicherheitslücken (Alle, Ja, Nein).
  */
 internal data class FilterCriteria(
     val searchText: String,
     val typeFilter: String,
     val changesFilter: TriStateFilter = TriStateFilter.ALL,
+    val updatesFilter: TriStateFilter = TriStateFilter.ALL,
     val vulnerabilitiesFilter: TriStateFilter = TriStateFilter.ALL
 )
 
@@ -170,8 +187,8 @@ internal data class FilterCriteria(
  * Der Textfilter wird case-insensitiv gegen GroupId, ArtifactId und Property geprüft;
  * die Zeile passt, sobald einer dieser Werte den Suchtext enthält. Ein leerer Suchtext
  * lässt alle Zeilen zu. Der Typfilter passt bei leerem Wert auf jeden Typ, sonst nur bei
- * exakter Übereinstimmung des Typs. Der Änderungs- und Vulnerabilities-Filter prüfen,
- * ob Änderungen bzw. Sicherheitslücken vorliegen (`YES`), nicht vorliegen (`NO`) oder
+ * exakter Übereinstimmung des Typs. Der Änderungs-, Updates- und Vulnerabilities-Filter prüfen,
+ * ob Änderungen, verfügbare Updates bzw. Sicherheitslücken vorliegen (`YES`), nicht vorliegen (`NO`) oder
  * der Filter inaktiv ist (`ALL`).
  *
  * @param row Die filterrelevanten Werte der zu prüfenden Zeile.
@@ -190,12 +207,17 @@ internal fun rowMatchesFilter(row: FilterRow, criteria: FilterCriteria): Boolean
         TriStateFilter.YES -> row.hasChange
         TriStateFilter.NO -> !row.hasChange
     }
+    val updatesMatches = when (criteria.updatesFilter) {
+        TriStateFilter.ALL -> true
+        TriStateFilter.YES -> row.hasUpdate
+        TriStateFilter.NO -> !row.hasUpdate
+    }
     val vulnerabilitiesMatches = when (criteria.vulnerabilitiesFilter) {
         TriStateFilter.ALL -> true
         TriStateFilter.YES -> row.hasVulnerabilities
         TriStateFilter.NO -> !row.hasVulnerabilities
     }
-    return textMatches && typeMatches && changesMatches && vulnerabilitiesMatches
+    return textMatches && typeMatches && changesMatches && updatesMatches && vulnerabilitiesMatches
 }
 
 /**
@@ -595,6 +617,14 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /** Auswahlfeld für den Filter nach anstehenden Änderungen (Ja/Nein/Alle). */
         internal val changesFilterComboBox = ComboBox(TriStateFilter.entries.toTypedArray())
 
+        /**
+         * Auswahlfeld für den Filter nach verfügbaren Updates (Ja/Nein/Alle).
+         *
+         * Nur aktiv, sobald eine erfolgreiche Versionssuche ("Scan new Versions") mindestens eine
+         * abrufbare Versionsliste geliefert hat (siehe [updateUpdatesFilterState]).
+         */
+        internal val updatesFilterComboBox = ComboBox(TriStateFilter.entries.toTypedArray())
+
         /** Auswahlfeld für den Filter nach Sicherheitslücken (Ja/Nein/Alle). */
         internal val vulnerabilitiesFilterComboBox = ComboBox(TriStateFilter.entries.toTypedArray())
 
@@ -974,6 +1004,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         }
                         updateUpdateButtonState()
                         updateTypeFilterOptions()
+                        updateUpdatesFilterState()
 
                         if (checkUpdates) {
                             performUpdateCheck {
@@ -1203,6 +1234,14 @@ class MavenUpWindowFactory : ToolWindowFactory {
             changesFilterComboBox.addActionListener { applyRowFilter() }
             filterControlsPanel.add(changesFilterComboBox)
 
+            filterControlsPanel.add(JLabel(MyMessageBundle.message("toolwindow.MyToolWindow.filter.updates.label")))
+            updatesFilterComboBox.model = DefaultComboBoxModel(TriStateFilter.entries.toTypedArray())
+            updatesFilterComboBox.selectedItem = TriStateFilter.ALL
+            updatesFilterComboBox.toolTipText = MyMessageBundle.message("toolwindow.MyToolWindow.filter.updates.tooltip")
+            updatesFilterComboBox.isEnabled = isUpdatesFilterAvailable()
+            updatesFilterComboBox.addActionListener { applyRowFilter() }
+            filterControlsPanel.add(updatesFilterComboBox)
+
             filterControlsPanel.add(JLabel(MyMessageBundle.message("toolwindow.MyToolWindow.filter.vulnerabilities.label")))
             vulnerabilitiesFilterComboBox.model = DefaultComboBoxModel(TriStateFilter.entries.toTypedArray())
             vulnerabilitiesFilterComboBox.selectedItem = TriStateFilter.ALL
@@ -1258,28 +1297,31 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /**
          * Prüft, ob aktuell mindestens ein Filter der Filterzeile aktiv ist.
          *
-         * @return `true`, wenn Suchtext, Typ-, Änderungs- oder Vulnerabilities-Filter von ihrem
+         * @return `true`, wenn Suchtext, Typ-, Änderungs-, Updates- oder Vulnerabilities-Filter von ihrem
          *         Standardwert abweichen.
          */
         internal fun isResetFiltersEnabled(): Boolean {
             val searchActive = searchTextField.text.isNotEmpty()
             val typeActive = (typeFilterComboBox.selectedItem as? String ?: allTypesFilterLabel) != allTypesFilterLabel
             val changesActive = (changesFilterComboBox.selectedItem as? TriStateFilter ?: TriStateFilter.ALL) != TriStateFilter.ALL
+            val updatesActive =
+                (updatesFilterComboBox.selectedItem as? TriStateFilter ?: TriStateFilter.ALL) != TriStateFilter.ALL
             val vulnerabilitiesActive =
                 (vulnerabilitiesFilterComboBox.selectedItem as? TriStateFilter ?: TriStateFilter.ALL) != TriStateFilter.ALL
-            return searchActive || typeActive || changesActive || vulnerabilitiesActive
+            return searchActive || typeActive || changesActive || updatesActive || vulnerabilitiesActive
         }
 
         /**
          * Setzt alle Filter der Filterzeile auf ihren Standardwert zurück und aktualisiert die
          * Tabellenansicht.
          *
-         * Zurückgesetzt werden Suchtext, Typ-, Änderungs- und Vulnerabilities-Filter.
+         * Zurückgesetzt werden Suchtext, Typ-, Änderungs-, Updates- und Vulnerabilities-Filter.
          */
         internal fun resetAllFilters() {
             searchTextField.text = ""
             typeFilterComboBox.selectedItem = allTypesFilterLabel
             changesFilterComboBox.selectedItem = TriStateFilter.ALL
+            updatesFilterComboBox.selectedItem = TriStateFilter.ALL
             vulnerabilitiesFilterComboBox.selectedItem = TriStateFilter.ALL
             applyRowFilter()
         }
@@ -1288,7 +1330,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * Wendet die aktuellen Filter (Suchtext, Typ, Änderungen, Sicherheitslücken) auf die Tabelle an.
          *
          * Liest den Suchtext aus [searchTextField], den gewählten Typ aus [typeFilterComboBox],
-         * die Filteroptionen aus [changesFilterComboBox] und [vulnerabilitiesFilterComboBox]
+         * die Filteroptionen aus [changesFilterComboBox], [updatesFilterComboBox] und [vulnerabilitiesFilterComboBox]
          * und setzt einen entsprechenden [RowFilter] auf den [tableRowSorter].
          */
         internal fun applyRowFilter() {
@@ -1296,6 +1338,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             val selectedType = typeFilterComboBox.selectedItem as? String ?: allTypesFilterLabel
             val typeFilter = if (selectedType == allTypesFilterLabel) "" else selectedType
             val changesFilter = changesFilterComboBox.selectedItem as? TriStateFilter ?: TriStateFilter.ALL
+            val updatesFilter = updatesFilterComboBox.selectedItem as? TriStateFilter ?: TriStateFilter.ALL
             val vulnerabilitiesFilter = vulnerabilitiesFilterComboBox.selectedItem as? TriStateFilter ?: TriStateFilter.ALL
 
             tableRowSorter.rowFilter = object : RowFilter<DefaultTableModel, Int>() {
@@ -1311,6 +1354,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     val selectedVersion = selectedVersions[key]
                     val effectiveVersion = selectedVersion ?: currentVersion
                     val hasChange = effectiveVersion != currentVersion && effectiveVersion.isNotEmpty()
+                    val newestVersion = availableVersions[key]?.firstOrNull().orEmpty()
+                    val hasUpdate = hasNewerVersion(currentVersion, newestVersion)
                     val hasVulnerabilities = cell != null && cell.allAdvisories.isNotEmpty()
 
                     return rowMatchesFilter(
@@ -1320,12 +1365,14 @@ class MavenUpWindowFactory : ToolWindowFactory {
                             property = property,
                             type = type,
                             hasChange = hasChange,
+                            hasUpdate = hasUpdate,
                             hasVulnerabilities = hasVulnerabilities
                         ),
                         FilterCriteria(
                             searchText = searchText,
                             typeFilter = typeFilter,
                             changesFilter = changesFilter,
+                            updatesFilter = updatesFilter,
                             vulnerabilitiesFilter = vulnerabilitiesFilter
                         )
                     )
@@ -1353,6 +1400,32 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 DefaultComboBoxModel((listOf(allTypesFilterLabel) + types).toTypedArray())
             typeFilterComboBox.selectedItem =
                 if (types.contains(previouslySelected)) previouslySelected else allTypesFilterLabel
+        }
+
+        /**
+         * Prüft, ob der Updates-Filter verwendet werden darf.
+         *
+         * Der Filter setzt eine erfolgreiche Versionssuche ("Scan new Versions") voraus, die für
+         * mindestens ein Artefakt eine Versionsliste geliefert hat.
+         *
+         * @return `true`, wenn mindestens eine Abhängigkeit abrufbare Versionen besitzt.
+         */
+        internal fun isUpdatesFilterAvailable(): Boolean =
+            availableVersions.values.any { it.isNotEmpty() }
+
+        /**
+         * Aktualisiert den Aktivierungszustand des Updates-Filters.
+         *
+         * Der Filter wird nur aktiviert, wenn eine erfolgreiche Versionssuche durchgeführt wurde
+         * (siehe [isUpdatesFilterAvailable]). Ist er nicht verfügbar, wird die Auswahl auf
+         * [TriStateFilter.ALL] zurückgesetzt, damit keine unsichtbare Filterung aktiv bleibt.
+         */
+        internal fun updateUpdatesFilterState() {
+            val available = isUpdatesFilterAvailable()
+            updatesFilterComboBox.isEnabled = available
+            if (!available && updatesFilterComboBox.selectedItem != TriStateFilter.ALL) {
+                updatesFilterComboBox.selectedItem = TriStateFilter.ALL
+            }
         }
 
         /**
