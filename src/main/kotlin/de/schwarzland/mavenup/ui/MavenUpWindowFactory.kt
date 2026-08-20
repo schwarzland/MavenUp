@@ -1294,7 +1294,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             }
 
         /**
-         * Erstellt die Filterzeile mit Typ-, Änderungs- und Vulnerabilities-Combobox sowie Textfeld unterhalb der Aktionsleiste.
+         * Erstellt die Filterzeile mit Typ-, Updates-, Änderungs- und Vulnerabilities-Combobox sowie Textfeld unterhalb der Aktionsleiste.
          *
          * @return Die konfigurierte Filter-Komponente.
          */
@@ -1310,15 +1310,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
             typeFilterComboBox.addActionListener { applyRowFilter() }
             filterControlsPanel.add(typeFilterComboBox)
 
-            filterControlsPanel.add(JLabel(MyMessageBundle.message("toolwindow.MyToolWindow.filter.changes.label")))
-            changesFilterComboBox.model = DefaultComboBoxModel(TriStateFilter.entries.toTypedArray())
-            changesFilterComboBox.selectedItem = TriStateFilter.ALL
-            changesFilterComboBox.renderer = triStateFilterRenderer(CHANGES_FILTER_LABELS)
-            changesFilterComboBox.toolTipText = MyMessageBundle.message("toolwindow.MyToolWindow.filter.changes.tooltip")
-            changesFilterComboBox.isEnabled = isChangesFilterAvailable()
-            changesFilterComboBox.addActionListener { applyRowFilter() }
-            filterControlsPanel.add(changesFilterComboBox)
-
             filterControlsPanel.add(JLabel(MyMessageBundle.message("toolwindow.MyToolWindow.filter.updates.label")))
             updatesFilterComboBox.model = DefaultComboBoxModel(TriStateFilter.entries.toTypedArray())
             updatesFilterComboBox.selectedItem = TriStateFilter.ALL
@@ -1327,6 +1318,15 @@ class MavenUpWindowFactory : ToolWindowFactory {
             updatesFilterComboBox.isEnabled = isUpdatesFilterAvailable()
             updatesFilterComboBox.addActionListener { applyRowFilter() }
             filterControlsPanel.add(updatesFilterComboBox)
+
+            filterControlsPanel.add(JLabel(MyMessageBundle.message("toolwindow.MyToolWindow.filter.changes.label")))
+            changesFilterComboBox.model = DefaultComboBoxModel(TriStateFilter.entries.toTypedArray())
+            changesFilterComboBox.selectedItem = TriStateFilter.ALL
+            changesFilterComboBox.renderer = triStateFilterRenderer(CHANGES_FILTER_LABELS)
+            changesFilterComboBox.toolTipText = MyMessageBundle.message("toolwindow.MyToolWindow.filter.changes.tooltip")
+            changesFilterComboBox.isEnabled = isChangesFilterAvailable()
+            changesFilterComboBox.addActionListener { applyRowFilter() }
+            filterControlsPanel.add(changesFilterComboBox)
 
             filterControlsPanel.add(JLabel(MyMessageBundle.message("toolwindow.MyToolWindow.filter.vulnerabilities.label")))
             vulnerabilitiesFilterComboBox.model = DefaultComboBoxModel(TriStateFilter.entries.toTypedArray())
