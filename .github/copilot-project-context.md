@@ -11,6 +11,7 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
 - Group: `de.schwarzland`, aktuelle Version: siehe `gradle.properties` (`version=...`)
 - Sprache Code: Kotlin; Build: Gradle (`build.gradle.kts`, `settings.gradle.kts`)
 - Plugin-Descriptor: `src/main/resources/META-INF/plugin.xml`
+- Tool-Window-Icon: `src/main/resources/icons/mavenUpToolWindow.svg` (Light) und `mavenUpToolWindow_dark.svg` (Dark), in `plugin.xml` über das `icon`-Attribut des `<toolWindow>` referenziert.
 
 ## Kernkomponenten (`src/main/kotlin/de/schwarzland/mavenup/`)
 
@@ -30,7 +31,7 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
 - **MavenUpWindowFactory**: Zentrale `ToolWindowFactory` + `MyToolWindow`.
   Navigation zur pom.xml-Definition sowie Multi-Source-Vulnerability-Checks für direkte und transitive
   Dependencies in Hintergrund-Tasks. Per Rechtsklick auf eine Zeile öffnet sich ein Kontextmenü mit
-  **Navigate to pom.xml**, **Open in Maven Repository** und ggf. **Show Vulnerability Details** (falls Vulnerabilities vorhanden sind). Die Aktionen liegen in einer oberen `ActionToolbar` (Icon-Actions mit Tooltip): links die Kernaktionen **Refresh**, **Find New Versions**, **Scan for Vulnerabilities** und **Update**, durch einen Trenner abgesetzt die selektionsabhängigen Aktionen **Open on [Browser]** und **Vulnerability Details**, am Ende **Settings**. Die **Open on [Browser]**-Aktion wird aktiv, sobald eine Dependency-Zeile selektiert ist, und zeigt dynamisch den konfigurierten Browser-Namen im Tooltip (z.B. **Open on MVN Repository** oder **Open on Sonatype Central**). Die **Vulnerability Details**-Aktion ist erst aktiv, wenn eine Dependency-Zeile mit Befunden selektiert ist, und zeigt ausschließlich die Befunde der selektierten Dependency (direkte und transitive). Der verwendete Repository-Browser
+  **Navigate to pom.xml**, **Open in Maven Repository** und ggf. **Show Vulnerability Details** (falls Vulnerabilities vorhanden sind). Die Aktionen liegen in einer oberen `ActionToolbar` (Icon-Actions mit Tooltip): links die Kernaktionen **Refresh**, **Find New Versions**, **Scan for Vulnerabilities** und **Update**, durch einen Trenner abgesetzt die Sammelaktionen zur Versionsauswahl **Select Highest Major Version**, **Select Highest Minor Version** und **Reset to Current Versions**, durch einen weiteren Trenner abgesetzt die selektionsabhängigen Aktionen **Open on [Browser]** und **Vulnerability Details**, am Ende **Settings**. Die **Open on [Browser]**-Aktion wird aktiv, sobald eine Dependency-Zeile selektiert ist, und zeigt dynamisch den konfigurierten Browser-Namen im Tooltip (z.B. **Open on MVN Repository** oder **Open on Sonatype Central**). Die **Vulnerability Details**-Aktion ist erst aktiv, wenn eine Dependency-Zeile mit Befunden selektiert ist, und zeigt ausschließlich die Befunde der selektierten Dependency (direkte und transitive). Der verwendete Repository-Browser
   (**MVN Repository** oder **Sonatype Central**) ist in den Einstellungen
   konfigurierbar und gilt einheitlich für das Kontextmenü sowie das zeilenbezogene Rechtsklick-Menü
   (alle Spalten außer References) im
@@ -43,10 +44,15 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   laufen, bleibt der Vulnerability-Check deaktiviert, um konkurrierende Hintergrundaktionen zu vermeiden.
   Die Aktionsleiste kann laut Einstellung (`toolbarShowText`) wahlweise Icon- oder Text-Buttons darstellen und
   wird bei geänderten Einstellungen über den `MAVEN_UP_SETTINGS_TOPIC`-Message-Bus sofort neu aufgebaut.
-  Unterhalb der Aktionsleiste liegt eine Filterzeile mit drei `ComboBox`-Elementen (Typ, anstehende Änderungen via `TriStateFilter` [All/Yes/No], Sicherheitslücken via `TriStateFilter` [All/Yes/No]) und einem `SearchTextField` (Textfilter über
-  GroupId, ArtifactId und Property, case-insensitiv); alle Filter werden über
-  einen `TableRowSorter` (nur Filtern, kein Sortieren) mittels der Top-Level-Funktion `rowMatchesFilter`
-  kombiniert.
+  Unterhalb der Aktionsleiste liegt eine Filterzeile mit vier `ComboBox`-Elementen (Typ, verfügbare Updates via `TriStateFilter` [All/Yes/No], anstehende Änderungen via `TriStateFilter` [All/Yes/No], Sicherheitslücken via `TriStateFilter` [All/Yes/No]) und einem `SearchTextField` (Textfilter über
+  GroupId, ArtifactId und Property, case-insensitiv); die drei `TriStateFilter`-Comboboxen zeigen über `triStateFilterRenderer`/`triStateFilterOptionLabel` und die `TriStateFilterLabels`-Konstanten (`CHANGES_FILTER_LABELS`, `UPDATES_FILTER_LABELS`, `VULNERABILITIES_FILTER_LABELS`) kontextspezifische, selbsterklärende Optionstexte statt generischer Yes/No-Werte. Alle Filter werden über
+  einen `TableRowSorter` mittels der Top-Level-Funktion `rowMatchesFilter`
+  kombiniert. Der Changes-Filter ist nur aktiv, wenn mindestens eine abweichende Version ausgewählt wurde (`isChangesFilterAvailable`/`updateChangesFilterState`, ausgelöst über `updateUpdateButtonState`). Der Updates-Filter ist nur nach einer erfolgreichen Versionssuche aktiv (`isUpdatesFilterAvailable`/`updateUpdatesFilterState`) und nutzt die Top-Level-Funktion `hasNewerVersion`; der Vulnerabilities-Filter ist nur nach einer erfolgreichen Sicherheitsprüfung aktiv (`vulnerabilityScanPerformed` via `isVulnerabilitiesFilterAvailable`/`updateVulnerabilitiesFilterState`). Am Ende der Filterzeile setzt eine `ActionToolbar` mit einer einzelnen Reset-Aktion (`resetAllFilters`) alle Filter zurück; sie ist nur aktiv, solange `isResetFiltersEnabled` mindestens einen aktiven Filter meldet. Derselbe `TableRowSorter` übernimmt zusätzlich die spaltenweise Sortierung über die Kopfzeile:
+  ein überschriebenes `toggleSortOrder` schaltet zyklisch zwischen aufsteigend, absteigend und
+  unsortiert (pom.xml-Reihenfolge) um; die Spalten **Current Version**, **Vulnerabilities (Current)**
+  und **New Version** sind nicht sortierbar. Ein über `installSortableHeaderRenderer` gesetzter Kopfzeilen-Renderer
+  zeigt für sortierbare Spalten über die Top-Level-Funktion `sortableHeaderIcon` ein Indikator-Icon an
+  (gedämpfter `AllIcons.General.ArrowSplitCenterV`-Doppelpfeil im unsortierten Zustand, `ArrowUp`/`ArrowDown` bei aktiver Sortierung).
   Die Spalte **New Version** zeigt über die Helper-Funktionen `isVersionUpToDate()`, `versionStatusText()`,
   `versionStatusColor()` und `versionStatusTooltip()` ein Status-Glyph und farbcodierten Text:
   grüner Haken „✓" wenn die ausgewählte Version die neueste ist, ein Pfeil nach oben „↑" sonst.
@@ -57,6 +63,12 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   Bei einer ausstehenden Änderung (ausgewählte ≠ aktuelle Version) wird der Dropdown-Text fett dargestellt.
   `createVersionPanel()` baut das JPanel mit Status-Glyph und ComboBox zusammen.
   Farben verwenden `JBColor`-Doppelwerte für Light-/Dark-Mode-Kompatibilität.
+  Die Sammelaktionen setzen die **New Version**-Auswahl gemeinsam:
+  `selectHighestMajorVersionForAll()` wählt die höchste verfügbare Version, `selectHighestMinorVersionForAll()`
+  die höchste Version innerhalb der aktuellen Major-Linie – beide nur für die aktuell sichtbaren
+  (nicht ausgefilterten) Zeilen (`collectVisibleDependencyKeys()`) – und `resetAllVersionsToCurrent()` verwirft alle
+  Auswahlen unabhängig vom Filter; ihre Aktivierung steuern `isBulkVersionSelectionEnabled()` und `isResetVersionsEnabled()`.
+  `isRowFilterHidingEntries()` und `bulkSelectionActionDescription()` erweitern den Tooltip der "Select Highest"-Aktionen bei aktivem Filter um einen Hinweis.
 - **MavenUpSettings**: `PersistentStateComponent` auf Anwendungsebene (`Service.Level.APP`), global für alle Projekte gespeichert in `mavenup_settings.xml`
   (`jumpOnSingleClick`, `versionAutoSelectionMode` mit `DISABLED`, `LATEST`, `LATEST_MINOR`, `hideUnstableVersions`, `hiddenVersionQualifiers`,
   `ossIndexEnabled`, `checkTransitiveDependencies`, `repositoryBrowser`, `toolbarShowText`,

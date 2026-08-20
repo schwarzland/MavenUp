@@ -1,3 +1,5 @@
+@file:Suppress("UNCHECKED_CAST")
+
 package de.schwarzland.mavenup
 
 import de.schwarzland.mavenup.model.VulnerabilityAdvisory
@@ -8,6 +10,7 @@ import de.schwarzland.mavenup.service.MavenRepositoryBrowser
 import de.schwarzland.mavenup.service.VersionAutoSelectionMode
 import de.schwarzland.mavenup.ui.buildMavenRepositoryUrl
 import de.schwarzland.mavenup.ui.MavenUpWindowFactory
+import de.schwarzland.mavenup.ui.MyMessageBundle
 import de.schwarzland.mavenup.ui.RefreshSnapshot
 import de.schwarzland.mavenup.ui.buildVulnerabilityCell
 import de.schwarzland.mavenup.ui.canCheckVulnerabilities
@@ -19,6 +22,7 @@ import de.schwarzland.mavenup.ui.versionStatusTooltip
 import de.schwarzland.mavenup.ui.versionDropdownItemText
 import de.schwarzland.mavenup.ui.createVersionPanel
 import de.schwarzland.mavenup.ui.TriStateFilter
+import de.schwarzland.mavenup.ui.sortableHeaderIcon
 import com.intellij.openapi.wm.RegisterToolWindowTask
 import com.intellij.openapi.wm.ToolWindowAnchor
 import com.intellij.openapi.wm.ToolWindowManager
@@ -49,6 +53,91 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertEquals("New Version", table.model.getColumnName(6))
         assertFalse(table.model.isCellEditable(0, 5))
         assertTrue(table.model.isCellEditable(0, 6))
+    }
+
+    fun testColumnHeaderSortingCyclesAscendingDescendingPomOrder() {
+        val table = findTable(MavenUpWindowFactory().MyToolWindow(project).getContent())
+        assertNotNull(table)
+
+        val model = table!!.model as javax.swing.table.DefaultTableModel
+        model.addRow(arrayOf<Any?>("org.b", "b-lib", null, "dependency", "1.0.0", null, emptyList<String>()))
+        model.addRow(arrayOf<Any?>("org.a", "a-lib", null, "dependency", "2.0.0", null, emptyList<String>()))
+
+        @Suppress("UNCHECKED_CAST")
+        val sorter = table.rowSorter as javax.swing.table.TableRowSorter<javax.swing.table.DefaultTableModel>
+
+        // Vulnerabilities-, Current-Version- und New-Version-Spalte sind nicht sortierbar.
+        assertFalse(sorter.isSortable(4))
+        assertFalse(sorter.isSortable(5))
+        assertFalse(sorter.isSortable(6))
+        assertTrue(sorter.isSortable(0))
+
+        // Erster Klick: aufsteigend -> org.a vor org.b.
+        sorter.toggleSortOrder(0)
+        assertEquals(javax.swing.SortOrder.ASCENDING, sorter.sortKeys.first().sortOrder)
+        assertEquals("org.a", table.getValueAt(0, 0))
+
+        // Zweiter Klick: absteigend -> org.b vor org.a.
+        sorter.toggleSortOrder(0)
+        assertEquals(javax.swing.SortOrder.DESCENDING, sorter.sortKeys.first().sortOrder)
+        assertEquals("org.b", table.getValueAt(0, 0))
+
+        // Dritter Klick: unsortiert -> ursprüngliche pom.xml-Reihenfolge.
+        sorter.toggleSortOrder(0)
+        assertTrue(sorter.sortKeys.isEmpty())
+        assertEquals("org.b", table.getValueAt(0, 0))
+    }
+
+    fun testCurrentVersionColumnIsNotSortable() {
+        val table = findTable(MavenUpWindowFactory().MyToolWindow(project).getContent())
+        assertNotNull(table)
+
+        val model = table!!.model as javax.swing.table.DefaultTableModel
+        model.addRow(arrayOf<Any?>("org.x", "x-lib", null, "dependency", "1.9.0", null, emptyList<String>()))
+        model.addRow(arrayOf<Any?>("org.y", "y-lib", null, "dependency", "1.10.0", null, emptyList<String>()))
+
+        @Suppress("UNCHECKED_CAST")
+        val sorter = table.rowSorter as javax.swing.table.TableRowSorter<javax.swing.table.DefaultTableModel>
+        assertFalse(sorter.isSortable(4))
+
+        // Ein Klick auf die Kopfzeile ändert die Reihenfolge nicht.
+        sorter.toggleSortOrder(4)
+        assertTrue(sorter.sortKeys.isEmpty())
+        assertEquals("1.9.0", table.getValueAt(0, 4))
+        assertEquals("1.10.0", table.getValueAt(1, 4))
+    }
+
+    fun testToolWindowIconResourceIsAvailable() {
+        // Das eigene Tool-Window-Icon muss als Ressource im Klassenpfad vorhanden sein,
+        // damit die in plugin.xml referenzierte Datei zur Laufzeit geladen werden kann.
+        assertNotNull(
+            "Icon /icons/mavenUpToolWindow.svg fehlt im Klassenpfad",
+            javaClass.getResource("/icons/mavenUpToolWindow.svg")
+        )
+        assertNotNull(
+            "Dark-Variante /icons/mavenUpToolWindow_dark.svg fehlt im Klassenpfad",
+            javaClass.getResource("/icons/mavenUpToolWindow_dark.svg")
+        )
+    }
+
+    fun testSortableHeaderIconReflectsSortState() {
+        // Nicht sortierbare Spalten erhalten kein Icon.
+        assertNull(sortableHeaderIcon(sortable = false, sortOrder = null))
+        assertNull(sortableHeaderIcon(sortable = false, sortOrder = javax.swing.SortOrder.ASCENDING))
+
+        // Sortierbare, aber unsortierte Spalten erhalten einen (gedämpften) Doppelpfeil.
+        assertNotNull(sortableHeaderIcon(sortable = true, sortOrder = null))
+        assertNotNull(sortableHeaderIcon(sortable = true, sortOrder = javax.swing.SortOrder.UNSORTED))
+
+        // Aktive Sortierung zeigt die passenden Richtungspfeile.
+        assertSame(
+            com.intellij.icons.AllIcons.General.ArrowUp,
+            sortableHeaderIcon(sortable = true, sortOrder = javax.swing.SortOrder.ASCENDING)
+        )
+        assertSame(
+            com.intellij.icons.AllIcons.General.ArrowDown,
+            sortableHeaderIcon(sortable = true, sortOrder = javax.swing.SortOrder.DESCENDING)
+        )
     }
 
     fun testTransitiveVulnerabilitiesAreIncludedAndMarkedInDependencyCell() {
@@ -280,6 +369,135 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertEquals("1.0.0", selectedVersions[key])
         
         settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.LATEST
+    }
+
+    fun testUpdatesFilterIsDisabledUntilSuccessfulVersionScan() {
+        val toolWindowInstance = MavenUpWindowFactory().MyToolWindow(project)
+
+        assertFalse(toolWindowInstance.isUpdatesFilterAvailable())
+        assertFalse(toolWindowInstance.updatesFilterComboBox.isEnabled)
+
+        val availableVersionsField = toolWindowInstance.javaClass
+            .getDeclaredField("availableVersions").apply { isAccessible = true }
+        val availableVersions =
+            availableVersionsField.get(toolWindowInstance) as MutableMap<String, List<String>>
+
+        // A scan that returned no versions must keep the filter disabled.
+        availableVersions["com.example:empty"] = emptyList()
+        toolWindowInstance.updateUpdatesFilterState()
+        assertFalse(toolWindowInstance.isUpdatesFilterAvailable())
+        assertFalse(toolWindowInstance.updatesFilterComboBox.isEnabled)
+
+        // A successful scan with results enables the filter.
+        availableVersions["com.example:lib"] = listOf("2.0.0", "1.0.0")
+        toolWindowInstance.updateUpdatesFilterState()
+        assertTrue(toolWindowInstance.isUpdatesFilterAvailable())
+        assertTrue(toolWindowInstance.updatesFilterComboBox.isEnabled)
+    }
+
+    fun testUpdatesFilterSelectionResetsWhenScanResultsCleared() {
+        val toolWindowInstance = MavenUpWindowFactory().MyToolWindow(project)
+
+        val availableVersionsField = toolWindowInstance.javaClass
+            .getDeclaredField("availableVersions").apply { isAccessible = true }
+        val availableVersions =
+            availableVersionsField.get(toolWindowInstance) as MutableMap<String, List<String>>
+
+        availableVersions["com.example:lib"] = listOf("2.0.0", "1.0.0")
+        toolWindowInstance.updateUpdatesFilterState()
+        toolWindowInstance.updatesFilterComboBox.selectedItem = TriStateFilter.YES
+
+        availableVersions.clear()
+        toolWindowInstance.updateUpdatesFilterState()
+
+        assertFalse(toolWindowInstance.updatesFilterComboBox.isEnabled)
+        assertEquals(TriStateFilter.ALL, toolWindowInstance.updatesFilterComboBox.selectedItem)
+    }
+
+    fun testVulnerabilitiesFilterIsDisabledUntilSuccessfulVulnerabilityScan() {
+        val toolWindowInstance = MavenUpWindowFactory().MyToolWindow(project)
+
+        assertFalse(toolWindowInstance.isVulnerabilitiesFilterAvailable())
+        assertFalse(toolWindowInstance.vulnerabilitiesFilterComboBox.isEnabled)
+
+        val scanPerformedField = toolWindowInstance.javaClass
+            .getDeclaredField("vulnerabilityScanPerformed").apply { isAccessible = true }
+
+        scanPerformedField.setBoolean(toolWindowInstance, true)
+        toolWindowInstance.updateVulnerabilitiesFilterState()
+        assertTrue(toolWindowInstance.isVulnerabilitiesFilterAvailable())
+        assertTrue(toolWindowInstance.vulnerabilitiesFilterComboBox.isEnabled)
+    }
+
+    fun testVulnerabilitiesFilterSelectionResetsWhenScanStateCleared() {
+        val toolWindowInstance = MavenUpWindowFactory().MyToolWindow(project)
+
+        val scanPerformedField = toolWindowInstance.javaClass
+            .getDeclaredField("vulnerabilityScanPerformed").apply { isAccessible = true }
+
+        scanPerformedField.setBoolean(toolWindowInstance, true)
+        toolWindowInstance.updateVulnerabilitiesFilterState()
+        toolWindowInstance.vulnerabilitiesFilterComboBox.selectedItem = TriStateFilter.YES
+
+        scanPerformedField.setBoolean(toolWindowInstance, false)
+        toolWindowInstance.updateVulnerabilitiesFilterState()
+
+        assertFalse(toolWindowInstance.vulnerabilitiesFilterComboBox.isEnabled)
+        assertEquals(TriStateFilter.ALL, toolWindowInstance.vulnerabilitiesFilterComboBox.selectedItem)
+    }
+
+    fun testChangesFilterIsDisabledUntilVersionSelectionDiffers() {
+        val toolWindowInstance = MavenUpWindowFactory().MyToolWindow(project)
+
+        assertFalse(toolWindowInstance.isChangesFilterAvailable())
+        assertFalse(toolWindowInstance.changesFilterComboBox.isEnabled)
+
+        val knownDependenciesField = toolWindowInstance.javaClass
+            .getDeclaredField("knownDependencies").apply { isAccessible = true }
+        val selectedVersionsField = toolWindowInstance.javaClass
+            .getDeclaredField("selectedVersions").apply { isAccessible = true }
+        val knownDependencies =
+            knownDependenciesField.get(toolWindowInstance) as MutableMap<String, String>
+        val selectedVersions =
+            selectedVersionsField.get(toolWindowInstance) as MutableMap<String, String>
+
+        knownDependencies["com.example:lib"] = "1.0.0"
+
+        // Selecting the current version again is not a pending change.
+        selectedVersions["com.example:lib"] = "1.0.0"
+        toolWindowInstance.updateChangesFilterState()
+        assertFalse(toolWindowInstance.isChangesFilterAvailable())
+        assertFalse(toolWindowInstance.changesFilterComboBox.isEnabled)
+
+        // A differing selection enables the filter.
+        selectedVersions["com.example:lib"] = "2.0.0"
+        toolWindowInstance.updateChangesFilterState()
+        assertTrue(toolWindowInstance.isChangesFilterAvailable())
+        assertTrue(toolWindowInstance.changesFilterComboBox.isEnabled)
+    }
+
+    fun testChangesFilterSelectionResetsWhenNoPendingChangeRemains() {
+        val toolWindowInstance = MavenUpWindowFactory().MyToolWindow(project)
+
+        val knownDependenciesField = toolWindowInstance.javaClass
+            .getDeclaredField("knownDependencies").apply { isAccessible = true }
+        val selectedVersionsField = toolWindowInstance.javaClass
+            .getDeclaredField("selectedVersions").apply { isAccessible = true }
+        val knownDependencies =
+            knownDependenciesField.get(toolWindowInstance) as MutableMap<String, String>
+        val selectedVersions =
+            selectedVersionsField.get(toolWindowInstance) as MutableMap<String, String>
+
+        knownDependencies["com.example:lib"] = "1.0.0"
+        selectedVersions["com.example:lib"] = "2.0.0"
+        toolWindowInstance.updateChangesFilterState()
+        toolWindowInstance.changesFilterComboBox.selectedItem = TriStateFilter.YES
+
+        selectedVersions.clear()
+        toolWindowInstance.updateChangesFilterState()
+
+        assertFalse(toolWindowInstance.changesFilterComboBox.isEnabled)
+        assertEquals(TriStateFilter.ALL, toolWindowInstance.changesFilterComboBox.selectedItem)
     }
 
     fun testLatestMinorSelectionIgnoresOtherMajorLinesAndKeepsCurrentVersion() {
@@ -1411,5 +1629,289 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         toolWindow.applyRowFilter()
         assertEquals(1, table.rowCount)
         assertEquals("clean-lib", table.getValueAt(0, 1))
+    }
+
+    fun testFilterControlsHaveTooltips() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        assertEquals(
+            MyMessageBundle.message("toolwindow.MyToolWindow.filter.type.tooltip"),
+            toolWindow.typeFilterComboBox.toolTipText
+        )
+        assertEquals(
+            MyMessageBundle.message("toolwindow.MyToolWindow.filter.changes.tooltip"),
+            toolWindow.changesFilterComboBox.toolTipText
+        )
+        assertEquals(
+            MyMessageBundle.message("toolwindow.MyToolWindow.filter.vulnerabilities.tooltip"),
+            toolWindow.vulnerabilitiesFilterComboBox.toolTipText
+        )
+        assertEquals(
+            MyMessageBundle.message("toolwindow.MyToolWindow.filter.search.tooltip"),
+            toolWindow.searchTextField.toolTipText
+        )
+    }
+
+    fun testResetFiltersEnabledReflectsActiveFilters() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        assertFalse(toolWindow.isResetFiltersEnabled())
+
+        toolWindow.searchTextField.text = "example"
+        assertTrue(toolWindow.isResetFiltersEnabled())
+        toolWindow.searchTextField.text = ""
+        assertFalse(toolWindow.isResetFiltersEnabled())
+
+        toolWindow.changesFilterComboBox.selectedItem = TriStateFilter.YES
+        assertTrue(toolWindow.isResetFiltersEnabled())
+        toolWindow.changesFilterComboBox.selectedItem = TriStateFilter.ALL
+        assertFalse(toolWindow.isResetFiltersEnabled())
+
+        toolWindow.vulnerabilitiesFilterComboBox.selectedItem = TriStateFilter.NO
+        assertTrue(toolWindow.isResetFiltersEnabled())
+        toolWindow.vulnerabilitiesFilterComboBox.selectedItem = TriStateFilter.ALL
+        assertFalse(toolWindow.isResetFiltersEnabled())
+    }
+
+    fun testResetAllFiltersRestoresDefaultsAndShowsAllRows() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val content = toolWindow.getContent()
+        val table = findTable(content)!!
+        val model = table.model as javax.swing.table.DefaultTableModel
+
+        model.addRow(arrayOf("com.example", "lib-a", "", "dependency", "1.0.0", null, listOf("1.0.0")))
+        model.addRow(arrayOf("com.example", "lib-b", "", "plugin", "1.0.0", null, listOf("1.0.0")))
+
+        toolWindow.updateTypeFilterOptions()
+        toolWindow.searchTextField.text = "lib-a"
+        toolWindow.typeFilterComboBox.selectedItem = "dependency"
+        toolWindow.changesFilterComboBox.selectedItem = TriStateFilter.NO
+        toolWindow.vulnerabilitiesFilterComboBox.selectedItem = TriStateFilter.NO
+        toolWindow.applyRowFilter()
+        assertEquals(1, table.rowCount)
+
+        toolWindow.resetAllFilters()
+
+        assertEquals("", toolWindow.searchTextField.text)
+        assertEquals(TriStateFilter.ALL, toolWindow.changesFilterComboBox.selectedItem)
+        assertEquals(TriStateFilter.ALL, toolWindow.vulnerabilitiesFilterComboBox.selectedItem)
+        assertFalse(toolWindow.isResetFiltersEnabled())
+        assertEquals(2, table.rowCount)
+    }
+
+    /**
+     * Liefert die drei per Reflection zugänglichen Versions-Maps eines Tool-Windows.
+     */
+    @Suppress("UNCHECKED_CAST")
+    private fun versionMaps(
+        toolWindow: MavenUpWindowFactory.MyToolWindow
+    ): Triple<MutableMap<String, List<String>>, MutableMap<String, String>, MutableMap<String, String>> {
+        val fields = toolWindow.javaClass
+        val availableVersions = fields.getDeclaredField("availableVersions")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, List<String>>
+        val selectedVersions = fields.getDeclaredField("selectedVersions")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, String>
+        val knownDependencies = fields.getDeclaredField("knownDependencies")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, String>
+        return Triple(availableVersions, selectedVersions, knownDependencies)
+    }
+
+    fun testSelectHighestMajorVersionForAllSelectsNewestOverall() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val content = toolWindow.getContent()
+        val model = findTable(content)!!.model as javax.swing.table.DefaultTableModel
+        val (availableVersions, selectedVersions, knownDependencies) = versionMaps(toolWindow)
+
+        val key = "com.example:major-all"
+        availableVersions[key] = listOf("3.1.0", "3.0.0", "2.9.9", "2.5.0")
+        knownDependencies[key] = "2.5.0"
+        model.addRow(arrayOf("com.example", "major-all", "", "dependency", "2.5.0", null, availableVersions[key]))
+        toolWindow.applyRowFilter()
+
+        toolWindow.selectHighestMajorVersionForAll()
+
+        assertEquals("3.1.0", selectedVersions[key])
+    }
+
+    fun testSelectHighestMinorVersionForAllStaysWithinCurrentMajor() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val content = toolWindow.getContent()
+        val model = findTable(content)!!.model as javax.swing.table.DefaultTableModel
+        val (availableVersions, selectedVersions, knownDependencies) = versionMaps(toolWindow)
+
+        val key = "com.example:minor-all"
+        availableVersions[key] = listOf("3.1.0", "3.0.0", "2.9.9", "2.5.0")
+        knownDependencies[key] = "2.5.0"
+        model.addRow(arrayOf("com.example", "minor-all", "", "dependency", "2.5.0", null, availableVersions[key]))
+        toolWindow.applyRowFilter()
+
+        toolWindow.selectHighestMinorVersionForAll()
+
+        assertEquals("2.9.9", selectedVersions[key])
+    }
+
+    fun testSelectHighestMinorVersionForAllKeepsCurrentWhenNoSameMajorExists() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val content = toolWindow.getContent()
+        val model = findTable(content)!!.model as javax.swing.table.DefaultTableModel
+        val (availableVersions, selectedVersions, knownDependencies) = versionMaps(toolWindow)
+
+        val key = "com.example:minor-none"
+        availableVersions[key] = listOf("3.2.0", "3.1.0")
+        knownDependencies[key] = "2.8.0"
+        model.addRow(arrayOf("com.example", "minor-none", "", "dependency", "2.8.0", null, availableVersions[key]))
+        toolWindow.applyRowFilter()
+
+        toolWindow.selectHighestMinorVersionForAll()
+
+        assertNull(
+            "Ohne Version derselben Major-Linie darf keine abweichende Auswahl gesetzt werden.",
+            selectedVersions[key]
+        )
+    }
+
+    fun testBulkSelectionSkipsRowsHiddenByFilter() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val content = toolWindow.getContent()
+        val model = findTable(content)!!.model as javax.swing.table.DefaultTableModel
+        val (availableVersions, selectedVersions, knownDependencies) = versionMaps(toolWindow)
+
+        val visibleKey = "com.example:visible-lib"
+        val hiddenKey = "com.example:hidden-lib"
+        availableVersions[visibleKey] = listOf("2.0.0", "1.0.0")
+        availableVersions[hiddenKey] = listOf("2.0.0", "1.0.0")
+        knownDependencies[visibleKey] = "1.0.0"
+        knownDependencies[hiddenKey] = "1.0.0"
+        model.addRow(arrayOf("com.example", "visible-lib", "", "dependency", "1.0.0", null, availableVersions[visibleKey]))
+        model.addRow(arrayOf("com.example", "hidden-lib", "", "plugin", "1.0.0", null, availableVersions[hiddenKey]))
+
+        // Nur Zeilen vom Typ "dependency" sichtbar lassen.
+        toolWindow.updateTypeFilterOptions()
+        toolWindow.typeFilterComboBox.selectedItem = "dependency"
+        toolWindow.applyRowFilter()
+        assertTrue(toolWindow.isRowFilterHidingEntries())
+
+        toolWindow.selectHighestMajorVersionForAll()
+
+        assertEquals("2.0.0", selectedVersions[visibleKey])
+        assertNull(
+            "Eine ausgefilterte Zeile darf durch die Sammelauswahl nicht verändert werden.",
+            selectedVersions[hiddenKey]
+        )
+    }
+
+    fun testResetAllVersionsToCurrentClearsHiddenSelections() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val content = toolWindow.getContent()
+        val model = findTable(content)!!.model as javax.swing.table.DefaultTableModel
+        val (availableVersions, selectedVersions, knownDependencies) = versionMaps(toolWindow)
+
+        val visibleKey = "com.example:reset-visible"
+        val hiddenKey = "com.example:reset-hidden"
+        availableVersions[visibleKey] = listOf("2.0.0", "1.0.0")
+        availableVersions[hiddenKey] = listOf("2.0.0", "1.0.0")
+        knownDependencies[visibleKey] = "1.0.0"
+        knownDependencies[hiddenKey] = "1.0.0"
+        selectedVersions[visibleKey] = "2.0.0"
+        selectedVersions[hiddenKey] = "2.0.0"
+        model.addRow(arrayOf("com.example", "reset-visible", "", "dependency", "1.0.0", null, availableVersions[visibleKey]))
+        model.addRow(arrayOf("com.example", "reset-hidden", "", "plugin", "1.0.0", null, availableVersions[hiddenKey]))
+
+        toolWindow.updateTypeFilterOptions()
+        toolWindow.typeFilterComboBox.selectedItem = "dependency"
+        toolWindow.applyRowFilter()
+
+        toolWindow.resetAllVersionsToCurrent()
+
+        assertNull(
+            "Das Zurücksetzen muss auch ausgefilterte Auswahlen entfernen.",
+            selectedVersions[hiddenKey]
+        )
+        assertNull(selectedVersions[visibleKey])
+    }
+
+    fun testBulkSelectionActionDescriptionAppendsHintWhenFilterHidesRows() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val content = toolWindow.getContent()
+        val model = findTable(content)!!.model as javax.swing.table.DefaultTableModel
+
+        model.addRow(arrayOf("com.example", "lib-a", "", "dependency", "1.0.0", null, listOf("1.0.0")))
+        model.addRow(arrayOf("com.example", "lib-b", "", "plugin", "1.0.0", null, listOf("1.0.0")))
+
+        toolWindow.applyRowFilter()
+        assertFalse(toolWindow.isRowFilterHidingEntries())
+        assertEquals("Base", toolWindow.bulkSelectionActionDescription("Base"))
+
+        toolWindow.updateTypeFilterOptions()
+        toolWindow.typeFilterComboBox.selectedItem = "dependency"
+        toolWindow.applyRowFilter()
+        assertTrue(toolWindow.isRowFilterHidingEntries())
+        assertTrue(toolWindow.bulkSelectionActionDescription("Base").startsWith("Base"))
+        assertTrue(toolWindow.bulkSelectionActionDescription("Base").length > "Base".length)
+    }
+
+    fun testResetAllVersionsToCurrentClearsSelections() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+        val (availableVersions, selectedVersions, knownDependencies) = versionMaps(toolWindow)
+
+        val key = "com.example:reset-all"
+        availableVersions[key] = listOf("2.0.0", "1.0.0")
+        knownDependencies[key] = "1.0.0"
+        selectedVersions[key] = "2.0.0"
+
+        toolWindow.resetAllVersionsToCurrent()
+
+        assertNull(
+            "Nach dem Zurücksetzen darf keine abweichende Auswahl mehr vorhanden sein.",
+            selectedVersions[key]
+        )
+        assertFalse(toolWindow.hasSelectedUpdates())
+    }
+
+    fun testBulkSelectionDoesNothingWhenNoVersionsLoaded() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+        val (_, selectedVersions, _) = versionMaps(toolWindow)
+
+        selectedVersions["com.example:existing"] = "1.0.0"
+
+        toolWindow.selectHighestMajorVersionForAll()
+        toolWindow.selectHighestMinorVersionForAll()
+
+        assertEquals("1.0.0", selectedVersions["com.example:existing"])
+    }
+
+    fun testBulkSelectionEnabledReflectsLoadedVersions() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+        val (availableVersions, _, _) = versionMaps(toolWindow)
+
+        assertFalse(toolWindow.isBulkVersionSelectionEnabled())
+
+        availableVersions["com.example:with-versions"] = listOf("1.0.0")
+
+        assertTrue(toolWindow.isBulkVersionSelectionEnabled())
+    }
+
+    fun testResetVersionsEnabledReflectsPendingChanges() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+        val (availableVersions, selectedVersions, knownDependencies) = versionMaps(toolWindow)
+
+        val key = "com.example:reset-enabled"
+        availableVersions[key] = listOf("2.0.0", "1.0.0")
+        knownDependencies[key] = "1.0.0"
+
+        assertFalse(toolWindow.isResetVersionsEnabled())
+
+        selectedVersions[key] = "2.0.0"
+
+        assertTrue(toolWindow.isResetVersionsEnabled())
     }
 }

@@ -1,22 +1,31 @@
 <!-- Keep a Changelog guide -> https://keepachangelog.com -->
 
 # MavenUp Changelog
-## [Unreleased]
+## [2.3.0]
 
 ### Added
+- Added a dedicated MavenUp tool window icon (with Light and Dark theme variants) shown in the tool window bar instead of a generic IntelliJ icon.
+- Added toolbar actions to bulk-select the highest major version, the highest minor version within the current major line, or reset all selections to the current versions; the two "Select Highest" actions apply only to the currently visible (non-filtered) dependencies and show a tooltip hint when a filter hides entries, while the reset clears all selections regardless of filtering.
 - Added a 3-state auto-selection mode setting for update checks (disabled, highest version, latest minor in current major line).
 - Added an "Offer all versions" setting that also lists versions older than the current one, enabling downgrades; disabled by default so only versions greater than or equal to the current one are offered.
 - Added a "(current)" marker in bold to the currently used version in the version selection dropdown so it stands out, especially when older versions are offered.
+- Added column-header sorting to the dependency table that cycles through ascending, descending, and the original pom.xml order, excluding the Current Version, Vulnerabilities, and New Version columns, with a header indicator icon (dimmed double arrow when unsorted, directional arrow when sorted) marking sortable columns.
+- Added a reset button at the end of the filter row that clears the search text and the type, pending, and vulnerabilities filters at once.
+- Added tooltips to the filter row controls that explain the search field and the type, pending, and vulnerabilities filters.
+- Added an "Updates" filter that shows only rows with a newer version available and is enabled only after a successful "Find New Versions".
 
 ### Changed
 - Changed the settings UI from two checkboxes to a single combobox for version auto-selection strategy.
+- Changed the "Vulnerabilities" filter to be enabled only after a successful "Scan for Vulnerabilities".
+- Changed the "Pending" filter to be enabled only once at least one row has a differing version selection.
+- Changed the filter combo boxes to use self-describing option labels (for example "Will update", "Update available", "Vulnerable") instead of generic "Yes"/"No".
 - Changed the newest-version reference to use the repository-declared `<release>`/`<latest>` fields from `maven-metadata.xml` (preferring Maven Central), falling back to comparator-based ordering, so date-based versions no longer outrank the actual latest release.
 
 ### Fixed
 - Fixed the New Version cell defaulting to the numerically highest version, which caused an unintended jump (for example from 24.0 to a date-based 2023-... version) and could be committed as an update; it now defaults to the current version when no target is preselected.
 - Fixed latest-minor auto-selection for version jumps and unsorted version lists by sorting candidates before choosing the newest or same-major release.
 - Fixed duplicate dependency rows in the tool window by deduplicating entries within each scope while keeping managed and regular dependencies visible separately.
-- Fixed New Version preselection recalculation so changes to the auto-selection mode are applied immediately in open tool windows.
+- Fixed New Version preselection recalculation, so changes to the auto-selection mode are applied immediately in open tool windows.
 - Fixed the Current Version column showing the raw property placeholder (for example `${netty-bom.version}`) for `dependencyManagement` entries whose version is defined via a property; it now resolves the placeholder against the effective Maven properties.
 - Fixed the update check offering older versions for property-based `dependencyManagement` entries by resolving the version placeholder before filtering, so the "greater than or equal to current" filter compares against the real version instead of the raw placeholder.
 

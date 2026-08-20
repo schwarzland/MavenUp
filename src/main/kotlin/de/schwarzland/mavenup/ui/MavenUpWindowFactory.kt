@@ -27,6 +27,7 @@ import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.diagnostic.Logger
+import com.intellij.openapi.util.IconLoader
 import com.intellij.ide.BrowserUtil
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.fileEditor.FileEditorManager
@@ -107,6 +108,19 @@ internal fun isVersionUpToDate(version: String, newestVersion: String): Boolean 
     version == newestVersion && version.isNotEmpty()
 
 /**
+ * Bestimmt, ob für eine Abhängigkeit eine neuere Version verfügbar ist.
+ *
+ * Eine neuere Version liegt vor, wenn eine höchste bekannte Version existiert und diese
+ * von der aktuell verwendeten Version abweicht.
+ *
+ * @param currentVersion Die aktuell verwendete Version.
+ * @param newestVersion Die höchste bekannte Version (erstes Element der Versionsliste).
+ * @return `true`, wenn eine neuere Version verfügbar ist.
+ */
+internal fun hasNewerVersion(currentVersion: String, newestVersion: String): Boolean =
+    newestVersion.isNotEmpty() && newestVersion != currentVersion
+
+/**
  * Filteroption für dreiwertige Filterkriterien (Alle, Ja, Nein) in der Filterzeile.
  *
  * @property labelKey Der Schlüssel des lokalisierten Anzeigetextes im Message-Bundle.
@@ -131,56 +145,133 @@ internal enum class TriStateFilter(val labelKey: String) {
 }
 
 /**
+ * Bündelt die Message-Bundle-Schlüssel der kontextspezifischen Optionstexte eines
+ * dreiwertigen Filters.
+ *
+ * Damit lassen sich für jeden Filter (Änderungen, Updates, Sicherheitslücken) eigene,
+ * selbsterklärende Bezeichnungen anzeigen, ohne die generischen [TriStateFilter]-Werte
+ * zu verändern.
+ *
+ * @property allKey Schlüssel des Textes für [TriStateFilter.ALL].
+ * @property yesKey Schlüssel des Textes für [TriStateFilter.YES].
+ * @property noKey Schlüssel des Textes für [TriStateFilter.NO].
+ */
+internal data class TriStateFilterLabels(
+    val allKey: String,
+    val yesKey: String,
+    val noKey: String
+)
+
+/**
+ * Liefert den kontextspezifischen Anzeigetext einer Filteroption.
+ *
+ * @param option Die darzustellende Filteroption.
+ * @param labels Die Message-Bundle-Schlüssel des jeweiligen Filters.
+ * @return Der lokalisierte, selbsterklärende Anzeigetext der Option.
+ */
+internal fun triStateFilterOptionLabel(option: TriStateFilter, labels: TriStateFilterLabels): String =
+    when (option) {
+        TriStateFilter.ALL -> MyMessageBundle.message(labels.allKey)
+        TriStateFilter.YES -> MyMessageBundle.message(labels.yesKey)
+        TriStateFilter.NO -> MyMessageBundle.message(labels.noKey)
+    }
+
+/** Kontextspezifische Optionstexte des Änderungs-Filters. */
+internal val CHANGES_FILTER_LABELS = TriStateFilterLabels(
+    "toolwindow.MyToolWindow.filter.changes.option.all",
+    "toolwindow.MyToolWindow.filter.changes.option.yes",
+    "toolwindow.MyToolWindow.filter.changes.option.no"
+)
+
+/** Kontextspezifische Optionstexte des Updates-Filters. */
+internal val UPDATES_FILTER_LABELS = TriStateFilterLabels(
+    "toolwindow.MyToolWindow.filter.updates.option.all",
+    "toolwindow.MyToolWindow.filter.updates.option.yes",
+    "toolwindow.MyToolWindow.filter.updates.option.no"
+)
+
+/** Kontextspezifische Optionstexte des Vulnerabilities-Filters. */
+internal val VULNERABILITIES_FILTER_LABELS = TriStateFilterLabels(
+    "toolwindow.MyToolWindow.filter.vulnerabilities.option.all",
+    "toolwindow.MyToolWindow.filter.vulnerabilities.option.yes",
+    "toolwindow.MyToolWindow.filter.vulnerabilities.option.no"
+)
+
+/**
+ * Fasst die filterrelevanten Werte einer einzelnen Tabellenzeile zusammen.
+ *
+ * @property groupId Die GroupId der Zeile.
+ * @property artifactId Die ArtifactId der Zeile.
+ * @property property Der Property-Name der Zeile.
+ * @property type Der Typ der Zeile.
+ * @property hasChange `true`, wenn für die Zeile eine Versionsänderung vorliegt.
+ * @property hasUpdate `true`, wenn für die Zeile eine neuere Version verfügbar ist.
+ * @property hasVulnerabilities `true`, wenn für die Zeile mindestens eine Sicherheitslücke gemeldet ist.
+ */
+internal data class FilterRow(
+    val groupId: String,
+    val artifactId: String,
+    val property: String,
+    val type: String,
+    val hasChange: Boolean = false,
+    val hasUpdate: Boolean = false,
+    val hasVulnerabilities: Boolean = false
+)
+
+/**
+ * Fasst die aktiven Filterkriterien der Haupttabelle zusammen.
+ *
+ * @property searchText Der eingegebene Suchtext (wird getrimmt und case-insensitiv verglichen).
+ * @property typeFilter Der ausgewählte Typ oder ein leerer String für "alle Typen".
+ * @property changesFilter Die ausgewählte Filteroption für Änderungen (Alle, Ja, Nein).
+ * @property updatesFilter Die ausgewählte Filteroption für verfügbare Updates (Alle, Ja, Nein).
+ * @property vulnerabilitiesFilter Die ausgewählte Filteroption für Sicherheitslücken (Alle, Ja, Nein).
+ */
+internal data class FilterCriteria(
+    val searchText: String,
+    val typeFilter: String,
+    val changesFilter: TriStateFilter = TriStateFilter.ALL,
+    val updatesFilter: TriStateFilter = TriStateFilter.ALL,
+    val vulnerabilitiesFilter: TriStateFilter = TriStateFilter.ALL
+)
+
+/**
  * Prüft, ob eine Tabellenzeile den aktuellen Filterkriterien entspricht.
  *
  * Der Textfilter wird case-insensitiv gegen GroupId, ArtifactId und Property geprüft;
  * die Zeile passt, sobald einer dieser Werte den Suchtext enthält. Ein leerer Suchtext
  * lässt alle Zeilen zu. Der Typfilter passt bei leerem Wert auf jeden Typ, sonst nur bei
- * exakter Übereinstimmung des Typs. Der Änderungs- und Vulnerabilities-Filter prüfen,
- * ob Änderungen bzw. Sicherheitslücken vorliegen (`YES`), nicht vorliegen (`NO`) oder
+ * exakter Übereinstimmung des Typs. Der Änderungs-, Updates- und Vulnerabilities-Filter prüfen,
+ * ob Änderungen, verfügbare Updates bzw. Sicherheitslücken vorliegen (`YES`), nicht vorliegen (`NO`) oder
  * der Filter inaktiv ist (`ALL`).
  *
- * @param groupId Die GroupId der Zeile.
- * @param artifactId Die ArtifactId der Zeile.
- * @param property Der Property-Name der Zeile.
- * @param type Der Typ der Zeile.
- * @param searchText Der eingegebene Suchtext (wird getrimmt und case-insensitiv verglichen).
- * @param typeFilter Der ausgewählte Typ oder ein leerer String für "alle Typen".
- * @param hasChange `true`, wenn für die Zeile eine Versionsänderung vorliegt.
- * @param changesFilter Die ausgewählte Filteroption für Änderungen (Alle, Ja, Nein).
- * @param hasVulnerabilities `true`, wenn für die Zeile mindestens eine Sicherheitslücke gemeldet ist.
- * @param vulnerabilitiesFilter Die ausgewählte Filteroption für Sicherheitslücken (Alle, Ja, Nein).
+ * @param row Die filterrelevanten Werte der zu prüfenden Zeile.
+ * @param criteria Die aktuell aktiven Filterkriterien.
  * @return `true`, wenn die Zeile allen aktiven Filterkriterien entspricht.
  */
-internal fun rowMatchesFilter(
-    groupId: String,
-    artifactId: String,
-    property: String,
-    type: String,
-    searchText: String,
-    typeFilter: String,
-    hasChange: Boolean = false,
-    changesFilter: TriStateFilter = TriStateFilter.ALL,
-    hasVulnerabilities: Boolean = false,
-    vulnerabilitiesFilter: TriStateFilter = TriStateFilter.ALL
-): Boolean {
-    val needle = searchText.trim().lowercase()
+internal fun rowMatchesFilter(row: FilterRow, criteria: FilterCriteria): Boolean {
+    val needle = criteria.searchText.trim().lowercase()
     val textMatches = needle.isEmpty() ||
-        groupId.lowercase().contains(needle) ||
-        artifactId.lowercase().contains(needle) ||
-        property.lowercase().contains(needle)
-    val typeMatches = typeFilter.isEmpty() || type == typeFilter
-    val changesMatches = when (changesFilter) {
+        row.groupId.lowercase().contains(needle) ||
+        row.artifactId.lowercase().contains(needle) ||
+        row.property.lowercase().contains(needle)
+    val typeMatches = criteria.typeFilter.isEmpty() || row.type == criteria.typeFilter
+    val changesMatches = when (criteria.changesFilter) {
         TriStateFilter.ALL -> true
-        TriStateFilter.YES -> hasChange
-        TriStateFilter.NO -> !hasChange
+        TriStateFilter.YES -> row.hasChange
+        TriStateFilter.NO -> !row.hasChange
     }
-    val vulnerabilitiesMatches = when (vulnerabilitiesFilter) {
+    val updatesMatches = when (criteria.updatesFilter) {
         TriStateFilter.ALL -> true
-        TriStateFilter.YES -> hasVulnerabilities
-        TriStateFilter.NO -> !hasVulnerabilities
+        TriStateFilter.YES -> row.hasUpdate
+        TriStateFilter.NO -> !row.hasUpdate
     }
-    return textMatches && typeMatches && changesMatches && vulnerabilitiesMatches
+    val vulnerabilitiesMatches = when (criteria.vulnerabilitiesFilter) {
+        TriStateFilter.ALL -> true
+        TriStateFilter.YES -> row.hasVulnerabilities
+        TriStateFilter.NO -> !row.hasVulnerabilities
+    }
+    return textMatches && typeMatches && changesMatches && updatesMatches && vulnerabilitiesMatches
 }
 
 /**
@@ -413,6 +504,26 @@ internal fun canCheckVulnerabilities(isRefreshing: Boolean, isUpdating: Boolean)
     return !isRefreshing && !isUpdating
 }
 
+/**
+ * Liefert das Icon, das den Sortierzustand einer Tabellenspalte in der Kopfzeile anzeigt.
+ *
+ * Für sortierbare, aber aktuell unsortierte Spalten wird ein gedämpfter Doppelpfeil zurückgegeben,
+ * der andeutet, dass die Spalte per Klick sortiert werden kann. Ist eine Sortierrichtung aktiv,
+ * wird der entsprechende Auf- bzw. Ab-Pfeil verwendet. Nicht sortierbare Spalten erhalten kein Icon.
+ *
+ * @param sortable Ob die Spalte grundsätzlich sortierbar ist.
+ * @param sortOrder Aktuelle Sortierrichtung der Spalte oder `null`/[SortOrder.UNSORTED], wenn sie nicht sortiert ist.
+ * @return Das anzuzeigende [Icon] oder `null`, wenn die Spalte nicht sortierbar ist.
+ */
+internal fun sortableHeaderIcon(sortable: Boolean, sortOrder: SortOrder?): Icon? {
+    if (!sortable) return null
+    return when (sortOrder) {
+        SortOrder.ASCENDING -> AllIcons.General.ArrowUp
+        SortOrder.DESCENDING -> AllIcons.General.ArrowDown
+        else -> IconLoader.getDisabledIcon(AllIcons.General.ArrowSplitCenterV)
+    }
+}
+
 
 private const val VULNERABILITY_DETAILS_TITLE = "vulnerability.details.title"
 
@@ -453,7 +564,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
      * durchzuführenden Änderungen (Gruppe, Artefakt, Version alt/neu).
      */
     class UpdateConfirmationDialog(
-        private val project: Project,
+        project: Project,
         private val updates: List<DependencyUpdate>
     ) : DialogWrapper(project) {
         private val syncMavenCheckbox: JCheckBox = JCheckBox(
@@ -549,6 +660,12 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private val vulnerabilityAdvisories = mutableMapOf<String, List<VulnerabilityAdvisory>>()
         private val transitiveCoordinates = mutableSetOf<String>()
         private val transitiveDependenciesByDirect = mutableMapOf<String, Set<String>>()
+
+        /**
+         * `true`, sobald mindestens eine erfolgreiche Vulnerability-Prüfung ("Scan for Vulnerabilities")
+         * abgeschlossen wurde. Steuert die Aktivierung des Vulnerabilities-Filters.
+         */
+        private var vulnerabilityScanPerformed = false
         private var isUpdating = false
         private var isRefreshing = false
         private var refreshGeneration = 0
@@ -580,6 +697,14 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /** Auswahlfeld für den Filter nach anstehenden Änderungen (Ja/Nein/Alle). */
         internal val changesFilterComboBox = ComboBox(TriStateFilter.entries.toTypedArray())
 
+        /**
+         * Auswahlfeld für den Filter nach verfügbaren Updates (Ja/Nein/Alle).
+         *
+         * Nur aktiv, sobald eine erfolgreiche Versionssuche ("Find New Versions") mindestens eine
+         * abrufbare Versionsliste geliefert hat (siehe [updateUpdatesFilterState]).
+         */
+        internal val updatesFilterComboBox = ComboBox(TriStateFilter.entries.toTypedArray())
+
         /** Auswahlfeld für den Filter nach Sicherheitslücken (Ja/Nein/Alle). */
         internal val vulnerabilitiesFilterComboBox = ComboBox(TriStateFilter.entries.toTypedArray())
 
@@ -590,7 +715,13 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /** Container für Aktionsleiste und Filterzeile im Nordbereich. */
         private val topPanel = JBPanel<JBPanel<*>>(BorderLayout())
 
-        /** Row-Sorter der Tabelle, der ausschließlich zum Filtern verwendet wird. */
+        /** Aktionsleiste am Ende der Filterzeile zum Zurücksetzen aller Filter. */
+        private var filterResetToolbar: ActionToolbar? = null
+
+        /**
+         * Row-Sorter der Tabelle, der sowohl das Filtern der Zeilen als auch das
+         * spaltenweise Sortieren über die Kopfzeile übernimmt.
+         */
         private var tableRowSorter: TableRowSorter<DefaultTableModel>
 
         private val content = JBPanel<JBPanel<*>>(BorderLayout()).apply {
@@ -718,11 +849,43 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 }
             }
 
-            tableRowSorter = TableRowSorter(tableModel)
+            tableRowSorter = object : TableRowSorter<DefaultTableModel>(tableModel) {
+                /**
+                 * Schaltet die Sortierung einer Spalte zyklisch weiter: aufsteigend →
+                 * absteigend → unsortiert (Reihenfolge wie in der pom.xml).
+                 *
+                 * @param column Modellindex der angeklickten Spalte.
+                 */
+                override fun toggleSortOrder(column: Int) {
+                    if (!isSortable(column)) return
+                    val current = sortKeys.firstOrNull { it.column == column }?.sortOrder
+                    val next = when (current) {
+                        SortOrder.ASCENDING -> SortOrder.DESCENDING
+                        SortOrder.DESCENDING -> SortOrder.UNSORTED
+                        else -> SortOrder.ASCENDING
+                    }
+                    sortKeys = if (next == SortOrder.UNSORTED) {
+                        emptyList()
+                    } else {
+                        listOf(SortKey(column, next))
+                    }
+                }
+            }
+            val textComparator = Comparator<Any?> { a, b ->
+                String.CASE_INSENSITIVE_ORDER.compare(a?.toString().orEmpty(), b?.toString().orEmpty())
+            }
             for (columnIndex in 0 until tableModel.columnCount) {
-                tableRowSorter.setSortable(columnIndex, false)
+                when (columnIndex) {
+                    CURRENT_VERSION_COLUMN, VULNERABILITIES_COLUMN, NEW_VERSION_COLUMN ->
+                        tableRowSorter.setSortable(columnIndex, false)
+                    else -> {
+                        tableRowSorter.setSortable(columnIndex, true)
+                        tableRowSorter.setComparator(columnIndex, textComparator)
+                    }
+                }
             }
             table.rowSorter = tableRowSorter
+            installSortableHeaderRenderer(table)
             applyRowFilter()
 
             // Custom Renderer and Editor for the "New Version" column
@@ -884,6 +1047,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     vulnerabilityAdvisories.clear()
                     transitiveCoordinates.clear()
                     transitiveDependenciesByDirect.clear()
+                    vulnerabilityScanPerformed = false
                 }
                 dependencyToProperty.clear()
                 knownDependencies.clear()
@@ -922,6 +1086,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         }
                         updateUpdateButtonState()
                         updateTypeFilterOptions()
+                        updateUpdatesFilterState()
+                        updateVulnerabilitiesFilterState()
 
                         if (checkUpdates) {
                             performUpdateCheck {
@@ -999,6 +1165,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 messageKey: String,
                 icon: Icon,
                 isEnabled: () -> Boolean,
+                descriptionProvider: (() -> String)? = null,
                 onPerform: () -> Unit
             ): AnAction {
                 val label = MyMessageBundle.message(messageKey)
@@ -1006,7 +1173,17 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
                     override fun update(e: AnActionEvent) {
                         e.presentation.isEnabled = isEnabled()
-                        e.presentation.putClientProperty(ActionUtil.SHOW_TEXT_IN_TOOLBAR, isToolbarTextEnabled())
+                        val showText = isToolbarTextEnabled()
+                        descriptionProvider?.let {
+                            val description = it()
+                            e.presentation.description = description
+                            // Bei reiner Icon-Darstellung leitet die Toolbar den Tooltip aus dem
+                            // Action-Text ab, nicht aus der Description – daher den (ggf. um den
+                            // Filterhinweis erweiterten) Text nur dann in den Text falten, wenn keine
+                            // Labels angezeigt werden.
+                            e.presentation.text = if (showText) label else description
+                        }
+                        e.presentation.putClientProperty(ActionUtil.SHOW_TEXT_IN_TOOLBAR, showText)
                     }
 
                     override fun actionPerformed(e: AnActionEvent) = onPerform()
@@ -1048,6 +1225,32 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     AllIcons.Actions.Execute,
                     { isUpdateActionEnabled() }
                 ) { updateAction() })
+                addSeparator()
+                add(toolbarAction(
+                    "toolwindow.MyToolWindow.selectHighestMajor.button",
+                    AllIcons.Actions.Play_last,
+                    { isBulkVersionSelectionEnabled() },
+                    descriptionProvider = {
+                        bulkSelectionActionDescription(
+                            MyMessageBundle.message("toolwindow.MyToolWindow.selectHighestMajor.button")
+                        )
+                    }
+                ) { selectHighestMajorVersionForAll() })
+                add(toolbarAction(
+                    "toolwindow.MyToolWindow.selectHighestMinor.button",
+                    AllIcons.Actions.Play_forward,
+                    { isBulkVersionSelectionEnabled() },
+                    descriptionProvider = {
+                        bulkSelectionActionDescription(
+                            MyMessageBundle.message("toolwindow.MyToolWindow.selectHighestMinor.button")
+                        )
+                    }
+                ) { selectHighestMinorVersionForAll() })
+                add(toolbarAction(
+                    "toolwindow.MyToolWindow.resetVersions.button",
+                    AllIcons.Actions.Undo,
+                    { isResetVersionsEnabled() }
+                ) { resetAllVersionsToCurrent() })
                 addSeparator()
                 add(openInRepositoryAction)
                 add(toolbarAction(
@@ -1112,7 +1315,29 @@ class MavenUpWindowFactory : ToolWindowFactory {
             MavenUpSettings.getInstance().state.toolbarShowText
 
         /**
-         * Erstellt die Filterzeile mit Typ-, Änderungs- und Vulnerabilities-Combobox sowie Textfeld unterhalb der Aktionsleiste.
+         * Erzeugt einen Renderer, der die [TriStateFilter]-Werte einer Filter-Combobox mit
+         * kontextspezifischen, selbsterklärenden Texten anzeigt.
+         *
+         * @param labels Die Message-Bundle-Schlüssel der Optionstexte des jeweiligen Filters.
+         * @return Ein [ListCellRenderer] für die Filter-Combobox.
+         */
+        private fun triStateFilterRenderer(labels: TriStateFilterLabels): ListCellRenderer<in TriStateFilter> =
+            object : DefaultListCellRenderer() {
+                override fun getListCellRendererComponent(
+                    list: JList<*>?,
+                    value: Any?,
+                    index: Int,
+                    isSelected: Boolean,
+                    cellHasFocus: Boolean
+                ): Component {
+                    val text = (value as? TriStateFilter)?.let { triStateFilterOptionLabel(it, labels) }
+                        ?: value?.toString()
+                    return super.getListCellRendererComponent(list, text, index, isSelected, cellHasFocus)
+                }
+            }
+
+        /**
+         * Erstellt die Filterzeile mit Typ-, Updates-, Änderungs- und Vulnerabilities-Combobox sowie Textfeld unterhalb der Aktionsleiste.
          *
          * @return Die konfigurierte Filter-Komponente.
          */
@@ -1124,18 +1349,35 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
             filterControlsPanel.add(JLabel(MyMessageBundle.message("toolwindow.MyToolWindow.filter.type.label")))
             typeFilterComboBox.model = DefaultComboBoxModel(arrayOf(allTypesFilterLabel))
+            typeFilterComboBox.toolTipText = MyMessageBundle.message("toolwindow.MyToolWindow.filter.type.tooltip")
             typeFilterComboBox.addActionListener { applyRowFilter() }
             filterControlsPanel.add(typeFilterComboBox)
+
+            filterControlsPanel.add(JLabel(MyMessageBundle.message("toolwindow.MyToolWindow.filter.updates.label")))
+            updatesFilterComboBox.model = DefaultComboBoxModel(TriStateFilter.entries.toTypedArray())
+            updatesFilterComboBox.selectedItem = TriStateFilter.ALL
+            updatesFilterComboBox.renderer = triStateFilterRenderer(UPDATES_FILTER_LABELS)
+            updatesFilterComboBox.toolTipText = MyMessageBundle.message("toolwindow.MyToolWindow.filter.updates.tooltip")
+            updatesFilterComboBox.isEnabled = isUpdatesFilterAvailable()
+            updatesFilterComboBox.addActionListener { applyRowFilter() }
+            filterControlsPanel.add(updatesFilterComboBox)
 
             filterControlsPanel.add(JLabel(MyMessageBundle.message("toolwindow.MyToolWindow.filter.changes.label")))
             changesFilterComboBox.model = DefaultComboBoxModel(TriStateFilter.entries.toTypedArray())
             changesFilterComboBox.selectedItem = TriStateFilter.ALL
+            changesFilterComboBox.renderer = triStateFilterRenderer(CHANGES_FILTER_LABELS)
+            changesFilterComboBox.toolTipText = MyMessageBundle.message("toolwindow.MyToolWindow.filter.changes.tooltip")
+            changesFilterComboBox.isEnabled = isChangesFilterAvailable()
             changesFilterComboBox.addActionListener { applyRowFilter() }
             filterControlsPanel.add(changesFilterComboBox)
 
             filterControlsPanel.add(JLabel(MyMessageBundle.message("toolwindow.MyToolWindow.filter.vulnerabilities.label")))
             vulnerabilitiesFilterComboBox.model = DefaultComboBoxModel(TriStateFilter.entries.toTypedArray())
             vulnerabilitiesFilterComboBox.selectedItem = TriStateFilter.ALL
+            vulnerabilitiesFilterComboBox.renderer = triStateFilterRenderer(VULNERABILITIES_FILTER_LABELS)
+            vulnerabilitiesFilterComboBox.toolTipText =
+                MyMessageBundle.message("toolwindow.MyToolWindow.filter.vulnerabilities.tooltip")
+            vulnerabilitiesFilterComboBox.isEnabled = isVulnerabilitiesFilterAvailable()
             vulnerabilitiesFilterComboBox.addActionListener { applyRowFilter() }
             filterControlsPanel.add(vulnerabilitiesFilterComboBox)
 
@@ -1143,19 +1385,109 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
             searchTextField.textEditor.emptyText.text =
                 MyMessageBundle.message("toolwindow.MyToolWindow.filter.search.placeholder")
+            searchTextField.toolTipText = MyMessageBundle.message("toolwindow.MyToolWindow.filter.search.tooltip")
+            searchTextField.textEditor.toolTipText =
+                MyMessageBundle.message("toolwindow.MyToolWindow.filter.search.tooltip")
             searchTextField.addDocumentListener(object : DocumentAdapter() {
                 override fun textChanged(e: DocumentEvent) = applyRowFilter()
             })
             panel.add(searchTextField, BorderLayout.CENTER)
 
+            panel.add(buildFilterResetToolbar(), BorderLayout.EAST)
+
             return panel
+        }
+
+        /**
+         * Erstellt eine schmale Aktionsleiste mit einem einzelnen Icon-Button, der alle Filter
+         * der Filterzeile zurücksetzt.
+         *
+         * Der Button wird am Ende der Filterzeile platziert und ist nur aktiv, solange mindestens
+         * ein Filter aktiv ist (siehe [isResetFiltersEnabled]).
+         *
+         * @return Die Toolbar-Komponente mit der Reset-Aktion.
+         */
+        private fun buildFilterResetToolbar(): JComponent {
+            val resetTitle = MyMessageBundle.message("toolwindow.MyToolWindow.filter.reset.button")
+            val resetAction = object : AnAction(resetTitle, null, AllIcons.General.Reset) {
+                override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
+                override fun update(e: AnActionEvent) {
+                    e.presentation.isEnabled = isResetFiltersEnabled()
+                }
+
+                override fun actionPerformed(e: AnActionEvent) = resetAllFilters()
+            }
+            val group = DefaultActionGroup().apply { add(resetAction) }
+            val toolbar = ActionManager.getInstance()
+                .createActionToolbar("MavenUpFilterReset", group, true)
+            toolbar.targetComponent = searchTextField
+            filterResetToolbar = toolbar
+            return toolbar.component
+        }
+
+        /**
+         * Prüft, ob aktuell mindestens ein Filter der Filterzeile aktiv ist.
+         *
+         * @return `true`, wenn Suchtext, Typ-, Änderungs-, Updates- oder Vulnerabilities-Filter von ihrem
+         *         Standardwert abweichen.
+         */
+        internal fun isResetFiltersEnabled(): Boolean {
+            val searchActive = searchTextField.text.isNotEmpty()
+            val typeActive = (typeFilterComboBox.selectedItem as? String ?: allTypesFilterLabel) != allTypesFilterLabel
+            val changesActive = (changesFilterComboBox.selectedItem as? TriStateFilter ?: TriStateFilter.ALL) != TriStateFilter.ALL
+            val updatesActive =
+                (updatesFilterComboBox.selectedItem as? TriStateFilter ?: TriStateFilter.ALL) != TriStateFilter.ALL
+            val vulnerabilitiesActive =
+                (vulnerabilitiesFilterComboBox.selectedItem as? TriStateFilter ?: TriStateFilter.ALL) != TriStateFilter.ALL
+            return searchActive || typeActive || changesActive || updatesActive || vulnerabilitiesActive
+        }
+
+        /**
+         * Setzt alle Filter der Filterzeile auf ihren Standardwert zurück und aktualisiert die
+         * Tabellenansicht.
+         *
+         * Zurückgesetzt werden Suchtext, Typ-, Änderungs-, Updates- und Vulnerabilities-Filter.
+         */
+        internal fun resetAllFilters() {
+            searchTextField.text = ""
+            typeFilterComboBox.selectedItem = allTypesFilterLabel
+            changesFilterComboBox.selectedItem = TriStateFilter.ALL
+            updatesFilterComboBox.selectedItem = TriStateFilter.ALL
+            vulnerabilitiesFilterComboBox.selectedItem = TriStateFilter.ALL
+            applyRowFilter()
+        }
+
+        /**
+         * Installiert einen Kopfzeilen-Renderer, der die Sortierbarkeit der Spalten sichtbar macht.
+         *
+         * Sortierbare Spalten erhalten ein rechtsbündiges Icon: einen gedämpften Doppelpfeil im
+         * unsortierten Zustand sowie einen Auf-/Ab-Pfeil bei aktiver Sortierung. Nicht sortierbare
+         * Spalten bleiben ohne Icon. Der ursprüngliche Renderer wird für das Look-and-Feel-konforme
+         * Aussehen der Kopfzeile weiterverwendet.
+         *
+         * @param table Die Tabelle, deren Kopfzeile den Sortier-Indikator anzeigen soll.
+         */
+        private fun installSortableHeaderRenderer(table: JBTable) {
+            val originalRenderer = table.tableHeader.defaultRenderer
+            table.tableHeader.defaultRenderer = TableCellRenderer { tbl, value, isSelected, hasFocus, row, column ->
+                val component = originalRenderer.getTableCellRendererComponent(tbl, value, isSelected, hasFocus, row, column)
+                if (component is JLabel) {
+                    val modelColumn = tbl.convertColumnIndexToModel(column)
+                    val sorter = tbl.rowSorter
+                    val sortable = sorter is TableRowSorter<*> && sorter.isSortable(modelColumn)
+                    val sortOrder = sorter?.sortKeys?.firstOrNull { it.column == modelColumn }?.sortOrder
+                    component.icon = sortableHeaderIcon(sortable, sortOrder)
+                    component.horizontalTextPosition = SwingConstants.LEADING
+                }
+                component
+            }
         }
 
         /**
          * Wendet die aktuellen Filter (Suchtext, Typ, Änderungen, Sicherheitslücken) auf die Tabelle an.
          *
          * Liest den Suchtext aus [searchTextField], den gewählten Typ aus [typeFilterComboBox],
-         * die Filteroptionen aus [changesFilterComboBox] und [vulnerabilitiesFilterComboBox]
+         * die Filteroptionen aus [changesFilterComboBox], [updatesFilterComboBox] und [vulnerabilitiesFilterComboBox]
          * und setzt einen entsprechenden [RowFilter] auf den [tableRowSorter].
          */
         internal fun applyRowFilter() {
@@ -1163,6 +1495,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             val selectedType = typeFilterComboBox.selectedItem as? String ?: allTypesFilterLabel
             val typeFilter = if (selectedType == allTypesFilterLabel) "" else selectedType
             val changesFilter = changesFilterComboBox.selectedItem as? TriStateFilter ?: TriStateFilter.ALL
+            val updatesFilter = updatesFilterComboBox.selectedItem as? TriStateFilter ?: TriStateFilter.ALL
             val vulnerabilitiesFilter = vulnerabilitiesFilterComboBox.selectedItem as? TriStateFilter ?: TriStateFilter.ALL
 
             tableRowSorter.rowFilter = object : RowFilter<DefaultTableModel, Int>() {
@@ -1178,22 +1511,31 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     val selectedVersion = selectedVersions[key]
                     val effectiveVersion = selectedVersion ?: currentVersion
                     val hasChange = effectiveVersion != currentVersion && effectiveVersion.isNotEmpty()
+                    val newestVersion = availableVersions[key]?.firstOrNull().orEmpty()
+                    val hasUpdate = hasNewerVersion(currentVersion, newestVersion)
                     val hasVulnerabilities = cell != null && cell.allAdvisories.isNotEmpty()
 
                     return rowMatchesFilter(
-                        groupId = groupId,
-                        artifactId = artifactId,
-                        property = property,
-                        type = type,
-                        searchText = searchText,
-                        typeFilter = typeFilter,
-                        hasChange = hasChange,
-                        changesFilter = changesFilter,
-                        hasVulnerabilities = hasVulnerabilities,
-                        vulnerabilitiesFilter = vulnerabilitiesFilter
+                        FilterRow(
+                            groupId = groupId,
+                            artifactId = artifactId,
+                            property = property,
+                            type = type,
+                            hasChange = hasChange,
+                            hasUpdate = hasUpdate,
+                            hasVulnerabilities = hasVulnerabilities
+                        ),
+                        FilterCriteria(
+                            searchText = searchText,
+                            typeFilter = typeFilter,
+                            changesFilter = changesFilter,
+                            updatesFilter = updatesFilter,
+                            vulnerabilitiesFilter = vulnerabilitiesFilter
+                        )
                     )
                 }
             }
+            filterResetToolbar?.updateActionsAsync()
         }
 
         /**
@@ -1215,6 +1557,81 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 DefaultComboBoxModel((listOf(allTypesFilterLabel) + types).toTypedArray())
             typeFilterComboBox.selectedItem =
                 if (types.contains(previouslySelected)) previouslySelected else allTypesFilterLabel
+        }
+
+        /**
+         * Prüft, ob der Änderungs-Filter verwendet werden darf.
+         *
+         * Der Filter setzt voraus, dass für mindestens eine Abhängigkeit eine von der aktuellen
+         * Version abweichende Version ausgewählt wurde.
+         *
+         * @return `true`, wenn mindestens eine anstehende Versionsänderung vorliegt.
+         */
+        internal fun isChangesFilterAvailable(): Boolean = hasSelectedUpdates()
+
+        /**
+         * Aktualisiert den Aktivierungszustand des Änderungs-Filters.
+         *
+         * Der Filter wird nur aktiviert, wenn mindestens eine abweichende Version ausgewählt wurde
+         * (siehe [isChangesFilterAvailable]). Ist er nicht verfügbar, wird die Auswahl auf
+         * [TriStateFilter.ALL] zurückgesetzt, damit keine unsichtbare Filterung aktiv bleibt.
+         */
+        internal fun updateChangesFilterState() {
+            val available = isChangesFilterAvailable()
+            changesFilterComboBox.isEnabled = available
+            if (!available && changesFilterComboBox.selectedItem != TriStateFilter.ALL) {
+                changesFilterComboBox.selectedItem = TriStateFilter.ALL
+            }
+        }
+
+        /**
+         * Prüft, ob der Updates-Filter verwendet werden darf.
+         *
+         * Der Filter setzt eine erfolgreiche Versionssuche ("Find New Versions") voraus, die für
+         * mindestens ein Artefakt eine Versionsliste geliefert hat.
+         *
+         * @return `true`, wenn mindestens eine Abhängigkeit abrufbare Versionen besitzt.
+         */
+        internal fun isUpdatesFilterAvailable(): Boolean =
+            availableVersions.values.any { it.isNotEmpty() }
+
+        /**
+         * Aktualisiert den Aktivierungszustand des Updates-Filters.
+         *
+         * Der Filter wird nur aktiviert, wenn eine erfolgreiche Versionssuche durchgeführt wurde
+         * (siehe [isUpdatesFilterAvailable]). Ist er nicht verfügbar, wird die Auswahl auf
+         * [TriStateFilter.ALL] zurückgesetzt, damit keine unsichtbare Filterung aktiv bleibt.
+         */
+        internal fun updateUpdatesFilterState() {
+            val available = isUpdatesFilterAvailable()
+            updatesFilterComboBox.isEnabled = available
+            if (!available && updatesFilterComboBox.selectedItem != TriStateFilter.ALL) {
+                updatesFilterComboBox.selectedItem = TriStateFilter.ALL
+            }
+        }
+
+        /**
+         * Prüft, ob der Vulnerabilities-Filter verwendet werden darf.
+         *
+         * Der Filter setzt eine erfolgreiche Sicherheitsprüfung ("Scan for Vulnerabilities") voraus.
+         *
+         * @return `true`, wenn mindestens eine Sicherheitsprüfung abgeschlossen wurde.
+         */
+        internal fun isVulnerabilitiesFilterAvailable(): Boolean = vulnerabilityScanPerformed
+
+        /**
+         * Aktualisiert den Aktivierungszustand des Vulnerabilities-Filters.
+         *
+         * Der Filter wird nur aktiviert, wenn eine erfolgreiche Sicherheitsprüfung durchgeführt wurde
+         * (siehe [isVulnerabilitiesFilterAvailable]). Ist er nicht verfügbar, wird die Auswahl auf
+         * [TriStateFilter.ALL] zurückgesetzt, damit keine unsichtbare Filterung aktiv bleibt.
+         */
+        internal fun updateVulnerabilitiesFilterState() {
+            val available = isVulnerabilitiesFilterAvailable()
+            vulnerabilitiesFilterComboBox.isEnabled = available
+            if (!available && vulnerabilitiesFilterComboBox.selectedItem != TriStateFilter.ALL) {
+                vulnerabilitiesFilterComboBox.selectedItem = TriStateFilter.ALL
+            }
         }
 
         /**
@@ -1296,6 +1713,131 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
+         * Wählt für alle aktuell in der Tabelle sichtbaren Abhängigkeiten die höchste verfügbare Version
+         * (über alle Major-Linien hinweg) aus.
+         *
+         * Ist ein Filter aktiv, werden ausgeblendete Einträge bewusst nicht verändert. Die neueste Version
+         * steht jeweils an erster Stelle der von [DependencyApiService.fetchVersions] gelieferten Liste.
+         */
+        internal fun selectHighestMajorVersionForAll() {
+            applyBulkVersionSelection(visibleOnly = true) { _, versions -> versions.firstOrNull().orEmpty() }
+        }
+
+        /**
+         * Wählt für alle aktuell in der Tabelle sichtbaren Abhängigkeiten die höchste Version innerhalb
+         * derselben Major-Linie wie die aktuell verwendete Version aus.
+         *
+         * Ist ein Filter aktiv, werden ausgeblendete Einträge bewusst nicht verändert. Existiert keine
+         * passende Version derselben Major-Linie, bleibt die aktuelle Version erhalten.
+         */
+        internal fun selectHighestMinorVersionForAll() {
+            applyBulkVersionSelection(visibleOnly = true) { current, versions ->
+                latestVersionWithinSameMajor(current, versions) ?: current
+            }
+        }
+
+        /**
+         * Verwirft alle getroffenen Versionsauswahlen und setzt jede Abhängigkeit auf ihre aktuell
+         * verwendete Version zurück.
+         *
+         * Diese Aktion wirkt bewusst global (auch auf ausgefilterte Einträge), damit ein Zurücksetzen
+         * garantiert alle offenen Änderungen entfernt.
+         */
+        internal fun resetAllVersionsToCurrent() {
+            applyBulkVersionSelection(visibleOnly = false) { current, _ -> current }
+        }
+
+        /**
+         * Wendet eine Auswahlstrategie auf Abhängigkeiten an und aktualisiert die Tabelle.
+         *
+         * Für jede berücksichtigte Abhängigkeit wird die von [chooser] gelieferte Zielversion übernommen.
+         * Entspricht sie der aktuellen Version (oder ist leer), wird der Eintrag aus [selectedVersions]
+         * entfernt, sodass keine Änderung angezeigt wird.
+         *
+         * @param visibleOnly Wenn `true`, werden nur aktuell in der Tabelle sichtbare (nicht ausgefilterte)
+         *   Abhängigkeiten berücksichtigt; ansonsten alle geladenen Abhängigkeiten.
+         * @param chooser Funktion, die aus der aktuellen Version und den verfügbaren Versionen die Zielversion ermittelt.
+         */
+        private fun applyBulkVersionSelection(visibleOnly: Boolean, chooser: (String, List<String>) -> String) {
+            if (availableVersions.isEmpty()) return
+            val visibleKeys = if (visibleOnly) collectVisibleDependencyKeys() else null
+            for ((key, versions) in availableVersions) {
+                if (versions.isEmpty()) continue
+                if (visibleKeys != null && key !in visibleKeys) continue
+                val currentVersion = knownDependencies[key] ?: ""
+                val chosen = chooser(currentVersion, versions)
+                if (chosen.isNotEmpty() && chosen != currentVersion) {
+                    selectedVersions[key] = chosen
+                } else {
+                    selectedVersions.remove(key)
+                }
+            }
+            cancelActiveCellEditing()
+            table.repaint()
+            updateUpdateButtonState()
+            applyRowFilter()
+        }
+
+        /**
+         * Ermittelt die Schlüssel (`groupId:artifactId`) aller aktuell in der Tabelle sichtbaren Zeilen.
+         *
+         * Ausgefilterte Zeilen werden nicht berücksichtigt.
+         *
+         * @return Menge der sichtbaren Dependency-Schlüssel.
+         */
+        private fun collectVisibleDependencyKeys(): Set<String> {
+            val model = table.model
+            val keys = HashSet<String>()
+            for (viewRow in 0 until table.rowCount) {
+                val modelRow = table.convertRowIndexToModel(viewRow)
+                val groupId = model.getValueAt(modelRow, GROUP_ID_COLUMN)?.toString().orEmpty()
+                val artifactId = model.getValueAt(modelRow, ARTIFACT_ID_COLUMN)?.toString().orEmpty()
+                keys.add("$groupId:$artifactId")
+            }
+            return keys
+        }
+
+        /**
+         * Prüft, ob der aktive Zeilenfilter aktuell Einträge ausblendet.
+         *
+         * @return `true`, wenn weniger Zeilen sichtbar sind als das Tabellenmodell enthält.
+         */
+        internal fun isRowFilterHidingEntries(): Boolean {
+            val model = table.model as? DefaultTableModel ?: return false
+            return table.rowCount < model.rowCount
+        }
+
+        /**
+         * Erzeugt die Tooltip-Beschreibung für die Sammelauswahl-Aktionen und ergänzt bei aktivem Filter
+         * einen Hinweis, dass nur sichtbare Abhängigkeiten betroffen sind.
+         *
+         * @param baseLabel Die Basisbeschriftung der Aktion.
+         * @return Die Beschriftung, ggf. um den Filterhinweis erweitert.
+         */
+        internal fun bulkSelectionActionDescription(baseLabel: String): String =
+            if (isRowFilterHidingEntries()) {
+                "$baseLabel \u2014 ${MyMessageBundle.message("toolwindow.MyToolWindow.bulkSelection.filterActiveHint")}"
+            } else {
+                baseLabel
+            }
+
+        /**
+         * Prüft, ob die Sammelaktionen zur Versionsauswahl ausführbar sind.
+         *
+         * @return `true`, wenn keine Aktualisierung läuft und mindestens eine Abhängigkeit auswählbare Versionen besitzt.
+         */
+        internal fun isBulkVersionSelectionEnabled(): Boolean =
+            !isUpdating && availableVersions.values.any { it.isNotEmpty() }
+
+        /**
+         * Prüft, ob das Zurücksetzen aller Versionsauswahlen ausführbar ist.
+         *
+         * @return `true`, wenn keine Aktualisierung läuft und mindestens eine abweichende Version ausgewählt ist.
+         */
+        internal fun isResetVersionsEnabled(): Boolean =
+            !isUpdating && hasSelectedUpdates()
+
+        /**
          * Synchronisiert die Version-Auswahl über alle Einträge, die dieselbe Maven-Property verwenden.
          *
          * @param key Der Schlüssel (`groupId:artifactId`) der geänderten Dependency.
@@ -1348,6 +1890,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
         private fun updateUpdateButtonState() {
             refreshToolbar()
+            updateChangesFilterState()
         }
 
         /**
@@ -1942,6 +2485,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             transitiveCoordinates.addAll(scanTargets.transitiveCoordinates)
             transitiveDependenciesByDirect.clear()
             transitiveDependenciesByDirect.putAll(scanTargets.transitiveDependenciesByDirect)
+            vulnerabilityScanPerformed = true
         }
 
         /**

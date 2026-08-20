@@ -21,6 +21,11 @@
         want to use. When multiple entries share the same Maven property such as <code>${spring.version}</code>, MavenUp
         keeps the selection in sync automatically. The dropdown text is bold when a pending change is selected, and the
         tooltip explains the current status.</li>
+    <li><strong>Select versions in bulk</strong>: Use the top action toolbar to apply a version to many dependencies at
+        once — <strong>Select Highest Major Version</strong> picks the highest available version and <strong>Select Highest
+        Minor Version</strong> stays within each dependency's current major line. Both act only on the currently visible
+        rows, so any active filter narrows their scope; <strong>Reset to Current
+        Versions</strong> discards all selections.</li>
     <li><strong>Update your project</strong>: Click <strong>Update</strong> to review the planned changes in a confirmation
         dialog and apply the selected versions to the relevant <code>pom.xml</code> files. The
         <strong>Sync Maven Changes after update</strong> checkbox is enabled by default and triggers the IDE's Maven sync
@@ -30,8 +35,14 @@
 <h3>Navigate and inspect entries</h3>
 <ul>
     <li><strong>Filter the table</strong>: Type in the filter field above the table to narrow the list by GroupId,
-        ArtifactId or Property, and use the combo boxes to filter by dependency type, pending version changes, or
-        security findings. All filters combine so only matching rows remain visible.</li>
+        ArtifactId or Property, and use the combo boxes to filter by dependency type, pending version changes,
+        available updates, or security findings. The updates filter becomes available after a successful
+        "Find New Versions" and then shows only rows with a newer version; the vulnerabilities filter becomes
+        available after a successful "Scan for Vulnerabilities". All filters combine so only matching
+        rows remain visible. Use the reset button at the end of the filter row to clear all filters at once.</li>
+    <li><strong>Sort the table</strong>: Click a column header to cycle through ascending, descending, and the original
+        pom.xml order; sortable columns show a header indicator icon (a dimmed double arrow when unsorted, a directional
+        arrow when sorted), while the Current Version, Vulnerabilities, and New Version columns stay unsorted.</li>
     <li><strong>Jump to the source</strong>: Double-click a row (or single-click if configured) to open the matching
         dependency or plugin entry directly in the editor.</li>
     <li><strong>Use the context menu</strong>: Right-click any row to access <strong>Navigate to pom.xml</strong>,

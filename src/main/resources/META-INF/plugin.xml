@@ -18,7 +18,7 @@
         <p><b>Core Features:</b></p>
         <ul>
             <li><b>Complete Dependency Overview:</b> Displays all dependencies, plugins, and parent POM across Maven modules in an organized table.</li>
-            <li><b>Find & Update Versions:</b> Discover newer versions in Maven Central and private repositories, then apply a configurable auto-selection strategy (disabled, highest version, or latest minor in the current major line).</li>
+            <li><b>Find & Update Versions:</b> Discover newer versions in Maven Central and private repositories, then apply a configurable auto-selection strategy (disabled, highest version, or latest minor in the current major line) or bulk-select the highest major, highest minor, or current version for all dependencies at once.</li>
             <li><b>Security Scanning:</b> Check dependencies and transitive components for known vulnerabilities via OSV.dev and Sonatype OSS Index.</li>
             <li><b>Smart Navigation:</b> Jump directly to <code>pom.xml</code> definitions or open artifacts in Maven Repository browsers with a single click.</li>
         </ul>
@@ -26,7 +26,7 @@
         <p><b>Advanced Capabilities:</b></p>
         <ul>
             <li><b>Property-Aware Versions:</b> Recognizes and updates Maven properties (e.g., <code>${spring.version}</code>) across all references.</li>
-            <li><b>Flexible Filtering:</b> Filter by name, type, or pending updates; quickly locate the dependencies you need.</li>
+            <li><b>Flexible Filtering & Sorting:</b> Filter by name, type, pending changes, available updates, or security findings, clear every filter with a single reset button, and sort any column ascending, descending, or back to the original pom.xml order to quickly locate the dependencies you need.</li>
             <li><b>Optional Downgrades:</b> Enable an "offer all versions" setting to also list versions older than the current one when a rollback is needed; the current version is marked in the selection dropdown.</li>
             <li><b>Repository Browser Options:</b> Choose between MVN Repository and Sonatype Central for artifact links.</li>
             <li><b>Private Repository Support:</b> Access authenticated repositories from <code>settings.xml</code> with fallback to standard Maven user settings.</li>
@@ -51,7 +51,7 @@
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
     <extensions defaultExtensionNs="com.intellij">
         <toolWindow id="MavenUp" factoryClass="de.schwarzland.mavenup.ui.MavenUpWindowFactory"
-                    icon="AllIcons.Toolwindows.ToolWindowPalette"
+                    icon="/icons/mavenUpToolWindow.svg"
                     anchor="bottom"
                     secondary="false"
                     doNotActivateOnStart="true"/>
