@@ -144,6 +144,59 @@ internal enum class TriStateFilter(val labelKey: String) {
 }
 
 /**
+ * Bündelt die Message-Bundle-Schlüssel der kontextspezifischen Optionstexte eines
+ * dreiwertigen Filters.
+ *
+ * Damit lassen sich für jeden Filter (Änderungen, Updates, Sicherheitslücken) eigene,
+ * selbsterklärende Bezeichnungen anzeigen, ohne die generischen [TriStateFilter]-Werte
+ * zu verändern.
+ *
+ * @property allKey Schlüssel des Textes für [TriStateFilter.ALL].
+ * @property yesKey Schlüssel des Textes für [TriStateFilter.YES].
+ * @property noKey Schlüssel des Textes für [TriStateFilter.NO].
+ */
+internal data class TriStateFilterLabels(
+    val allKey: String,
+    val yesKey: String,
+    val noKey: String
+)
+
+/**
+ * Liefert den kontextspezifischen Anzeigetext einer Filteroption.
+ *
+ * @param option Die darzustellende Filteroption.
+ * @param labels Die Message-Bundle-Schlüssel des jeweiligen Filters.
+ * @return Der lokalisierte, selbsterklärende Anzeigetext der Option.
+ */
+internal fun triStateFilterOptionLabel(option: TriStateFilter, labels: TriStateFilterLabels): String =
+    when (option) {
+        TriStateFilter.ALL -> MyMessageBundle.message(labels.allKey)
+        TriStateFilter.YES -> MyMessageBundle.message(labels.yesKey)
+        TriStateFilter.NO -> MyMessageBundle.message(labels.noKey)
+    }
+
+/** Kontextspezifische Optionstexte des Änderungs-Filters. */
+internal val CHANGES_FILTER_LABELS = TriStateFilterLabels(
+    "toolwindow.MyToolWindow.filter.changes.option.all",
+    "toolwindow.MyToolWindow.filter.changes.option.yes",
+    "toolwindow.MyToolWindow.filter.changes.option.no"
+)
+
+/** Kontextspezifische Optionstexte des Updates-Filters. */
+internal val UPDATES_FILTER_LABELS = TriStateFilterLabels(
+    "toolwindow.MyToolWindow.filter.updates.option.all",
+    "toolwindow.MyToolWindow.filter.updates.option.yes",
+    "toolwindow.MyToolWindow.filter.updates.option.no"
+)
+
+/** Kontextspezifische Optionstexte des Vulnerabilities-Filters. */
+internal val VULNERABILITIES_FILTER_LABELS = TriStateFilterLabels(
+    "toolwindow.MyToolWindow.filter.vulnerabilities.option.all",
+    "toolwindow.MyToolWindow.filter.vulnerabilities.option.yes",
+    "toolwindow.MyToolWindow.filter.vulnerabilities.option.no"
+)
+
+/**
  * Fasst die filterrelevanten Werte einer einzelnen Tabellenzeile zusammen.
  *
  * @property groupId Die GroupId der Zeile.
@@ -1219,6 +1272,28 @@ class MavenUpWindowFactory : ToolWindowFactory {
             MavenUpSettings.getInstance().state.toolbarShowText
 
         /**
+         * Erzeugt einen Renderer, der die [TriStateFilter]-Werte einer Filter-Combobox mit
+         * kontextspezifischen, selbsterklärenden Texten anzeigt.
+         *
+         * @param labels Die Message-Bundle-Schlüssel der Optionstexte des jeweiligen Filters.
+         * @return Ein [ListCellRenderer] für die Filter-Combobox.
+         */
+        private fun triStateFilterRenderer(labels: TriStateFilterLabels): ListCellRenderer<in TriStateFilter> =
+            object : DefaultListCellRenderer() {
+                override fun getListCellRendererComponent(
+                    list: JList<*>?,
+                    value: Any?,
+                    index: Int,
+                    isSelected: Boolean,
+                    cellHasFocus: Boolean
+                ): Component {
+                    val text = (value as? TriStateFilter)?.let { triStateFilterOptionLabel(it, labels) }
+                        ?: value?.toString()
+                    return super.getListCellRendererComponent(list, text, index, isSelected, cellHasFocus)
+                }
+            }
+
+        /**
          * Erstellt die Filterzeile mit Typ-, Änderungs- und Vulnerabilities-Combobox sowie Textfeld unterhalb der Aktionsleiste.
          *
          * @return Die konfigurierte Filter-Komponente.
@@ -1238,6 +1313,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             filterControlsPanel.add(JLabel(MyMessageBundle.message("toolwindow.MyToolWindow.filter.changes.label")))
             changesFilterComboBox.model = DefaultComboBoxModel(TriStateFilter.entries.toTypedArray())
             changesFilterComboBox.selectedItem = TriStateFilter.ALL
+            changesFilterComboBox.renderer = triStateFilterRenderer(CHANGES_FILTER_LABELS)
             changesFilterComboBox.toolTipText = MyMessageBundle.message("toolwindow.MyToolWindow.filter.changes.tooltip")
             changesFilterComboBox.addActionListener { applyRowFilter() }
             filterControlsPanel.add(changesFilterComboBox)
@@ -1245,6 +1321,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             filterControlsPanel.add(JLabel(MyMessageBundle.message("toolwindow.MyToolWindow.filter.updates.label")))
             updatesFilterComboBox.model = DefaultComboBoxModel(TriStateFilter.entries.toTypedArray())
             updatesFilterComboBox.selectedItem = TriStateFilter.ALL
+            updatesFilterComboBox.renderer = triStateFilterRenderer(UPDATES_FILTER_LABELS)
             updatesFilterComboBox.toolTipText = MyMessageBundle.message("toolwindow.MyToolWindow.filter.updates.tooltip")
             updatesFilterComboBox.isEnabled = isUpdatesFilterAvailable()
             updatesFilterComboBox.addActionListener { applyRowFilter() }
@@ -1253,6 +1330,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             filterControlsPanel.add(JLabel(MyMessageBundle.message("toolwindow.MyToolWindow.filter.vulnerabilities.label")))
             vulnerabilitiesFilterComboBox.model = DefaultComboBoxModel(TriStateFilter.entries.toTypedArray())
             vulnerabilitiesFilterComboBox.selectedItem = TriStateFilter.ALL
+            vulnerabilitiesFilterComboBox.renderer = triStateFilterRenderer(VULNERABILITIES_FILTER_LABELS)
             vulnerabilitiesFilterComboBox.toolTipText =
                 MyMessageBundle.message("toolwindow.MyToolWindow.filter.vulnerabilities.tooltip")
             vulnerabilitiesFilterComboBox.isEnabled = isVulnerabilitiesFilterAvailable()

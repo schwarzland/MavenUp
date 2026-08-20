@@ -388,4 +388,19 @@ class RowMatchesFilterTest {
         assertEquals("Yes", TriStateFilter.YES.toString())
         assertEquals("No", TriStateFilter.NO.toString())
     }
+
+    @Test
+    fun testTriStateFilterOptionLabelsAreContextSpecific() {
+        assertEquals("All", triStateFilterOptionLabel(TriStateFilter.ALL, CHANGES_FILTER_LABELS))
+        assertEquals("With changes", triStateFilterOptionLabel(TriStateFilter.YES, CHANGES_FILTER_LABELS))
+        assertEquals("Without changes", triStateFilterOptionLabel(TriStateFilter.NO, CHANGES_FILTER_LABELS))
+
+        assertEquals("All", triStateFilterOptionLabel(TriStateFilter.ALL, UPDATES_FILTER_LABELS))
+        assertEquals("Update available", triStateFilterOptionLabel(TriStateFilter.YES, UPDATES_FILTER_LABELS))
+        assertEquals("Up to date", triStateFilterOptionLabel(TriStateFilter.NO, UPDATES_FILTER_LABELS))
+
+        assertEquals("All", triStateFilterOptionLabel(TriStateFilter.ALL, VULNERABILITIES_FILTER_LABELS))
+        assertEquals("Vulnerable", triStateFilterOptionLabel(TriStateFilter.YES, VULNERABILITIES_FILTER_LABELS))
+        assertEquals("Not vulnerable", triStateFilterOptionLabel(TriStateFilter.NO, VULNERABILITIES_FILTER_LABELS))
+    }
 }
