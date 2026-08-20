@@ -16,6 +16,7 @@
 ### Changed
 - Changed the settings UI from two checkboxes to a single combobox for version auto-selection strategy.
 - Changed the "Vulnerabilities" filter to be enabled only after a successful "Scan for Vulnerabilities".
+- Changed the "Changes" filter to be enabled only once at least one row has a differing version selection.
 - Changed the filter combo boxes to use self-describing option labels (for example "With changes", "Update available", "Vulnerable") instead of generic "Yes"/"No".
 - Changed the newest-version reference to use the repository-declared `<release>`/`<latest>` fields from `maven-metadata.xml` (preferring Maven Central), falling back to comparator-based ordering, so date-based versions no longer outrank the actual latest release.
 

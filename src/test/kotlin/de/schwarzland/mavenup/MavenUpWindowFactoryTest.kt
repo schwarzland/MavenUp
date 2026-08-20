@@ -412,6 +412,60 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertEquals(TriStateFilter.ALL, toolWindowInstance.vulnerabilitiesFilterComboBox.selectedItem)
     }
 
+    fun testChangesFilterIsDisabledUntilVersionSelectionDiffers() {
+        val toolWindowInstance = MavenUpWindowFactory().MyToolWindow(project)
+
+        assertFalse(toolWindowInstance.isChangesFilterAvailable())
+        assertFalse(toolWindowInstance.changesFilterComboBox.isEnabled)
+
+        val knownDependenciesField = toolWindowInstance.javaClass
+            .getDeclaredField("knownDependencies").apply { isAccessible = true }
+        val selectedVersionsField = toolWindowInstance.javaClass
+            .getDeclaredField("selectedVersions").apply { isAccessible = true }
+        val knownDependencies =
+            knownDependenciesField.get(toolWindowInstance) as MutableMap<String, String>
+        val selectedVersions =
+            selectedVersionsField.get(toolWindowInstance) as MutableMap<String, String>
+
+        knownDependencies["com.example:lib"] = "1.0.0"
+
+        // Selecting the current version again is not a pending change.
+        selectedVersions["com.example:lib"] = "1.0.0"
+        toolWindowInstance.updateChangesFilterState()
+        assertFalse(toolWindowInstance.isChangesFilterAvailable())
+        assertFalse(toolWindowInstance.changesFilterComboBox.isEnabled)
+
+        // A differing selection enables the filter.
+        selectedVersions["com.example:lib"] = "2.0.0"
+        toolWindowInstance.updateChangesFilterState()
+        assertTrue(toolWindowInstance.isChangesFilterAvailable())
+        assertTrue(toolWindowInstance.changesFilterComboBox.isEnabled)
+    }
+
+    fun testChangesFilterSelectionResetsWhenNoPendingChangeRemains() {
+        val toolWindowInstance = MavenUpWindowFactory().MyToolWindow(project)
+
+        val knownDependenciesField = toolWindowInstance.javaClass
+            .getDeclaredField("knownDependencies").apply { isAccessible = true }
+        val selectedVersionsField = toolWindowInstance.javaClass
+            .getDeclaredField("selectedVersions").apply { isAccessible = true }
+        val knownDependencies =
+            knownDependenciesField.get(toolWindowInstance) as MutableMap<String, String>
+        val selectedVersions =
+            selectedVersionsField.get(toolWindowInstance) as MutableMap<String, String>
+
+        knownDependencies["com.example:lib"] = "1.0.0"
+        selectedVersions["com.example:lib"] = "2.0.0"
+        toolWindowInstance.updateChangesFilterState()
+        toolWindowInstance.changesFilterComboBox.selectedItem = TriStateFilter.YES
+
+        selectedVersions.clear()
+        toolWindowInstance.updateChangesFilterState()
+
+        assertFalse(toolWindowInstance.changesFilterComboBox.isEnabled)
+        assertEquals(TriStateFilter.ALL, toolWindowInstance.changesFilterComboBox.selectedItem)
+    }
+
     fun testLatestMinorSelectionIgnoresOtherMajorLinesAndKeepsCurrentVersion() {
         val factory = MavenUpWindowFactory()
         val toolWindowInstance = factory.MyToolWindow(project)

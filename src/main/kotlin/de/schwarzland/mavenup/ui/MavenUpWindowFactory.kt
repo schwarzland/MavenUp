@@ -1315,6 +1315,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             changesFilterComboBox.selectedItem = TriStateFilter.ALL
             changesFilterComboBox.renderer = triStateFilterRenderer(CHANGES_FILTER_LABELS)
             changesFilterComboBox.toolTipText = MyMessageBundle.message("toolwindow.MyToolWindow.filter.changes.tooltip")
+            changesFilterComboBox.isEnabled = isChangesFilterAvailable()
             changesFilterComboBox.addActionListener { applyRowFilter() }
             filterControlsPanel.add(changesFilterComboBox)
 
@@ -1487,6 +1488,31 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 DefaultComboBoxModel((listOf(allTypesFilterLabel) + types).toTypedArray())
             typeFilterComboBox.selectedItem =
                 if (types.contains(previouslySelected)) previouslySelected else allTypesFilterLabel
+        }
+
+        /**
+         * Prüft, ob der Änderungs-Filter verwendet werden darf.
+         *
+         * Der Filter setzt voraus, dass für mindestens eine Abhängigkeit eine von der aktuellen
+         * Version abweichende Version ausgewählt wurde.
+         *
+         * @return `true`, wenn mindestens eine anstehende Versionsänderung vorliegt.
+         */
+        internal fun isChangesFilterAvailable(): Boolean = hasSelectedUpdates()
+
+        /**
+         * Aktualisiert den Aktivierungszustand des Änderungs-Filters.
+         *
+         * Der Filter wird nur aktiviert, wenn mindestens eine abweichende Version ausgewählt wurde
+         * (siehe [isChangesFilterAvailable]). Ist er nicht verfügbar, wird die Auswahl auf
+         * [TriStateFilter.ALL] zurückgesetzt, damit keine unsichtbare Filterung aktiv bleibt.
+         */
+        internal fun updateChangesFilterState() {
+            val available = isChangesFilterAvailable()
+            changesFilterComboBox.isEnabled = available
+            if (!available && changesFilterComboBox.selectedItem != TriStateFilter.ALL) {
+                changesFilterComboBox.selectedItem = TriStateFilter.ALL
+            }
         }
 
         /**
@@ -1743,6 +1769,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
         private fun updateUpdateButtonState() {
             refreshToolbar()
+            updateChangesFilterState()
         }
 
         /**
