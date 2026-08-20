@@ -1173,8 +1173,17 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
                     override fun update(e: AnActionEvent) {
                         e.presentation.isEnabled = isEnabled()
-                        descriptionProvider?.let { e.presentation.description = it() }
-                        e.presentation.putClientProperty(ActionUtil.SHOW_TEXT_IN_TOOLBAR, isToolbarTextEnabled())
+                        val showText = isToolbarTextEnabled()
+                        descriptionProvider?.let {
+                            val description = it()
+                            e.presentation.description = description
+                            // Bei reiner Icon-Darstellung leitet die Toolbar den Tooltip aus dem
+                            // Action-Text ab, nicht aus der Description – daher den (ggf. um den
+                            // Filterhinweis erweiterten) Text nur dann in den Text falten, wenn keine
+                            // Labels angezeigt werden.
+                            e.presentation.text = if (showText) label else description
+                        }
+                        e.presentation.putClientProperty(ActionUtil.SHOW_TEXT_IN_TOOLBAR, showText)
                     }
 
                     override fun actionPerformed(e: AnActionEvent) = onPerform()
