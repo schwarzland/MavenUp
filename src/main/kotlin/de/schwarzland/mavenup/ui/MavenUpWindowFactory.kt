@@ -1232,7 +1232,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
          */
         private fun buildFilterResetToolbar(): JComponent {
             val resetLabel = MyMessageBundle.message("toolwindow.MyToolWindow.filter.reset.button")
-            val resetAction = object : AnAction(resetLabel, resetLabel, AllIcons.Actions.Cancel) {
+            val resetAction = object : AnAction(resetLabel, resetLabel, AllIcons.General.Reset) {
                 override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
                 override fun update(e: AnActionEvent) {
                     e.presentation.isEnabled = isResetFiltersEnabled()
