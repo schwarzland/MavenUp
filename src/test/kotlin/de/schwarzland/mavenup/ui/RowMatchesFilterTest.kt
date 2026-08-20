@@ -392,8 +392,8 @@ class RowMatchesFilterTest {
     @Test
     fun testTriStateFilterOptionLabelsAreContextSpecific() {
         assertEquals("All", triStateFilterOptionLabel(TriStateFilter.ALL, CHANGES_FILTER_LABELS))
-        assertEquals("With changes", triStateFilterOptionLabel(TriStateFilter.YES, CHANGES_FILTER_LABELS))
-        assertEquals("Without changes", triStateFilterOptionLabel(TriStateFilter.NO, CHANGES_FILTER_LABELS))
+        assertEquals("Will update", triStateFilterOptionLabel(TriStateFilter.YES, CHANGES_FILTER_LABELS))
+        assertEquals("Unchanged", triStateFilterOptionLabel(TriStateFilter.NO, CHANGES_FILTER_LABELS))
 
         assertEquals("All", triStateFilterOptionLabel(TriStateFilter.ALL, UPDATES_FILTER_LABELS))
         assertEquals("Update available", triStateFilterOptionLabel(TriStateFilter.YES, UPDATES_FILTER_LABELS))

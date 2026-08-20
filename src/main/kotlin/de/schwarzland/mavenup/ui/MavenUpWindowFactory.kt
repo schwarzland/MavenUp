@@ -700,7 +700,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /**
          * Auswahlfeld für den Filter nach verfügbaren Updates (Ja/Nein/Alle).
          *
-         * Nur aktiv, sobald eine erfolgreiche Versionssuche ("Scan new Versions") mindestens eine
+         * Nur aktiv, sobald eine erfolgreiche Versionssuche ("Find New Versions") mindestens eine
          * abrufbare Versionsliste geliefert hat (siehe [updateUpdatesFilterState]).
          */
         internal val updatesFilterComboBox = ComboBox(TriStateFilter.entries.toTypedArray())
@@ -1566,7 +1566,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /**
          * Prüft, ob der Updates-Filter verwendet werden darf.
          *
-         * Der Filter setzt eine erfolgreiche Versionssuche ("Scan new Versions") voraus, die für
+         * Der Filter setzt eine erfolgreiche Versionssuche ("Find New Versions") voraus, die für
          * mindestens ein Artefakt eine Versionsliste geliefert hat.
          *
          * @return `true`, wenn mindestens eine Abhängigkeit abrufbare Versionen besitzt.

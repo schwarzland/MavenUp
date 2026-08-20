@@ -9,15 +9,15 @@
 - Added an "Offer all versions" setting that also lists versions older than the current one, enabling downgrades; disabled by default so only versions greater than or equal to the current one are offered.
 - Added a "(current)" marker in bold to the currently used version in the version selection dropdown so it stands out, especially when older versions are offered.
 - Added column-header sorting to the dependency table that cycles through ascending, descending, and the original pom.xml order, excluding the Current Version, Vulnerabilities, and New Version columns, with a header indicator icon (dimmed double arrow when unsorted, directional arrow when sorted) marking sortable columns.
-- Added a reset button at the end of the filter row that clears the search text and the type, changes, and vulnerabilities filters at once.
-- Added tooltips to the filter row controls that explain the search field and the type, changes, and vulnerabilities filters.
-- Added an "Updates" filter that shows only rows with a newer version available and is enabled only after a successful "Scan new Versions".
+- Added a reset button at the end of the filter row that clears the search text and the type, pending, and vulnerabilities filters at once.
+- Added tooltips to the filter row controls that explain the search field and the type, pending, and vulnerabilities filters.
+- Added an "Updates" filter that shows only rows with a newer version available and is enabled only after a successful "Find New Versions".
 
 ### Changed
 - Changed the settings UI from two checkboxes to a single combobox for version auto-selection strategy.
 - Changed the "Vulnerabilities" filter to be enabled only after a successful "Scan for Vulnerabilities".
-- Changed the "Changes" filter to be enabled only once at least one row has a differing version selection.
-- Changed the filter combo boxes to use self-describing option labels (for example "With changes", "Update available", "Vulnerable") instead of generic "Yes"/"No".
+- Changed the "Pending" filter to be enabled only once at least one row has a differing version selection.
+- Changed the filter combo boxes to use self-describing option labels (for example "Will update", "Update available", "Vulnerable") instead of generic "Yes"/"No".
 - Changed the newest-version reference to use the repository-declared `<release>`/`<latest>` fields from `maven-metadata.xml` (preferring Maven Central), falling back to comparator-based ordering, so date-based versions no longer outrank the actual latest release.
 
 ### Fixed
