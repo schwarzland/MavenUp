@@ -1,22 +1,12 @@
-# Workflow zum Bauen und Testen von Feature-Branches.
-# Wird bei jedem Push auf einen feature/**-Branch ausgeloest.
-name: Feature Build and Test
-
+name: release.yml
 on:
   push:
-    branches:
-      - feature/**
-      - release/**
+    tags:
+      - '*'
 
-# Least-Privilege: Der Job benoetigt nur Lesezugriff auf das Repository.
+# Least-Privilege: Der Job benoetigt nur Schreibzugriff auf das Repository.
 permissions:
-  contents: read
-
-# Bei mehreren Pushes auf denselben Branch laufende Builds abbrechen und nur den
-# neuesten ausfuehren, um CI-Zeit zu sparen.
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  contents: write
 
 jobs:
   build:
@@ -50,3 +40,18 @@ jobs:
           name: test-reports
           path: build/reports/tests
           retention-days: 7
+
+      #
+      - name: Upload to GitHub Releases
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/distributions/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      #
+      - name: Publish to JetBrains Marketplace
+        if: ${{ secrets.JB_MARKETPLACE_TOKEN != '' }}
+        run: ./gradlew publishPlugin --no-daemon
+        env:
+          JB_MARKETPLACE_TOKEN: ${{ secrets.JB_MARKETPLACE_TOKEN }}
