@@ -43,8 +43,8 @@ jobs:
 
       # './gradlew build' fuehrt ueber die check-Task bereits die Tests mit aus,
       # daher genuegt ein einziger Schritt. '--no-daemon' ist in CI-Umgebungen ueblich.
-      - name: Build and test with Gradle
-        run: ./gradlew build --no-daemon
+      - name: Build, Test and Verify Plugin
+        run: ./gradlew build verifyPlugin --no-daemon
 
       # Bei fehlgeschlagenem Build die Testberichte als Artefakt hochladen,
       # um die Fehlersuche zu erleichtern.

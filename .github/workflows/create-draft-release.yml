@@ -29,9 +29,9 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      # Bauen und Testen des Plugins
-      - name: Build and test with Gradle
-        run: ./gradlew build --no-daemon
+      # Bauen und Testen des Plugins mit buildPlugin
+      - name: Build, Test and Verify Plugin
+        run: ./gradlew buildPlugin verifyPlugin --no-daemon
 
       # Bei Fehlern Testberichte sichern
       - name: Upload test reports
