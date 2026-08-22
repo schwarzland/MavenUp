@@ -50,7 +50,7 @@ jobs:
       # Schritt 7: GitHub Draft-Release (Entwurf) anlegen, die Release Notes einfügen und das Plugin-ZIP als Asset anhängen.
       # Als Draft kann das Release vor der Veröffentlichung manuell im GitHub UI geprüft und freigegeben werden.
       - name: Create Draft Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref_name }}
           name: Release ${{ github.ref_name }}
