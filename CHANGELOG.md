@@ -1,9 +1,13 @@
 <!-- Keep a Changelog guide -> https://keepachangelog.com -->
 
 # MavenUp Changelog
-## [2.3.0]
+
+## Unreleased
+
+## 2.3.0
 
 ### Added
+
 - Added a dedicated MavenUp tool window icon (with Light and Dark theme variants) shown in the tool window bar instead of a generic IntelliJ icon.
 - Added toolbar actions to bulk-select the highest major version, the highest minor version within the current major line, or reset all selections to the current versions; the two "Select Highest" actions apply only to the currently visible (non-filtered) dependencies and show a tooltip hint when a filter hides entries, while the reset clears all selections regardless of filtering.
 - Added a 3-state auto-selection mode setting for update checks (disabled, highest version, latest minor in current major line).
@@ -15,6 +19,7 @@
 - Added an "Updates" filter that shows only rows with a newer version available and is enabled only after a successful "Find New Versions".
 
 ### Changed
+
 - Changed the settings UI from two checkboxes to a single combobox for version auto-selection strategy.
 - Changed the "Vulnerabilities" filter to be enabled only after a successful "Scan for Vulnerabilities".
 - Changed the "Pending" filter to be enabled only once at least one row has a differing version selection.
@@ -22,6 +27,7 @@
 - Changed the newest-version reference to use the repository-declared `<release>`/`<latest>` fields from `maven-metadata.xml` (preferring Maven Central), falling back to comparator-based ordering, so date-based versions no longer outrank the actual latest release.
 
 ### Fixed
+
 - Fixed the New Version cell defaulting to the numerically highest version, which caused an unintended jump (for example from 24.0 to a date-based 2023-... version) and could be committed as an update; it now defaults to the current version when no target is preselected.
 - Fixed latest-minor auto-selection for version jumps and unsorted version lists by sorting candidates before choosing the newest or same-major release.
 - Fixed duplicate dependency rows in the tool window by deduplicating entries within each scope while keeping managed and regular dependencies visible separately.
@@ -29,51 +35,62 @@
 - Fixed the Current Version column showing the raw property placeholder (for example `${netty-bom.version}`) for `dependencyManagement` entries whose version is defined via a property; it now resolves the placeholder against the effective Maven properties.
 - Fixed the update check offering older versions for property-based `dependencyManagement` entries by resolving the version placeholder before filtering, so the "greater than or equal to current" filter compares against the real version instead of the raw placeholder.
 
-## [2.2.1]
+## 2.2.1
 
 ### Added
+
 - Added DEBUG logging that reports which Maven `settings.xml` file is used for repository and credential lookups.
 - Added a setting to control whether version lookup stops after a successful Maven Central response or continues with private repositories.
 
 ### Changed
+
 - Changed Maven settings resolution to use the IDE-configured user settings path first and fall back to `${user.home}/.m2/settings.xml` when needed.
 - Changed repository version lookup to keep Maven Central first while making the Central short-circuit behavior configurable.
 - Reordered the settings dialog so the Central short-circuit option appears before the Maven-sync toggle to match the repository lookup flow.
 
 ### Fixed
+
 - Fixed missing private repository discovery on machines where IntelliJ uses the default Maven settings file without an explicit user settings path.
 - Fixed fallback path construction for the default Maven `settings.xml` so it resolves correctly on all operating systems.
 
-## [2.2.0]
+## 2.2.0
 
 ### Added
+
 - Added Changes (All/Yes/No) and Vulnerabilities (All/Yes/No) combo box filters to the tool window filter bar to filter dependencies by pending version changes and security findings.
 - Added documentation and transparency notes regarding privacy, external service endpoints, and transmitted Maven coordinates.
 
 ### Changed
+
 - Plugin settings are now stored globally (application level) instead of per project, so the configuration applies to all projects.
 - The **New Version** status indicator is now a text glyph (an upwards arrow "↑" or a green checkmark "✓") instead of a fixed-color icon, so the arrow renders as a real arrow and shares the version number's color, turning orange only when a version different from the current one is selected.
 
 ### Fixed
+
 - Installing or updating the plugin no longer requires an IDE restart by registering the Maven import listener declaratively so the plugin can be unloaded dynamically.
 
-## [2.1.0]
+## 2.1.0
 
 ### Added
+
 - Show a qualified error message when a Sonatype OSS Index vulnerability scan fails because the API token is invalid or expired, offering a button to jump directly to the plugin settings.
 - Added a filter row above the main dependencies table: a text field filters by GroupId, ArtifactId or Property, and a combo box filters by dependency type; both filters combine and only matching rows remain visible.
 
 ### Changed
+
 - The settings page groups its options under three headings — **Appearance**, **Versions & Updates** and **Vulnerability Check** — to improve orientation.
 - Sonatype OSS Index now authenticates with the API token only; the username/email field was removed because Sonatype does not validate it.
 - The "Hidden version qualifiers" setting now follows the IntelliJ settings style: it appears as an indented sub-setting and the input field expands with the settings dialog width so long qualifier lists remain readable while disabled when the feature is off.
 
 ### Fixed
+
 - Removed unnecessary `lateinit` modifiers on the tool window's table and row-sorter fields, eliminating two Gradle "'lateinit' is unnecessary" compiler warnings.
 - Fixed **Sync Maven Changes after update** not synchronizing the Maven project by saving the modified `pom.xml` documents to disk before triggering the Maven sync, so the reimport reads the updated versions instead of the stale on-disk content.
 
-## [2.0.0]
+## 2.0.0
+
 ### Added
+
 - Added a **Sync Maven changes after update** setting; the checkbox in the **Confirm Changes** dialog and the setting stay in sync, and the last choice made in the dialog is persisted.
 - Added an optional **Sync Maven Changes after update** checkbox to the **Confirm Changes** dialog (enabled by default); when selected, it automatically triggers the IDE's Maven sync after updating the `pom.xml` files.
 - Added "Show Vulnerability Details" to the right-click context menu in the main dependencies table, allowing quick access to vulnerability findings when available for a dependency.
@@ -84,6 +101,7 @@
 - Toggling the "Automatically select the newest version" setting and applying it now immediately updates all **New Version** selections in the open tool window without requiring a new update check.
 
 ### Changed
+
 - Renamed **Check for Updates** to **Find New Versions** and changed its toolbar icon from a download icon to a search/find icon, better conveying the action of searching for newer dependency versions.
 - Renamed **Check Vulnerabilities** to **Scan for Vulnerabilities** to use established security terminology that better conveys the systematic nature of the operation.
 - Changed the **References** icon in the Vulnerability Details dialog (top toolbar action and References column) to a details preview icon, making it clearer that clicking opens a dialog listing the references.
@@ -94,14 +112,17 @@
 - **Find New Versions** now keeps existing vulnerability findings instead of clearing them; only **Refresh** discards the collected vulnerability data.
 
 ### Fixed
+
 - The **New Version** selections are now only reset according to the "Automatically select the newest version" setting when that setting itself changes, so applying unrelated settings no longer discards a pending version selection.
 - All plugin tables now enforce single-row selection instead of allowing multiple rows to be selected at once.
 - All plugin tables now prevent column reordering, so users can no longer drag columns into a different order.
 - The **Confirm Changes** dialog table is now read-only, preventing accidental editing of the update overview.
 - Fixed an `ArrayIndexOutOfBoundsException` that could occur when refreshing or updating while the "New Version" cell editor was still open, by cancelling active cell editing before the table is rebuilt.
 
-## [1.2.0]
+## 1.2.0
+
 ### Added
+
 - Right-click context menu on dependency rows with two actions: **Navigate to pom.xml** (jumps to the entry in the editor) and **Open in Maven Repository** (opens the matching version page in the configured repository browser).
 - Configurable Maven Repository Browser: users can choose between **MVN Repository** (default, `mvnrepository.com`) and **Sonatype Central** (`central.sonatype.com`) under **Settings > Tools > MavenUp**. The selection applies to both the context menu in the main table and the Component column link in the Vulnerability Details dialog.
 - Added a tooltip on dependency rows in the main table indicating whether a single or double click will open the entry in pom.xml (adapts to the "jump on single click" setting).
@@ -119,6 +140,7 @@
 - New `DependencyUpdate` equality/copy test.
 
 ### Changed
+
 - Updated row tooltip to reflect the right-click menu: "Click to navigate to pom.xml | Right-click for more options" or "Double-click to navigate to pom.xml | Right-click for more options" depending on the configured click mode.
 - The Component column tooltip in the Vulnerability Details dialog now dynamically shows the name of the configured repository browser instead of a fixed "MVN Repository" label.
 - Clicking a component in the **Component** column of the Vulnerability Details dialog now opens its MVN Repository page in the browser.
@@ -135,6 +157,7 @@
 - CVSS v2/v3 vector scores are normalized with the CVSS Calculator library for consistent severity display.
 
 ### Fixed
+
 - Moved the link icon to the beginning of the **Vulnerabilities** column cell, so it appears before the summary text.
 - Disabled **Scan for Vulnerabilities** while a refresh or update check is running to prevent overlapping background operations.
 - OSS Index requests are no longer sent when the configured username/email or API token is missing; OSV checks continue and the user receives a configuration warning.
@@ -154,8 +177,10 @@
   which fixed a sporadic `TestLoggerAssertionError` unrelated to MavenUp's own code that could fail
   `MavenUpWindowFactoryTest` depending on test execution order.
 
-## [1.1.0]
+## 1.1.0
+
 ### Added
+
 - Resolution of credential placeholders from Maven `settings.xml` during repository access:
   - `${env.VAR_NAME}` via environment variables
   - `${VAR_NAME}` via system property, with fallback to environment variable
@@ -165,6 +190,7 @@
 - Added `FEATURES.MD` with an English overview of all plugin features.
 
 ### Fixed
+
 - Missing warning logs for HTTP errors (e.g. 401/404) during `maven-metadata.xml` retrieval are now emitted.
 - Repository query order refined: Maven Central is queried first; if the Central query succeeds, no private repositories are queried for the same dependency.
 - Dependencies and plugins without `groupId` are now ignored and no longer shown in the list.
@@ -174,31 +200,42 @@
 - Fixed refresh/update interaction: "Find New Versions" now keeps populated "New Version" values instead of clearing them.
 - Internal refactor: replaced the implicit one-shot refresh flag with an explicit refresh mode (`clear` vs `keep`) for better maintainability.
 
-## [1.0.4]
+## 1.0.4
+
 ### Fixed
+
 - Improved tool window visibility after plugin installation and updates in Maven projects
 
-## [1.0.3]
+## 1.0.3
+
 ### Fixed
+
 - Refactor tool window initialization
 
-## [1.0.2]
+## 1.0.2
+
 ### Fixed
+
 - Enable tool window availability for Maven projects
 - Move time-consuming operations to background tasks to prevent EDT violations and improve UI responsiveness
 
 ### Added
+
 - Add Settings button to tool window and associated functionality
 
-## [1.0.1]
+## 1.0.1
+
 ### Added
+
 - Add a new Plugin-Icon
 - Added support for private Maven repositories (e.g., Nexus, Artifactory)
 - Error logging for failed Maven settings file parsing (credentials and repositories).
 - Warning logging when fetching versions for an artifact from a repository fails.
 
-## [1.0.0]
+## 1.0.0
+
 ### Added
+
 - Initial release of MavenUp.
 - Dependency & Plugin Overview for Maven projects.
 - Support for Maven Properties (Variables) in a dedicated column.
