@@ -42,6 +42,10 @@ jobs:
           path: build/reports/tests
           retention-days: 7
 
+      # Release Notes aus CHANGELOG.md extrahieren
+      - name: Extract Release Notes from CHANGELOG.md
+        run: ./gradlew getChangelog --no-header --no-daemon --console=plain -q > RELEASE_NOTES.md
+
       # GitHub Draft-Release erstellen und ZIP-Datei anhängen
       - name: Create Draft Release
         uses: softprops/action-gh-release@v2
@@ -50,7 +54,7 @@ jobs:
           name: Release ${{ github.ref_name }}
           draft: true
           prerelease: false
+          body_path: RELEASE_NOTES.md
           files: build/distributions/*.zip
-          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
