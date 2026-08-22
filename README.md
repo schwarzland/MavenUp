@@ -31,6 +31,27 @@ Die Entwicklung erfolgt auf `feature/*`-Branches. Änderungen werden per Pull Re
 - **Create Draft Release** (`.github/workflows/create-draft-release.yml`): Läuft, wenn ein Tag zu GitHub gepusht wird, zum Beispiel `2.3.0`. Der aktuelle Stand des Tags wird gebaut und als GitHub-Draft-Release mit ZIP-Datei und Release Notes angelegt. Erst der Push des Tags zu GitHub startet den Workflow.
 - **Publish Release to Marketplace** (`.github/workflows/publish-release.yml`): Läuft, sobald ein Draft-Release im GitHub-UI manuell veröffentlicht wird (`release: published`). Danach wird das Plugin mit `publishPlugin` in den JetBrains Marketplace hochgeladen. Dafür muss das Repository-Secret `JB_MARKETPLACE_TOKEN` gesetzt sein.
 
+### `publishPlugin` manuell ausführen
+
+Für eine manuelle Veröffentlichung wird ein JetBrains-Marketplace-Token benötigt. Das Token im JetBrains-Marketplace-Konto erzeugen und niemals in `build.gradle.kts`, `gradle.properties` oder Git committen. Das Gradle-Plugin erwartet das Token in der Umgebungsvariable `PUBLISH_TOKEN`.
+
+Im IntelliJ-Terminal kann das Plugin so als verborgenes Marketplace-Release veröffentlicht werden:
+
+```bash
+PUBLISH_TOKEN="<JETBRAINS_MARKETPLACE_TOKEN>" ./gradlew publishPlugin -PmarketplaceHidden=true --no-daemon
+```
+
+Unter Windows PowerShell:
+
+```powershell
+$env:PUBLISH_TOKEN = "<JETBRAINS_MARKETPLACE_TOKEN>"
+.\gradlew.bat publishPlugin -PmarketplaceHidden=true --no-daemon
+```
+
+Alternativ in IntelliJ eine Gradle-Run-Konfiguration anlegen: **Run → Edit Configurations… → + → Gradle**, das Projekt und die Task `publishPlugin` auswählen und unter **Environment variables** `PUBLISH_TOKEN=<JETBRAINS_MARKETPLACE_TOKEN>` eintragen. Für ein verborgenes Release zusätzlich unter **Arguments/Gradle options** die Option `-PmarketplaceHidden=true` eintragen. Die Run-Konfiguration darf nicht in die Versionsverwaltung übernommen werden, wenn sie das Token im Klartext enthält.
+
+Ohne `-PmarketplaceHidden=true` wird das Plugin regulär veröffentlicht. Der Aufruf baut das Plugin automatisch und lädt es anschließend in den JetBrains Marketplace hoch.
+
 ### Release manuell durchführen
 
 Die folgenden Befehle werden beispielsweise Terminal ausgeführt. Der Tag sollte auf dem geprüften Release-Branch erstellt werden:

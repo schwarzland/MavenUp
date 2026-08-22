@@ -28,11 +28,10 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      # Schritt 4: Plugin bauen und direkt im JetBrains Marketplace veröffentlichen.
+      # Schritt 4: Plugin bauen und als verborgenes Release im JetBrains Marketplace veröffentlichen.
       # Das IntelliJ Platform Gradle Plugin (2.x) erwartet das Marketplace-Upload-Token über
-      # INTELLIJ_PLATFORM_PUBLISH_TOKEN (mit Fallback auf JB_MARKETPLACE_TOKEN).
+      # die Umgebungsvariable PUBLISH_TOKEN.
       - name: Publish to JetBrains Marketplace
-        run: ./gradlew publishPlugin --no-daemon
+        run: ./gradlew publishPlugin -PmarketplaceHidden=true --no-daemon
         env:
-          INTELLIJ_PLATFORM_PUBLISH_TOKEN: ${{ secrets.JB_MARKETPLACE_TOKEN }}
-          JB_MARKETPLACE_TOKEN: ${{ secrets.JB_MARKETPLACE_TOKEN }}
+          PUBLISH_TOKEN: ${{ secrets.JB_MARKETPLACE_TOKEN }}

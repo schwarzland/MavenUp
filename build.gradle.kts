@@ -32,6 +32,18 @@ dependencies {
     }
 }
 
+intellijPlatform {
+    // Veröffentlichungen sind nur dann im Marketplace verborgen, wenn dies
+    // explizit über die Gradle-Property aktiviert wird.
+    publishing {
+        hidden.set(
+            providers.gradleProperty("marketplaceHidden")
+                .map { it.toBoolean() }
+                .orElse(false)
+        )
+    }
+}
+
 // Der Vue-Plugin wird von MavenUp nicht benötigt. In der Test-Sandbox verursacht dessen
 // Initialisierung (VueLspServerSupportProvider) sporadisch TestLoggerAssertionErrors, wenn
 // die gebündelte Plugin-Distribution des Test-Environments unvollständig ist. Da MavenUp keine
