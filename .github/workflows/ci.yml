@@ -6,12 +6,31 @@ on:
       - main
       - feature/**
       - release/**
+    # Nur Quellcode, Plugin-Ressourcen und Build-Konfiguration starten die CI.
+    # Änderungen an README, CHANGELOG, sonstiger Dokumentation oder Workflows
+    # lösen keinen Build aus. Neue Dateien unter diesen Pfaden werden ebenfalls erfasst.
+    paths:
+      - 'src/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle.properties'
+      - 'gradle/**'
+      - 'gradlew'
+      - 'gradlew.bat'
 
   # Dieser Trigger sorgt dafür, dass die Pipeline bereits ausgeführt wird, wenn ein
   # Pull Request gegen main erstellt oder aktualisiert wird (opened, synchronize, reopened).
   # So wird sichergestellt, dass der PR getestet wird, bevor er überhaupt gemergt werden kann.
   pull_request:
     branches: [ "main" ]
+    paths:
+      - 'src/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle.properties'
+      - 'gradle/**'
+      - 'gradlew'
+      - 'gradlew.bat'
 
 # Least-Privilege: Der Job benoetigt nur Lesezugriff auf das Repository.
 permissions:

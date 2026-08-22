@@ -21,6 +21,41 @@ Das Plugin öffnet ein Tool-Window namens **MavenUp** (meist am linken oder unte
 11. **Sortierung**: Ein Klick auf eine Spaltenüberschrift schaltet die Sortierung zyklisch weiter: aufsteigend, absteigend und zurück zur ursprünglichen Reihenfolge aus der `pom.xml`. Sortierbare Spalten tragen in der Kopfzeile ein Indikator-Icon – einen gedämpften Doppelpfeil im unsortierten Zustand und einen Auf- bzw. Ab-Pfeil bei aktiver Sortierrichtung –, sodass die Sortierbarkeit auf einen Blick erkennbar ist. Die Spalten **Current Version**, **Vulnerabilities (Current)** und **New Version** sind von der Sortierung ausgenommen.
 12. **Repository-Strategie anpassen**: In den Einstellungen unter **Stop after a successful Maven Central lookup** kann festgelegt werden, ob nach einer erfolgreichen Central-Abfrage weitere private Repositories übersprungen werden (schneller) oder zusätzlich abgefragt werden (vollständiger für private-only Versionen).
 
+## Branching-Strategie und GitHub Actions
+
+Die Entwicklung erfolgt auf `feature/*`-Branches. Änderungen werden per Pull Request nach `main` zusammengeführt. Für die Stabilisierung eines Releases wird ein `release/*`-Branch verwendet. Die Branch-Namen sind zugleich die Bereiche, für die die CI konfiguriert ist.
+
+### Automatische Workflows
+
+- **Build and Test** (`.github/workflows/ci.yml`): Läuft bei jedem Push auf `main`, `feature/**` oder `release/**`. Zusätzlich läuft sie bei jedem neu erstellten, aktualisierten oder erneut geöffneten Pull Request gegen `main`. Der Workflow kompiliert das Plugin, führt Tests aus und prüft die Plugin-Struktur. Bei einem Fehler werden die Testberichte als Artefakt gespeichert.
+- **Create Draft Release** (`.github/workflows/create-draft-release.yml`): Läuft, wenn ein Tag zu GitHub gepusht wird, zum Beispiel `2.3.0`. Der aktuelle Stand des Tags wird gebaut und als GitHub-Draft-Release mit ZIP-Datei und Release Notes angelegt. Erst der Push des Tags zu GitHub startet den Workflow.
+- **Publish Release to Marketplace** (`.github/workflows/publish-release.yml`): Läuft, sobald ein Draft-Release im GitHub-UI manuell veröffentlicht wird (`release: published`). Danach wird das Plugin mit `publishPlugin` in den JetBrains Marketplace hochgeladen. Dafür muss das Repository-Secret `JB_MARKETPLACE_TOKEN` gesetzt sein.
+
+### Release manuell durchführen
+
+Die folgenden Befehle werden beispielsweise Terminal ausgeführt. Der Tag sollte auf dem geprüften Release-Branch erstellt werden:
+
+```bash
+git switch release/V2.3.0
+git pull --ff-only origin release/V2.3.0
+git tag 2.3.0
+git push origin 2.3.0
+```
+Alternativ kann in IntelliJ über **Git → New Tag** der Tag erstellt und anschließend über **Git → Push** zum Remote-Repository gepusht werden.
+
+Der Tag-Push startet **Create Draft Release**. Anschließend in GitHub unter **Actions** den Lauf prüfen und unter **Releases** das erzeugte Draft-Release kontrollieren. Mit **Publish release** wird es veröffentlicht und dadurch **Publish Release to Marketplace** gestartet.
+
+Für einen neuen Release-Branch können die Schritte beispielsweise so aussehen:
+
+```bash
+git switch main
+git pull --ff-only origin main
+git switch -c release/V2.3.0
+git push -u origin release/V2.3.0
+```
+
+Ein Tag allein startet keinen lokalen IntelliJ-Run-Task: Die Workflows laufen auf GitHub Actions, sobald Branch, Pull Request oder Tag zum Remote-Repository gepusht wurden.
+
 ## Einstellungen
 
 Unter `Settings > Tools > MavenUp` können folgende Optionen konfiguriert werden. Die Einstellungen werden global auf Anwendungsebene gespeichert und gelten damit für alle Projekte. Sie sind zur besseren Übersicht in drei thematische Gruppen mit Überschriften gegliedert: **Appearance**, **Versions & Updates** und **Vulnerability Check**.
