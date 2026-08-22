@@ -27,27 +27,28 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      # Quellcode auschecken.
-      - uses: actions/checkout@v5
+      # Schritt 1: Quellcode aus dem Repository auschecken.
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-      # JDK 21 (Zulu-Distribution) bereitstellen.
+      # Schritt 2: JDK 21 (Zulu-Distribution) einrichten, passend zur Projektkonfiguration und Compiler-Zielversion.
       - name: Set up JDK 21
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'zulu'
 
-      # Gradle einrichten; uebernimmt automatisch das Caching der Gradle-Dependencies.
+      # Schritt 3: Gradle einrichten; übernimmt automatisches Dependency-Caching und Berechtigungsmanagement für gradlew.
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      # './gradlew build' fuehrt ueber die check-Task bereits die Tests mit aus,
-      # daher genuegt ein einziger Schritt. '--no-daemon' ist in CI-Umgebungen ueblich.
+      # Schritt 4: Quellcode kompilieren, Unit-Tests ausführen und Plugin-Struktur/Deskriptoren verifizieren.
+      # '--no-daemon' wird genutzt, um CI-Ressourcen sauber freizugeben und verwaiste Hintergrundprozesse zu vermeiden.
       - name: Build, Test and Verify Plugin
         run: ./gradlew build verifyPlugin --no-daemon
 
-      # Bei fehlgeschlagenem Build die Testberichte als Artefakt hochladen,
-      # um die Fehlersuche zu erleichtern.
+      # Schritt 5: Bei fehlgeschlagenem Build die Testberichte als Artefakt hochladen,
+      # um die Fehlersuche direkt im GitHub-UI anhand der HTML/XML-Reports zu ermöglichen.
       - name: Upload test reports
         if: failure()
         uses: actions/upload-artifact@v4
