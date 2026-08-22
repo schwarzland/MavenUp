@@ -1,0 +1,62 @@
+name: Create Draft Release
+
+on:
+  push:
+    tags:
+      - '*.*.*'
+
+# Least-Privilege: Schreibzugriff für das Erstellen von GitHub Releases
+permissions:
+  contents: write
+
+jobs:
+  build-and-draft:
+    runs-on: ubuntu-latest
+    steps:
+      # Schritt 1: Quellcode des getaggten Release-Stands auschecken.
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # Schritt 2: JDK 21 (Zulu-Distribution) für den Build- und Paketierungsprozess bereitstellen.
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'zulu'
+
+      # Schritt 3: Gradle einrichten und automatisches Caching der Build-Dependencies aktivieren.
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      # Schritt 4: Plugin-Distribution (.zip) erstellen, Unit-Tests ausführen und Plugin-Struktur validieren.
+      # Das resultierende ZIP-Archiv wird unter build/distributions/ abgelegt.
+      - name: Build, Test and Verify Plugin
+        run: ./gradlew buildPlugin verifyPlugin --no-daemon
+
+      # Schritt 5: Bei Fehlern während des Builds die Testberichte zur Diagnose als Artefakt sichern.
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: build/reports/tests
+          retention-days: 7
+
+      # Schritt 6: Relevante Release-Notizen für den aktuellen Versionsabschnitt direkt aus der CHANGELOG.md extrahieren.
+      # Verwendet das org.jetbrains.changelog-Plugin, um eine saubere Markdown-Datei ohne Header zu erzeugen.
+      - name: Extract Release Notes from CHANGELOG.md
+        run: ./gradlew getChangelog --no-header --no-daemon --console=plain -q > RELEASE_NOTES.md
+
+      # Schritt 7: GitHub Draft-Release (Entwurf) anlegen, die Release Notes einfügen und das Plugin-ZIP als Asset anhängen.
+      # Als Draft kann das Release vor der Veröffentlichung manuell im GitHub UI geprüft und freigegeben werden.
+      - name: Create Draft Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          draft: true
+          prerelease: false
+          body_path: RELEASE_NOTES.md
+          files: build/distributions/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
