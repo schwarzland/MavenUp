@@ -26,7 +26,7 @@ jobs:
 
       # Schritt 3: Gradle einrichten und automatisches Caching der Build-Dependencies aktivieren.
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
 
       # Schritt 4: Plugin bauen und als verborgenes Release im JetBrains Marketplace veröffentlichen.
       # Das IntelliJ Platform Gradle Plugin (2.x) erwartet das Marketplace-Upload-Token über
