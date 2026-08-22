@@ -15,7 +15,7 @@ jobs:
     steps:
       # Schritt 1: Quellcode des freigegebenen Release-Stands aus dem Repository auschecken.
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # Schritt 2: JDK 21 (Zulu-Distribution) für den Build- und Veröffentlichungsprozess bereitstellen.
       - name: Set up JDK 21
