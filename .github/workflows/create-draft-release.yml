@@ -3,7 +3,6 @@ name: Create Draft Release
 on:
   push:
     tags:
-      - 'v*.*.*'
       - '*.*.*'
 
 # Least-Privilege: Schreibzugriff für das Erstellen von GitHub Releases
