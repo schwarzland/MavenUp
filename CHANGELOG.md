@@ -9,6 +9,10 @@
 - Shortened the toolbar button labels shown when text labels are enabled ("New Versions", "Scan", "Update", "Highest", "Reset", "Open", "Details") while keeping the full text as tooltip, so the toolbar fits on low screen resolutions.
 - Grouped the two highest-version actions ("Select Highest Major Version", "Select Highest Minor Version") into a "Select Highest Version" toolbar dropdown (arrow-up icon) whose tooltip clarifies that only the currently visible dependencies are changed, and kept "Reset All to Current Versions" as a standalone toolbar action whose tooltip states it applies to all dependencies regardless of active filters.
 
+### Fixed
+
+- Fixed long toolbar tooltips not wrapping in icon-only mode by keeping the button label as the tooltip title and moving the full text into the wrapping tooltip description.
+
 ## 2.3.0
 
 ### Added

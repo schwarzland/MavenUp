@@ -793,6 +793,46 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         )
     }
 
+    fun testResetTooltipUsesWrappingDescriptionInIconMode() {
+        val settings = MavenUpSettings.getInstance()
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        val resetAction = toolWindow.topToolbarActions()
+            .filter { it !is com.intellij.openapi.actionSystem.ActionGroup }
+            .first { it.templatePresentation.text == "Reset All to Current Versions" }
+        val longTooltip = MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.tooltip")
+
+        settings.state.toolbarShowText = false
+        val iconEvent = com.intellij.testFramework.TestActionEvent.createTestEvent(resetAction)
+        resetAction.update(iconEvent)
+        assertEquals(
+            "Im Icon-Modus muss der lange Text in der (umbrechenden) Beschreibung stehen",
+            longTooltip,
+            iconEvent.presentation.description
+        )
+        assertFalse(
+            "Im Icon-Modus darf der lange Text nicht als einzeiliger Titel (text) gesetzt werden",
+            iconEvent.presentation.text == longTooltip
+        )
+
+        settings.state.toolbarShowText = true
+        val textEvent = com.intellij.testFramework.TestActionEvent.createTestEvent(resetAction)
+        resetAction.update(textEvent)
+        assertEquals(
+            "Bei aktiven Textbeschriftungen zeigt der Button die Kurzform",
+            "Reset",
+            textEvent.presentation.text
+        )
+        assertEquals(
+            "Der lange Text bleibt in der umbrechenden Beschreibung",
+            longTooltip,
+            textEvent.presentation.description
+        )
+
+        settings.state.toolbarShowText = false
+    }
+
     fun testResetVersionsActionIsTopLevelToolbarAction() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         toolWindow.getContent()
