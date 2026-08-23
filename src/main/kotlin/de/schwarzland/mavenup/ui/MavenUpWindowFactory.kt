@@ -423,14 +423,14 @@ internal fun createVersionPanel(
         isOpaque = false
         val statusLabel = JLabel(statusText).apply {
             border = BorderFactory.createEmptyBorder(0, 2, 0, 0)
-            font = font.deriveFont(java.awt.Font.BOLD)
+            font = font.deriveFont(Font.BOLD)
             if (statusColor != null) {
                 foreground = statusColor
             }
         }
         add(statusLabel, BorderLayout.WEST)
         if (hasChange) {
-            combo.font = combo.font.deriveFont(java.awt.Font.BOLD)
+            combo.font = combo.font.deriveFont(Font.BOLD)
         }
         add(combo, BorderLayout.CENTER)
         toolTipText = tooltip
@@ -1024,7 +1024,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                                 font = combo.font
                             } else if (value != null && value == currentVersion) {
                                 text = versionDropdownItemText(value, currentVersion)
-                                font = font.deriveFont(java.awt.Font.BOLD)
+                                font = font.deriveFont(Font.BOLD)
                             }
                         }
                     }
@@ -1989,7 +1989,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             val newUpToDate = isVersionUpToDate(selected ?: "", newestVersion)
             val newHasChange = selected != currentVersion && !selected.isNullOrEmpty()
             val newColor = if (newHasChange) versionStatusColor(newUpToDate) else null
-            val newFontStyle = if (newHasChange) java.awt.Font.BOLD else java.awt.Font.PLAIN
+            val newFontStyle = if (newHasChange) Font.BOLD else Font.PLAIN
             combo.foreground = newColor
             combo.font = combo.font.deriveFont(newFontStyle)
             combo.repaint()
