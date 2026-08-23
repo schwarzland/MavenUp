@@ -902,6 +902,44 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         settings.state.toolbarShowText = false
     }
 
+    fun testToolbarTooltipsAreIdenticalRegardlessOfTextLabels() {
+        val settings = MavenUpSettings.getInstance()
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        val actions = toolWindow.topToolbarActions()
+            .filter { it !is com.intellij.openapi.actionSystem.Separator }
+
+        // Der effektiv gerenderte Tooltip wird über CUSTOM_HELP_TOOLTIP vollständig vorgegeben und von
+        // ActionButton (Icon-Modus) wie ActionButtonWithText (Text-Modus) unverändert übernommen.
+        fun tooltipTexts(showText: Boolean): List<String?> {
+            settings.state.toolbarShowText = showText
+            return actions.map { action ->
+                val event = com.intellij.testFramework.TestActionEvent.createTestEvent(action)
+                action.update(event)
+                val custom = event.presentation.getClientProperty(
+                    com.intellij.openapi.actionSystem.impl.ActionButton.CUSTOM_HELP_TOOLTIP
+                )
+                custom?.description
+            }
+        }
+
+        val withoutText = tooltipTexts(false)
+        val withText = tooltipTexts(true)
+
+        assertEquals(
+            "Die Tooltips müssen unabhängig von den Textbeschriftungen identisch sein",
+            withText,
+            withoutText
+        )
+        assertTrue(
+            "Jede Toolbar-Aktion muss einen nicht-leeren Tooltip besitzen",
+            withoutText.all { !it.isNullOrBlank() }
+        )
+
+        settings.state.toolbarShowText = false
+    }
+
     fun testVulnerabilityDetailsActionReflectsSelection() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         val content = toolWindow.getContent()

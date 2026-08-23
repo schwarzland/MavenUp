@@ -12,7 +12,7 @@
 
 ### Fixed
 
-- Fixed long toolbar tooltips not wrapping in icon-only mode by keeping the button label as the tooltip title and moving the full text into the wrapping tooltip description.
+- Fixed toolbar tooltips differing between the text-label and icon-only modes by giving every toolbar action a single explicit tooltip (via the presentation's custom help tooltip) that shows the full, wrapping text identically in both modes.
 
 ## 2.3.0
 

@@ -21,6 +21,8 @@ import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.actionSystem.Separator
 import com.intellij.openapi.actionSystem.ex.ActionUtil
+import com.intellij.openapi.actionSystem.impl.ActionButton
+import com.intellij.ide.HelpTooltip
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.application.ReadAction
@@ -1184,12 +1186,13 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         }
                         val showText = isToolbarTextEnabled()
                         val shortLabel = shortLabelKey?.let { MyMessageBundle.message(it) } ?: label
-                        // Der Titel des Tooltips (presentation.text) wird einzeilig und ohne Umbruch
-                        // gerendert – daher hier stets knapp halten. Der ggf. lange bzw. dynamische
-                        // Text gehört in die Beschreibung, die im HelpTooltip automatisch umbricht.
-                        val title = if (showText) shortLabel else label
-                        e.presentation.text = title
-                        e.presentation.description = if (fullText != title) fullText else null
+                        // Der Tooltip muss in beiden Anzeigemodi identisch sein. Über CUSTOM_HELP_TOOLTIP
+                        // wird der Tooltip komplett vorgegeben; sowohl ActionButton (Icon-Modus) als auch
+                        // ActionButtonWithText (Text-Modus) übernehmen ihn unverändert und zeigen so stets
+                        // nur den vollständigen (umbrechenden) Text – unabhängig von der Textbeschriftung.
+                        e.presentation.text = shortLabel
+                        e.presentation.description = fullText
+                        e.presentation.putClientProperty(ActionButton.CUSTOM_HELP_TOOLTIP, HelpTooltip().setDescription(fullText))
                         e.presentation.putClientProperty(ActionUtil.SHOW_TEXT_IN_TOOLBAR, showText)
                     }
 
@@ -1203,11 +1206,11 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     val fullLabel = currentOpenInRepositoryText()
                     val showText = isToolbarTextEnabled()
                     val shortLabel = MyMessageBundle.message("toolwindow.MyToolWindow.openInRepository.button.short")
-                    // Titel knapp halten (einzeilig); der vollständige Text inkl. Browser-Name geht
-                    // in die umbrechende Beschreibung.
-                    val title = if (showText) shortLabel else fullLabel
-                    e.presentation.text = title
-                    e.presentation.description = if (fullLabel != title) fullLabel else null
+                    // Identischer Tooltip in beiden Modi über CUSTOM_HELP_TOOLTIP (siehe toolbarAction);
+                    // der volle Text inkl. Browser-Name wird stets als umbrechende Beschreibung gezeigt.
+                    e.presentation.text = shortLabel
+                    e.presentation.description = fullLabel
+                    e.presentation.putClientProperty(ActionButton.CUSTOM_HELP_TOOLTIP, HelpTooltip().setDescription(fullLabel))
                     e.presentation.icon = AllIcons.General.Web
                     e.presentation.isEnabled = isOpenInRepositoryEnabled()
                     e.presentation.putClientProperty(ActionUtil.SHOW_TEXT_IN_TOOLBAR, showText)
@@ -1227,12 +1230,13 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 override fun update(e: AnActionEvent) {
                     val showText = isToolbarTextEnabled()
                     val shortLabel = MyMessageBundle.message("toolwindow.MyToolWindow.versionActions.group.button.short")
-                    val label = MyMessageBundle.message("toolwindow.MyToolWindow.versionActions.group.button")
                     val tooltip = MyMessageBundle.message("toolwindow.MyToolWindow.versionActions.group.tooltip")
                     e.presentation.isEnabled = isBulkVersionSelectionEnabled()
-                    // Titel knapp halten (einzeilig); der lange Tooltip gehört in die umbrechende Beschreibung.
-                    e.presentation.text = if (showText) shortLabel else label
+                    // Identischer Tooltip in beiden Modi über CUSTOM_HELP_TOOLTIP (siehe toolbarAction);
+                    // der lange Tooltip wird stets als umbrechende Beschreibung gezeigt.
+                    e.presentation.text = shortLabel
                     e.presentation.description = tooltip
+                    e.presentation.putClientProperty(ActionButton.CUSTOM_HELP_TOOLTIP, HelpTooltip().setDescription(tooltip))
                     e.presentation.icon = AllIcons.General.ArrowUp
                     e.presentation.putClientProperty(ActionUtil.SHOW_TEXT_IN_TOOLBAR, showText)
                 }
