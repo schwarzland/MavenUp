@@ -75,6 +75,8 @@ import java.awt.Graphics2D
 import java.awt.RenderingHints
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
+import java.lang.reflect.Method
+import java.util.function.Supplier
 import javax.swing.*
 import javax.swing.event.DocumentEvent
 import javax.swing.table.DefaultTableModel
@@ -93,6 +95,47 @@ private const val CURRENT_VERSION_COLUMN = 4
 private const val VULNERABILITIES_COLUMN = 5
 private const val NEW_VERSION_COLUMN = 6
 private val LOG = Logger.getInstance(MavenUpWindowFactory::class.java)
+
+/**
+ * Zwischengespeicherte `setDescription(Supplier)`-Methode der [HelpTooltip]-API oder `null`, falls
+ * diese Überladung zur Laufzeit nicht vorhanden ist.
+ *
+ * Die Supplier-Variante steht erst ab IntelliJ 2026.1 zur Verfügung; auf dem Kompilierziel 2025.3
+ * existiert ausschließlich die dort noch gültige, in neueren Plattformen jedoch als veraltet
+ * markierte String-Überladung.
+ */
+private val HELP_TOOLTIP_SET_DESCRIPTION_SUPPLIER: Method? = runCatching {
+    HelpTooltip::class.java.getMethod("setDescription", Supplier::class.java)
+}.getOrNull()
+
+/**
+ * Zwischengespeicherte `setDescription(String)`-Methode der [HelpTooltip]-API als Rückfallebene für
+ * Plattformen ohne die Supplier-Überladung.
+ */
+private val HELP_TOOLTIP_SET_DESCRIPTION_STRING: Method =
+    HelpTooltip::class.java.getMethod("setDescription", String::class.java)
+
+/**
+ * Setzt die mehrzeilig umbrechende Beschreibung eines [HelpTooltip] versionsunabhängig.
+ *
+ * Bevorzugt wird die ab IntelliJ 2026.1 verfügbare `setDescription(Supplier)`-Überladung; ist sie
+ * nicht vorhanden (Kompilierziel 2025.3), wird auf die String-Variante zurückgegriffen. Der Zugriff
+ * erfolgt bewusst per Reflection, damit im Bytecode kein direkter Verweis auf die in neueren
+ * Plattformen als veraltet markierte Methode entsteht und der Plugin Verifier keine
+ * deprecated-API-Nutzung meldet.
+ *
+ * @param description der vollständige, mehrzeilig umbrechende Beschreibungstext
+ * @return dieselbe [HelpTooltip]-Instanz zur Verkettung
+ */
+private fun HelpTooltip.withWrappingDescription(description: String): HelpTooltip {
+    val supplierMethod = HELP_TOOLTIP_SET_DESCRIPTION_SUPPLIER
+    if (supplierMethod != null) {
+        supplierMethod.invoke(this, Supplier { description })
+    } else {
+        HELP_TOOLTIP_SET_DESCRIPTION_STRING.invoke(this, description)
+    }
+    return this
+}
 
 /** Farbe für Abhängigkeiten, die bereits auf der neuesten Version sind (Light-/Dark-Mode). */
 private val VERSION_UP_TO_DATE_COLOR = com.intellij.ui.JBColor(Color(0, 128, 0), Color(80, 200, 80))
@@ -1248,7 +1291,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         // nur den vollständigen (umbrechenden) Text – unabhängig von der Textbeschriftung.
                         e.presentation.text = shortLabel
                         e.presentation.description = fullText
-                        e.presentation.putClientProperty(ActionButton.CUSTOM_HELP_TOOLTIP, HelpTooltip().setDescription(fullText))
+                        e.presentation.putClientProperty(ActionButton.CUSTOM_HELP_TOOLTIP, HelpTooltip().withWrappingDescription(fullText))
                         e.presentation.putClientProperty(ActionUtil.SHOW_TEXT_IN_TOOLBAR, showText)
                     }
 
@@ -1266,7 +1309,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     // der volle Text inkl. Browser-Name wird stets als umbrechende Beschreibung gezeigt.
                     e.presentation.text = shortLabel
                     e.presentation.description = fullLabel
-                    e.presentation.putClientProperty(ActionButton.CUSTOM_HELP_TOOLTIP, HelpTooltip().setDescription(fullLabel))
+                    e.presentation.putClientProperty(ActionButton.CUSTOM_HELP_TOOLTIP, HelpTooltip().withWrappingDescription(fullLabel))
                     e.presentation.icon = AllIcons.General.Web
                     e.presentation.isEnabled = isOpenInRepositoryEnabled()
                     e.presentation.putClientProperty(ActionUtil.SHOW_TEXT_IN_TOOLBAR, showText)
@@ -1292,7 +1335,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     // der lange Tooltip wird stets als umbrechende Beschreibung gezeigt.
                     e.presentation.text = shortLabel
                     e.presentation.description = tooltip
-                    e.presentation.putClientProperty(ActionButton.CUSTOM_HELP_TOOLTIP, HelpTooltip().setDescription(tooltip))
+                    e.presentation.putClientProperty(ActionButton.CUSTOM_HELP_TOOLTIP, HelpTooltip().withWrappingDescription(tooltip))
                     e.presentation.icon = VersionUpdateArrowIcon
                     e.presentation.putClientProperty(ActionUtil.SHOW_TEXT_IN_TOOLBAR, showText)
                 }

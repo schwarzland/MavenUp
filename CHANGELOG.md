@@ -17,6 +17,7 @@
 ### Fixed
 
 - Fixed toolbar tooltips differing between the text-label and icon-only modes by giving every toolbar action a single explicit tooltip (via the presentation's custom help tooltip) that shows the full, wrapping text identically in both modes.
+- Fixed the Plugin Verifier reporting deprecated `HelpTooltip.setDescription(String)` usages on newer IDEs by selecting the `Supplier`-based overload at runtime while staying compatible with the 2025.3 compile target.
 
 ## 2.3.0
 
