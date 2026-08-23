@@ -2024,6 +2024,32 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertFalse(toolWindow.hasSelectedUpdates())
     }
 
+    fun testConfirmAndResetSkipsDialogWhenConfirmationDisabled() {
+        val settings = MavenUpSettings.getInstance()
+        val previous = settings.state.confirmVersionReset
+        settings.state.confirmVersionReset = false
+        try {
+            val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+            toolWindow.getContent()
+            val (availableVersions, selectedVersions, knownDependencies) = versionMaps(toolWindow)
+
+            val key = "com.example:reset-no-confirm"
+            availableVersions[key] = listOf("2.0.0", "1.0.0")
+            knownDependencies[key] = "1.0.0"
+            selectedVersions[key] = "2.0.0"
+
+            toolWindow.confirmAndResetAllVersionsToCurrent()
+
+            assertNull(
+                "Bei deaktivierter Bestätigung soll ohne Dialog zurückgesetzt werden.",
+                selectedVersions[key]
+            )
+            assertFalse(toolWindow.hasSelectedUpdates())
+        } finally {
+            settings.state.confirmVersionReset = previous
+        }
+    }
+
     fun testBulkSelectionDoesNothingWhenNoVersionsLoaded() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         toolWindow.getContent()

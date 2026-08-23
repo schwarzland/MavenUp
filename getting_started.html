@@ -25,7 +25,9 @@
         once — <strong>Select Highest Major Version</strong> picks the highest available version and <strong>Select Highest
         Minor Version</strong> stays within each dependency's current major line. Both act only on the currently visible
         rows, so any active filter narrows their scope. Use the separate <strong>Reset All to Current
-        Versions</strong> toolbar action to discard all selections for all dependencies regardless of filtering.</li>
+        Versions</strong> toolbar action to discard all selections for all dependencies regardless of filtering; by
+        default it asks for confirmation first, and you can disable this from the dialog's "Don't ask again" option or in
+        the settings.</li>
     <li><strong>Update your project</strong>: Click <strong>Update</strong> to review the planned changes in a confirmation
         dialog and apply the selected versions to the relevant <code>pom.xml</code> files. The
         <strong>Sync Maven Changes after update</strong> checkbox is enabled by default and triggers the IDE's Maven sync

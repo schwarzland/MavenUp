@@ -41,6 +41,8 @@ import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.ComboBox
 import com.intellij.openapi.ui.DialogWrapper
+import com.intellij.openapi.ui.DoNotAskOption
+import com.intellij.openapi.ui.MessageDialogBuilder
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
@@ -1354,7 +1356,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     descriptionProvider = {
                         MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.tooltip")
                     }
-                ) { resetAllVersionsToCurrent() })
+                ) { confirmAndResetAllVersionsToCurrent() })
                 addSeparator()
                 add(openInRepositoryAction)
                 add(toolbarAction(
@@ -1859,6 +1861,38 @@ class MavenUpWindowFactory : ToolWindowFactory {
          */
         internal fun resetAllVersionsToCurrent() {
             applyBulkVersionSelection(visibleOnly = false) { current, _ -> current }
+        }
+
+        /**
+         * Setzt alle Versionsauswahlen zurück und zeigt zuvor – sofern konfiguriert – einen
+         * Bestätigungsdialog an.
+         *
+         * Ist die Einstellung [MavenUpSettings.State.confirmVersionReset] aktiv, wird ein Ja/Nein-Dialog
+         * angezeigt. Über die Option „Don't ask again" kann der Benutzer die Bestätigung dauerhaft
+         * deaktivieren; in diesem Fall wird die Einstellung entsprechend gespeichert. Bricht der Benutzer
+         * ab, bleibt die aktuelle Auswahl unverändert.
+         */
+        internal fun confirmAndResetAllVersionsToCurrent() {
+            val settings = MavenUpSettings.getInstance()
+            if (settings.state.confirmVersionReset) {
+                val doNotAsk = object : DoNotAskOption.Adapter() {
+                    override fun rememberChoice(isSelected: Boolean, exitCode: Int) {
+                        if (isSelected && exitCode == Messages.YES) {
+                            settings.state.confirmVersionReset = false
+                        }
+                    }
+                }
+                val confirmed = MessageDialogBuilder
+                    .yesNo(
+                        MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.confirm.title"),
+                        MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.confirm.message")
+                    )
+                    .icon(Messages.getWarningIcon())
+                    .doNotAsk(doNotAsk)
+                    .ask(project)
+                if (!confirmed) return
+            }
+            resetAllVersionsToCurrent()
         }
 
         /**

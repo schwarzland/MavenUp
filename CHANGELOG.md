@@ -4,6 +4,10 @@
 
 ## Unreleased
 
+### Added
+
+- Added a confirmation dialog before the "Reset All to Current Versions" action discards all version selections, with a "Don't ask again" option; the confirmation can also be turned off via the new "Confirm before resetting all version selections" setting.
+
 ### Changed
 
 - Shortened the toolbar button labels shown when text labels are enabled ("Search Versions", "Scan", "Update", "Highest", "Reset", "Open", "Details") while keeping the full text as tooltip, so the toolbar fits on low screen resolutions.

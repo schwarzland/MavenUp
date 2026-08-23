@@ -68,11 +68,13 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   die höchste Version innerhalb der aktuellen Major-Linie – beide nur für die aktuell sichtbaren
   (nicht ausgefilterten) Zeilen (`collectVisibleDependencyKeys()`) – und `resetAllVersionsToCurrent()` verwirft alle
   Auswahlen unabhängig vom Filter; ihre Aktivierung steuern `isBulkVersionSelectionEnabled()` und `isResetVersionsEnabled()`.
+  `confirmAndResetAllVersionsToCurrent()` kapselt `resetAllVersionsToCurrent()` und zeigt bei aktivem `confirmVersionReset` zuvor
+  einen Ja/Nein-Bestätigungsdialog (`MessageDialogBuilder` mit `DoNotAskOption`, dessen „Don't ask again" die Einstellung deaktiviert).
   `isRowFilterHidingEntries()` und `bulkSelectionActionDescription()` erweitern den Tooltip der "Select Highest"-Aktionen bei aktivem Filter um einen Hinweis.
 - **MavenUpSettings**: `PersistentStateComponent` auf Anwendungsebene (`Service.Level.APP`), global für alle Projekte gespeichert in `mavenup_settings.xml`
   (`jumpOnSingleClick`, `versionAutoSelectionMode` mit `DISABLED`, `LATEST`, `LATEST_MINOR`, `hideUnstableVersions`, `hiddenVersionQualifiers`,
   `ossIndexEnabled`, `checkTransitiveDependencies`, `repositoryBrowser`, `toolbarShowText`,
-  `syncMavenAfterUpdate`, `stopAfterCentralSuccess`, `offerAllVersions`; Legacy-Migrationsfelder: `selectLatestVersion`, `selectLatestMinorVersion`).
+  `syncMavenAfterUpdate`, `stopAfterCentralSuccess`, `offerAllVersions`, `confirmVersionReset`; Legacy-Migrationsfelder: `selectLatestVersion`, `selectLatestMinorVersion`).
   Für die OSS-Index-Abfrage ist nur das Token erforderlich; Sonatype wertet bei der HTTP-Basic-Authentifizierung
   nur das Token aus, weshalb ein fester Platzhalter-Benutzername verwendet wird.
   Das Token liegt ausschließlich im IntelliJ Password Safe; fehlt es, wird
