@@ -50,6 +50,7 @@ import com.intellij.psi.xml.XmlFile
 import com.intellij.psi.xml.XmlTag
 import com.intellij.ui.DocumentAdapter
 import com.intellij.ui.SearchTextField
+import com.intellij.ui.scale.JBUIScale
 import com.intellij.ui.components.JBPanel
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.content.ContentFactory
@@ -66,6 +67,10 @@ import java.awt.BorderLayout
 import java.awt.Color
 import java.awt.Component
 import java.awt.FlowLayout
+import java.awt.Font
+import java.awt.Graphics
+import java.awt.Graphics2D
+import java.awt.RenderingHints
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import javax.swing.*
@@ -98,6 +103,55 @@ private const val VERSION_UP_TO_DATE_GLYPH = "\u2713"
 
 /** Glyph für Abhängigkeiten mit verfügbarem Update (Pfeil nach oben „↑"). */
 private const val VERSION_UPDATE_AVAILABLE_GLYPH = "\u2191"
+
+/**
+ * Icon, das den Aufwärtspfeil („↑") der Spalte New Version als Toolbar-Icon rendert.
+ *
+ * Der Pfeil signalisiert in der Tabelle ein verfügbares Update; dasselbe Zeichen wird
+ * dadurch auch für das Aufklappmenü „Select Highest Version" verwendet, sodass die
+ * Aktion optisch denselben Pfeil wie die Statusanzeige der Tabelle nutzt. Das Glyph
+ * wird zentriert und fett in der Vordergrundfarbe der aufrufenden Komponente gezeichnet;
+ * die IntelliJ-Plattform erzeugt daraus bei Bedarf automatisch eine ausgegraute
+ * Deaktiviert-Variante.
+ */
+internal object VersionUpdateArrowIcon : Icon {
+
+    /** Kantenlänge des Icons in logischen Pixeln (Standard-Toolbar-Größe). */
+    private const val ICON_SIZE = 16
+
+    /** Schriftgröße des Glyphs in logischen Pixeln. */
+    private const val GLYPH_FONT_SIZE = 13f
+
+    override fun getIconWidth(): Int = JBUIScale.scale(ICON_SIZE)
+
+    override fun getIconHeight(): Int = JBUIScale.scale(ICON_SIZE)
+
+    /**
+     * Zeichnet das Aufwärtspfeil-Glyph zentriert in das Icon-Rechteck.
+     *
+     * @param c Die aufrufende Komponente; liefert Vordergrundfarbe und Basis-Schriftart.
+     * @param g Der Grafikkontext, in den gezeichnet wird.
+     * @param x Die linke Kante des Icon-Rechtecks.
+     * @param y Die obere Kante des Icon-Rechtecks.
+     */
+    override fun paintIcon(c: Component?, g: Graphics, x: Int, y: Int) {
+        val g2 = g.create() as Graphics2D
+        try {
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
+            g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON)
+            g2.color = c?.foreground ?: com.intellij.ui.JBColor.foreground()
+            val baseFont = c?.font ?: UIManager.getFont("Label.font")
+            g2.font = baseFont.deriveFont(Font.BOLD, JBUIScale.scale(GLYPH_FONT_SIZE))
+            val metrics = g2.fontMetrics
+            val glyph = VERSION_UPDATE_AVAILABLE_GLYPH
+            val drawX = x + (iconWidth - metrics.stringWidth(glyph)) / 2
+            val drawY = y + (iconHeight - metrics.height) / 2 + metrics.ascent
+            g2.drawString(glyph, drawX, drawY)
+        } finally {
+            g2.dispose()
+        }
+    }
+}
 
 /**
  * Bestimmt, ob die angegebene Version der höchsten bekannten Version entspricht.
@@ -1237,11 +1291,11 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     e.presentation.text = shortLabel
                     e.presentation.description = tooltip
                     e.presentation.putClientProperty(ActionButton.CUSTOM_HELP_TOOLTIP, HelpTooltip().setDescription(tooltip))
-                    e.presentation.icon = AllIcons.Actions.Upload
+                    e.presentation.icon = VersionUpdateArrowIcon
                     e.presentation.putClientProperty(ActionUtil.SHOW_TEXT_IN_TOOLBAR, showText)
                 }
             }.apply {
-                templatePresentation.icon = AllIcons.Actions.Upload
+                templatePresentation.icon = VersionUpdateArrowIcon
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.selectHighestMajor.button",
                     AllIcons.Actions.Play_last,

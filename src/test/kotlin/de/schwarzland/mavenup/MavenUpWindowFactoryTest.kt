@@ -17,6 +17,7 @@ import de.schwarzland.mavenup.ui.canCheckVulnerabilities
 import de.schwarzland.mavenup.ui.vulnerabilitySummary
 import de.schwarzland.mavenup.ui.isVersionUpToDate
 import de.schwarzland.mavenup.ui.versionStatusText
+import de.schwarzland.mavenup.ui.VersionUpdateArrowIcon
 import de.schwarzland.mavenup.ui.versionStatusColor
 import de.schwarzland.mavenup.ui.versionStatusTooltip
 import de.schwarzland.mavenup.ui.versionDropdownItemText
@@ -792,8 +793,8 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
             group!!.childrenCount
         )
         assertSame(
-            "Das \"Select Highest\"-Untermenü sollte das Upload-Icon (auf das Höchste anheben) verwenden",
-            com.intellij.icons.AllIcons.Actions.Upload,
+            "Das \"Select Highest\"-Untermenü sollte denselben Aufwärtspfeil wie die New-Version-Spalte verwenden",
+            VersionUpdateArrowIcon,
             group.templatePresentation.icon
         )
     }
