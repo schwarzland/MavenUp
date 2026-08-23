@@ -59,7 +59,7 @@ jobs:
 
       # Schritt 3: Gradle einrichten; übernimmt automatisches Dependency-Caching und Berechtigungsmanagement für gradlew.
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
 
       # Schritt 4: Quellcode kompilieren, Unit-Tests ausführen und Plugin-Struktur/Deskriptoren verifizieren.
       # '--no-daemon' wird genutzt, um CI-Ressourcen sauber freizugeben und verwaiste Hintergrundprozesse zu vermeiden.

@@ -26,7 +26,7 @@ jobs:
 
       # Schritt 3: Gradle einrichten und automatisches Caching der Build-Dependencies aktivieren.
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
 
       # Schritt 4: Plugin-Distribution (.zip) erstellen, Unit-Tests ausführen und Plugin-Struktur validieren.
       # Das resultierende ZIP-Archiv wird unter build/distributions/ abgelegt.
