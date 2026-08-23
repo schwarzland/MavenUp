@@ -6,7 +6,8 @@
 
 ### Changed
 
-- Shortened the toolbar button labels shown when text labels are enabled ("New Versions", "Scan", "Update", "Highest", "Reset", "Open", "Details") while keeping the full text as tooltip, so the toolbar fits on low screen resolutions.
+- Shortened the toolbar button labels shown when text labels are enabled ("Search Versions", "Scan", "Update", "Highest", "Reset", "Open", "Details") while keeping the full text as tooltip, so the toolbar fits on low screen resolutions.
+- Renamed the version lookup action from "Find New Versions" to "Search for New Versions" (short label "Search Versions"), and aligned its progress indicator and related tooltips accordingly.
 - Grouped the two highest-version actions ("Select Highest Major Version", "Select Highest Minor Version") into a "Select Highest Version" toolbar dropdown (arrow-up icon) whose tooltip clarifies that only the currently visible dependencies are changed, and kept "Reset All to Current Versions" as a standalone toolbar action whose tooltip states it applies to all dependencies regardless of active filters.
 
 ### Fixed

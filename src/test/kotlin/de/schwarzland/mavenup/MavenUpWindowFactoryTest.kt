@@ -852,7 +852,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
     }
 
     fun testShortToolbarLabelsResolveToShortenedText() {
-        assertEquals("New Versions", MyMessageBundle.message("toolwindow.MyToolWindow.checkUpdates.button.short"))
+        assertEquals("Search Versions", MyMessageBundle.message("toolwindow.MyToolWindow.checkUpdates.button.short"))
         assertEquals("Scan", MyMessageBundle.message("toolwindow.MyToolWindow.checkVulnerabilities.button.short"))
         assertEquals("Update", MyMessageBundle.message("toolwindow.MyToolWindow.update.button.short"))
         assertEquals("Open", MyMessageBundle.message("toolwindow.MyToolWindow.openInRepository.button.short"))
