@@ -791,6 +791,11 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
             2,
             group!!.childrenCount
         )
+        assertSame(
+            "Das \"Select Highest\"-Untermenü sollte das Upload-Icon (auf das Höchste anheben) verwenden",
+            com.intellij.icons.AllIcons.Actions.Upload,
+            group.templatePresentation.icon
+        )
     }
 
     @Suppress("OverrideOnly")

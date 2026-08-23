@@ -1237,11 +1237,11 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     e.presentation.text = shortLabel
                     e.presentation.description = tooltip
                     e.presentation.putClientProperty(ActionButton.CUSTOM_HELP_TOOLTIP, HelpTooltip().setDescription(tooltip))
-                    e.presentation.icon = AllIcons.General.ArrowUp
+                    e.presentation.icon = AllIcons.Actions.Upload
                     e.presentation.putClientProperty(ActionUtil.SHOW_TEXT_IN_TOOLBAR, showText)
                 }
             }.apply {
-                templatePresentation.icon = AllIcons.General.ArrowUp
+                templatePresentation.icon = AllIcons.Actions.Upload
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.selectHighestMajor.button",
                     AllIcons.Actions.Play_last,
