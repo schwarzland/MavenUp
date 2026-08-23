@@ -111,6 +111,14 @@ class MavenUpConfigurable internal constructor(
                         }
                         .component
                 }
+                row {
+                    confirmVersionResetCheckBox = checkBox(MyMessageBundle.message("settings.confirmVersionReset"))
+                        .applyToComponent {
+                            isSelected = settings.state.confirmVersionReset
+                            toolTipText = MyMessageBundle.message("settings.confirmVersionReset.tooltip")
+                        }
+                        .component
+                }
             }
             group(MyMessageBundle.message("settings.group.versions")) {
                 row {
@@ -175,14 +183,6 @@ class MavenUpConfigurable internal constructor(
                         .applyToComponent {
                             isSelected = settings.state.syncMavenAfterUpdate
                             toolTipText = MyMessageBundle.message("settings.syncMavenAfterUpdate.tooltip")
-                        }
-                        .component
-                }
-                row {
-                    confirmVersionResetCheckBox = checkBox(MyMessageBundle.message("settings.confirmVersionReset"))
-                        .applyToComponent {
-                            isSelected = settings.state.confirmVersionReset
-                            toolTipText = MyMessageBundle.message("settings.confirmVersionReset.tooltip")
                         }
                         .component
                 }

@@ -86,6 +86,7 @@ Unter `Settings > Tools > MavenUp` können folgende Optionen konfiguriert werden
 - **Maven Repository Browser**: Wählt den Browser für Artifact-Versionsseiten – **MVN Repository** (Standard, `mvnrepository.com`) oder **Sonatype Central** (`central.sonatype.com`). Die Auswahl gilt für das Rechtsklick-Kontextmenü im Hauptfenster und das Rechtsklick-Kontextmenü im Vulnerability-Details-Dialog (alle Spalten außer **References**).
 - **Show text labels on toolbar buttons instead of icons only**: Stellt die Aktionen in der oberen Aktionsleiste des Tool-Windows und des Vulnerability-Details-Dialogs wahlweise als Buttons mit Textbeschriftung statt als reine Icon-Buttons dar (Standard: an); die Beschriftungen sind gekürzt (der vollständige Text bleibt als Tooltip erhalten), damit die Aktionsleiste auch bei niedrigen Bildschirmauflösungen passt. Die Änderung wird sofort auf das offene Tool-Window angewendet.
 - **Jump to pom.xml on single click**: Ermöglicht die Navigation zur `pom.xml` mit einem einfachen statt eines Doppelklicks.
+- **Confirm before resetting all version selections**: Legt fest, ob die Aktion **Reset All to Current Versions** vor dem Verwerfen aller Versionsauswahlen einen Bestätigungsdialog anzeigt (Standard: an). Der Dialog bietet eine Option „Don't ask again", die diese Einstellung ebenfalls deaktiviert.
 
 **Versions and Updates**
 
@@ -95,7 +96,6 @@ Unter `Settings > Tools > MavenUp` können folgende Optionen konfiguriert werden
 - **Hidden version qualifiers (comma-separated)**: Liste der auszublendenden Typen, z.B. `rc,beta,milestone` (als eingerückter Unterpunkt im IntelliJ-Settings-Style; Label und Feld nur aktiv, wenn der Filter eingeschaltet ist; das Feld passt sich an die Dialogbreite an, damit auch längere Listen gut lesbar bleiben).
 - **Stop after a successful Maven Central lookup**: Legt fest, ob nach einer erfolgreichen Abfrage von Maven Central keine weiteren privaten Repositories abgefragt werden (Standard: an). Bei deaktivierter Option werden private Repositories auch nach erfolgreicher Central-Abfrage weiterhin geprüft, um private-only Versionen zu finden.
 - **Sync Maven changes after update**: Legt fest, ob nach dem Schreiben der `pom.xml` automatisch der Maven-Sync der IDE ausgelöst wird (Standard: an). Diese Einstellung ist mit der gleichnamigen Checkbox im Bestätigungsdialog **Confirm Changes** synchronisiert; die dort zuletzt getroffene Auswahl wird gespeichert.
-- **Confirm before resetting all version selections**: Legt fest, ob die Aktion **Reset All to Current Versions** vor dem Verwerfen aller Versionsauswahlen einen Bestätigungsdialog anzeigt (Standard: an). Der Dialog bietet eine Option „Don't ask again", die diese Einstellung ebenfalls deaktiviert.
 
 **Vulnerability Check**
 
