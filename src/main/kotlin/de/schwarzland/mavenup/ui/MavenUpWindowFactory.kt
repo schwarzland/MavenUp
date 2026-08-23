@@ -1215,8 +1215,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 override fun actionPerformed(e: AnActionEvent) = openInMavenRepositoryForSelectedRow()
             }
 
-            // Sammelaktionen zur Versionsauswahl werden in einem aufklappbaren Untermenü gebündelt,
-            // damit die Symbolleiste auch bei aktiven Textbeschriftungen kompakt bleibt.
+            // Die beiden "Select Highest"-Aktionen werden in einem aufklappbaren Untermenü gebündelt,
+            // damit die Symbolleiste auch bei aktiven Textbeschriftungen kompakt bleibt. Beide wirken
+            // ausschließlich auf die aktuell sichtbaren (nicht ausgefilterten) Zeilen.
             val versionActionsGroup = object : DefaultActionGroup(
                 MyMessageBundle.message("toolwindow.MyToolWindow.versionActions.group.button"),
                 true
@@ -1224,16 +1225,17 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
                 override fun update(e: AnActionEvent) {
                     val showText = isToolbarTextEnabled()
-                    val label = MyMessageBundle.message("toolwindow.MyToolWindow.versionActions.group.button")
+                    val shortLabel = MyMessageBundle.message("toolwindow.MyToolWindow.versionActions.group.button.short")
                     val tooltip = MyMessageBundle.message("toolwindow.MyToolWindow.versionActions.group.tooltip")
+                    e.presentation.isEnabled = isBulkVersionSelectionEnabled()
                     e.presentation.description = tooltip
                     // Bei reiner Icon-Darstellung leitet die Toolbar den Tooltip aus dem Text ab.
-                    e.presentation.text = if (showText) label else tooltip
-                    e.presentation.icon = AllIcons.Actions.GroupBy
+                    e.presentation.text = if (showText) shortLabel else tooltip
+                    e.presentation.icon = AllIcons.General.ArrowUp
                     e.presentation.putClientProperty(ActionUtil.SHOW_TEXT_IN_TOOLBAR, showText)
                 }
             }.apply {
-                templatePresentation.icon = AllIcons.Actions.GroupBy
+                templatePresentation.icon = AllIcons.General.ArrowUp
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.selectHighestMajor.button",
                     AllIcons.Actions.Play_last,
@@ -1256,12 +1258,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     },
                     isMenuItem = true
                 ) { selectHighestMinorVersionForAll() })
-                add(toolbarAction(
-                    "toolwindow.MyToolWindow.resetVersions.button",
-                    AllIcons.Actions.Undo,
-                    { isResetVersionsEnabled() },
-                    isMenuItem = true
-                ) { resetAllVersionsToCurrent() })
             }
 
             toolbarGroup.apply {
@@ -1290,6 +1286,12 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 ) { updateAction() })
                 addSeparator()
                 add(versionActionsGroup)
+                add(toolbarAction(
+                    "toolwindow.MyToolWindow.resetVersions.button",
+                    AllIcons.Actions.Undo,
+                    { isResetVersionsEnabled() },
+                    shortLabelKey = "toolwindow.MyToolWindow.resetVersions.button.short"
+                ) { resetAllVersionsToCurrent() })
                 addSeparator()
                 add(openInRepositoryAction)
                 add(toolbarAction(

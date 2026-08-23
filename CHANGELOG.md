@@ -6,8 +6,8 @@
 
 ### Changed
 
-- Shortened the toolbar button labels shown when text labels are enabled ("New Versions", "Scan", "Update", "Open", "Details") while keeping the full text as tooltip, so the toolbar fits on low screen resolutions.
-- Grouped the bulk version-selection actions ("Select Highest Major Version", "Select Highest Minor Version", "Reset to Current Versions") into a single "Bulk Selection" toolbar dropdown menu.
+- Shortened the toolbar button labels shown when text labels are enabled ("New Versions", "Scan", "Update", "Highest", "Reset", "Open", "Details") while keeping the full text as tooltip, so the toolbar fits on low screen resolutions.
+- Grouped the two highest-version actions ("Select Highest Major Version", "Select Highest Minor Version") into a "Select Highest Version" toolbar dropdown (arrow-up icon) whose tooltip clarifies that only the currently visible dependencies are changed, and kept "Reset to Current Versions" as a standalone toolbar action.
 
 ## 2.3.0
 

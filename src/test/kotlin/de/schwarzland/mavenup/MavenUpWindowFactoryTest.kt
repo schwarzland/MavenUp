@@ -785,11 +785,29 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val group = toolWindow.topToolbarActions()
             .filterIsInstance<com.intellij.openapi.actionSystem.DefaultActionGroup>()
             .firstOrNull { it.isPopup }
-        assertNotNull("Die Sammelaktionen sollten in einem Aufklappmenü gebündelt sein", group)
+        assertNotNull("Die \"Select Highest\"-Aktionen sollten in einem Aufklappmenü gebündelt sein", group)
         assertEquals(
-            "Das Bulk-Selection-Untermenü sollte die drei Sammelaktionen enthalten",
-            3,
+            "Das Untermenü sollte genau die beiden \"Select Highest\"-Aktionen enthalten",
+            2,
             group!!.childrenCount
+        )
+    }
+
+    fun testResetVersionsActionIsTopLevelToolbarAction() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        val hasGroup = toolWindow.topToolbarActions()
+            .filterIsInstance<com.intellij.openapi.actionSystem.DefaultActionGroup>()
+            .any { it.isPopup }
+        assertTrue("Das \"Select Highest\"-Untermenü sollte vorhanden sein", hasGroup)
+
+        val topLevelActionTexts = toolWindow.topToolbarActions()
+            .filter { it !is com.intellij.openapi.actionSystem.ActionGroup }
+            .map { it.templatePresentation.text }
+        assertTrue(
+            "Reset to Current Versions sollte als eigene Toolbar-Aktion vorliegen, nicht im Untermenü",
+            topLevelActionTexts.contains("Reset to Current Versions")
         )
     }
 
@@ -799,13 +817,16 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertEquals("Update", MyMessageBundle.message("toolwindow.MyToolWindow.update.button.short"))
         assertEquals("Open", MyMessageBundle.message("toolwindow.MyToolWindow.openInRepository.button.short"))
         assertEquals("Details", MyMessageBundle.message("toolwindow.MyToolWindow.vulnerabilityDetails.button.short"))
+        assertEquals("Reset", MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.button.short"))
     }
 
-    fun testBulkSelectionGroupHasLabelAndTooltip() {
-        assertEquals("Bulk Selection", MyMessageBundle.message("toolwindow.MyToolWindow.versionActions.group.button"))
+    fun testHighestVersionGroupHasLabelAndTooltip() {
+        assertEquals("Select Highest Version", MyMessageBundle.message("toolwindow.MyToolWindow.versionActions.group.button"))
+        assertEquals("Highest", MyMessageBundle.message("toolwindow.MyToolWindow.versionActions.group.button.short"))
         assertTrue(
-            "Das Bulk-Selection-Untermenü sollte einen aussagekräftigen Tooltip besitzen",
-            MyMessageBundle.message("toolwindow.MyToolWindow.versionActions.group.tooltip").isNotBlank()
+            "Der Tooltip sollte auf die nur sichtbaren Dependencies hinweisen",
+            MyMessageBundle.message("toolwindow.MyToolWindow.versionActions.group.tooltip")
+                .contains("visible", ignoreCase = true)
         )
     }
 

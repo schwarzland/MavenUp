@@ -21,11 +21,11 @@
         want to use. When multiple entries share the same Maven property such as <code>${spring.version}</code>, MavenUp
         keeps the selection in sync automatically. The dropdown text is bold when a pending change is selected, and the
         tooltip explains the current status.</li>
-    <li><strong>Select versions in bulk</strong>: Open the <strong>Bulk Selection</strong> dropdown in the top action toolbar to apply a version to many dependencies at
+    <li><strong>Select versions in bulk</strong>: Open the <strong>Select Highest Version</strong> dropdown in the top action toolbar to apply a version to many dependencies at
         once — <strong>Select Highest Major Version</strong> picks the highest available version and <strong>Select Highest
         Minor Version</strong> stays within each dependency's current major line. Both act only on the currently visible
-        rows, so any active filter narrows their scope; <strong>Reset to Current
-        Versions</strong> discards all selections.</li>
+        rows, so any active filter narrows their scope. Use the separate <strong>Reset to Current
+        Versions</strong> toolbar action to discard all selections regardless of filtering.</li>
     <li><strong>Update your project</strong>: Click <strong>Update</strong> to review the planned changes in a confirmation
         dialog and apply the selected versions to the relevant <code>pom.xml</code> files. The
         <strong>Sync Maven Changes after update</strong> checkbox is enabled by default and triggers the IDE's Maven sync
