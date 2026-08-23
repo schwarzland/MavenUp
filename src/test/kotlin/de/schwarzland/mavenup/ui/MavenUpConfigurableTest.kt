@@ -305,6 +305,29 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
         assertFalse(MavenUpSettings.State().offerAllVersions)
     }
 
+    fun testConfirmVersionResetDefaultIsTrue() {
+        assertTrue(MavenUpSettings.State().confirmVersionReset)
+    }
+
+    fun testConfirmVersionResetSelectionIsPersistedOnApply() {
+        val settings = MavenUpSettings.getInstance()
+        settings.state.confirmVersionReset = true
+
+        val configurable = MavenUpConfigurable(project)
+        configurable.createComponent()
+        configurable.reset()
+        assertFalse(configurable.isModified)
+
+        val checkBox = configurable.field<com.intellij.ui.components.JBCheckBox>("confirmVersionResetCheckBox")
+        checkBox.isSelected = false
+        assertTrue("Änderung der Checkbox sollte isModified() true machen", configurable.isModified)
+
+        configurable.apply()
+        assertFalse(settings.state.confirmVersionReset)
+
+        settings.state.confirmVersionReset = true
+    }
+
     fun testOfferAllVersionsSelectionIsPersistedOnApply() {
         val settings = MavenUpSettings.getInstance()
         settings.state.offerAllVersions = false

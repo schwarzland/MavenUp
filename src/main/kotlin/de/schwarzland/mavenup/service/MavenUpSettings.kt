@@ -73,6 +73,7 @@ class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
      * @property syncMavenAfterUpdate Bestimmt, ob nach dem Schreiben der `pom.xml` automatisch der Maven-Sync der IDE ausgelöst wird.
      * @property stopAfterCentralSuccess Bestimmt, ob nach einer erfolgreichen Abfrage von Maven Central keine weiteren privaten Repositories abgefragt werden.
      * @property offerAllVersions Bestimmt, ob in der Versionsauswahl alle verfügbaren Versionen (inklusive älterer) angeboten werden, statt nur Versionen `>=` der aktuellen Version.
+     * @property confirmVersionReset Bestimmt, ob vor dem Zurücksetzen aller Versionsauswahlen ein Bestätigungsdialog angezeigt wird.
      */
     data class State(
         var jumpOnSingleClick: Boolean = false,
@@ -87,7 +88,8 @@ class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
         var stopAfterCentralSuccess: Boolean = true,
         var selectLatestVersion: Boolean = false,
         var selectLatestMinorVersion: Boolean = false,
-        var offerAllVersions: Boolean = false
+        var offerAllVersions: Boolean = false,
+        var confirmVersionReset: Boolean = true
     ) {
         /**
          * Sekundärer Konstruktor zur Binärkompatibilität mit bereits kompiliertem Code,

@@ -4,6 +4,21 @@
 
 ## Unreleased
 
+### Added
+
+- Added a confirmation dialog before the "Reset All to Current Versions" action discards all version selections, with a "Don't ask again" option; the confirmation can also be turned off via the new "Confirm before resetting all version selections" setting.
+
+### Changed
+
+- Shortened the toolbar button labels shown when text labels are enabled ("Search Versions", "Scan", "Update", "Highest", "Reset", "Open", "Details") while keeping the full text as tooltip, so the toolbar fits on low screen resolutions.
+- Renamed the version lookup action from "Find New Versions" to "Search for New Versions" (short label "Search Versions"), and aligned its progress indicator and related tooltips accordingly.
+- Grouped the two highest-version actions ("Select Highest Major Version", "Select Highest Minor Version") into a "Select Highest Version" toolbar dropdown (using the same upwards-arrow glyph "↑" as the New Version column) whose tooltip clarifies that only the currently visible dependencies are changed, and kept "Reset All to Current Versions" as a standalone toolbar action whose tooltip states it applies to all dependencies regardless of active filters.
+
+### Fixed
+
+- Fixed toolbar tooltips differing between the text-label and icon-only modes by giving every toolbar action a single explicit tooltip (via the presentation's custom help tooltip) that shows the full, wrapping text identically in both modes.
+- Fixed the Plugin Verifier reporting deprecated `HelpTooltip.setDescription(String)` usages on newer IDEs by selecting the `Supplier`-based overload at runtime while staying compatible with the 2025.3 compile target.
+
 ## 2.3.0
 
 ### Added

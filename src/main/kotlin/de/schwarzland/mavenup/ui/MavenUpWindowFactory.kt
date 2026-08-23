@@ -21,6 +21,8 @@ import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.actionSystem.Separator
 import com.intellij.openapi.actionSystem.ex.ActionUtil
+import com.intellij.openapi.actionSystem.impl.ActionButton
+import com.intellij.ide.HelpTooltip
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.application.ReadAction
@@ -39,6 +41,8 @@ import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.ComboBox
 import com.intellij.openapi.ui.DialogWrapper
+import com.intellij.openapi.ui.DoNotAskOption
+import com.intellij.openapi.ui.MessageDialogBuilder
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
@@ -48,6 +52,7 @@ import com.intellij.psi.xml.XmlFile
 import com.intellij.psi.xml.XmlTag
 import com.intellij.ui.DocumentAdapter
 import com.intellij.ui.SearchTextField
+import com.intellij.ui.scale.JBUIScale
 import com.intellij.ui.components.JBPanel
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.content.ContentFactory
@@ -64,8 +69,14 @@ import java.awt.BorderLayout
 import java.awt.Color
 import java.awt.Component
 import java.awt.FlowLayout
+import java.awt.Font
+import java.awt.Graphics
+import java.awt.Graphics2D
+import java.awt.RenderingHints
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
+import java.lang.reflect.Method
+import java.util.function.Supplier
 import javax.swing.*
 import javax.swing.event.DocumentEvent
 import javax.swing.table.DefaultTableModel
@@ -85,6 +96,47 @@ private const val VULNERABILITIES_COLUMN = 5
 private const val NEW_VERSION_COLUMN = 6
 private val LOG = Logger.getInstance(MavenUpWindowFactory::class.java)
 
+/**
+ * Zwischengespeicherte `setDescription(Supplier)`-Methode der [HelpTooltip]-API oder `null`, falls
+ * diese Überladung zur Laufzeit nicht vorhanden ist.
+ *
+ * Die Supplier-Variante steht erst ab IntelliJ 2026.1 zur Verfügung; auf dem Kompilierziel 2025.3
+ * existiert ausschließlich die dort noch gültige, in neueren Plattformen jedoch als veraltet
+ * markierte String-Überladung.
+ */
+private val HELP_TOOLTIP_SET_DESCRIPTION_SUPPLIER: Method? = runCatching {
+    HelpTooltip::class.java.getMethod("setDescription", Supplier::class.java)
+}.getOrNull()
+
+/**
+ * Zwischengespeicherte `setDescription(String)`-Methode der [HelpTooltip]-API als Rückfallebene für
+ * Plattformen ohne die Supplier-Überladung.
+ */
+private val HELP_TOOLTIP_SET_DESCRIPTION_STRING: Method =
+    HelpTooltip::class.java.getMethod("setDescription", String::class.java)
+
+/**
+ * Setzt die mehrzeilig umbrechende Beschreibung eines [HelpTooltip] versionsunabhängig.
+ *
+ * Bevorzugt wird die ab IntelliJ 2026.1 verfügbare `setDescription(Supplier)`-Überladung; ist sie
+ * nicht vorhanden (Kompilierziel 2025.3), wird auf die String-Variante zurückgegriffen. Der Zugriff
+ * erfolgt bewusst per Reflection, damit im Bytecode kein direkter Verweis auf die in neueren
+ * Plattformen als veraltet markierte Methode entsteht und der Plugin Verifier keine
+ * deprecated-API-Nutzung meldet.
+ *
+ * @param description der vollständige, mehrzeilig umbrechende Beschreibungstext
+ * @return dieselbe [HelpTooltip]-Instanz zur Verkettung
+ */
+private fun HelpTooltip.withWrappingDescription(description: String): HelpTooltip {
+    val supplierMethod = HELP_TOOLTIP_SET_DESCRIPTION_SUPPLIER
+    if (supplierMethod != null) {
+        supplierMethod.invoke(this, Supplier { description })
+    } else {
+        HELP_TOOLTIP_SET_DESCRIPTION_STRING.invoke(this, description)
+    }
+    return this
+}
+
 /** Farbe für Abhängigkeiten, die bereits auf der neuesten Version sind (Light-/Dark-Mode). */
 private val VERSION_UP_TO_DATE_COLOR = com.intellij.ui.JBColor(Color(0, 128, 0), Color(80, 200, 80))
 
@@ -96,6 +148,55 @@ private const val VERSION_UP_TO_DATE_GLYPH = "\u2713"
 
 /** Glyph für Abhängigkeiten mit verfügbarem Update (Pfeil nach oben „↑"). */
 private const val VERSION_UPDATE_AVAILABLE_GLYPH = "\u2191"
+
+/**
+ * Icon, das den Aufwärtspfeil („↑") der Spalte New Version als Toolbar-Icon rendert.
+ *
+ * Der Pfeil signalisiert in der Tabelle ein verfügbares Update; dasselbe Zeichen wird
+ * dadurch auch für das Aufklappmenü „Select Highest Version" verwendet, sodass die
+ * Aktion optisch denselben Pfeil wie die Statusanzeige der Tabelle nutzt. Das Glyph
+ * wird zentriert und fett in der Vordergrundfarbe der aufrufenden Komponente gezeichnet;
+ * die IntelliJ-Plattform erzeugt daraus bei Bedarf automatisch eine ausgegraute
+ * Deaktiviert-Variante.
+ */
+internal object VersionUpdateArrowIcon : Icon {
+
+    /** Kantenlänge des Icons in logischen Pixeln (Standard-Toolbar-Größe). */
+    private const val ICON_SIZE = 16
+
+    /** Schriftgröße des Glyphs in logischen Pixeln. */
+    private const val GLYPH_FONT_SIZE = 13f
+
+    override fun getIconWidth(): Int = JBUIScale.scale(ICON_SIZE)
+
+    override fun getIconHeight(): Int = JBUIScale.scale(ICON_SIZE)
+
+    /**
+     * Zeichnet das Aufwärtspfeil-Glyph zentriert in das Icon-Rechteck.
+     *
+     * @param c Die aufrufende Komponente; liefert Vordergrundfarbe und Basis-Schriftart.
+     * @param g Der Grafikkontext, in den gezeichnet wird.
+     * @param x Die linke Kante des Icon-Rechtecks.
+     * @param y Die obere Kante des Icon-Rechtecks.
+     */
+    override fun paintIcon(c: Component?, g: Graphics, x: Int, y: Int) {
+        val g2 = g.create() as Graphics2D
+        try {
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
+            g2.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON)
+            g2.color = c?.foreground ?: com.intellij.ui.JBColor.foreground()
+            val baseFont = c?.font ?: UIManager.getFont("Label.font")
+            g2.font = baseFont.deriveFont(Font.BOLD, JBUIScale.scale(GLYPH_FONT_SIZE))
+            val metrics = g2.fontMetrics
+            val glyph = VERSION_UPDATE_AVAILABLE_GLYPH
+            val drawX = x + (iconWidth - metrics.stringWidth(glyph)) / 2
+            val drawY = y + (iconHeight - metrics.height) / 2 + metrics.ascent
+            g2.drawString(glyph, drawX, drawY)
+        } finally {
+            g2.dispose()
+        }
+    }
+}
 
 /**
  * Bestimmt, ob die angegebene Version der höchsten bekannten Version entspricht.
@@ -367,14 +468,14 @@ internal fun createVersionPanel(
         isOpaque = false
         val statusLabel = JLabel(statusText).apply {
             border = BorderFactory.createEmptyBorder(0, 2, 0, 0)
-            font = font.deriveFont(java.awt.Font.BOLD)
+            font = font.deriveFont(Font.BOLD)
             if (statusColor != null) {
                 foreground = statusColor
             }
         }
         add(statusLabel, BorderLayout.WEST)
         if (hasChange) {
-            combo.font = combo.font.deriveFont(java.awt.Font.BOLD)
+            combo.font = combo.font.deriveFont(Font.BOLD)
         }
         add(combo, BorderLayout.CENTER)
         toolTipText = tooltip
@@ -700,7 +801,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /**
          * Auswahlfeld für den Filter nach verfügbaren Updates (Ja/Nein/Alle).
          *
-         * Nur aktiv, sobald eine erfolgreiche Versionssuche ("Find New Versions") mindestens eine
+         * Nur aktiv, sobald eine erfolgreiche Versionssuche ("Search for New Versions") mindestens eine
          * abrufbare Versionsliste geliefert hat (siehe [updateUpdatesFilterState]).
          */
         internal val updatesFilterComboBox = ComboBox(TriStateFilter.entries.toTypedArray())
@@ -968,7 +1069,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                                 font = combo.font
                             } else if (value != null && value == currentVersion) {
                                 text = versionDropdownItemText(value, currentVersion)
-                                font = font.deriveFont(java.awt.Font.BOLD)
+                                font = font.deriveFont(Font.BOLD)
                             }
                         }
                     }
@@ -1165,7 +1266,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 messageKey: String,
                 icon: Icon,
                 isEnabled: () -> Boolean,
+                shortLabelKey: String? = null,
                 descriptionProvider: (() -> String)? = null,
+                isMenuItem: Boolean = false,
                 onPerform: () -> Unit
             ): AnAction {
                 val label = MyMessageBundle.message(messageKey)
@@ -1173,16 +1276,22 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
                     override fun update(e: AnActionEvent) {
                         e.presentation.isEnabled = isEnabled()
-                        val showText = isToolbarTextEnabled()
-                        descriptionProvider?.let {
-                            val description = it()
-                            e.presentation.description = description
-                            // Bei reiner Icon-Darstellung leitet die Toolbar den Tooltip aus dem
-                            // Action-Text ab, nicht aus der Description – daher den (ggf. um den
-                            // Filterhinweis erweiterten) Text nur dann in den Text falten, wenn keine
-                            // Labels angezeigt werden.
-                            e.presentation.text = if (showText) label else description
+                        val fullText = descriptionProvider?.invoke() ?: label
+                        if (isMenuItem) {
+                            // In einem Untermenü wird immer der vollständige Text angezeigt.
+                            e.presentation.text = label
+                            e.presentation.description = fullText
+                            return
                         }
+                        val showText = isToolbarTextEnabled()
+                        val shortLabel = shortLabelKey?.let { MyMessageBundle.message(it) } ?: label
+                        // Der Tooltip muss in beiden Anzeigemodi identisch sein. Über CUSTOM_HELP_TOOLTIP
+                        // wird der Tooltip komplett vorgegeben; sowohl ActionButton (Icon-Modus) als auch
+                        // ActionButtonWithText (Text-Modus) übernehmen ihn unverändert und zeigen so stets
+                        // nur den vollständigen (umbrechenden) Text – unabhängig von der Textbeschriftung.
+                        e.presentation.text = shortLabel
+                        e.presentation.description = fullText
+                        e.presentation.putClientProperty(ActionButton.CUSTOM_HELP_TOOLTIP, HelpTooltip().withWrappingDescription(fullText))
                         e.presentation.putClientProperty(ActionUtil.SHOW_TEXT_IN_TOOLBAR, showText)
                     }
 
@@ -1193,15 +1302,67 @@ class MavenUpWindowFactory : ToolWindowFactory {
             val openInRepositoryAction = object : AnAction() {
                 override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
                 override fun update(e: AnActionEvent) {
-                    val label = currentOpenInRepositoryText()
-                    e.presentation.text = label
-                    e.presentation.description = label
+                    val fullLabel = currentOpenInRepositoryText()
+                    val showText = isToolbarTextEnabled()
+                    val shortLabel = MyMessageBundle.message("toolwindow.MyToolWindow.openInRepository.button.short")
+                    // Identischer Tooltip in beiden Modi über CUSTOM_HELP_TOOLTIP (siehe toolbarAction);
+                    // der volle Text inkl. Browser-Name wird stets als umbrechende Beschreibung gezeigt.
+                    e.presentation.text = shortLabel
+                    e.presentation.description = fullLabel
+                    e.presentation.putClientProperty(ActionButton.CUSTOM_HELP_TOOLTIP, HelpTooltip().withWrappingDescription(fullLabel))
                     e.presentation.icon = AllIcons.General.Web
                     e.presentation.isEnabled = isOpenInRepositoryEnabled()
-                    e.presentation.putClientProperty(ActionUtil.SHOW_TEXT_IN_TOOLBAR, isToolbarTextEnabled())
+                    e.presentation.putClientProperty(ActionUtil.SHOW_TEXT_IN_TOOLBAR, showText)
                 }
 
                 override fun actionPerformed(e: AnActionEvent) = openInMavenRepositoryForSelectedRow()
+            }
+
+            // Die beiden "Select Highest"-Aktionen werden in einem aufklappbaren Untermenü gebündelt,
+            // damit die Symbolleiste auch bei aktiven Textbeschriftungen kompakt bleibt. Beide wirken
+            // ausschließlich auf die aktuell sichtbaren (nicht ausgefilterten) Zeilen.
+            val versionActionsGroup = object : DefaultActionGroup(
+                MyMessageBundle.message("toolwindow.MyToolWindow.versionActions.group.button"),
+                true
+            ) {
+                override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
+                override fun update(e: AnActionEvent) {
+                    val showText = isToolbarTextEnabled()
+                    val shortLabel = MyMessageBundle.message("toolwindow.MyToolWindow.versionActions.group.button.short")
+                    val tooltip = MyMessageBundle.message("toolwindow.MyToolWindow.versionActions.group.tooltip")
+                    e.presentation.isEnabled = isBulkVersionSelectionEnabled()
+                    // Identischer Tooltip in beiden Modi über CUSTOM_HELP_TOOLTIP (siehe toolbarAction);
+                    // der lange Tooltip wird stets als umbrechende Beschreibung gezeigt.
+                    e.presentation.text = shortLabel
+                    e.presentation.description = tooltip
+                    e.presentation.putClientProperty(ActionButton.CUSTOM_HELP_TOOLTIP, HelpTooltip().withWrappingDescription(tooltip))
+                    e.presentation.icon = VersionUpdateArrowIcon
+                    e.presentation.putClientProperty(ActionUtil.SHOW_TEXT_IN_TOOLBAR, showText)
+                }
+            }.apply {
+                templatePresentation.icon = VersionUpdateArrowIcon
+                add(toolbarAction(
+                    "toolwindow.MyToolWindow.selectHighestMajor.button",
+                    AllIcons.Actions.Play_last,
+                    { isBulkVersionSelectionEnabled() },
+                    descriptionProvider = {
+                        bulkSelectionActionDescription(
+                            MyMessageBundle.message("toolwindow.MyToolWindow.selectHighestMajor.button")
+                        )
+                    },
+                    isMenuItem = true
+                ) { selectHighestMajorVersionForAll() })
+                add(toolbarAction(
+                    "toolwindow.MyToolWindow.selectHighestMinor.button",
+                    AllIcons.Actions.Play_forward,
+                    { isBulkVersionSelectionEnabled() },
+                    descriptionProvider = {
+                        bulkSelectionActionDescription(
+                            MyMessageBundle.message("toolwindow.MyToolWindow.selectHighestMinor.button")
+                        )
+                    },
+                    isMenuItem = true
+                ) { selectHighestMinorVersionForAll() })
             }
 
             toolbarGroup.apply {
@@ -1213,50 +1374,39 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.checkUpdates.button",
                     AllIcons.Actions.Find,
-                    { !isUpdating }
+                    { !isUpdating },
+                    shortLabelKey = "toolwindow.MyToolWindow.checkUpdates.button.short"
                 ) { refreshAction(true, true, false) })
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.checkVulnerabilities.button",
                     AllIcons.General.InspectionsEye,
-                    { isCheckVulnerabilitiesEnabled() }
+                    { isCheckVulnerabilitiesEnabled() },
+                    shortLabelKey = "toolwindow.MyToolWindow.checkVulnerabilities.button.short"
                 ) { checkVulnerabilitiesAction() })
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.update.button",
                     AllIcons.Actions.Execute,
-                    { isUpdateActionEnabled() }
+                    { isUpdateActionEnabled() },
+                    shortLabelKey = "toolwindow.MyToolWindow.update.button.short"
                 ) { updateAction() })
                 addSeparator()
-                add(toolbarAction(
-                    "toolwindow.MyToolWindow.selectHighestMajor.button",
-                    AllIcons.Actions.Play_last,
-                    { isBulkVersionSelectionEnabled() },
-                    descriptionProvider = {
-                        bulkSelectionActionDescription(
-                            MyMessageBundle.message("toolwindow.MyToolWindow.selectHighestMajor.button")
-                        )
-                    }
-                ) { selectHighestMajorVersionForAll() })
-                add(toolbarAction(
-                    "toolwindow.MyToolWindow.selectHighestMinor.button",
-                    AllIcons.Actions.Play_forward,
-                    { isBulkVersionSelectionEnabled() },
-                    descriptionProvider = {
-                        bulkSelectionActionDescription(
-                            MyMessageBundle.message("toolwindow.MyToolWindow.selectHighestMinor.button")
-                        )
-                    }
-                ) { selectHighestMinorVersionForAll() })
+                add(versionActionsGroup)
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.resetVersions.button",
                     AllIcons.Actions.Undo,
-                    { isResetVersionsEnabled() }
-                ) { resetAllVersionsToCurrent() })
+                    { isResetVersionsEnabled() },
+                    shortLabelKey = "toolwindow.MyToolWindow.resetVersions.button.short",
+                    descriptionProvider = {
+                        MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.tooltip")
+                    }
+                ) { confirmAndResetAllVersionsToCurrent() })
                 addSeparator()
                 add(openInRepositoryAction)
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.vulnerabilityDetails.button",
                     AllIcons.General.BalloonWarning,
-                    { isVulnerabilityDetailsEnabled() }
+                    { isVulnerabilityDetailsEnabled() },
+                    shortLabelKey = "toolwindow.MyToolWindow.vulnerabilityDetails.button.short"
                 ) { openVulnerabilityDetailsForSelectedRow() })
                 add(Separator.getInstance())
                 add(toolbarAction(
@@ -1313,6 +1463,15 @@ class MavenUpWindowFactory : ToolWindowFactory {
          */
         internal fun isToolbarTextEnabled(): Boolean =
             MavenUpSettings.getInstance().state.toolbarShowText
+
+        /**
+         * Liefert die obersten Aktionen der oberen Aktionsleiste (inklusive Untermenü-Gruppen und Trenner).
+         *
+         * Dient primär Tests, um den Aufbau der Aktionsleiste (z.B. das Sammelauswahl-Untermenü) zu prüfen.
+         *
+         * @return Die direkt in der Aktionsleiste registrierten Aktionen in ihrer Reihenfolge.
+         */
+        internal fun topToolbarActions(): Array<AnAction> = toolbarGroup.childActionsOrStubs
 
         /**
          * Erzeugt einen Renderer, der die [TriStateFilter]-Werte einer Filter-Combobox mit
@@ -1587,7 +1746,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /**
          * Prüft, ob der Updates-Filter verwendet werden darf.
          *
-         * Der Filter setzt eine erfolgreiche Versionssuche ("Find New Versions") voraus, die für
+         * Der Filter setzt eine erfolgreiche Versionssuche ("Search for New Versions") voraus, die für
          * mindestens ein Artefakt eine Versionsliste geliefert hat.
          *
          * @return `true`, wenn mindestens eine Abhängigkeit abrufbare Versionen besitzt.
@@ -1748,6 +1907,38 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
+         * Setzt alle Versionsauswahlen zurück und zeigt zuvor – sofern konfiguriert – einen
+         * Bestätigungsdialog an.
+         *
+         * Ist die Einstellung [MavenUpSettings.State.confirmVersionReset] aktiv, wird ein Ja/Nein-Dialog
+         * angezeigt. Über die Option „Don't ask again" kann der Benutzer die Bestätigung dauerhaft
+         * deaktivieren; in diesem Fall wird die Einstellung entsprechend gespeichert. Bricht der Benutzer
+         * ab, bleibt die aktuelle Auswahl unverändert.
+         */
+        internal fun confirmAndResetAllVersionsToCurrent() {
+            val settings = MavenUpSettings.getInstance()
+            if (settings.state.confirmVersionReset) {
+                val doNotAsk = object : DoNotAskOption.Adapter() {
+                    override fun rememberChoice(isSelected: Boolean, exitCode: Int) {
+                        if (isSelected && exitCode == Messages.YES) {
+                            settings.state.confirmVersionReset = false
+                        }
+                    }
+                }
+                val confirmed = MessageDialogBuilder
+                    .yesNo(
+                        MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.confirm.title"),
+                        MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.confirm.message")
+                    )
+                    .icon(Messages.getWarningIcon())
+                    .doNotAsk(doNotAsk)
+                    .ask(project)
+                if (!confirmed) return
+            }
+            resetAllVersionsToCurrent()
+        }
+
+        /**
          * Wendet eine Auswahlstrategie auf Abhängigkeiten an und aktualisiert die Tabelle.
          *
          * Für jede berücksichtigte Abhängigkeit wird die von [chooser] gelieferte Zielversion übernommen.
@@ -1875,7 +2066,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             val newUpToDate = isVersionUpToDate(selected ?: "", newestVersion)
             val newHasChange = selected != currentVersion && !selected.isNullOrEmpty()
             val newColor = if (newHasChange) versionStatusColor(newUpToDate) else null
-            val newFontStyle = if (newHasChange) java.awt.Font.BOLD else java.awt.Font.PLAIN
+            val newFontStyle = if (newHasChange) Font.BOLD else Font.PLAIN
             combo.foreground = newColor
             combo.font = combo.font.deriveFont(newFontStyle)
             combo.repaint()

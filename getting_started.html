@@ -13,7 +13,7 @@
     <li><strong>Refresh if needed</strong>: Use <strong>Refresh</strong> to reload the current project state and clear any
         previously selected update values. This is useful after editing a <code>pom.xml</code> or after a Maven import.
     </li>
-    <li><strong>Check for newer versions</strong>: Click <strong>Find New Versions</strong> to query Maven repositories
+    <li><strong>Check for newer versions</strong>: Click <strong>Search for New Versions</strong> to query Maven repositories
         and compare the current version of each item with the newest available version. A green checkmark ("✓") means the item
         already matches the latest known version; an upwards arrow ("↑") shows that a newer release is available.
     </li>
@@ -21,11 +21,13 @@
         want to use. When multiple entries share the same Maven property such as <code>${spring.version}</code>, MavenUp
         keeps the selection in sync automatically. The dropdown text is bold when a pending change is selected, and the
         tooltip explains the current status.</li>
-    <li><strong>Select versions in bulk</strong>: Use the top action toolbar to apply a version to many dependencies at
+    <li><strong>Select versions in bulk</strong>: Open the <strong>Select Highest Version</strong> dropdown in the top action toolbar to apply a version to many dependencies at
         once — <strong>Select Highest Major Version</strong> picks the highest available version and <strong>Select Highest
         Minor Version</strong> stays within each dependency's current major line. Both act only on the currently visible
-        rows, so any active filter narrows their scope; <strong>Reset to Current
-        Versions</strong> discards all selections.</li>
+        rows, so any active filter narrows their scope. Use the separate <strong>Reset All to Current
+        Versions</strong> toolbar action to discard all selections for all dependencies regardless of filtering; by
+        default it asks for confirmation first, and you can disable this from the dialog's "Don't ask again" option or in
+        the settings.</li>
     <li><strong>Update your project</strong>: Click <strong>Update</strong> to review the planned changes in a confirmation
         dialog and apply the selected versions to the relevant <code>pom.xml</code> files. The
         <strong>Sync Maven Changes after update</strong> checkbox is enabled by default and triggers the IDE's Maven sync
@@ -37,7 +39,7 @@
     <li><strong>Filter the table</strong>: Type in the filter field above the table to narrow the list by GroupId,
         ArtifactId or Property, and use the combo boxes to filter by dependency type, pending version changes,
         available updates, or security findings. The updates filter becomes available after a successful
-        "Find New Versions" and then shows only rows with a newer version; the vulnerabilities filter becomes
+        "Search for New Versions" and then shows only rows with a newer version; the vulnerabilities filter becomes
         available after a successful "Scan for Vulnerabilities". All filters combine so only matching
         rows remain visible. Use the reset button at the end of the filter row to clear all filters at once.</li>
     <li><strong>Sort the table</strong>: Click a column header to cycle through ascending, descending, and the original

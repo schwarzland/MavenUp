@@ -17,6 +17,7 @@ import de.schwarzland.mavenup.ui.canCheckVulnerabilities
 import de.schwarzland.mavenup.ui.vulnerabilitySummary
 import de.schwarzland.mavenup.ui.isVersionUpToDate
 import de.schwarzland.mavenup.ui.versionStatusText
+import de.schwarzland.mavenup.ui.VersionUpdateArrowIcon
 import de.schwarzland.mavenup.ui.versionStatusColor
 import de.schwarzland.mavenup.ui.versionStatusTooltip
 import de.schwarzland.mavenup.ui.versionDropdownItemText
@@ -778,6 +779,116 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertNotNull("Die obere Aktionsleiste sollte im Tool Window vorhanden sein", toolbarComponent)
     }
 
+    fun testBulkVersionActionsAreGroupedInPopupSubmenu() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        val group = toolWindow.topToolbarActions()
+            .filterIsInstance<com.intellij.openapi.actionSystem.DefaultActionGroup>()
+            .firstOrNull { it.isPopup }
+        assertNotNull("Die \"Select Highest\"-Aktionen sollten in einem Aufklappmenü gebündelt sein", group)
+        assertEquals(
+            "Das Untermenü sollte genau die beiden \"Select Highest\"-Aktionen enthalten",
+            2,
+            group!!.childrenCount
+        )
+        assertSame(
+            "Das \"Select Highest\"-Untermenü sollte denselben Aufwärtspfeil wie die New-Version-Spalte verwenden",
+            VersionUpdateArrowIcon,
+            group.templatePresentation.icon
+        )
+    }
+
+    @Suppress("OverrideOnly")
+    fun testResetTooltipUsesWrappingDescriptionInIconMode() {
+        val settings = MavenUpSettings.getInstance()
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        val resetAction = toolWindow.topToolbarActions()
+            .filter { it !is com.intellij.openapi.actionSystem.ActionGroup }
+            .first { it.templatePresentation.text == "Reset All to Current Versions" }
+        val longTooltip = MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.tooltip")
+
+        settings.state.toolbarShowText = false
+        val iconEvent = com.intellij.testFramework.TestActionEvent.createTestEvent(resetAction)
+        resetAction.update(iconEvent)
+        assertEquals(
+            "Im Icon-Modus muss der lange Text in der (umbrechenden) Beschreibung stehen",
+            longTooltip,
+            iconEvent.presentation.description
+        )
+        assertFalse(
+            "Im Icon-Modus darf der lange Text nicht als einzeiliger Titel (text) gesetzt werden",
+            iconEvent.presentation.text == longTooltip
+        )
+
+        settings.state.toolbarShowText = true
+        val textEvent = com.intellij.testFramework.TestActionEvent.createTestEvent(resetAction)
+        resetAction.update(textEvent)
+        assertEquals(
+            "Bei aktiven Textbeschriftungen zeigt der Button die Kurzform",
+            "Reset",
+            textEvent.presentation.text
+        )
+        assertEquals(
+            "Der lange Text bleibt in der umbrechenden Beschreibung",
+            longTooltip,
+            textEvent.presentation.description
+        )
+
+        settings.state.toolbarShowText = false
+    }
+
+    fun testResetVersionsActionIsTopLevelToolbarAction() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        val hasGroup = toolWindow.topToolbarActions()
+            .filterIsInstance<com.intellij.openapi.actionSystem.DefaultActionGroup>()
+            .any { it.isPopup }
+        assertTrue("Das \"Select Highest\"-Untermenü sollte vorhanden sein", hasGroup)
+
+        val topLevelActionTexts = toolWindow.topToolbarActions()
+            .filter { it !is com.intellij.openapi.actionSystem.ActionGroup }
+            .map { it.templatePresentation.text }
+        assertTrue(
+            "Reset All to Current Versions sollte als eigene Toolbar-Aktion vorliegen, nicht im Untermenü",
+            topLevelActionTexts.contains("Reset All to Current Versions")
+        )
+    }
+
+    fun testShortToolbarLabelsResolveToShortenedText() {
+        assertEquals("Search Versions", MyMessageBundle.message("toolwindow.MyToolWindow.checkUpdates.button.short"))
+        assertEquals("Scan", MyMessageBundle.message("toolwindow.MyToolWindow.checkVulnerabilities.button.short"))
+        assertEquals("Update", MyMessageBundle.message("toolwindow.MyToolWindow.update.button.short"))
+        assertEquals("Open", MyMessageBundle.message("toolwindow.MyToolWindow.openInRepository.button.short"))
+        assertEquals("Details", MyMessageBundle.message("toolwindow.MyToolWindow.vulnerabilityDetails.button.short"))
+        assertEquals("Reset", MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.button.short"))
+    }
+
+    fun testResetActionLabelAndTooltipConveyGlobalScope() {
+        assertEquals(
+            "Reset All to Current Versions",
+            MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.button")
+        )
+        assertTrue(
+            "Der Reset-Tooltip sollte den globalen, filterunabhängigen Geltungsbereich benennen",
+            MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.tooltip")
+                .contains("regardless", ignoreCase = true)
+        )
+    }
+
+    fun testHighestVersionGroupHasLabelAndTooltip() {
+        assertEquals("Select Highest Version", MyMessageBundle.message("toolwindow.MyToolWindow.versionActions.group.button"))
+        assertEquals("Highest", MyMessageBundle.message("toolwindow.MyToolWindow.versionActions.group.button.short"))
+        assertTrue(
+            "Der Tooltip sollte auf die nur sichtbaren Dependencies hinweisen",
+            MyMessageBundle.message("toolwindow.MyToolWindow.versionActions.group.tooltip")
+                .contains("visible", ignoreCase = true)
+        )
+    }
+
     fun testToolbarTextEnabledReflectsSetting() {
         val settings = MavenUpSettings.getInstance()
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
@@ -793,6 +904,45 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertTrue(
             "Text-Modus sollte aktiviert gemeldet werden, wenn die Einstellung an ist",
             toolWindow.isToolbarTextEnabled()
+        )
+
+        settings.state.toolbarShowText = false
+    }
+
+    @Suppress("UnstableApiUsage", "OverrideOnly")
+    fun testToolbarTooltipsAreIdenticalRegardlessOfTextLabels() {
+        val settings = MavenUpSettings.getInstance()
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        val actions = toolWindow.topToolbarActions()
+            .filter { it !is com.intellij.openapi.actionSystem.Separator }
+
+        // Der effektiv gerenderte Tooltip wird über CUSTOM_HELP_TOOLTIP vollständig vorgegeben und von
+        // ActionButton (Icon-Modus) wie ActionButtonWithText (Text-Modus) unverändert übernommen.
+        fun tooltipTexts(showText: Boolean): List<String?> {
+            settings.state.toolbarShowText = showText
+            return actions.map { action ->
+                val event = com.intellij.testFramework.TestActionEvent.createTestEvent(action)
+                action.update(event)
+                val custom = event.presentation.getClientProperty(
+                    com.intellij.openapi.actionSystem.impl.ActionButton.CUSTOM_HELP_TOOLTIP
+                )
+                custom?.description
+            }
+        }
+
+        val withoutText = tooltipTexts(false)
+        val withText = tooltipTexts(true)
+
+        assertEquals(
+            "Die Tooltips müssen unabhängig von den Textbeschriftungen identisch sein",
+            withText,
+            withoutText
+        )
+        assertTrue(
+            "Jede Toolbar-Aktion muss einen nicht-leeren Tooltip besitzen",
+            withoutText.all { !it.isNullOrBlank() }
         )
 
         settings.state.toolbarShowText = false
@@ -1872,6 +2022,32 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
             selectedVersions[key]
         )
         assertFalse(toolWindow.hasSelectedUpdates())
+    }
+
+    fun testConfirmAndResetSkipsDialogWhenConfirmationDisabled() {
+        val settings = MavenUpSettings.getInstance()
+        val previous = settings.state.confirmVersionReset
+        settings.state.confirmVersionReset = false
+        try {
+            val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+            toolWindow.getContent()
+            val (availableVersions, selectedVersions, knownDependencies) = versionMaps(toolWindow)
+
+            val key = "com.example:reset-no-confirm"
+            availableVersions[key] = listOf("2.0.0", "1.0.0")
+            knownDependencies[key] = "1.0.0"
+            selectedVersions[key] = "2.0.0"
+
+            toolWindow.confirmAndResetAllVersionsToCurrent()
+
+            assertNull(
+                "Bei deaktivierter Bestätigung soll ohne Dialog zurückgesetzt werden.",
+                selectedVersions[key]
+            )
+            assertFalse(toolWindow.hasSelectedUpdates())
+        } finally {
+            settings.state.confirmVersionReset = previous
+        }
     }
 
     fun testBulkSelectionDoesNothingWhenNoVersionsLoaded() {

@@ -50,6 +50,7 @@ class MavenUpConfigurable internal constructor(
     private var stopAfterCentralSuccessCheckBox: JBCheckBox? = null
     private var versionAutoSelectionModeComboBox: ComboBox<VersionAutoSelectionMode>? = null
     private var offerAllVersionsCheckBox: JBCheckBox? = null
+    private var confirmVersionResetCheckBox: JBCheckBox? = null
     private var hideUnstableVersionsCheckBox: JBCheckBox? = null
     private var hiddenVersionQualifiersLabel: JLabel? = null
     private var hiddenVersionQualifiersField: JTextField? = null
@@ -107,6 +108,14 @@ class MavenUpConfigurable internal constructor(
                         .applyToComponent {
                             isSelected = settings.state.jumpOnSingleClick
                             toolTipText = MyMessageBundle.message("settings.jumpOnSingleClick.tooltip")
+                        }
+                        .component
+                }
+                row {
+                    confirmVersionResetCheckBox = checkBox(MyMessageBundle.message("settings.confirmVersionReset"))
+                        .applyToComponent {
+                            isSelected = settings.state.confirmVersionReset
+                            toolTipText = MyMessageBundle.message("settings.confirmVersionReset.tooltip")
                         }
                         .component
                 }
@@ -241,6 +250,7 @@ class MavenUpConfigurable internal constructor(
                 stopAfterCentralSuccessCheckBox?.isSelected != settings.state.stopAfterCentralSuccess ||
                 versionAutoSelectionModeComboBox?.selectedItem != settings.state.versionAutoSelectionMode ||
                 offerAllVersionsCheckBox?.isSelected != settings.state.offerAllVersions ||
+                confirmVersionResetCheckBox?.isSelected != settings.state.confirmVersionReset ||
                 hideUnstableVersionsCheckBox?.isSelected != settings.state.hideUnstableVersions ||
                 hiddenVersionQualifiersField?.text != settings.state.hiddenVersionQualifiers ||
                 checkTransitiveDependenciesCheckBox?.isSelected != settings.state.checkTransitiveDependencies ||
@@ -272,6 +282,7 @@ class MavenUpConfigurable internal constructor(
         settings.state.selectLatestVersion = settings.state.versionAutoSelectionMode != VersionAutoSelectionMode.DISABLED
         settings.state.selectLatestMinorVersion = settings.state.versionAutoSelectionMode == VersionAutoSelectionMode.LATEST_MINOR
         settings.state.offerAllVersions = offerAllVersionsCheckBox?.isSelected ?: false
+        settings.state.confirmVersionReset = confirmVersionResetCheckBox?.isSelected ?: true
         settings.state.hideUnstableVersions = hideUnstableVersionsCheckBox?.isSelected ?: false
         settings.state.hiddenVersionQualifiers = hiddenVersionQualifiersField?.text?.trim().orEmpty()
         settings.state.checkTransitiveDependencies = checkTransitiveDependenciesCheckBox?.isSelected ?: true
@@ -296,6 +307,7 @@ class MavenUpConfigurable internal constructor(
         stopAfterCentralSuccessCheckBox?.isSelected = settings.state.stopAfterCentralSuccess
         versionAutoSelectionModeComboBox?.selectedItem = settings.state.versionAutoSelectionMode
         offerAllVersionsCheckBox?.isSelected = settings.state.offerAllVersions
+        confirmVersionResetCheckBox?.isSelected = settings.state.confirmVersionReset
         hideUnstableVersionsCheckBox?.isSelected = settings.state.hideUnstableVersions
         hiddenVersionQualifiersField?.text = settings.state.hiddenVersionQualifiers
         checkTransitiveDependenciesCheckBox?.isSelected = settings.state.checkTransitiveDependencies
@@ -322,6 +334,7 @@ class MavenUpConfigurable internal constructor(
         stopAfterCentralSuccessCheckBox = null
         versionAutoSelectionModeComboBox = null
         offerAllVersionsCheckBox = null
+        confirmVersionResetCheckBox = null
         hideUnstableVersionsCheckBox = null
         hiddenVersionQualifiersLabel = null
         hiddenVersionQualifiersField = null
