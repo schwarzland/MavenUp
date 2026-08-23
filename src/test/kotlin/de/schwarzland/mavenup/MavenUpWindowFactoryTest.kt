@@ -793,6 +793,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         )
     }
 
+    @Suppress("OverrideOnly")
     fun testResetTooltipUsesWrappingDescriptionInIconMode() {
         val settings = MavenUpSettings.getInstance()
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
@@ -902,6 +903,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         settings.state.toolbarShowText = false
     }
 
+    @Suppress("UnstableApiUsage", "OverrideOnly")
     fun testToolbarTooltipsAreIdenticalRegardlessOfTextLabels() {
         val settings = MavenUpSettings.getInstance()
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
