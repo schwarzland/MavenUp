@@ -48,7 +48,7 @@ jobs:
     steps:
       # Schritt 1: Quellcode aus dem Repository auschecken.
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # Schritt 2: JDK 21 (Zulu-Distribution) einrichten, passend zur Projektkonfiguration und Compiler-Zielversion.
       - name: Set up JDK 21
