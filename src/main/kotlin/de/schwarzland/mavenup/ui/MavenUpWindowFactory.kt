@@ -1165,7 +1165,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 messageKey: String,
                 icon: Icon,
                 isEnabled: () -> Boolean,
+                shortLabelKey: String? = null,
                 descriptionProvider: (() -> String)? = null,
+                isMenuItem: Boolean = false,
                 onPerform: () -> Unit
             ): AnAction {
                 val label = MyMessageBundle.message(messageKey)
@@ -1173,16 +1175,21 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
                     override fun update(e: AnActionEvent) {
                         e.presentation.isEnabled = isEnabled()
-                        val showText = isToolbarTextEnabled()
-                        descriptionProvider?.let {
-                            val description = it()
-                            e.presentation.description = description
-                            // Bei reiner Icon-Darstellung leitet die Toolbar den Tooltip aus dem
-                            // Action-Text ab, nicht aus der Description – daher den (ggf. um den
-                            // Filterhinweis erweiterten) Text nur dann in den Text falten, wenn keine
-                            // Labels angezeigt werden.
-                            e.presentation.text = if (showText) label else description
+                        // Der vollständige Text bleibt stets als Tooltip erhalten; bei aktiven
+                        // Textbeschriftungen wird auf der Schaltfläche eine gekürzte Variante angezeigt.
+                        val fullText = descriptionProvider?.invoke() ?: label
+                        e.presentation.description = fullText
+                        if (isMenuItem) {
+                            // In einem Untermenü wird immer der vollständige Text angezeigt.
+                            e.presentation.text = label
+                            return
                         }
+                        val showText = isToolbarTextEnabled()
+                        val shortLabel = shortLabelKey?.let { MyMessageBundle.message(it) } ?: label
+                        // Bei reiner Icon-Darstellung leitet die Toolbar den Tooltip aus dem
+                        // Action-Text ab, nicht aus der Description – daher den vollständigen Text
+                        // in den Text falten, wenn keine Labels angezeigt werden.
+                        e.presentation.text = if (showText) shortLabel else fullText
                         e.presentation.putClientProperty(ActionUtil.SHOW_TEXT_IN_TOOLBAR, showText)
                     }
 
@@ -1193,15 +1200,68 @@ class MavenUpWindowFactory : ToolWindowFactory {
             val openInRepositoryAction = object : AnAction() {
                 override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
                 override fun update(e: AnActionEvent) {
-                    val label = currentOpenInRepositoryText()
-                    e.presentation.text = label
-                    e.presentation.description = label
+                    val fullLabel = currentOpenInRepositoryText()
+                    val showText = isToolbarTextEnabled()
+                    val shortLabel = MyMessageBundle.message("toolwindow.MyToolWindow.openInRepository.button.short")
+                    // Der vollständige Text (inkl. Browser-Name) bleibt als Tooltip erhalten; bei
+                    // aktiven Textbeschriftungen zeigt die Schaltfläche die gekürzte Variante an.
+                    e.presentation.text = if (showText) shortLabel else fullLabel
+                    e.presentation.description = fullLabel
                     e.presentation.icon = AllIcons.General.Web
                     e.presentation.isEnabled = isOpenInRepositoryEnabled()
-                    e.presentation.putClientProperty(ActionUtil.SHOW_TEXT_IN_TOOLBAR, isToolbarTextEnabled())
+                    e.presentation.putClientProperty(ActionUtil.SHOW_TEXT_IN_TOOLBAR, showText)
                 }
 
                 override fun actionPerformed(e: AnActionEvent) = openInMavenRepositoryForSelectedRow()
+            }
+
+            // Sammelaktionen zur Versionsauswahl werden in einem aufklappbaren Untermenü gebündelt,
+            // damit die Symbolleiste auch bei aktiven Textbeschriftungen kompakt bleibt.
+            val versionActionsGroup = object : DefaultActionGroup(
+                MyMessageBundle.message("toolwindow.MyToolWindow.versionActions.group.button"),
+                true
+            ) {
+                override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
+                override fun update(e: AnActionEvent) {
+                    val showText = isToolbarTextEnabled()
+                    val label = MyMessageBundle.message("toolwindow.MyToolWindow.versionActions.group.button")
+                    val tooltip = MyMessageBundle.message("toolwindow.MyToolWindow.versionActions.group.tooltip")
+                    e.presentation.description = tooltip
+                    // Bei reiner Icon-Darstellung leitet die Toolbar den Tooltip aus dem Text ab.
+                    e.presentation.text = if (showText) label else tooltip
+                    e.presentation.icon = AllIcons.Actions.GroupBy
+                    e.presentation.putClientProperty(ActionUtil.SHOW_TEXT_IN_TOOLBAR, showText)
+                }
+            }.apply {
+                templatePresentation.icon = AllIcons.Actions.GroupBy
+                add(toolbarAction(
+                    "toolwindow.MyToolWindow.selectHighestMajor.button",
+                    AllIcons.Actions.Play_last,
+                    { isBulkVersionSelectionEnabled() },
+                    descriptionProvider = {
+                        bulkSelectionActionDescription(
+                            MyMessageBundle.message("toolwindow.MyToolWindow.selectHighestMajor.button")
+                        )
+                    },
+                    isMenuItem = true
+                ) { selectHighestMajorVersionForAll() })
+                add(toolbarAction(
+                    "toolwindow.MyToolWindow.selectHighestMinor.button",
+                    AllIcons.Actions.Play_forward,
+                    { isBulkVersionSelectionEnabled() },
+                    descriptionProvider = {
+                        bulkSelectionActionDescription(
+                            MyMessageBundle.message("toolwindow.MyToolWindow.selectHighestMinor.button")
+                        )
+                    },
+                    isMenuItem = true
+                ) { selectHighestMinorVersionForAll() })
+                add(toolbarAction(
+                    "toolwindow.MyToolWindow.resetVersions.button",
+                    AllIcons.Actions.Undo,
+                    { isResetVersionsEnabled() },
+                    isMenuItem = true
+                ) { resetAllVersionsToCurrent() })
             }
 
             toolbarGroup.apply {
@@ -1213,50 +1273,30 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.checkUpdates.button",
                     AllIcons.Actions.Find,
-                    { !isUpdating }
+                    { !isUpdating },
+                    shortLabelKey = "toolwindow.MyToolWindow.checkUpdates.button.short"
                 ) { refreshAction(true, true, false) })
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.checkVulnerabilities.button",
                     AllIcons.General.InspectionsEye,
-                    { isCheckVulnerabilitiesEnabled() }
+                    { isCheckVulnerabilitiesEnabled() },
+                    shortLabelKey = "toolwindow.MyToolWindow.checkVulnerabilities.button.short"
                 ) { checkVulnerabilitiesAction() })
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.update.button",
                     AllIcons.Actions.Execute,
-                    { isUpdateActionEnabled() }
+                    { isUpdateActionEnabled() },
+                    shortLabelKey = "toolwindow.MyToolWindow.update.button.short"
                 ) { updateAction() })
                 addSeparator()
-                add(toolbarAction(
-                    "toolwindow.MyToolWindow.selectHighestMajor.button",
-                    AllIcons.Actions.Play_last,
-                    { isBulkVersionSelectionEnabled() },
-                    descriptionProvider = {
-                        bulkSelectionActionDescription(
-                            MyMessageBundle.message("toolwindow.MyToolWindow.selectHighestMajor.button")
-                        )
-                    }
-                ) { selectHighestMajorVersionForAll() })
-                add(toolbarAction(
-                    "toolwindow.MyToolWindow.selectHighestMinor.button",
-                    AllIcons.Actions.Play_forward,
-                    { isBulkVersionSelectionEnabled() },
-                    descriptionProvider = {
-                        bulkSelectionActionDescription(
-                            MyMessageBundle.message("toolwindow.MyToolWindow.selectHighestMinor.button")
-                        )
-                    }
-                ) { selectHighestMinorVersionForAll() })
-                add(toolbarAction(
-                    "toolwindow.MyToolWindow.resetVersions.button",
-                    AllIcons.Actions.Undo,
-                    { isResetVersionsEnabled() }
-                ) { resetAllVersionsToCurrent() })
+                add(versionActionsGroup)
                 addSeparator()
                 add(openInRepositoryAction)
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.vulnerabilityDetails.button",
                     AllIcons.General.BalloonWarning,
-                    { isVulnerabilityDetailsEnabled() }
+                    { isVulnerabilityDetailsEnabled() },
+                    shortLabelKey = "toolwindow.MyToolWindow.vulnerabilityDetails.button.short"
                 ) { openVulnerabilityDetailsForSelectedRow() })
                 add(Separator.getInstance())
                 add(toolbarAction(
@@ -1313,6 +1353,15 @@ class MavenUpWindowFactory : ToolWindowFactory {
          */
         internal fun isToolbarTextEnabled(): Boolean =
             MavenUpSettings.getInstance().state.toolbarShowText
+
+        /**
+         * Liefert die obersten Aktionen der oberen Aktionsleiste (inklusive Untermenü-Gruppen und Trenner).
+         *
+         * Dient primär Tests, um den Aufbau der Aktionsleiste (z.B. das Sammelauswahl-Untermenü) zu prüfen.
+         *
+         * @return Die direkt in der Aktionsleiste registrierten Aktionen in ihrer Reihenfolge.
+         */
+        internal fun topToolbarActions(): Array<AnAction> = toolbarGroup.childActionsOrStubs
 
         /**
          * Erzeugt einen Renderer, der die [TriStateFilter]-Werte einer Filter-Combobox mit

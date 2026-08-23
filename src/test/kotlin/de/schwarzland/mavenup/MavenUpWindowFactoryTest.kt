@@ -778,6 +778,37 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertNotNull("Die obere Aktionsleiste sollte im Tool Window vorhanden sein", toolbarComponent)
     }
 
+    fun testBulkVersionActionsAreGroupedInPopupSubmenu() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        val group = toolWindow.topToolbarActions()
+            .filterIsInstance<com.intellij.openapi.actionSystem.DefaultActionGroup>()
+            .firstOrNull { it.isPopup }
+        assertNotNull("Die Sammelaktionen sollten in einem Aufklappmenü gebündelt sein", group)
+        assertEquals(
+            "Das Bulk-Selection-Untermenü sollte die drei Sammelaktionen enthalten",
+            3,
+            group!!.childrenCount
+        )
+    }
+
+    fun testShortToolbarLabelsResolveToShortenedText() {
+        assertEquals("New Versions", MyMessageBundle.message("toolwindow.MyToolWindow.checkUpdates.button.short"))
+        assertEquals("Scan", MyMessageBundle.message("toolwindow.MyToolWindow.checkVulnerabilities.button.short"))
+        assertEquals("Update", MyMessageBundle.message("toolwindow.MyToolWindow.update.button.short"))
+        assertEquals("Open", MyMessageBundle.message("toolwindow.MyToolWindow.openInRepository.button.short"))
+        assertEquals("Details", MyMessageBundle.message("toolwindow.MyToolWindow.vulnerabilityDetails.button.short"))
+    }
+
+    fun testBulkSelectionGroupHasLabelAndTooltip() {
+        assertEquals("Bulk Selection", MyMessageBundle.message("toolwindow.MyToolWindow.versionActions.group.button"))
+        assertTrue(
+            "Das Bulk-Selection-Untermenü sollte einen aussagekräftigen Tooltip besitzen",
+            MyMessageBundle.message("toolwindow.MyToolWindow.versionActions.group.tooltip").isNotBlank()
+        )
+    }
+
     fun testToolbarTextEnabledReflectsSetting() {
         val settings = MavenUpSettings.getInstance()
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)

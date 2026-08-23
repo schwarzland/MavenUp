@@ -4,6 +4,11 @@
 
 ## Unreleased
 
+### Changed
+
+- Shortened the toolbar button labels shown when text labels are enabled ("New Versions", "Scan", "Update", "Open", "Details") while keeping the full text as tooltip, so the toolbar fits on low screen resolutions.
+- Grouped the bulk version-selection actions ("Select Highest Major Version", "Select Highest Minor Version", "Reset to Current Versions") into a single "Bulk Selection" toolbar dropdown menu.
+
 ## 2.3.0
 
 ### Added
