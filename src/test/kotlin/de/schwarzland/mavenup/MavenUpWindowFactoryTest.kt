@@ -806,8 +806,8 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
             .filter { it !is com.intellij.openapi.actionSystem.ActionGroup }
             .map { it.templatePresentation.text }
         assertTrue(
-            "Reset to Current Versions sollte als eigene Toolbar-Aktion vorliegen, nicht im Untermenü",
-            topLevelActionTexts.contains("Reset to Current Versions")
+            "Reset All to Current Versions sollte als eigene Toolbar-Aktion vorliegen, nicht im Untermenü",
+            topLevelActionTexts.contains("Reset All to Current Versions")
         )
     }
 
@@ -818,6 +818,18 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertEquals("Open", MyMessageBundle.message("toolwindow.MyToolWindow.openInRepository.button.short"))
         assertEquals("Details", MyMessageBundle.message("toolwindow.MyToolWindow.vulnerabilityDetails.button.short"))
         assertEquals("Reset", MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.button.short"))
+    }
+
+    fun testResetActionLabelAndTooltipConveyGlobalScope() {
+        assertEquals(
+            "Reset All to Current Versions",
+            MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.button")
+        )
+        assertTrue(
+            "Der Reset-Tooltip sollte den globalen, filterunabhängigen Geltungsbereich benennen",
+            MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.tooltip")
+                .contains("regardless", ignoreCase = true)
+        )
     }
 
     fun testHighestVersionGroupHasLabelAndTooltip() {

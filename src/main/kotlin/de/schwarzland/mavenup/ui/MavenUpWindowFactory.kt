@@ -1290,7 +1290,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     "toolwindow.MyToolWindow.resetVersions.button",
                     AllIcons.Actions.Undo,
                     { isResetVersionsEnabled() },
-                    shortLabelKey = "toolwindow.MyToolWindow.resetVersions.button.short"
+                    shortLabelKey = "toolwindow.MyToolWindow.resetVersions.button.short",
+                    descriptionProvider = {
+                        MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.tooltip")
+                    }
                 ) { resetAllVersionsToCurrent() })
                 addSeparator()
                 add(openInRepositoryAction)
