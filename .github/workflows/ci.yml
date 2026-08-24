@@ -69,10 +69,11 @@ jobs:
       - name: Build, Test, Analyze and Verify Plugin
         run: ./gradlew build verifyPlugin detekt koverXmlReport --no-daemon
 
-      # Schritt 5: Bei fehlgeschlagenem Build die Test- und Analyse-Berichte als Artefakt hochladen,
-      # um die Fehlersuche direkt im GitHub-UI anhand der HTML/XML-Reports zu ermöglichen.
+      # Schritt 5: Test- und Analyse-Berichte als Artefakt hochladen, um Coverage (Kover),
+      # detekt-Befunde und Testergebnisse direkt im GitHub-UI einsehen zu koennen. Laeuft
+      # sowohl bei erfolgreichem als auch bei fehlgeschlagenem Build (nur bei Abbruch nicht).
       - name: Upload test and analysis reports
-        if: failure()
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: reports
@@ -80,4 +81,5 @@ jobs:
             build/reports/tests
             build/reports/detekt
             build/reports/kover
+          if-no-files-found: ignore
           retention-days: 7

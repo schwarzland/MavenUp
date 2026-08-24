@@ -14,6 +14,7 @@
 - Added detekt static analysis (with a baseline for existing findings) and Kover test-coverage reporting to the Gradle build and CI pipeline.
 - Removed `feature/**` and `release/**` from the CI `push` trigger so that pushing a branch with an open pull request no longer runs two identical builds; feature and release branches are now validated solely via the `pull_request` trigger against `main`, while `push` only builds `main`.
 - Added a separate `manual-build.yml` workflow with a `workflow_dispatch` trigger so the build can be started manually from the GitHub Actions tab for any selected branch (e.g. a feature branch without an open pull request), independent of the automatic CI workflow and its path filters.
+- Changed the report upload step in both CI workflows to run on every build (not only on failure) via `if: ${{ !cancelled() }}` and `if-no-files-found: ignore`, so test, detekt, and Kover coverage reports are always available as artifacts.
 
 ## 2.4.0
 
