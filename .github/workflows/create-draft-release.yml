@@ -36,7 +36,7 @@ jobs:
       # Schritt 5: Bei Fehlern während des Builds die Testberichte zur Diagnose als Artefakt sichern.
       - name: Upload test reports
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: test-reports
           path: build/reports/tests
