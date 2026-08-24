@@ -10,6 +10,7 @@ import de.schwarzland.mavenup.service.MavenRepositoryBrowser
 import de.schwarzland.mavenup.service.VersionAutoSelectionMode
 import de.schwarzland.mavenup.ui.buildMavenRepositoryUrl
 import de.schwarzland.mavenup.ui.MavenUpWindowFactory
+import de.schwarzland.mavenup.ui.UpdateConfirmationDialog
 import de.schwarzland.mavenup.ui.MyMessageBundle
 import de.schwarzland.mavenup.ui.RefreshSnapshot
 import de.schwarzland.mavenup.ui.buildVulnerabilityCell
@@ -670,7 +671,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val updates = listOf(
             DependencyUpdate("com.example", "demo-lib", "dependency", "1.0.0", "1.1.0")
         )
-        val dialog = MavenUpWindowFactory.UpdateConfirmationDialog(project, updates)
+        val dialog = UpdateConfirmationDialog(project, updates)
         val table = dialog.buildTable()
         for (column in 0 until table.columnCount) {
             assertFalse(
@@ -698,14 +699,14 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
             )
 
             settings.state.syncMavenAfterUpdate = false
-            val disabledDialog = MavenUpWindowFactory.UpdateConfirmationDialog(project, updates)
+            val disabledDialog = UpdateConfirmationDialog(project, updates)
             assertFalse(
                 "Die Sync-Checkbox sollte den gespeicherten Wert false übernehmen",
                 disabledDialog.isSyncMavenSelected()
             )
 
             settings.state.syncMavenAfterUpdate = true
-            val enabledDialog = MavenUpWindowFactory.UpdateConfirmationDialog(project, updates)
+            val enabledDialog = UpdateConfirmationDialog(project, updates)
             assertTrue(
                 "Die Sync-Checkbox sollte den gespeicherten Wert true übernehmen",
                 enabledDialog.isSyncMavenSelected()

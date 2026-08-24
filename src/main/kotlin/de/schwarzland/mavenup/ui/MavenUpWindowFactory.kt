@@ -4,7 +4,6 @@ import de.schwarzland.mavenup.model.DependencyUpdate
 import de.schwarzland.mavenup.model.VulnerabilityAdvisory
 import de.schwarzland.mavenup.model.VulnerabilitySeverity
 import de.schwarzland.mavenup.service.DependencyApiService
-import de.schwarzland.mavenup.service.MavenRepositoryBrowser
 import de.schwarzland.mavenup.service.MavenUpSettings
 import de.schwarzland.mavenup.service.MAVEN_UP_SETTINGS_TOPIC
 import de.schwarzland.mavenup.service.OssIndexApiService
@@ -29,7 +28,6 @@ import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.diagnostic.Logger
-import com.intellij.openapi.util.IconLoader
 import com.intellij.ide.BrowserUtil
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.fileEditor.FileEditorManager
@@ -52,7 +50,6 @@ import com.intellij.psi.xml.XmlFile
 import com.intellij.psi.xml.XmlTag
 import com.intellij.ui.DocumentAdapter
 import com.intellij.ui.SearchTextField
-import com.intellij.ui.scale.JBUIScale
 import com.intellij.ui.components.JBPanel
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.content.ContentFactory
@@ -70,13 +67,8 @@ import java.awt.Color
 import java.awt.Component
 import java.awt.FlowLayout
 import java.awt.Font
-import java.awt.Graphics
-import java.awt.Graphics2D
-import java.awt.RenderingHints
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
-import java.lang.reflect.Method
-import java.util.function.Supplier
 import javax.swing.*
 import javax.swing.event.DocumentEvent
 import javax.swing.table.DefaultTableModel
@@ -115,91 +107,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
         content.setDisposer(myToolWindow)
 
         toolWindow.contentManager.addContent(content)
-    }
-
-    /**
-     * Dialog zur Bestätigung der ausgewählten Updates. Zeigt eine Tabelle mit den
-     * durchzuführenden Änderungen (Gruppe, Artefakt, Version alt/neu).
-     */
-    class UpdateConfirmationDialog(
-        project: Project,
-        private val updates: List<DependencyUpdate>
-    ) : DialogWrapper(project) {
-        private val syncMavenCheckbox: JCheckBox = JCheckBox(
-            MyMessageBundle.message("toolwindow.MyToolWindow.update.confirm.syncMaven")
-        ).apply {
-            isSelected = MavenUpSettings.getInstance().state.syncMavenAfterUpdate
-        }
-
-        init {
-            title = MyMessageBundle.message("toolwindow.MyToolWindow.update.confirm.title")
-            init()
-        }
-
-        /**
-         * Gibt zurück, ob der Benutzer die Option "Sync Maven Changes" ausgewählt hat.
-         */
-        fun isSyncMavenSelected(): Boolean = syncMavenCheckbox.isSelected
-
-        /**
-         * Erstellt den zentralen Bereich des Dialogs mit der Update-Übersichtstabelle und der Sync-Option.
-         */
-        override fun createCenterPanel(): JComponent {
-            val panel = JBPanel<JBPanel<*>>(BorderLayout())
-            panel.preferredSize = java.awt.Dimension(600, 450)
-            
-            val topPanel = JBPanel<JBPanel<*>>(BorderLayout())
-            topPanel.add(
-                JLabel(MyMessageBundle.message("toolwindow.MyToolWindow.update.confirm.message")),
-                BorderLayout.NORTH
-            )
-            topPanel.border = BorderFactory.createEmptyBorder(0, 0, 10, 0)
-            panel.add(topPanel, BorderLayout.NORTH)
-
-            panel.add(JBScrollPane(buildTable()), BorderLayout.CENTER)
-
-            val bottomPanel = JBPanel<JBPanel<*>>(BorderLayout())
-            bottomPanel.border = BorderFactory.createEmptyBorder(10, 0, 0, 0)
-            bottomPanel.add(syncMavenCheckbox, BorderLayout.WEST)
-            panel.add(bottomPanel, BorderLayout.SOUTH)
-
-            return panel
-        }
-
-        /**
-         * Erstellt die schreibgeschützte Update-Übersichtstabelle mit Einzelselektion.
-         *
-         * @return Die konfigurierte, nicht editierbare Tabelle mit allen anstehenden Updates.
-         */
-        internal fun buildTable(): JBTable {
-            val tableModel = object : DefaultTableModel() {
-                override fun isCellEditable(row: Int, column: Int): Boolean = false
-            }.apply {
-                addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.groupId"))
-                addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.artifactId"))
-                addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.type"))
-                addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.currentVersion"))
-                addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.newVersion"))
-            }
-
-            updates.forEach { update ->
-                tableModel.addRow(
-                    arrayOf(
-                        update.groupId,
-                        update.artifactId,
-                        update.type,
-                        update.oldVersion,
-                        update.newVersion
-                    )
-                )
-            }
-
-            val table = JBTable(tableModel)
-            table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION)
-            table.tableHeader.reorderingAllowed = false
-            return table
-        }
-
     }
 
     /**

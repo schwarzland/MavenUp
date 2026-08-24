@@ -72,6 +72,9 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   `confirmAndResetAllVersionsToCurrent()` kapselt `resetAllVersionsToCurrent()` und zeigt bei aktivem `confirmVersionReset` zuvor
   einen Ja/Nein-Bestätigungsdialog (`MessageDialogBuilder` mit `DoNotAskOption`, dessen „Don't ask again" die Einstellung deaktiviert).
   `isRowFilterHidingEntries()` und `bulkSelectionActionDescription()` erweitern den Tooltip der "Select Highest"-Aktionen bei aktivem Filter um einen Hinweis.
+- **UpdateConfirmationDialog**: eigenständiger `DialogWrapper` (Top-Level in `ui`), der vor
+  dem Anwenden die anstehenden Updates in einer schreibgeschützten Tabelle bestätigen lässt und
+  die Option **Sync Maven Changes** (vorbelegt aus `MavenUpSettings.syncMavenAfterUpdate`) anbietet.
 - **UI-Hilfsdateien (ui)**: Zustandslose Top-Level-Helfer, die aus `MavenUpWindowFactory.kt`
   in eigene Dateien desselben Packages ausgelagert wurden (reine Logik/Icons, keine
   `MyToolWindow`-Abhängigkeit):
