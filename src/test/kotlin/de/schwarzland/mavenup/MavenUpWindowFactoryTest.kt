@@ -23,9 +23,7 @@ import de.schwarzland.mavenup.ui.sortableHeaderIcon
 import com.intellij.openapi.wm.RegisterToolWindowTask
 import com.intellij.openapi.wm.ToolWindowAnchor
 import com.intellij.openapi.wm.ToolWindowManager
-import com.intellij.psi.xml.XmlFile
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
-import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.openapi.application.ReadAction
 import com.intellij.util.concurrency.AppExecutorUtil
 import com.intellij.ui.table.JBTable

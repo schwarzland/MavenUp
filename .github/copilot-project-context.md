@@ -125,6 +125,8 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
 - **VulnerabilityApiService**: OSV-Batchabfrage plus Detailanreicherung und Filterung
   zurückgezogener Advisories. Umfangreiche Komponenten- und Versionslisten werden nur gekürzt auf
   DEBUG-Ebene protokolliert, um starkes Wachstum der von der IDE überwachten `idea.log` zu vermeiden.
+- **LogSummary**: Hilfsfunktion `summarizeForDebugLog`, die lange String-Listen (z. B. Versionslisten)
+  für Debug-Logs auf maximal zehn Einträge kürzt und die Anzahl ausgelassener Elemente anhängt.
 - **DependencyApiService**: Liest Maven-Repository-Infos und Server-Credentials aus `settings.xml`,
   nutzt bei fehlendem explizitem IDE-Pfad automatisch `${user.home}/.m2/settings.xml`, protokolliert
   den verwendeten Settings-Pfad auf DEBUG-Ebene, fragt `maven-metadata.xml` für Versionslisten ab,
@@ -161,8 +163,10 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
 - **ReferencesListDialog**: Zeigt alle Referenz-Links eines Advisories als klickbare Liste. Ebenfalls rein informativer Dialog mit ausschließlich einem **Close**-Button.
 - **MyMessageBundle**: I18n-Wrapper (`messages.MyMessageBundle`).
 
-Tests: `src/test/kotlin/de/schwarzland/mavenup/` mit Plattformtests sowie reinen Service-/Modelltests
-für OSV, OSS Index und Advisory-Deduplizierung.
+Tests: `src/test/kotlin/de/schwarzland/mavenup/` spiegeln die Paketstruktur (`model`, `service`, `ui`).
+Reine Logik nutzt JUnit (z. B. `VulnerabilityApiServiceTest`, `VersionAutoSelectionTest`), Tests mit
+Projekt-/PSI-Umgebung erben von `BasePlatformTestCase` (z. B. `MavenUpWindowFactoryTest`,
+`RefreshSnapshotCollectorTest`, `PomNavigationServiceTest`, `PomUpdateServiceTest`, `VersionStatusUiTest`).
 
 ## KI-Agenten (Copilot / Junie)
 - Für KI-Agenten gelten die verbindlichen Arbeitsanweisungen in `.github/copilot-instructions.md`.
