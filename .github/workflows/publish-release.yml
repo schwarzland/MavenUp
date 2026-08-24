@@ -39,7 +39,7 @@ jobs:
       # Schritt 4: Verifier-Report bei einem Fehler zur Diagnose als Artefakt sichern.
       - name: Upload Plugin Verifier Report
         if: failure()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: plugin-verifier-report
           path: build/reports/pluginVerifier
