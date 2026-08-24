@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  manual-build:
     runs-on: ubuntu-latest
     steps:
       # Schritt 1: Quellcode aus dem Repository auschecken.
