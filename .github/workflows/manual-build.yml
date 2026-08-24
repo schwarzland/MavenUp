@@ -43,7 +43,11 @@ jobs:
       - name: Build, Test, Analyze and Verify Plugin
         run: ./gradlew build verifyPlugin detekt koverXmlReport --no-daemon
 
-      # Schritt 5: Test- und Analyse-Berichte als Artefakt hochladen, um Coverage (Kover),
+      # Schritt 5: Plugin-Kompatibilität mit den unterstützten IntelliJ-IDE-Builds prüfen.
+      - name: Verify Plugin Compatibility
+        run: ./gradlew runPluginVerifier --no-daemon
+
+      # Schritt 6: Test- und Analyse-Berichte als Artefakt hochladen, um Coverage (Kover),
       # detekt-Befunde und Testergebnisse direkt im GitHub-UI einsehen zu koennen. Laeuft
       # sowohl bei erfolgreichem als auch bei fehlgeschlagenem Build (nur bei Abbruch nicht).
       - name: Upload test and analysis reports
