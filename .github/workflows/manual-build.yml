@@ -47,7 +47,7 @@ jobs:
       # sowohl bei erfolgreichem als auch bei fehlgeschlagenem Build (nur bei Abbruch nicht).
       - name: Upload test and analysis reports
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: reports
           path: |
