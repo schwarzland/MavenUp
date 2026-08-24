@@ -1130,8 +1130,6 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val psiFile = myFixture.configureByText("pom.xml", pomContent) as XmlFile
         val rootTag = psiFile.document?.rootTag
 
-        val factory = MavenUpWindowFactory()
-        val toolWindowInstance = factory.MyToolWindow(project)
         val properties = mutableMapOf<String, String>()
 
         val parentRow = RefreshSnapshotCollector(project).collectParentDependency(rootTag, properties)
@@ -1158,8 +1156,6 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val psiFile = myFixture.configureByText("pom.xml", pomContent) as XmlFile
         val rootTag = psiFile.document?.rootTag
 
-        val factory = MavenUpWindowFactory()
-        val toolWindowInstance = factory.MyToolWindow(project)
         val properties = mutableMapOf<String, String>()
 
         val parentRow = RefreshSnapshotCollector(project).collectParentDependency(rootTag, properties)
@@ -1170,8 +1166,6 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
     }
 
     fun testResolveVersionPlaceholderResolvesProperty() {
-        val factory = MavenUpWindowFactory()
-        val toolWindowInstance = factory.MyToolWindow(project)
 
         val properties = mapOf("netty-bom.version" to "4.1.100.Final")
 
@@ -1182,8 +1176,6 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
     }
 
     fun testResolveVersionPlaceholderReturnsLiteralVersionUnchanged() {
-        val factory = MavenUpWindowFactory()
-        val toolWindowInstance = factory.MyToolWindow(project)
 
         assertEquals(
             "1.2.3",
@@ -1192,8 +1184,6 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
     }
 
     fun testResolveVersionPlaceholderKeepsPlaceholderWhenPropertyMissing() {
-        val factory = MavenUpWindowFactory()
-        val toolWindowInstance = factory.MyToolWindow(project)
 
         assertEquals(
             "\${unknown.version}",
@@ -1202,8 +1192,6 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
     }
 
     fun testResolveVersionPlaceholderKeepsPlaceholderWhenPropertyBlank() {
-        val factory = MavenUpWindowFactory()
-        val toolWindowInstance = factory.MyToolWindow(project)
 
         assertEquals(
             "\${blank.version}",
@@ -1227,8 +1215,6 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val psiFile = myFixture.configureByText("pom.xml", pomContent) as XmlFile
         val rootTag = psiFile.document?.rootTag
 
-        val factory = MavenUpWindowFactory()
-        val toolWindowInstance = factory.MyToolWindow(project)
         val properties = mutableMapOf<String, String>()
 
         val parentRow = RefreshSnapshotCollector(project).collectParentDependency(rootTag, properties)
@@ -1248,8 +1234,6 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val psiFile = myFixture.configureByText("pom.xml", pomContent) as XmlFile
         val rootTag = psiFile.document?.rootTag
 
-        val factory = MavenUpWindowFactory()
-        val toolWindowInstance = factory.MyToolWindow(project)
 
         val parentRow = RefreshSnapshotCollector(project).collectParentDependency(rootTag, mutableMapOf())
         assertNull("Parent ohne groupId sollte übersprungen werden", parentRow)
