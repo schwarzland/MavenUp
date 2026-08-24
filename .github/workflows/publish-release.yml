@@ -12,6 +12,7 @@ permissions:
 jobs:
   publish-to-marketplace:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       # Schritt 1: Quellcode des freigegebenen Release-Stands aus dem Repository auschecken.
       - name: Checkout Code
@@ -28,7 +29,11 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
 
-      # Schritt 4: Plugin bauen und als verborgenes Release im JetBrains Marketplace veröffentlichen.
+      # Schritt 4: Plugin vor der Veröffentlichung verifizieren.
+      - name: Verify Plugin
+        run: ./gradlew verifyPlugin --no-daemon
+
+      # Schritt 5: Plugin bauen und als verborgenes Release im JetBrains Marketplace veröffentlichen.
       # Das IntelliJ Platform Gradle Plugin (2.x) erwartet das Marketplace-Upload-Token über
       # die Umgebungsvariable PUBLISH_TOKEN.
       - name: Publish to JetBrains Marketplace
