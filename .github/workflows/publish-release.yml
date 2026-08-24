@@ -9,6 +9,13 @@ on:
 permissions:
   contents: read
 
+
+# Verhindert parallele Publish-Läufe für denselben Release-Ref.
+# Ein weiterer Lauf wird nicht abgebrochen, sondern wartet, damit kein Release doppelt hochgeladen wird.
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   publish-to-marketplace:
     runs-on: ubuntu-latest
