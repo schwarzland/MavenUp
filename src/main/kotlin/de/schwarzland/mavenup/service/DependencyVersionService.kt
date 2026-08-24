@@ -31,14 +31,15 @@ internal data class VersionSearchResult(
  * [VersionSearchResult] zurückgegeben.
  *
  * @property project Das Projekt, dessen Maven-Modell und `pom.xml`-Dateien ausgewertet werden.
+ * @property fetchVersions Ruft die verfügbaren Versionen eines Artefakts ab (injizierbar für Tests).
+ * @property refreshSnapshotCollector Löst Property-Platzhalter in `pom.xml`-Versionen auf (injizierbar für Tests).
  */
-internal class DependencyVersionService(private val project: Project) {
-
-    /** Zugriff auf die Repository-Versionsabfrage. */
-    private val dependencyApiService = DependencyApiService(project)
-
-    /** Wird zum Auflösen von Property-Platzhaltern in `pom.xml`-Versionen genutzt. */
-    private val refreshSnapshotCollector = RefreshSnapshotCollector(project)
+internal class DependencyVersionService(
+    private val project: Project,
+    private val fetchVersions: (groupId: String, artifactId: String, currentVersion: String) -> List<String> =
+        DependencyApiService(project)::fetchVersions,
+    private val refreshSnapshotCollector: RefreshSnapshotCollector = RefreshSnapshotCollector(project)
+) {
 
     /**
      * Führt die Versionssuche für alle Maven-Projekte durch.
@@ -170,7 +171,7 @@ internal class DependencyVersionService(private val project: Project) {
      * Berechnet für alle Abhängigkeiten, die dieselbe Maven-Property verwenden,
      * die Schnittmenge der verfügbaren Versionen, damit die Property konsistent aktualisiert wird.
      */
-    private fun postProcessPropertyUpdates(
+    internal fun postProcessPropertyUpdates(
         dependencyToProperty: Map<String, String>,
         currentVersions: Map<String, String>,
         availableVersions: MutableMap<String, List<String>>,
@@ -191,7 +192,7 @@ internal class DependencyVersionService(private val project: Project) {
      * Reduziert die verfügbaren Versionen für eine Gruppe von Abhängigkeiten auf deren gemeinsame
      * Schnittmenge und wählt bei aktivierter Einstellung automatisch die konfigurierte Zielversion vor.
      */
-    private fun intersectVersions(
+    internal fun intersectVersions(
         depKeys: List<String>,
         currentVersions: Map<String, String>,
         availableVersions: MutableMap<String, List<String>>,
@@ -237,7 +238,7 @@ internal class DependencyVersionService(private val project: Project) {
      * Ruft die verfügbaren Versionen für ein einzelnes Artefakt ab und speichert
      * die Ergebnisse in [availableVersions] sowie die Vorauswahl in [selectedVersions].
      */
-    private fun checkArtifactUpdate(
+    internal fun checkArtifactUpdate(
         groupId: String?,
         artifactId: String?,
         currentVersion: String?,
@@ -249,7 +250,7 @@ internal class DependencyVersionService(private val project: Project) {
 
         if (groupId != null && artifactId != null) {
             val version = currentVersion ?: ""
-            val versions = dependencyApiService.fetchVersions(groupId, artifactId, version)
+            val versions = fetchVersions(groupId, artifactId, version)
             if (versions.isNotEmpty()) {
                 val key = "$groupId:$artifactId"
                 availableVersions[key] = versions
