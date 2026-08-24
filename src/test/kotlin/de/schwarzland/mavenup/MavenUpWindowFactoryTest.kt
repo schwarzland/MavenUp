@@ -13,6 +13,7 @@ import de.schwarzland.mavenup.ui.MavenUpWindowFactory
 import de.schwarzland.mavenup.ui.UpdateConfirmationDialog
 import de.schwarzland.mavenup.service.RefreshSnapshotCollector
 import de.schwarzland.mavenup.service.PomUpdateService
+import de.schwarzland.mavenup.service.PomNavigationService
 import de.schwarzland.mavenup.ui.MyMessageBundle
 import de.schwarzland.mavenup.ui.RefreshSnapshot
 import de.schwarzland.mavenup.ui.buildVulnerabilityCell
@@ -269,16 +270,15 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val psiFile = myFixture.configureByText("pom.xml", pomContent) as XmlFile
         val rootTag = psiFile.document?.rootTag
 
-        val factory = MavenUpWindowFactory()
-        val toolWindowInstance = factory.MyToolWindow(project)
+        val pomNavigationService = PomNavigationService(project)
 
         // Test normal dependency
-        val normalDep = toolWindowInstance.findDependency(rootTag, "com.example", "example-core", false)
+        val normalDep = pomNavigationService.findDependency(rootTag, "com.example", "example-core", false)
         assertNotNull("Normale Dependency sollte gefunden werden", normalDep)
         assertEquals("example-core", normalDep?.findFirstSubTag("artifactId")?.value?.text)
 
         // Test managed dependency
-        val managedDep = toolWindowInstance.findDependency(rootTag, "com.example", "example-managed", true)
+        val managedDep = pomNavigationService.findDependency(rootTag, "com.example", "example-managed", true)
         assertNotNull("Managed Dependency sollte gefunden werden", managedDep)
         assertEquals("example-managed", managedDep?.findFirstSubTag("artifactId")?.value?.text)
     }
@@ -1096,24 +1096,15 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val psiFile = myFixture.configureByText("pom.xml", pomContent) as XmlFile
         val rootTag = psiFile.document?.rootTag
 
-        val factory = MavenUpWindowFactory()
-        val toolWindowInstance = factory.MyToolWindow(project)
-
-        val findPluginMethod = toolWindowInstance.javaClass.getDeclaredMethod(
-            "findPlugin",
-            com.intellij.psi.xml.XmlTag::class.java,
-            String::class.java,
-            String::class.java,
-            Boolean::class.java
-        ).apply { isAccessible = true }
+        val pomNavigationService = PomNavigationService(project)
 
         // Test normal plugin
-        val normalPlugin = findPluginMethod.invoke(toolWindowInstance, rootTag, "org.apache.maven.plugins", "maven-compiler-plugin", false) as? com.intellij.psi.xml.XmlTag
+        val normalPlugin = pomNavigationService.findPlugin(rootTag, "org.apache.maven.plugins", "maven-compiler-plugin", false)
         assertNotNull("Normaler Plugin sollte gefunden werden", normalPlugin)
         assertEquals("maven-compiler-plugin", normalPlugin?.findFirstSubTag("artifactId")?.value?.text)
 
         // Test managed plugin
-        val managedPlugin = findPluginMethod.invoke(toolWindowInstance, rootTag, "org.apache.maven.plugins", "maven-surefire-plugin", true) as? com.intellij.psi.xml.XmlTag
+        val managedPlugin = pomNavigationService.findPlugin(rootTag, "org.apache.maven.plugins", "maven-surefire-plugin", true)
         assertNotNull("Managed Plugin sollte gefunden werden", managedPlugin)
         assertEquals("maven-surefire-plugin", managedPlugin?.findFirstSubTag("artifactId")?.value?.text)
     }
@@ -1278,14 +1269,13 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val psiFile = myFixture.configureByText("pom.xml", pomContent) as XmlFile
         val rootTag = psiFile.document?.rootTag
 
-        val factory = MavenUpWindowFactory()
-        val toolWindowInstance = factory.MyToolWindow(project)
+        val pomNavigationService = PomNavigationService(project)
 
-        val found = toolWindowInstance.findParent(rootTag, "org.springframework.boot", "spring-boot-starter-parent")
+        val found = pomNavigationService.findParent(rootTag, "org.springframework.boot", "spring-boot-starter-parent")
         assertNotNull("Parent-Tag sollte gefunden werden", found)
         assertEquals("spring-boot-starter-parent", found?.findFirstSubTag("artifactId")?.value?.text)
 
-        val notFound = toolWindowInstance.findParent(rootTag, "com.example", "other-artifact")
+        val notFound = pomNavigationService.findParent(rootTag, "com.example", "other-artifact")
         assertNull("Nicht passendes Parent-Tag sollte null zurückgeben", notFound)
     }
 

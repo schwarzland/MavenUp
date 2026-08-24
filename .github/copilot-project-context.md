@@ -91,6 +91,8 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   - `RefreshSnapshot.kt`: `RefreshRow`, `RefreshSnapshot`.
   - `MavenRepositoryLink.kt`: `buildMavenRepositoryUrl`.
   - `SortableHeaderIcon.kt`: `sortableHeaderIcon`.
+  - `VersionAutoSelection.kt`: `chooseAutoSelectedVersion`, `latestVersionWithinSameMajor`,
+    `extractLeadingMajorNumber` (zustandslose Auto-Selektions-Helfer).
   - `HelpTooltipExtensions.kt`: `HelpTooltip.withWrappingDescription` (versionsunabhängige
     `setDescription`-Brücke via Reflection).
 - **MavenUpSettings**: `PersistentStateComponent` auf Anwendungsebene (`Service.Level.APP`), global für alle Projekte gespeichert in `mavenup_settings.xml`
@@ -148,6 +150,13 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   (`collectVulnerabilityScanTargets`, `collectResolvedDependencyRelations`) und kapselt die
   OSS-Index-Abfrage (`resolveOssIndexResults`, Ergebnis `OssIndexScanResult`). Die reine
   Farbzuordnung `vulnerabilityColor` liegt als Top-Level-Helfer in `VulnerabilityCellModel`.
+- **DependencyVersionService**: fragt über `searchVersions` die verfügbaren Versionen aller
+  Dependencies/Plugins ab (inkl. PSI-Erfassung verwalteter Einträge und Property-Schnittmengen)
+  und liefert verfügbare Versionen samt Vorauswahl als `VersionSearchResult`. Die zustandslosen
+  Auto-Selektions-Helfer (`chooseAutoSelectedVersion`, `latestVersionWithinSameMajor`,
+  `extractLeadingMajorNumber`) liegen als Top-Level-Funktionen in `ui/VersionAutoSelection`.
+- **PomNavigationService**: sucht Definitionen in der `pom.xml` (`findDependency`, `findParent`,
+  `findPlugin`) und springt über `navigateToDependency` im Editor an die jeweilige Stelle.
 - **VulnerabilityDetailDialog**: Detailansicht für direkte und transitive Befunde. Rein informativer Dialog – zeigt ausschließlich einen **Close**-Button (kein OK/Cancel), entsprechend den JetBrains UI-Richtlinien für read-only Dialoge. Die Aktionen **Open in ...** und **References...** liegen in einer oberen `ActionToolbar` des Dialogs, sind initial deaktiviert und werden erst bei selektierter Vulnerability-Zeile aktiviert; zusätzlich öffnet ein Rechtsklick auf die selektierte Zeile in allen Spalten außer **References** das Kontextmenü mit **Open in Maven Repository** und **References...**.
 - **ReferencesListDialog**: Zeigt alle Referenz-Links eines Advisories als klickbare Liste. Ebenfalls rein informativer Dialog mit ausschließlich einem **Close**-Button.
 - **MyMessageBundle**: I18n-Wrapper (`messages.MyMessageBundle`).

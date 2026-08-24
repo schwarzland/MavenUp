@@ -178,6 +178,8 @@ Das Plugin ist klar in drei Schichten gegliedert:
 - `RefreshSnapshotCollector`: liest die im Projekt deklarierten Abhängigkeiten, Plugins und Versions-Properties über PSI und liefert einen `RefreshSnapshot`; löst Property-Platzhalter (`${...}`) auf.
 - `PomUpdateService`: wendet ausgewählte Versions-Updates über PSI auf die `pom.xml`-Dateien an (Dependencies, dependencyManagement, Plugins, pluginManagement, Parent) und speichert die Änderungen bei aktivem Maven-Sync.
 - `VulnerabilityScanService`: ermittelt direkte und transitive Scan-Ziele aus dem Maven-Modell und kapselt die Sonatype-OSS-Index-Abfrage inklusive Fehlerbehandlung.
+- `DependencyVersionService`: fragt die verfügbaren Versionen aller Abhängigkeiten und Plugins ab und leitet daraus – abhängig von der Auto-Selektionsstrategie – eine Vorauswahl ab (`VersionSearchResult`); die zustandslosen Auto-Selektions-Helfer liegen in `VersionAutoSelection`.
+- `PomNavigationService`: sucht Abhängigkeits-, Parent- und Plugin-Definitionen in der `pom.xml` und öffnet den Editor an der jeweiligen Stelle.
 - Unterstützte CVSS-Vektoren aus OSV werden mit `us.springett:cvss-calculator` in vergleichbare Basisscores umgerechnet. Bei noch nicht unterstützten CVSS-Versionen bleibt der Befund erhalten und nutzt den Schweregrad der Quelle.
 
 ### UI (`de.schwarzland.mavenup.ui`)
