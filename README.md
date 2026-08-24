@@ -23,14 +23,18 @@ Das Plugin öffnet ein Tool-Window namens **MavenUp** (meist am linken oder unte
 
 ## Branching-Strategie und GitHub Actions
 
-Die Entwicklung erfolgt auf `feature/*`-Branches. Änderungen werden per Pull Request nach `main` zusammengeführt. Für die Stabilisierung eines Releases wird ein `release/*`-Branch verwendet, der ebenfalls per Pull Request nach `main` gemergt wird.
+Die Entwicklung erfolgt auf `feature/*`-Branches. Änderungen werden per Pull Request nach `main` zusammengeführt. Für die Stabilisierung eines Releases wird ein `release/*`-Branch verwendet, der ebenfalls per Pull Request nach `main` gemergt wird. Das einheitliche Schema lautet: Release-Branch `release/x.y.z`, Git-Tag `x.y.z` – jeweils ohne führendes `V`.
 
 ### Automatische Workflows
 
-- **Build and Test** (`.github/workflows/ci.yml`): Läuft bei jedem Push auf `main` sowie bei jedem neu erstellten, aktualisierten oder erneut geöffneten Pull Request gegen `main`. Feature- und Release-Branches werden dadurch ausschließlich über ihren Pull Request geprüft. So wird verhindert, dass ein Push auf einen Branch mit offenem Pull Request zwei identische Builds auslöst. Ein Direkt-Push nach `main` (ohne Pull Request) wird weiterhin durch den Push-Trigger abgedeckt. Der Workflow kompiliert das Plugin, führt Tests und statische Analyse (detekt) aus, erzeugt den Coverage-Report (Kover) und prüft die Plugin-Struktur. Die Berichte werden bei jedem Lauf – ob erfolgreich oder fehlgeschlagen – als Artefakt gespeichert. Der Trigger greift nur bei Änderungen an Quellcode, Plugin-Ressourcen oder Build-Konfiguration.
-- **Manual Build and Test** (`.github/workflows/manual-build.yml`): Wird manuell über den **Actions**-Tab in GitHub gestartet (`Run workflow`) und kann auf einem beliebig gewählten Branch ausgeführt werden – etwa auf einem Feature-Branch ohne offenen Pull Request. Führt denselben Build wie **Build and Test** aus, jedoch ohne Pfad-Filter, also bei jedem manuellen Anstoß. Der Button erscheint erst, sobald der Workflow auf `main` vorhanden ist.
-- **Create Draft Release** (`.github/workflows/create-draft-release.yml`): Läuft, wenn ein Tag zu GitHub gepusht wird, zum Beispiel `2.3.0`. Der aktuelle Stand des Tags wird gebaut und als GitHub-Draft-Release mit ZIP-Datei und Release Notes angelegt. Erst der Push des Tags zu GitHub startet den Workflow.
-- **Publish Release to Marketplace** (`.github/workflows/publish-release.yml`): Läuft, sobald ein Draft-Release im GitHub-UI manuell veröffentlicht wird (`release: published`). Danach wird das Plugin mit `publishPlugin` in den JetBrains Marketplace hochgeladen. Dafür muss das Repository-Secret `JB_MARKETPLACE_TOKEN` gesetzt sein.
+- **Build and Test** (`.github/workflows/ci.yml`): Läuft bei jedem Push auf `main` oder `hotfix/**` sowie bei jedem neu erstellten, aktualisierten oder erneut geöffneten Pull Request gegen `main`. Feature- und Release-Branches werden dadurch ausschließlich über ihren Pull Request geprüft; Hotfix-Branches werden zusätzlich bei direkten Pushes geprüft. Für Feature- und Release-Branches werden doppelte Builds bei Pushes mit offenem Pull Request vermieden. Ein Direkt-Push nach `main` (ohne Pull Request) wird weiterhin durch den Push-Trigger abgedeckt. Der Workflow kompiliert das Plugin, führt Tests und statische Analyse (detekt) aus, erzeugt den Coverage-Report (Kover), prüft die Plugin-Struktur und führt den IntelliJ Plugin Verifier gegen die konfigurierte Kompatibilität aus. Die Berichte werden bei jedem Lauf – ob erfolgreich oder fehlgeschlagen – als Artefakt gespeichert. Jeder Job ist auf 30 Minuten begrenzt. Der Trigger greift nur bei Änderungen an Quellcode, Plugin-Ressourcen oder Build-Konfiguration.
+- **Manual Build and Test** (`.github/workflows/manual-build.yml`): Wird manuell über den **Actions**-Tab in GitHub gestartet (`Run workflow`) und kann auf einem beliebig gewählten Branch ausgeführt werden – etwa auf einem Feature-Branch ohne offenen Pull Request. Führt denselben Build wie **Build and Test** einschließlich Plugin Verifier aus, jedoch ohne Pfad-Filter, also bei jedem manuellen Anstoß. Der Button erscheint erst, sobald der Workflow auf `main` vorhanden ist; auch dieser Job ist auf 30 Minuten begrenzt.
+- **Create Draft Release** (`.github/workflows/create-draft-release.yml`): Läuft, wenn ein Tag zu GitHub gepusht wird, zum Beispiel `2.3.0`. Der aktuelle Stand des Tags wird gebaut, mit `verifyPlugin` und dem IntelliJ Plugin Verifier geprüft und anschließend als GitHub-Draft-Release mit ZIP-Datei und Release Notes angelegt. Erst der Push des Tags zu GitHub startet den Workflow. Der Job ist auf 30 Minuten begrenzt.
+- **Publish Release to Marketplace** (`.github/workflows/publish-release.yml`): Läuft, sobald ein Draft-Release im GitHub-UI manuell veröffentlicht wird (`release: published`). Vor dem Upload laufen `verifyPlugin` und der IntelliJ Plugin Verifier; bei einem Verifier-Fehler wird der Report als `plugin-verifier-report`-Artifact (7 Tage) gespeichert. Danach wird das Plugin mit `publishPlugin` in den JetBrains Marketplace hochgeladen. Dafür muss das Repository-Secret `JB_MARKETPLACE_TOKEN` gesetzt sein. Der Job ist auf 30 Minuten begrenzt und verwendet pro Release-Ref eine Concurrency-Gruppe, die laufende Publish-Läufe nicht abbricht.
+
+### Dependabot
+
+`.github/dependabot.yml` überwacht monatlich sowohl GitHub-Actions als auch Gradle-Abhängigkeiten. Dadurch werden unter anderem Aktualisierungen der IntelliJ Platform und der verwendeten Bibliotheken als Pull Requests vorgeschlagen.
 
 ### `publishPlugin` manuell ausführen
 
@@ -58,8 +62,8 @@ Ohne `-PmarketplaceHidden=true` wird das Plugin regulär veröffentlicht. Der Au
 Die folgenden Befehle werden beispielsweise Terminal ausgeführt. Der Tag sollte auf dem geprüften Release-Branch erstellt werden:
 
 ```bash
-git switch release/V2.3.0
-git pull --ff-only origin release/V2.3.0
+git switch release/2.3.0
+git pull --ff-only origin release/2.3.0
 git tag 2.3.0
 git push origin 2.3.0
 ```
@@ -72,8 +76,8 @@ Für einen neuen Release-Branch können die Schritte beispielsweise so aussehen:
 ```bash
 git switch main
 git pull --ff-only origin main
-git switch -c release/V2.3.0
-git push -u origin release/V2.3.0
+git switch -c release/2.3.0
+git push -u origin release/2.3.0
 ```
 
 Ein Tag allein startet keinen lokalen IntelliJ-Run-Task: Die Workflows laufen auf GitHub Actions, sobald Branch, Pull Request oder Tag zum Remote-Repository gepusht wurden.
@@ -229,8 +233,8 @@ Statische Analyse und Testabdeckung sind über Gradle eingebunden:
   ```
   Ein blockierendes Mindest-Coverage-Gate kann bei Bedarf über `koverVerify` ergänzt werden.
 
-Die CI (`.github/workflows/ci.yml`) führt `build verifyPlugin detekt koverXmlReport` aus und lädt
-bei Fehlschlägen die Test- und Analyse-Reports als Artefakt hoch.
+Die CI (`.github/workflows/ci.yml`) führt `build verifyPlugin detekt koverXmlReport` sowie
+`runPluginVerifier` aus und lädt die Test- und Analyse-Reports als Artefakt hoch.
 
 
 ---

@@ -4,7 +4,8 @@ Für die Publikation des Plugins wurden bereits wichtige Vorbereitungen getroffe
 - **Versionsnummer aktualisiert**: Die Version wurde in der `gradle.properties` von `1.0.0-SNAPSHOT` auf `1.0.0` gesetzt.
 - **Changelog befüllt**: Die Datei `CHANGELOG.md` wurde mit den Features des initialen Release ergänzt.
 - **Plugin-Beschreibung**: Die `plugin.xml` enthält nun eine detaillierte Beschreibung aller Kernfunktionen (Update-Checks, Property-Support, Navigation etc.).
-- **Technische Validierung**: Die Plugin-Struktur und die Projektkonfiguration wurden erfolgreich über Gradle-Tasks (`verifyPluginStructure`, `verifyPluginProjectConfiguration`) verifiziert.
+- **Technische Validierung**: Die Plugin-Struktur und die Projektkonfiguration werden über `verifyPlugin` geprüft; zusätzlich validiert `runPluginVerifier` die Kompatibilität mit den unterstützten IntelliJ-IDE-Builds.
+- **CI-Schutz**: Alle Workflow-Jobs sind auf 30 Minuten begrenzt. Der Marketplace-Publish besitzt eine Concurrency-Gruppe gegen parallele Doppel-Uploads; bei einem fehlgeschlagenen Plugin-Verifier wird der Report sieben Tage als Artifact aufbewahrt.
 - **Icon**: Ein Plugin-Icon (`pluginIcon.svg`) ist bereits im Projekt vorhanden.
 
 ### 📋 Checkliste für die Publikation (JetBrains Marketplace)
