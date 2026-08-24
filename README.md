@@ -185,7 +185,7 @@ Das Plugin ist klar in drei Schichten gegliedert:
 - `VulnerabilityScanService`: ermittelt direkte und transitive Scan-Ziele aus dem Maven-Modell und kapselt die Sonatype-OSS-Index-Abfrage inklusive Fehlerbehandlung.
 - `DependencyVersionService`: fragt die verfügbaren Versionen aller Abhängigkeiten und Plugins ab und leitet daraus – abhängig von der Auto-Selektionsstrategie – eine Vorauswahl ab (`VersionSearchResult`); die zustandslosen Auto-Selektions-Helfer liegen in `VersionAutoSelection`.
 - `PomNavigationService`: sucht Abhängigkeits-, Parent- und Plugin-Definitionen in der `pom.xml` und öffnet den Editor an der jeweiligen Stelle.
-- Unterstützte CVSS-Vektoren aus OSV werden mit `us.springett:cvss-calculator` in vergleichbare Basisscores umgerechnet. Bei noch nicht unterstützten CVSS-Versionen bleibt der Befund erhalten und nutzt den Schweregrad der Quelle.
+- Unterstützte CVSS-Vektoren aus OSV werden mit `us.springett:cvss-calculator` in vergleichbare Basisscores umgerechnet. Bei noch nicht unterstützten Vektoren bleibt der Befund erhalten und nutzt den Schweregrad der Quelle.
 
 ### UI (`de.schwarzland.mavenup.ui`)
 - `MavenUpWindowFactory`: Tool-Window-Factory und UI-Interaktion für Tabelle, Update- und Vulnerability-Workflows; die Aktionen liegen in einer oberen `ActionToolbar`, Refresh-Daten werden per nicht blockierender Read-Action außerhalb des EDT erfasst.
