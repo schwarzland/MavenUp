@@ -200,9 +200,10 @@ Die Unittests liegen unter `src/test/kotlin` und spiegeln die Paketstruktur des 
 ```
 
 Hinweise:
-- Tests, die reine Logik ohne IntelliJ-Plattform benötigen (z. B. `VulnerabilityApiServiceTest`), nutzen
-  reines JUnit. Tests, die eine Projekt-/PSI-Umgebung benötigen (z. B. `MavenUpWindowFactoryTest`,
-  `DependencyApiServiceTest`, `MavenUpConfigurableTest`), erben von `BasePlatformTestCase`.
+- Tests, die reine Logik ohne IntelliJ-Plattform benötigen (z. B. `VulnerabilityApiServiceTest`,
+  `VersionAutoSelectionTest`), nutzen reines JUnit. Tests, die eine Projekt-/PSI-Umgebung benötigen
+  (z. B. `MavenUpWindowFactoryTest`, `RefreshSnapshotCollectorTest`, `PomNavigationServiceTest`,
+  `PomUpdateServiceTest`, `VersionStatusUiTest`, `MavenUpConfigurableTest`), erben von `BasePlatformTestCase`.
 - Im Test-Sandbox wird das gebündelte Vue.js-Plugin (`org.jetbrains.plugins.vue`) über
   `tasks.named("prepareTestSandbox") { disabledPlugins.add(...) }` in `build.gradle.kts` deaktiviert.
   MavenUp hat keine Abhängigkeit zu Vue; dessen Initialisierung führte in manchen Test-Sandbox-Setups zu
