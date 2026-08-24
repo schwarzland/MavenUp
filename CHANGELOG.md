@@ -2,6 +2,21 @@
 
 # MavenUp Changelog
 
+## [Unreleased]
+
+### Changed
+
+- Split the oversized tool window source file by extracting stateless UI helpers (table constants, version status rendering, filter model, vulnerability cell model, refresh snapshot, repository link, sortable header icon, and the help tooltip extension) and the update confirmation dialog into dedicated files without any functional change.
+- Extracted the POM update, refresh snapshot collection, and vulnerability scan logic from the tool window into dedicated services (`PomUpdateService`, `RefreshSnapshotCollector`, `VulnerabilityScanService`) and removed reflection-based access from the corresponding tests, without any functional change.
+- Extracted the version search and POM navigation logic from the tool window into dedicated services (`DependencyVersionService`, `PomNavigationService`) and the stateless auto-selection helpers into `VersionAutoSelection`, without any functional change.
+- Split the oversized tool window test suite by moving the decoupled version-status, refresh snapshot, POM navigation, and POM update tests into dedicated test files mirroring the package structure.
+- Added constructor injection of the version-fetch and OSS Index dependencies to `DependencyVersionService` and `VulnerabilityScanService`, and added dedicated unit tests for both services without any functional change.
+- Added detekt static analysis (with a baseline for existing findings) and Kover test-coverage reporting to the Gradle build and CI pipeline.
+- Removed `feature/**` and `release/**` from the CI `push` trigger so that pushing a branch with an open pull request no longer runs two identical builds; feature and release branches are now validated solely via the `pull_request` trigger against `main`, while `push` only builds `main`.
+- Added a separate `manual-build.yml` workflow with a `workflow_dispatch` trigger so the build can be started manually from the GitHub Actions tab for any selected branch (e.g. a feature branch without an open pull request), independent of the automatic CI workflow and its path filters.
+- Changed the report upload step in both CI workflows to run on every build (not only on failure) via `if: ${{ !cancelled() }}` and `if-no-files-found: ignore`, so test, detekt, and Kover coverage reports are always available as artifacts.
+- Upgraded `actions/upload-artifact` from v4 to v6 across all workflows to run on Node.js 24 and remove the Node.js 20 deprecation warning (v5 still targeted Node.js 20).
+
 ## 2.4.0
 
 ### Added

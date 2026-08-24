@@ -1,0 +1,28 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>CyclomaticComplexMethod:DependencyFilterModel.kt$internal fun rowMatchesFilter(row: FilterRow, criteria: FilterCriteria): Boolean</ID>
+    <ID>CyclomaticComplexMethod:MavenUpConfigurable.kt$MavenUpConfigurable$override fun apply()</ID>
+    <ID>CyclomaticComplexMethod:RefreshSnapshotCollector.kt$RefreshSnapshotCollector$internal fun collectRefreshSnapshot(managedDependencyType: String): RefreshSnapshot</ID>
+    <ID>LargeClass:MavenUpWindowFactoryTest.kt$MavenUpWindowFactoryTest : BasePlatformTestCase</ID>
+    <ID>LongMethod:MavenUpConfigurable.kt$MavenUpConfigurable$override fun createComponent(): JComponent</ID>
+    <ID>LongMethod:RefreshSnapshotCollector.kt$RefreshSnapshotCollector$internal fun collectRefreshSnapshot(managedDependencyType: String): RefreshSnapshot</ID>
+    <ID>LongMethod:RowMatchesFilterTest.kt$RowMatchesFilterTest$@Test fun testAllFiltersCombinedMatching()</ID>
+    <ID>LoopWithTooManyJumpStatements:MavenUpWindowFactory.kt$MavenUpWindowFactory.MyToolWindow$for</ID>
+    <ID>MaxLineLength:MavenUpSettings.kt$MavenUpSettings.State$*</ID>
+    <ID>NestedBlockDepth:DependencyVersionService.kt$DependencyVersionService$internal fun checkArtifactUpdate( groupId: String?, artifactId: String?, currentVersion: String?, indicator: ProgressIndicator, availableVersions: MutableMap&lt;String, List&lt;String>>, selectedVersions: MutableMap&lt;String, String> )</ID>
+    <ID>NestedBlockDepth:VulnerabilityApiService.kt$VulnerabilityApiService$fun fetchVulnerabilityAdvisoriesForChunk( chunk: List&lt;Triple&lt;String, String, String>>, queryUrl: String = OSV_BATCH_QUERY_URL ): Map&lt;String, List&lt;VulnerabilityAdvisory>></ID>
+    <ID>NestedBlockDepth:VulnerabilityMerger.kt$VulnerabilityMerger$fun deduplicate(advisories: List&lt;VulnerabilityAdvisory>): List&lt;VulnerabilityAdvisory></ID>
+    <ID>NewLineAtEndOfFile:MavenUpStartupActivity.kt$de.schwarzland.mavenup.service.MavenUpStartupActivity.kt</ID>
+    <ID>NewLineAtEndOfFile:MavenUpStartupActivityTest.kt$de.schwarzland.mavenup.MavenUpStartupActivityTest.kt</ID>
+    <ID>TooGenericExceptionCaught:DependencyApiService.kt$DependencyApiService$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:MavenUpStartupActivity.kt$MavenUpStartupActivity$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:MavenUpToolWindowActivator.kt$MavenUpToolWindowActivator$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:VulnerabilityApiService.kt$VulnerabilityApiService$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:VulnerabilityScanService.kt$VulnerabilityScanService$exception: Exception</ID>
+    <ID>TooManyFunctions:MavenUpWindowFactory.kt$MavenUpWindowFactory$MyToolWindow : Disposable</ID>
+    <ID>WildcardImport:MavenUpSettings.kt$import com.intellij.openapi.components.*</ID>
+    <ID>WildcardImport:MavenUpWindowFactory.kt$import javax.swing.*</ID>
+  </CurrentIssues>
+</SmellBaseline>

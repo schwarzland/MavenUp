@@ -1,50 +1,23 @@
-name: Build and Test
+name: Manual Build and Test
 
 on:
-  # Push-Builds laufen nur auf main. Feature- und Release-Branches werden ausschliesslich
-  # ueber den pull_request-Trigger (gegen main) gebaut. So wird verhindert, dass ein Push
-  # auf einen Branch mit offenem PR zwei identische Builds ausloest.
-  push:
-    branches:
-      - main
-    # Nur Quellcode, Plugin-Ressourcen und Build-Konfiguration starten die CI.
-    # Änderungen an README, CHANGELOG, sonstiger Dokumentation oder Workflows
-    # lösen keinen Build aus. Neue Dateien unter diesen Pfaden werden ebenfalls erfasst.
-    paths:
-      - 'src/**'
-      - 'build.gradle.kts'
-      - 'settings.gradle.kts'
-      - 'gradle.properties'
-      - 'gradle/**'
-      - 'gradlew'
-      - 'gradlew.bat'
-
-  # Dieser Trigger sorgt dafür, dass die Pipeline bereits ausgeführt wird, wenn ein
-  # Pull Request gegen main erstellt oder aktualisiert wird (opened, synchronize, reopened).
-  # So wird sichergestellt, dass der PR getestet wird, bevor er überhaupt gemergt werden kann.
-  pull_request:
-    branches: [ "main" ]
-    paths:
-      - 'src/**'
-      - 'build.gradle.kts'
-      - 'settings.gradle.kts'
-      - 'gradle.properties'
-      - 'gradle/**'
-      - 'gradlew'
-      - 'gradlew.bat'
+  # Manueller Trigger: Ermoeglicht das Starten der Pipeline ueber den Actions-Tab in GitHub
+  # fuer einen beliebig ausgewaehlten Branch (z. B. einen Feature-Branch ohne offenen PR).
+  # Laeuft bewusst ohne Pfad-Filter, also immer wenn manuell angestossen.
+  workflow_dispatch:
 
 # Least-Privilege: Der Job benoetigt nur Lesezugriff auf das Repository.
 permissions:
   contents: read
 
-# Bei mehreren Pushes auf denselben Branch laufende Builds abbrechen und nur den
+# Bei mehreren manuellen Laeufen auf denselben Branch laufende Builds abbrechen und nur den
 # neuesten ausfuehren, um CI-Zeit zu sparen.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build:
+  manual-build:
     runs-on: ubuntu-latest
     steps:
       # Schritt 1: Quellcode aus dem Repository auschecken.

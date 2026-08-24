@@ -10,6 +10,9 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
 
 - Group: `de.schwarzland`, aktuelle Version: siehe `gradle.properties` (`version=...`)
 - Sprache Code: Kotlin; Build: Gradle (`build.gradle.kts`, `settings.gradle.kts`)
+- Codequalität: **detekt** (statische Analyse, Config `config/detekt/detekt.yml`, Bestandsbefunde in
+  `config/detekt/baseline.xml`; läuft via `check`/`build`) und **Kover** (Testabdeckung,
+  `koverHtmlReport`/`koverXmlReport`). CI: `.github/workflows/ci.yml` (`build verifyPlugin detekt koverXmlReport`).
 - Plugin-Descriptor: `src/main/resources/META-INF/plugin.xml`
 - Tool-Window-Icon: `src/main/resources/icons/mavenUpToolWindow.svg` (Light) und `mavenUpToolWindow_dark.svg` (Dark), in `plugin.xml` über das `icon`-Attribut des `<toolWindow>` referenziert.
 
@@ -18,7 +21,8 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
 ### Paketstruktur
 - **`model`**: `DependencyUpdate`, `VulnerabilityAdvisory`, `VulnerabilitySeverity` – reine Daten-DTOs ohne Logik.
 - **`service`**: Alle externen API-Zugriffe, Settings, Startup-Logik und Hilfsfunktionen.
-- **`ui`**: Tool-Window, Dialoge, Settings-UI, I18n-Bundle.
+- **`ui`**: Tool-Window, Dialoge, Settings-UI, I18n-Bundle sowie ausgelagerte, zustandslose
+  UI-Hilfsdateien (siehe Komponente **UI-Hilfsdateien (ui)**).
 
 ### Komponenten
 - **MavenUpStartupActivity**: `ProjectActivity`, macht das Tool-Window beim Projektstart
@@ -71,6 +75,29 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   `confirmAndResetAllVersionsToCurrent()` kapselt `resetAllVersionsToCurrent()` und zeigt bei aktivem `confirmVersionReset` zuvor
   einen Ja/Nein-Bestätigungsdialog (`MessageDialogBuilder` mit `DoNotAskOption`, dessen „Don't ask again" die Einstellung deaktiviert).
   `isRowFilterHidingEntries()` und `bulkSelectionActionDescription()` erweitern den Tooltip der "Select Highest"-Aktionen bei aktivem Filter um einen Hinweis.
+- **UpdateConfirmationDialog**: eigenständiger `DialogWrapper` (Top-Level in `ui`), der vor
+  dem Anwenden die anstehenden Updates in einer schreibgeschützten Tabelle bestätigen lässt und
+  die Option **Sync Maven Changes** (vorbelegt aus `MavenUpSettings.syncMavenAfterUpdate`) anbietet.
+- **UI-Hilfsdateien (ui)**: Zustandslose Top-Level-Helfer, die aus `MavenUpWindowFactory.kt`
+  in eigene Dateien desselben Packages ausgelagert wurden (reine Logik/Icons, keine
+  `MyToolWindow`-Abhängigkeit):
+  - `MavenUpTableConstants.kt`: Spalten-Indizes und Message-Key-/Typ-Konstanten.
+  - `VersionStatusUi.kt`: `VersionUpdateArrowIcon`, `isVersionUpToDate`, `hasNewerVersion`,
+    `versionStatusText`/`versionStatusColor`/`versionStatusTooltip`, `versionDropdownItemText`,
+    `createVersionPanel` samt Status-Glyphen und `JBColor`-Werten.
+  - `DependencyFilterModel.kt`: `TriStateFilter`, `TriStateFilterLabels`,
+    `triStateFilterOptionLabel`, die `*_FILTER_LABELS`, `FilterRow`, `FilterCriteria`,
+    `rowMatchesFilter`.
+  - `VulnerabilityCellModel.kt`: `VulnerabilityCell`, `buildVulnerabilityCell`,
+    `vulnerabilitySummary`, `worstSeverity`, `canCheckVulnerabilities`, `vulnerabilityColor`,
+    `VulnerabilityScanTargets`, `artifactNodeCoordinate`, `coordinateString`.
+  - `RefreshSnapshot.kt`: `RefreshRow`, `RefreshSnapshot`.
+  - `MavenRepositoryLink.kt`: `buildMavenRepositoryUrl`.
+  - `SortableHeaderIcon.kt`: `sortableHeaderIcon`.
+  - `VersionAutoSelection.kt`: `chooseAutoSelectedVersion`, `latestVersionWithinSameMajor`,
+    `extractLeadingMajorNumber` (zustandslose Auto-Selektions-Helfer).
+  - `HelpTooltipExtensions.kt`: `HelpTooltip.withWrappingDescription` (versionsunabhängige
+    `setDescription`-Brücke via Reflection).
 - **MavenUpSettings**: `PersistentStateComponent` auf Anwendungsebene (`Service.Level.APP`), global für alle Projekte gespeichert in `mavenup_settings.xml`
   (`jumpOnSingleClick`, `versionAutoSelectionMode` mit `DISABLED`, `LATEST`, `LATEST_MINOR`, `hideUnstableVersions`, `hiddenVersionQualifiers`,
   `ossIndexEnabled`, `checkTransitiveDependencies`, `repositoryBrowser`, `toolbarShowText`,
@@ -101,6 +128,8 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
 - **VulnerabilityApiService**: OSV-Batchabfrage plus Detailanreicherung und Filterung
   zurückgezogener Advisories. Umfangreiche Komponenten- und Versionslisten werden nur gekürzt auf
   DEBUG-Ebene protokolliert, um starkes Wachstum der von der IDE überwachten `idea.log` zu vermeiden.
+- **LogSummary**: Hilfsfunktion `summarizeForDebugLog`, die lange String-Listen (z. B. Versionslisten)
+  für Debug-Logs auf maximal zehn Einträge kürzt und die Anzahl ausgelassener Elemente anhängt.
 - **DependencyApiService**: Liest Maven-Repository-Infos und Server-Credentials aus `settings.xml`,
   nutzt bei fehlendem explizitem IDE-Pfad automatisch `${user.home}/.m2/settings.xml`, protokolliert
   den verwendeten Settings-Pfad auf DEBUG-Ebene, fragt `maven-metadata.xml` für Versionslisten ab,
@@ -116,12 +145,35 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   quellenübergreifende Deduplizierung anhand von IDs/Aliasen; CVSS-Vektoren werden über
   `us.springett:cvss-calculator` normalisiert, bei nicht unterstützten CVSS-Versionen wird auf
   den Schweregrad der Quelle zurückgefallen.
+- **RefreshSnapshotCollector**: liest über PSI die deklarierten Dependencies, Plugins und
+  Versions-Properties der `pom.xml`-Dateien und liefert einen `RefreshSnapshot`; löst
+  Property-Platzhalter über `resolveVersionPlaceholder` auf. Zustandslos, benötigt nur das Projekt.
+- **PomUpdateService**: wendet ausgewählte Updates über PSI/`WriteCommandAction` auf die
+  `pom.xml` an (`applyUpdateToPom`, `updateXmlTagVersion`, Parent/Dependencies/Plugins) und
+  speichert die Dateien vor dem Maven-Sync (`persistPomChanges`).
+- **VulnerabilityScanService**: ermittelt direkte/transitive Scan-Ziele aus dem Maven-Modell
+  (`collectVulnerabilityScanTargets`, `collectResolvedDependencyRelations`) und kapselt die
+  OSS-Index-Abfrage (`resolveOssIndexResults`, Ergebnis `OssIndexScanResult`). Zugangsdaten
+  (`OssIndexCredentialStore`) und die OSS-Abfrage sind für Tests per Konstruktor injizierbar.
+  Die reine Farbzuordnung `vulnerabilityColor` liegt als Top-Level-Helfer in `VulnerabilityCellModel`.
+- **DependencyVersionService**: fragt über `searchVersions` die verfügbaren Versionen aller
+  Dependencies/Plugins ab (inkl. PSI-Erfassung verwalteter Einträge und Property-Schnittmengen)
+  und liefert verfügbare Versionen samt Vorauswahl als `VersionSearchResult`. Die Versionsabfrage
+  ist als Funktions-Seam per Konstruktor injizierbar (netzwerkfreie Tests). Die zustandslosen
+  Auto-Selektions-Helfer (`chooseAutoSelectedVersion`, `latestVersionWithinSameMajor`,
+  `extractLeadingMajorNumber`) liegen als Top-Level-Funktionen in `ui/VersionAutoSelection`.
+- **PomNavigationService**: sucht Definitionen in der `pom.xml` (`findDependency`, `findParent`,
+  `findPlugin`) und springt über `navigateToDependency` im Editor an die jeweilige Stelle.
 - **VulnerabilityDetailDialog**: Detailansicht für direkte und transitive Befunde. Rein informativer Dialog – zeigt ausschließlich einen **Close**-Button (kein OK/Cancel), entsprechend den JetBrains UI-Richtlinien für read-only Dialoge. Die Aktionen **Open in ...** und **References...** liegen in einer oberen `ActionToolbar` des Dialogs, sind initial deaktiviert und werden erst bei selektierter Vulnerability-Zeile aktiviert; zusätzlich öffnet ein Rechtsklick auf die selektierte Zeile in allen Spalten außer **References** das Kontextmenü mit **Open in Maven Repository** und **References...**.
 - **ReferencesListDialog**: Zeigt alle Referenz-Links eines Advisories als klickbare Liste. Ebenfalls rein informativer Dialog mit ausschließlich einem **Close**-Button.
 - **MyMessageBundle**: I18n-Wrapper (`messages.MyMessageBundle`).
 
-Tests: `src/test/kotlin/de/schwarzland/mavenup/` mit Plattformtests sowie reinen Service-/Modelltests
-für OSV, OSS Index und Advisory-Deduplizierung.
+Tests: `src/test/kotlin/de/schwarzland/mavenup/` spiegeln die Paketstruktur (`model`, `service`, `ui`).
+Reine Logik nutzt JUnit (z. B. `VulnerabilityApiServiceTest`, `VersionAutoSelectionTest`), Tests mit
+Projekt-/PSI-Umgebung erben von `BasePlatformTestCase` (z. B. `MavenUpWindowFactoryTest`,
+`RefreshSnapshotCollectorTest`, `PomNavigationServiceTest`, `PomUpdateServiceTest`, `VersionStatusUiTest`,
+`DependencyVersionServiceTest`, `VulnerabilityScanServiceTest`). Netzwerklastige Services werden über
+injizierte Seams/Interfaces netzwerkfrei getestet.
 
 ## KI-Agenten (Copilot / Junie)
 - Für KI-Agenten gelten die verbindlichen Arbeitsanweisungen in `.github/copilot-instructions.md`.

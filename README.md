@@ -23,11 +23,12 @@ Das Plugin öffnet ein Tool-Window namens **MavenUp** (meist am linken oder unte
 
 ## Branching-Strategie und GitHub Actions
 
-Die Entwicklung erfolgt auf `feature/*`-Branches. Änderungen werden per Pull Request nach `main` zusammengeführt. Für die Stabilisierung eines Releases wird ein `release/*`-Branch verwendet. Die Branch-Namen sind zugleich die Bereiche, für die die CI konfiguriert ist.
+Die Entwicklung erfolgt auf `feature/*`-Branches. Änderungen werden per Pull Request nach `main` zusammengeführt. Für die Stabilisierung eines Releases wird ein `release/*`-Branch verwendet, der ebenfalls per Pull Request nach `main` gemergt wird.
 
 ### Automatische Workflows
 
-- **Build and Test** (`.github/workflows/ci.yml`): Läuft bei jedem Push auf `main`, `feature/**` oder `release/**`. Zusätzlich läuft sie bei jedem neu erstellten, aktualisierten oder erneut geöffneten Pull Request gegen `main`. Der Workflow kompiliert das Plugin, führt Tests aus und prüft die Plugin-Struktur. Bei einem Fehler werden die Testberichte als Artefakt gespeichert.
+- **Build and Test** (`.github/workflows/ci.yml`): Läuft bei jedem Push auf `main` sowie bei jedem neu erstellten, aktualisierten oder erneut geöffneten Pull Request gegen `main`. Feature- und Release-Branches werden dadurch ausschließlich über ihren Pull Request geprüft. So wird verhindert, dass ein Push auf einen Branch mit offenem Pull Request zwei identische Builds auslöst. Ein Direkt-Push nach `main` (ohne Pull Request) wird weiterhin durch den Push-Trigger abgedeckt. Der Workflow kompiliert das Plugin, führt Tests und statische Analyse (detekt) aus, erzeugt den Coverage-Report (Kover) und prüft die Plugin-Struktur. Die Berichte werden bei jedem Lauf – ob erfolgreich oder fehlgeschlagen – als Artefakt gespeichert. Der Trigger greift nur bei Änderungen an Quellcode, Plugin-Ressourcen oder Build-Konfiguration.
+- **Manual Build and Test** (`.github/workflows/manual-build.yml`): Wird manuell über den **Actions**-Tab in GitHub gestartet (`Run workflow`) und kann auf einem beliebig gewählten Branch ausgeführt werden – etwa auf einem Feature-Branch ohne offenen Pull Request. Führt denselben Build wie **Build and Test** aus, jedoch ohne Pfad-Filter, also bei jedem manuellen Anstoß. Der Button erscheint erst, sobald der Workflow auf `main` vorhanden ist.
 - **Create Draft Release** (`.github/workflows/create-draft-release.yml`): Läuft, wenn ein Tag zu GitHub gepusht wird, zum Beispiel `2.3.0`. Der aktuelle Stand des Tags wird gebaut und als GitHub-Draft-Release mit ZIP-Datei und Release Notes angelegt. Erst der Push des Tags zu GitHub startet den Workflow.
 - **Publish Release to Marketplace** (`.github/workflows/publish-release.yml`): Läuft, sobald ein Draft-Release im GitHub-UI manuell veröffentlicht wird (`release: published`). Danach wird das Plugin mit `publishPlugin` in den JetBrains Marketplace hochgeladen. Dafür muss das Repository-Secret `JB_MARKETPLACE_TOKEN` gesetzt sein.
 
@@ -175,11 +176,18 @@ Das Plugin ist klar in drei Schichten gegliedert:
 - `MavenUpSettings`: anwendungsweiter Persistenz-Service (`PersistentStateComponent`, `Service.Level.APP`) in `mavenup_settings.xml`; die Einstellungen gelten global für alle Projekte und enthalten auch die konfigurierbare Central-first-Short-Circuit-Strategie. Das OSS-Index-Token wird getrennt über `OssIndexCredentialService` im Password Safe gespeichert. Für die HTTP Basic Authentication wird ein fester Platzhalter-Benutzername verwendet, da Sonatype nur das Token auswertet.
 - `DependencyApiService`, `VulnerabilityApiService` und `OssIndexApiService`: kapseln externe API-Abfragen für Versionen und Vulnerabilities außerhalb der UI; `DependencyApiService` ermittelt die Maven-`settings.xml` robust über IDE-Pfad mit Fallback auf `${user.home}/.m2/settings.xml` und protokolliert den genutzten Pfad auf DEBUG-Ebene.
 - `VulnerabilityMerger`: dedupliziert Befunde aus mehreren Quellen anhand von Advisory-IDs und Aliasen.
+- `RefreshSnapshotCollector`: liest die im Projekt deklarierten Abhängigkeiten, Plugins und Versions-Properties über PSI und liefert einen `RefreshSnapshot`; löst Property-Platzhalter (`${...}`) auf.
+- `PomUpdateService`: wendet ausgewählte Versions-Updates über PSI auf die `pom.xml`-Dateien an (Dependencies, dependencyManagement, Plugins, pluginManagement, Parent) und speichert die Änderungen bei aktivem Maven-Sync.
+- `VulnerabilityScanService`: ermittelt direkte und transitive Scan-Ziele aus dem Maven-Modell und kapselt die Sonatype-OSS-Index-Abfrage inklusive Fehlerbehandlung.
+- `DependencyVersionService`: fragt die verfügbaren Versionen aller Abhängigkeiten und Plugins ab und leitet daraus – abhängig von der Auto-Selektionsstrategie – eine Vorauswahl ab (`VersionSearchResult`); die zustandslosen Auto-Selektions-Helfer liegen in `VersionAutoSelection`.
+- `PomNavigationService`: sucht Abhängigkeits-, Parent- und Plugin-Definitionen in der `pom.xml` und öffnet den Editor an der jeweiligen Stelle.
 - Unterstützte CVSS-Vektoren aus OSV werden mit `us.springett:cvss-calculator` in vergleichbare Basisscores umgerechnet. Bei noch nicht unterstützten CVSS-Versionen bleibt der Befund erhalten und nutzt den Schweregrad der Quelle.
 
 ### UI (`de.schwarzland.mavenup.ui`)
 - `MavenUpWindowFactory`: Tool-Window-Factory und UI-Interaktion für Tabelle, Update- und Vulnerability-Workflows; die Aktionen liegen in einer oberen `ActionToolbar`, Refresh-Daten werden per nicht blockierender Read-Action außerhalb des EDT erfasst.
+- Zustandslose UI-Hilfsdateien im selben Paket kapseln reine Logik und Darstellung ohne Abhängigkeit zur Tool-Window-Instanz: `MavenUpTableConstants` (Spalten-/Message-Key-Konstanten), `VersionStatusUi` (Versionsstatus-Glyphen, -Farben und `createVersionPanel`), `DependencyFilterModel` (`TriStateFilter`, `FilterRow`/`FilterCriteria`, `rowMatchesFilter`), `VulnerabilityCellModel` (`VulnerabilityCell`, Zusammenfassung und Koordinaten-Helfer), `RefreshSnapshot`, `MavenRepositoryLink` (`buildMavenRepositoryUrl`), `SortableHeaderIcon` und `HelpTooltipExtensions`.
 - `VulnerabilityDetailDialog`: zeigt direkte und transitive Security-Befunde mit Quellen und Referenzen; die Aktionen **Open in ...** und **References...** in der oberen Aktionsleiste des Dialogs werden über die aktuelle Zeilenselektion gesteuert, und ein Rechtsklick auf die Zeile öffnet in allen Spalten außer **References** ein Kontextmenü mit **Open in Maven Repository** sowie **References...**.
+- `UpdateConfirmationDialog`: `DialogWrapper`, der vor dem Anwenden die anstehenden Updates (GroupId, ArtifactId, Typ, alte/neue Version) in einer schreibgeschützten Tabelle zeigt und die Option **Sync Maven Changes** (vorbelegt aus `MavenUpSettings`) anbietet.
 - `MavenUpConfigurable`: Einstellungs-UI unter `Settings > Tools > MavenUp`, gebunden an `MavenUpSettings`; Password-Safe-Zugriffe werden im Hintergrund geladen und für die Änderungserkennung zwischengespeichert.
 - `MyMessageBundle` (weiterhin im Basispaket): zentralisierte i18n-Texte für die UI.
 
@@ -193,13 +201,36 @@ Die Unittests liegen unter `src/test/kotlin` und spiegeln die Paketstruktur des 
 ```
 
 Hinweise:
-- Tests, die reine Logik ohne IntelliJ-Plattform benötigen (z. B. `VulnerabilityApiServiceTest`), nutzen
-  reines JUnit. Tests, die eine Projekt-/PSI-Umgebung benötigen (z. B. `MavenUpWindowFactoryTest`,
-  `DependencyApiServiceTest`, `MavenUpConfigurableTest`), erben von `BasePlatformTestCase`.
+- Tests, die reine Logik ohne IntelliJ-Plattform benötigen (z. B. `VulnerabilityApiServiceTest`,
+  `VersionAutoSelectionTest`), nutzen reines JUnit. Tests, die eine Projekt-/PSI-Umgebung benötigen
+  (z. B. `MavenUpWindowFactoryTest`, `RefreshSnapshotCollectorTest`, `PomNavigationServiceTest`,
+  `PomUpdateServiceTest`, `VersionStatusUiTest`, `MavenUpConfigurableTest`), erben von `BasePlatformTestCase`.
 - Im Test-Sandbox wird das gebündelte Vue.js-Plugin (`org.jetbrains.plugins.vue`) über
   `tasks.named("prepareTestSandbox") { disabledPlugins.add(...) }` in `build.gradle.kts` deaktiviert.
   MavenUp hat keine Abhängigkeit zu Vue; dessen Initialisierung führte in manchen Test-Sandbox-Setups zu
   sporadischen `TestLoggerAssertionError`-Fehlschlägen unabhängig vom eigentlichen Testcode.
+
+## Codequalität
+
+Statische Analyse und Testabdeckung sind über Gradle eingebunden:
+
+- **detekt** (statische Code-Analyse): läuft automatisch als Teil von `./gradlew check`/`build`.
+  Die Konfiguration liegt unter `config/detekt/detekt.yml` (u. a. `LargeClass = 800` als Ausdruck
+  der 800–1000-Zeilen-Regel). Bestehende Befunde sind in `config/detekt/baseline.xml` eingefroren,
+  sodass nur **neu** eingeführte Verstöße den Build scheitern lassen. Manuell:
+  ```
+  ./gradlew detekt
+  ```
+  Die Baseline nach einem bewussten Refactoring neu erzeugen: `./gradlew detektBaseline`.
+- **Kover** (Testabdeckung): erzeugt Coverage-Reports über
+  ```
+  ./gradlew koverHtmlReport   # HTML unter build/reports/kover/html
+  ./gradlew koverXmlReport    # XML unter build/reports/kover/report.xml
+  ```
+  Ein blockierendes Mindest-Coverage-Gate kann bei Bedarf über `koverVerify` ergänzt werden.
+
+Die CI (`.github/workflows/ci.yml`) führt `build verifyPlugin detekt koverXmlReport` aus und lädt
+bei Fehlschlägen die Test- und Analyse-Reports als Artefakt hoch.
 
 
 ---

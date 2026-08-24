@@ -5,6 +5,8 @@ plugins {
     id("org.jetbrains.kotlin.jvm")
     id("org.jetbrains.changelog")
     id("org.jetbrains.intellij.platform")
+    id("io.gitlab.arturbosch.detekt")
+    id("org.jetbrains.kotlinx.kover")
 }
 
 kotlin {
@@ -51,3 +53,25 @@ intellijPlatform {
 tasks.named<org.jetbrains.intellij.platform.gradle.tasks.PrepareSandboxTask>("prepareTestSandbox") {
     disabledPlugins.add("org.jetbrains.plugins.vue")
 }
+
+// Statische Code-Analyse via detekt. Die Baseline (config/detekt/baseline.xml) friert bestehende
+// Befunde ein, sodass nur neu eingeführte Verstöße den Build scheitern lassen. Die Schwellenwerte
+// (u. a. LargeClass = 800) in config/detekt/detekt.yml spiegeln die 800–1000-Zeilen-Regel wider.
+detekt {
+    buildUponDefaultConfig = true
+    config.setFrom(files("config/detekt/detekt.yml"))
+    baseline = file("config/detekt/baseline.xml")
+    basePath = rootDir.absolutePath
+}
+
+// Test-Coverage-Messung via Kover. Erzeugt HTML-/XML-Reports über `koverHtmlReport` bzw.
+// `koverXmlReport`; ein blockierendes Mindest-Coverage-Gate kann später über `koverVerify` ergänzt werden.
+kover {
+    reports {
+        total {
+            html { onCheck = false }
+            xml { onCheck = false }
+        }
+    }
+}
+
