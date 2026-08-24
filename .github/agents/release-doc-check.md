@@ -14,13 +14,12 @@ und fehlende oder falsche Angaben ergänzt bzw. korrigiert.
 
 Der Agent arbeitet **ausschließlich auf einem Release-Branch**.
 
-Release-Branches verwenden das Schema `release/x.y.z` ohne führendes `V`; der zugehörige Git-Tag lautet `x.y.z`, ebenfalls ohne `V`.
+Release-Branches verwenden das Schema `release/x.y.z` ohne führendes `V`; der zugehörige Git-Tag lautet `x.y.z`, ebenfalls ohne `V`. Hotfix-Branches verwenden das separate Muster `hotfix/*` und werden durch die CI auch bei direkten Pushes geprüft.
 
 1. Ermittle den aktuellen Branch:
    `git rev-parse --abbrev-ref HEAD`
 2. Ein Release-Branch erkennst du an einem der folgenden Muster (case-insensitive):
    - `release/*`  (z. B. `release/2.0.0`)
-   - `release-*`
    - `hotfix/*`
 3. **Brich sofort ab**, wenn der Branch **nicht** diesem Muster entspricht – insbesondere bei:
    - `main` / `master`

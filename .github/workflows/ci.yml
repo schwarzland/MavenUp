@@ -1,12 +1,13 @@
 name: Build and Test
 
 on:
-  # Push-Builds laufen nur auf main. Feature- und Release-Branches werden ausschliesslich
-  # ueber den pull_request-Trigger (gegen main) gebaut. So wird verhindert, dass ein Push
-  # auf einen Branch mit offenem PR zwei identische Builds ausloest.
+  # Push-Builds laufen auf main und hotfix/*; Feature- und Release-Branches werden
+  # ausschliesslich ueber den pull_request-Trigger (gegen main) gebaut. Dadurch werden
+  # doppelte Builds bei Pushes auf Feature-/Release-Branches mit offenem PR vermieden.
   push:
     branches:
       - main
+      - 'hotfix/**'
     # Nur Quellcode, Plugin-Ressourcen und Build-Konfiguration starten die CI.
     # Änderungen an README, CHANGELOG, sonstiger Dokumentation oder Workflows
     # lösen keinen Build aus. Neue Dateien unter diesen Pfaden werden ebenfalls erfasst.
