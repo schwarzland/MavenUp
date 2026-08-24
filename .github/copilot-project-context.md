@@ -18,7 +18,8 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
 ### Paketstruktur
 - **`model`**: `DependencyUpdate`, `VulnerabilityAdvisory`, `VulnerabilitySeverity` – reine Daten-DTOs ohne Logik.
 - **`service`**: Alle externen API-Zugriffe, Settings, Startup-Logik und Hilfsfunktionen.
-- **`ui`**: Tool-Window, Dialoge, Settings-UI, I18n-Bundle.
+- **`ui`**: Tool-Window, Dialoge, Settings-UI, I18n-Bundle sowie ausgelagerte, zustandslose
+  UI-Hilfsdateien (siehe Komponente **UI-Hilfsdateien (ui)**).
 
 ### Komponenten
 - **MavenUpStartupActivity**: `ProjectActivity`, macht das Tool-Window beim Projektstart
@@ -71,6 +72,24 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   `confirmAndResetAllVersionsToCurrent()` kapselt `resetAllVersionsToCurrent()` und zeigt bei aktivem `confirmVersionReset` zuvor
   einen Ja/Nein-Bestätigungsdialog (`MessageDialogBuilder` mit `DoNotAskOption`, dessen „Don't ask again" die Einstellung deaktiviert).
   `isRowFilterHidingEntries()` und `bulkSelectionActionDescription()` erweitern den Tooltip der "Select Highest"-Aktionen bei aktivem Filter um einen Hinweis.
+- **UI-Hilfsdateien (ui)**: Zustandslose Top-Level-Helfer, die aus `MavenUpWindowFactory.kt`
+  in eigene Dateien desselben Packages ausgelagert wurden (reine Logik/Icons, keine
+  `MyToolWindow`-Abhängigkeit):
+  - `MavenUpTableConstants.kt`: Spalten-Indizes und Message-Key-/Typ-Konstanten.
+  - `VersionStatusUi.kt`: `VersionUpdateArrowIcon`, `isVersionUpToDate`, `hasNewerVersion`,
+    `versionStatusText`/`versionStatusColor`/`versionStatusTooltip`, `versionDropdownItemText`,
+    `createVersionPanel` samt Status-Glyphen und `JBColor`-Werten.
+  - `DependencyFilterModel.kt`: `TriStateFilter`, `TriStateFilterLabels`,
+    `triStateFilterOptionLabel`, die `*_FILTER_LABELS`, `FilterRow`, `FilterCriteria`,
+    `rowMatchesFilter`.
+  - `VulnerabilityCellModel.kt`: `VulnerabilityCell`, `buildVulnerabilityCell`,
+    `vulnerabilitySummary`, `worstSeverity`, `canCheckVulnerabilities`,
+    `VulnerabilityScanTargets`, `artifactNodeCoordinate`, `coordinateString`.
+  - `RefreshSnapshot.kt`: `RefreshRow`, `RefreshSnapshot`.
+  - `MavenRepositoryLink.kt`: `buildMavenRepositoryUrl`.
+  - `SortableHeaderIcon.kt`: `sortableHeaderIcon`.
+  - `HelpTooltipExtensions.kt`: `HelpTooltip.withWrappingDescription` (versionsunabhängige
+    `setDescription`-Brücke via Reflection).
 - **MavenUpSettings**: `PersistentStateComponent` auf Anwendungsebene (`Service.Level.APP`), global für alle Projekte gespeichert in `mavenup_settings.xml`
   (`jumpOnSingleClick`, `versionAutoSelectionMode` mit `DISABLED`, `LATEST`, `LATEST_MINOR`, `hideUnstableVersions`, `hiddenVersionQualifiers`,
   `ossIndexEnabled`, `checkTransitiveDependencies`, `repositoryBrowser`, `toolbarShowText`,

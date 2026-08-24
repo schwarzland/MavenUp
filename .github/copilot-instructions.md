@@ -68,6 +68,11 @@ Bei **jeder** Änderung im Repository sind diese Punkte immer zu berücksichtige
     - Veraltete oder entfernte Aktionen sind zu löschen.
     - Nach jeder Änderung die gesamte `getting_started.html` mit der tatsächlichen Bedienung abgleichen und sicherstellen, dass alle wesentlichen Schritte für einen Einsteiger abgedeckt sind.
     - Die Inhalte müssen mit `FEATURES.md` und `src/main/resources/META-INF/plugin.xml` abgestimmt sein; veraltete oder fehlende Einsteiger-Schritte sind zu korrigieren.
-11. **kein git commit** ausführen.
+11. **Dateigröße und Redesign** – wenn eine Klasse, ein `object` oder allgemein eine `.kt`-Datei mehr als 800 bis 1000 Zeilen Code enthält, muss sie im Sinne eines Redesigns restrukturiert werden. Dabei gelten folgende Regeln:
+    - Die Datei ist in kleinere, thematisch klar abgegrenzte Einheiten aufzuteilen (z. B. Extraktion von Services, Helfern, UI-Komponenten oder Datenmodellen in eigene Dateien).
+    - Die Aufteilung muss die bestehende Paketstruktur (`model`, `service`, `ui`) respektieren und Verantwortlichkeiten sauber trennen (Single Responsibility).
+    - Öffentliches Verhalten und bestehende Tests dürfen durch das Redesign nicht brechen; Tests sind bei Bedarf an die neue Struktur anzupassen.
+    - Nach dem Redesign sind die betroffenen Dokumentations- und Kontextdateien (insbesondere `.github/copilot-project-context.md`) an die neue Struktur anzugleichen.
+12. **kein git commit** ausführen.
 
 Diese Vorgaben gelten standardmäßig für alle KI-Änderungen (GitHub Copilot, Junie, etc.) in diesem Projekt.
