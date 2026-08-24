@@ -1,5 +1,5 @@
 [versions]
-cvssCalculator = "1.4.1"
+cvssCalculator = "1.5.1"
 junit = "4.13.2"
 
 [libraries]
