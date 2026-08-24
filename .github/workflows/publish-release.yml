@@ -32,11 +32,7 @@ jobs:
       - name: Verify Plugin
         run: ./gradlew verifyPlugin --no-daemon
 
-      # Schritt 3: Plugin-Kompatibilität mit den unterstützten IntelliJ-IDE-Builds prüfen.
-      - name: Verify Plugin Compatibility
-        run: ./gradlew runPluginVerifier --no-daemon
-
-      # Schritt 4: Verifier-Report bei einem Fehler zur Diagnose als Artefakt sichern.
+      # Schritt 3: Verifier-Report bei einem Fehler zur Diagnose als Artefakt sichern.
       - name: Upload Plugin Verifier Report
         if: failure()
         uses: actions/upload-artifact@v7

@@ -30,7 +30,7 @@ Die Entwicklung erfolgt auf `feature/*`-Branches. Änderungen werden per Pull Re
 - **Build and Test** (`.github/workflows/ci.yml`): Läuft bei jedem Push auf `main` oder `hotfix/**` sowie bei jedem neu erstellten, aktualisierten oder erneut geöffneten Pull Request gegen `main`. Feature- und Release-Branches werden dadurch ausschließlich über ihren Pull Request geprüft; Hotfix-Branches werden zusätzlich bei direkten Pushes geprüft. Für Feature- und Release-Branches werden doppelte Builds bei Pushes mit offenem Pull Request vermieden. Ein Direkt-Push nach `main` (ohne Pull Request) wird weiterhin durch den Push-Trigger abgedeckt. Der Workflow kompiliert das Plugin, führt Tests und statische Analyse (detekt) aus, erzeugt den Coverage-Report (Kover), prüft die Plugin-Struktur und führt den IntelliJ Plugin Verifier gegen die konfigurierte Kompatibilität aus. Die Berichte werden bei jedem Lauf – ob erfolgreich oder fehlgeschlagen – als Artefakt gespeichert. Jeder Job ist auf 30 Minuten begrenzt. Der Trigger greift nur bei Änderungen an Quellcode, Plugin-Ressourcen oder Build-Konfiguration.
 - **Manual Build and Test** (`.github/workflows/manual-build.yml`): Wird manuell über den **Actions**-Tab in GitHub gestartet (`Run workflow`) und kann auf einem beliebig gewählten Branch ausgeführt werden – etwa auf einem Feature-Branch ohne offenen Pull Request. Führt denselben Build wie **Build and Test** einschließlich Plugin Verifier aus, jedoch ohne Pfad-Filter, also bei jedem manuellen Anstoß. Der Button erscheint erst, sobald der Workflow auf `main` vorhanden ist; auch dieser Job ist auf 30 Minuten begrenzt.
 - **Create Draft Release** (`.github/workflows/create-draft-release.yml`): Läuft, wenn ein Tag zu GitHub gepusht wird, zum Beispiel `2.3.0`. Der aktuelle Stand des Tags wird gebaut, mit `verifyPlugin` und dem IntelliJ Plugin Verifier geprüft und anschließend als GitHub-Draft-Release mit ZIP-Datei und Release Notes angelegt. Erst der Push des Tags zu GitHub startet den Workflow. Der Job ist auf 30 Minuten begrenzt.
-- **Publish Release to Marketplace** (`.github/workflows/publish-release.yml`): Läuft, sobald ein Draft-Release im GitHub-UI manuell veröffentlicht wird (`release: published`). Vor dem Upload laufen `verifyPlugin` und der IntelliJ Plugin Verifier; bei einem Verifier-Fehler wird der Report als `plugin-verifier-report`-Artifact (7 Tage) gespeichert. Danach wird das Plugin mit `publishPlugin` in den JetBrains Marketplace hochgeladen. Dafür muss das Repository-Secret `JB_MARKETPLACE_TOKEN` gesetzt sein. Der Job ist auf 30 Minuten begrenzt und verwendet pro Release-Ref eine Concurrency-Gruppe, die laufende Publish-Läufe nicht abbricht.
+- **Publish Release to Marketplace** (`.github/workflows/publish-release.yml`): Läuft, sobald ein Draft-Release im GitHub-UI manuell veröffentlicht wird (`release: published`). Vor dem Upload prüft `verifyPlugin` das Plugin mit dem IntelliJ Plugin Verifier; bei einem Verifier-Fehler wird der Report als `plugin-verifier-report`-Artifact (7 Tage) gespeichert. Danach wird das Plugin mit `publishPlugin` in den JetBrains Marketplace hochgeladen. Dafür muss das Repository-Secret `JB_MARKETPLACE_TOKEN` gesetzt sein. Der Job ist auf 30 Minuten begrenzt und verwendet pro Release-Ref eine Concurrency-Gruppe, die laufende Publish-Läufe nicht abbricht.
 
 ### Dependabot
 
@@ -185,7 +185,7 @@ Das Plugin ist klar in drei Schichten gegliedert:
 - `VulnerabilityScanService`: ermittelt direkte und transitive Scan-Ziele aus dem Maven-Modell und kapselt die Sonatype-OSS-Index-Abfrage inklusive Fehlerbehandlung.
 - `DependencyVersionService`: fragt die verfügbaren Versionen aller Abhängigkeiten und Plugins ab und leitet daraus – abhängig von der Auto-Selektionsstrategie – eine Vorauswahl ab (`VersionSearchResult`); die zustandslosen Auto-Selektions-Helfer liegen in `VersionAutoSelection`.
 - `PomNavigationService`: sucht Abhängigkeits-, Parent- und Plugin-Definitionen in der `pom.xml` und öffnet den Editor an der jeweiligen Stelle.
-- Unterstützte CVSS-Vektoren aus OSV werden mit `us.springett:cvss-calculator` in vergleichbare Basisscores umgerechnet. Bei noch nicht unterstützten CVSS-Versionen bleibt der Befund erhalten und nutzt den Schweregrad der Quelle.
+- Unterstützte CVSS-Vektoren aus OSV werden mit `us.springett:cvss-calculator` in vergleichbare Basisscores umgerechnet. Bei noch nicht unterstützten Vektoren bleibt der Befund erhalten und nutzt den Schweregrad der Quelle.
 
 ### UI (`de.schwarzland.mavenup.ui`)
 - `MavenUpWindowFactory`: Tool-Window-Factory und UI-Interaktion für Tabelle, Update- und Vulnerability-Workflows; die Aktionen liegen in einer oberen `ActionToolbar`, Refresh-Daten werden per nicht blockierender Read-Action außerhalb des EDT erfasst.
@@ -233,8 +233,8 @@ Statische Analyse und Testabdeckung sind über Gradle eingebunden:
   ```
   Ein blockierendes Mindest-Coverage-Gate kann bei Bedarf über `koverVerify` ergänzt werden.
 
-Die CI (`.github/workflows/ci.yml`) führt `build verifyPlugin detekt koverXmlReport` sowie
-`runPluginVerifier` aus und lädt die Test- und Analyse-Reports als Artefakt hoch.
+Die CI (`.github/workflows/ci.yml`) führt `build verifyPlugin detekt koverXmlReport` aus.
+Dabei prüft `verifyPlugin` auch die Kompatibilität mit den konfigurierten IntelliJ-IDE-Builds und lädt die Test- und Analyse-Reports als Artefakt hoch.
 
 
 ---
