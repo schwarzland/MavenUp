@@ -61,17 +61,22 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
 
-      # Schritt 4: Quellcode kompilieren, Unit-Tests ausführen und Plugin-Struktur/Deskriptoren verifizieren.
-      # '--no-daemon' wird genutzt, um CI-Ressourcen sauber freizugeben und verwaiste Hintergrundprozesse zu vermeiden.
-      - name: Build, Test and Verify Plugin
-        run: ./gradlew build verifyPlugin --no-daemon
+      # Schritt 4: Quellcode kompilieren, Unit-Tests ausführen, statische Analyse (detekt),
+      # Coverage-Report (Kover) erzeugen und Plugin-Struktur/Deskriptoren verifizieren.
+      # detekt schlägt nur bei NEUEN Befunden fehl; Bestandsbefunde sind über
+      # config/detekt/baseline.xml eingefroren. '--no-daemon' gibt CI-Ressourcen sauber frei.
+      - name: Build, Test, Analyze and Verify Plugin
+        run: ./gradlew build verifyPlugin detekt koverXmlReport --no-daemon
 
-      # Schritt 5: Bei fehlgeschlagenem Build die Testberichte als Artefakt hochladen,
+      # Schritt 5: Bei fehlgeschlagenem Build die Test- und Analyse-Berichte als Artefakt hochladen,
       # um die Fehlersuche direkt im GitHub-UI anhand der HTML/XML-Reports zu ermöglichen.
-      - name: Upload test reports
+      - name: Upload test and analysis reports
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: test-reports
-          path: build/reports/tests
+          name: reports
+          path: |
+            build/reports/tests
+            build/reports/detekt
+            build/reports/kover
           retention-days: 7

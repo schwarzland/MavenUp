@@ -11,6 +11,7 @@
 - Extracted the version search and POM navigation logic from the tool window into dedicated services (`DependencyVersionService`, `PomNavigationService`) and the stateless auto-selection helpers into `VersionAutoSelection`, without any functional change.
 - Split the oversized tool window test suite by moving the decoupled version-status, refresh snapshot, POM navigation, and POM update tests into dedicated test files mirroring the package structure.
 - Added constructor injection of the version-fetch and OSS Index dependencies to `DependencyVersionService` and `VulnerabilityScanService`, and added dedicated unit tests for both services without any functional change.
+- Added detekt static analysis (with a baseline for existing findings) and Kover test-coverage reporting to the Gradle build and CI pipeline.
 
 ## 2.4.0
 

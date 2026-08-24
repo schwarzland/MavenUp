@@ -209,6 +209,28 @@ Hinweise:
   MavenUp hat keine Abhängigkeit zu Vue; dessen Initialisierung führte in manchen Test-Sandbox-Setups zu
   sporadischen `TestLoggerAssertionError`-Fehlschlägen unabhängig vom eigentlichen Testcode.
 
+## Codequalität
+
+Statische Analyse und Testabdeckung sind über Gradle eingebunden:
+
+- **detekt** (statische Code-Analyse): läuft automatisch als Teil von `./gradlew check`/`build`.
+  Die Konfiguration liegt unter `config/detekt/detekt.yml` (u. a. `LargeClass = 800` als Ausdruck
+  der 800–1000-Zeilen-Regel). Bestehende Befunde sind in `config/detekt/baseline.xml` eingefroren,
+  sodass nur **neu** eingeführte Verstöße den Build scheitern lassen. Manuell:
+  ```
+  ./gradlew detekt
+  ```
+  Die Baseline nach einem bewussten Refactoring neu erzeugen: `./gradlew detektBaseline`.
+- **Kover** (Testabdeckung): erzeugt Coverage-Reports über
+  ```
+  ./gradlew koverHtmlReport   # HTML unter build/reports/kover/html
+  ./gradlew koverXmlReport    # XML unter build/reports/kover/report.xml
+  ```
+  Ein blockierendes Mindest-Coverage-Gate kann bei Bedarf über `koverVerify` ergänzt werden.
+
+Die CI (`.github/workflows/ci.yml`) führt `build verifyPlugin detekt koverXmlReport` aus und lädt
+bei Fehlschlägen die Test- und Analyse-Reports als Artefakt hoch.
+
 
 ---
 

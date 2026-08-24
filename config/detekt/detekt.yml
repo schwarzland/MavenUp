@@ -1,0 +1,37 @@
+# detekt-Konfiguration für MavenUp.
+# Es werden nur bewusste Abweichungen von der Standardkonfiguration gesetzt
+# (build.gradle.kts: buildUponDefaultConfig = true). Bestehende Befunde sind über
+# config/detekt/baseline.xml eingefroren; neue Verstöße lassen den Build scheitern.
+
+complexity:
+  # Spiegelt die verbindliche 800–1000-Zeilen-Regel wider: Klassen ab 800 Zeilen gelten
+  # als zu groß und sollen im Sinne eines Redesigns aufgeteilt werden.
+  LargeClass:
+    active: true
+    threshold: 800
+  LongMethod:
+    active: true
+    threshold: 80
+  LongParameterList:
+    active: true
+    functionThreshold: 8
+    constructorThreshold: 8
+  TooManyFunctions:
+    active: true
+    thresholdInFiles: 40
+    thresholdInClasses: 40
+    thresholdInObjects: 40
+    thresholdInInterfaces: 40
+    thresholdInEnums: 40
+
+style:
+  MaxLineLength:
+    active: true
+    maxLineLength: 160
+  # Farbwerte, Spaltenindizes und ähnliche Konstanten sind in einer UI-Codebasis allgegenwärtig
+  # und würden die Signalqualität senken; benannte Konstanten werden per Konvention gepflegt.
+  MagicNumber:
+    active: false
+  ReturnCount:
+    active: true
+    max: 5
