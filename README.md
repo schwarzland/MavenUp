@@ -23,11 +23,12 @@ Das Plugin öffnet ein Tool-Window namens **MavenUp** (meist am linken oder unte
 
 ## Branching-Strategie und GitHub Actions
 
-Die Entwicklung erfolgt auf `feature/*`-Branches. Änderungen werden per Pull Request nach `main` zusammengeführt. Für die Stabilisierung eines Releases wird ein `release/*`-Branch verwendet. Die Branch-Namen sind zugleich die Bereiche, für die die CI konfiguriert ist.
+Die Entwicklung erfolgt auf `feature/*`-Branches. Änderungen werden per Pull Request nach `main` zusammengeführt. Für die Stabilisierung eines Releases wird ein `release/*`-Branch verwendet, der ebenfalls per Pull Request nach `main` gemergt wird.
 
 ### Automatische Workflows
 
-- **Build and Test** (`.github/workflows/ci.yml`): Läuft bei jedem Push auf `main`, `feature/**` oder `release/**`. Zusätzlich läuft sie bei jedem neu erstellten, aktualisierten oder erneut geöffneten Pull Request gegen `main`. Der Workflow kompiliert das Plugin, führt Tests aus und prüft die Plugin-Struktur. Bei einem Fehler werden die Testberichte als Artefakt gespeichert.
+- **Build and Test** (`.github/workflows/ci.yml`): Läuft bei jedem Push auf `main` sowie bei jedem neu erstellten, aktualisierten oder erneut geöffneten Pull Request gegen `main`. Feature- und Release-Branches werden dadurch ausschließlich über ihren Pull Request geprüft. So wird verhindert, dass ein Push auf einen Branch mit offenem Pull Request zwei identische Builds auslöst. Ein Direkt-Push nach `main` (ohne Pull Request) wird weiterhin durch den Push-Trigger abgedeckt. Der Workflow kompiliert das Plugin, führt Tests und statische Analyse (detekt) aus, erzeugt den Coverage-Report (Kover) und prüft die Plugin-Struktur. Bei einem Fehler werden die Berichte als Artefakt gespeichert. Der Trigger greift nur bei Änderungen an Quellcode, Plugin-Ressourcen oder Build-Konfiguration.
+- **Manual Build and Test** (`.github/workflows/manual-build.yml`): Wird manuell über den **Actions**-Tab in GitHub gestartet (`Run workflow`) und kann auf einem beliebig gewählten Branch ausgeführt werden – etwa auf einem Feature-Branch ohne offenen Pull Request. Führt denselben Build wie **Build and Test** aus, jedoch ohne Pfad-Filter, also bei jedem manuellen Anstoß. Der Button erscheint erst, sobald der Workflow auf `main` vorhanden ist.
 - **Create Draft Release** (`.github/workflows/create-draft-release.yml`): Läuft, wenn ein Tag zu GitHub gepusht wird, zum Beispiel `2.3.0`. Der aktuelle Stand des Tags wird gebaut und als GitHub-Draft-Release mit ZIP-Datei und Release Notes angelegt. Erst der Push des Tags zu GitHub startet den Workflow.
 - **Publish Release to Marketplace** (`.github/workflows/publish-release.yml`): Läuft, sobald ein Draft-Release im GitHub-UI manuell veröffentlicht wird (`release: published`). Danach wird das Plugin mit `publishPlugin` in den JetBrains Marketplace hochgeladen. Dafür muss das Repository-Secret `JB_MARKETPLACE_TOKEN` gesetzt sein.
 

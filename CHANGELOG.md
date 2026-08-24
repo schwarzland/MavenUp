@@ -12,6 +12,8 @@
 - Split the oversized tool window test suite by moving the decoupled version-status, refresh snapshot, POM navigation, and POM update tests into dedicated test files mirroring the package structure.
 - Added constructor injection of the version-fetch and OSS Index dependencies to `DependencyVersionService` and `VulnerabilityScanService`, and added dedicated unit tests for both services without any functional change.
 - Added detekt static analysis (with a baseline for existing findings) and Kover test-coverage reporting to the Gradle build and CI pipeline.
+- Removed `feature/**` and `release/**` from the CI `push` trigger so that pushing a branch with an open pull request no longer runs two identical builds; feature and release branches are now validated solely via the `pull_request` trigger against `main`, while `push` only builds `main`.
+- Added a separate `manual-build.yml` workflow with a `workflow_dispatch` trigger so the build can be started manually from the GitHub Actions tab for any selected branch (e.g. a feature branch without an open pull request), independent of the automatic CI workflow and its path filters.
 
 ## 2.4.0
 
