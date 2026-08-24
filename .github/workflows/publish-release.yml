@@ -21,30 +21,19 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      # Schritt 1: Quellcode des freigegebenen Release-Stands aus dem Repository auschecken.
-      - name: Checkout Code
-        uses: actions/checkout@v7
+      # Schritt 1: Gemeinsame Build-Umgebung mit Checkout, JDK 21 und Gradle einrichten.
+      - name: Set up build environment
+        uses: ./.github/actions/setup
 
-      # Schritt 2: JDK 21 (Zulu-Distribution) für den Build- und Veröffentlichungsprozess bereitstellen.
-      - name: Set up JDK 21
-        uses: actions/setup-java@v5
-        with:
-          java-version: '21'
-          distribution: 'zulu'
-
-      # Schritt 3: Gradle einrichten und automatisches Caching der Build-Dependencies aktivieren.
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v6
-
-      # Schritt 4: Plugin vor der Veröffentlichung verifizieren.
+      # Schritt 2: Plugin vor der Veröffentlichung verifizieren.
       - name: Verify Plugin
         run: ./gradlew verifyPlugin --no-daemon
 
-      # Schritt 5: Plugin-Kompatibilität mit den unterstützten IntelliJ-IDE-Builds prüfen.
+      # Schritt 3: Plugin-Kompatibilität mit den unterstützten IntelliJ-IDE-Builds prüfen.
       - name: Verify Plugin Compatibility
         run: ./gradlew runPluginVerifier --no-daemon
 
-      # Schritt 6: Verifier-Report bei einem Fehler zur Diagnose als Artefakt sichern.
+      # Schritt 4: Verifier-Report bei einem Fehler zur Diagnose als Artefakt sichern.
       - name: Upload Plugin Verifier Report
         if: failure()
         uses: actions/upload-artifact@v6
@@ -54,7 +43,7 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-      # Schritt 7: Plugin bauen und als verborgenes Release im JetBrains Marketplace veröffentlichen.
+      # Schritt 5: Plugin bauen und als verborgenes Release im JetBrains Marketplace veröffentlichen.
       # Das IntelliJ Platform Gradle Plugin (2.x) erwartet das Marketplace-Upload-Token über
       # die Umgebungsvariable PUBLISH_TOKEN.
       - name: Publish to JetBrains Marketplace
