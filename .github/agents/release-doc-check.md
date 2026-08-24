@@ -14,6 +14,8 @@ und fehlende oder falsche Angaben ergänzt bzw. korrigiert.
 
 Der Agent arbeitet **ausschließlich auf einem Release-Branch**.
 
+Release-Branches verwenden das Schema `release/x.y.z` ohne führendes `V`; der zugehörige Git-Tag lautet `x.y.z`, ebenfalls ohne `V`.
+
 1. Ermittle den aktuellen Branch:
    `git rev-parse --abbrev-ref HEAD`
 2. Ein Release-Branch erkennst du an einem der folgenden Muster (case-insensitive):

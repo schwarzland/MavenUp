@@ -23,7 +23,7 @@ Das Plugin öffnet ein Tool-Window namens **MavenUp** (meist am linken oder unte
 
 ## Branching-Strategie und GitHub Actions
 
-Die Entwicklung erfolgt auf `feature/*`-Branches. Änderungen werden per Pull Request nach `main` zusammengeführt. Für die Stabilisierung eines Releases wird ein `release/*`-Branch verwendet, der ebenfalls per Pull Request nach `main` gemergt wird.
+Die Entwicklung erfolgt auf `feature/*`-Branches. Änderungen werden per Pull Request nach `main` zusammengeführt. Für die Stabilisierung eines Releases wird ein `release/*`-Branch verwendet, der ebenfalls per Pull Request nach `main` gemergt wird. Das einheitliche Schema lautet: Release-Branch `release/x.y.z`, Git-Tag `x.y.z` – jeweils ohne führendes `V`.
 
 ### Automatische Workflows
 
@@ -62,8 +62,8 @@ Ohne `-PmarketplaceHidden=true` wird das Plugin regulär veröffentlicht. Der Au
 Die folgenden Befehle werden beispielsweise Terminal ausgeführt. Der Tag sollte auf dem geprüften Release-Branch erstellt werden:
 
 ```bash
-git switch release/V2.3.0
-git pull --ff-only origin release/V2.3.0
+git switch release/2.3.0
+git pull --ff-only origin release/2.3.0
 git tag 2.3.0
 git push origin 2.3.0
 ```
@@ -76,8 +76,8 @@ Für einen neuen Release-Branch können die Schritte beispielsweise so aussehen:
 ```bash
 git switch main
 git pull --ff-only origin main
-git switch -c release/V2.3.0
-git push -u origin release/V2.3.0
+git switch -c release/2.3.0
+git push -u origin release/2.3.0
 ```
 
 Ein Tag allein startet keinen lokalen IntelliJ-Run-Task: Die Workflows laufen auf GitHub Actions, sobald Branch, Pull Request oder Tag zum Remote-Repository gepusht wurden.
