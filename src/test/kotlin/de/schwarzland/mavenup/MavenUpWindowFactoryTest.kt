@@ -11,6 +11,8 @@ import de.schwarzland.mavenup.service.VersionAutoSelectionMode
 import de.schwarzland.mavenup.ui.buildMavenRepositoryUrl
 import de.schwarzland.mavenup.ui.MavenUpWindowFactory
 import de.schwarzland.mavenup.ui.UpdateConfirmationDialog
+import de.schwarzland.mavenup.service.RefreshSnapshotCollector
+import de.schwarzland.mavenup.service.PomUpdateService
 import de.schwarzland.mavenup.ui.MyMessageBundle
 import de.schwarzland.mavenup.ui.RefreshSnapshot
 import de.schwarzland.mavenup.ui.buildVulnerabilityCell
@@ -202,10 +204,10 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
     }
 
     fun testRefreshSnapshotCollectionRunsOutsideEdt() {
-        val toolWindowInstance = MavenUpWindowFactory().MyToolWindow(project)
+        val collector = RefreshSnapshotCollector(project)
 
         val snapshot: RefreshSnapshot = ReadAction.nonBlocking<RefreshSnapshot> {
-            toolWindowInstance.collectRefreshSnapshot("managed dependency")
+            collector.collectRefreshSnapshot("managed dependency")
         }.submit(AppExecutorUtil.getAppExecutorService()).get(5, TimeUnit.SECONDS)
 
         assertNotNull(snapshot)
@@ -309,18 +311,17 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val directDep = deps?.find { it.findFirstSubTag("artifactId")?.value?.text == "direct" }
         val propDep = deps?.find { it.findFirstSubTag("artifactId")?.value?.text == "prop" }
 
-        val factory = MavenUpWindowFactory()
-        val toolWindowInstance = factory.MyToolWindow(project)
+        val pomUpdateService = PomUpdateService(project)
 
         // Update direct version
         WriteCommandAction.runWriteCommandAction(project) {
-            toolWindowInstance.updateXmlTagVersion(directDep!!, "1.1.0", propertiesTag)
+            pomUpdateService.updateXmlTagVersion(directDep!!, "1.1.0", propertiesTag)
         }
         assertEquals("1.1.0", directDep?.findFirstSubTag("version")?.value?.text)
 
         // Update property version
         WriteCommandAction.runWriteCommandAction(project) {
-            toolWindowInstance.updateXmlTagVersion(propDep!!, "1.2.0", propertiesTag)
+            pomUpdateService.updateXmlTagVersion(propDep!!, "1.2.0", propertiesTag)
         }
         assertEquals("${'$'}{example.version}", propDep?.findFirstSubTag("version")?.value?.text)
         assertEquals("1.2.0", propertiesTag?.findFirstSubTag("example.version")?.value?.text)
@@ -1010,24 +1011,17 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val psiFile = myFixture.configureByText("pom.xml", pomContent) as XmlFile
         val rootTag = psiFile.document?.rootTag
 
-        val factory = MavenUpWindowFactory()
-        val toolWindowInstance = factory.MyToolWindow(project)
-
+        val collector = RefreshSnapshotCollector(project)
         val targetMap = mutableMapOf<String, String>()
+        val dependencyToProperty = mutableMapOf<String, String>()
 
-        // Use reflection to access private method and private map
-        val collectMethod = toolWindowInstance.javaClass.getDeclaredMethod(
-            "collectDependenciesAndProperties",
-            com.intellij.psi.xml.XmlTag::class.java,
-            String::class.java,
-            String::class.java,
-            MutableMap::class.java
-        ).apply { isAccessible = true }
-
-        val dependencyToPropertyField = toolWindowInstance.javaClass.getDeclaredField("dependencyToProperty").apply { isAccessible = true }
-        val dependencyToProperty = dependencyToPropertyField.get(toolWindowInstance) as MutableMap<String, String>
-
-        collectMethod.invoke(toolWindowInstance, rootTag, "dependencies", "dependency", targetMap)
+        collector.collectDependenciesAndProperties(
+            rootTag,
+            "dependencies",
+            "dependency",
+            targetMap,
+            dependencyToProperty
+        )
 
         assertEquals("${"$"}{my.version}", targetMap["com.example:with-prop"])
         assertEquals("1.0.0", targetMap["com.example:no-prop"])
@@ -1060,19 +1054,16 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val rootTag = psiFile.document?.rootTag
         val buildTag = rootTag?.findFirstSubTag("build")
 
-        val factory = MavenUpWindowFactory()
-        val toolWindowInstance = factory.MyToolWindow(project)
+        val collector = RefreshSnapshotCollector(project)
         val targetMap = mutableMapOf<String, String>()
 
-        val collectMethod = toolWindowInstance.javaClass.getDeclaredMethod(
-            "collectDependenciesAndProperties",
-            com.intellij.psi.xml.XmlTag::class.java,
-            String::class.java,
-            String::class.java,
-            MutableMap::class.java
-        ).apply { isAccessible = true }
-
-        collectMethod.invoke(toolWindowInstance, buildTag, "plugins", "plugin", targetMap)
+        collector.collectDependenciesAndProperties(
+            buildTag,
+            "plugins",
+            "plugin",
+            targetMap,
+            mutableMapOf()
+        )
 
         assertEquals("1.0.0", targetMap["org.example:valid-plugin"])
         assertNull(targetMap[":missing-group-plugin"])
@@ -1152,7 +1143,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val toolWindowInstance = factory.MyToolWindow(project)
         val properties = mutableMapOf<String, String>()
 
-        val parentRow = toolWindowInstance.collectParentDependency(rootTag, properties)
+        val parentRow = RefreshSnapshotCollector(project).collectParentDependency(rootTag, properties)
 
         assertNotNull("Parent-Dependency sollte gefunden werden", parentRow)
         assertEquals("org.springframework.boot", parentRow!!.groupId)
@@ -1180,7 +1171,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val toolWindowInstance = factory.MyToolWindow(project)
         val properties = mutableMapOf<String, String>()
 
-        val parentRow = toolWindowInstance.collectParentDependency(rootTag, properties)
+        val parentRow = RefreshSnapshotCollector(project).collectParentDependency(rootTag, properties)
 
         assertNotNull(parentRow)
         assertEquals("boot.version", parentRow!!.propertyName)
@@ -1195,7 +1186,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         assertEquals(
             "4.1.100.Final",
-            toolWindowInstance.resolveVersionPlaceholder("\${netty-bom.version}", properties)
+            RefreshSnapshotCollector(project).resolveVersionPlaceholder("\${netty-bom.version}", properties)
         )
     }
 
@@ -1205,7 +1196,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         assertEquals(
             "1.2.3",
-            toolWindowInstance.resolveVersionPlaceholder("1.2.3", mapOf("some.version" to "9.9.9"))
+            RefreshSnapshotCollector(project).resolveVersionPlaceholder("1.2.3", mapOf("some.version" to "9.9.9"))
         )
     }
 
@@ -1215,7 +1206,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         assertEquals(
             "\${unknown.version}",
-            toolWindowInstance.resolveVersionPlaceholder("\${unknown.version}", emptyMap())
+            RefreshSnapshotCollector(project).resolveVersionPlaceholder("\${unknown.version}", emptyMap())
         )
     }
 
@@ -1225,7 +1216,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         assertEquals(
             "\${blank.version}",
-            toolWindowInstance.resolveVersionPlaceholder("\${blank.version}", mapOf("blank.version" to "   "))
+            RefreshSnapshotCollector(project).resolveVersionPlaceholder("\${blank.version}", mapOf("blank.version" to "   "))
         )
     }
 
@@ -1249,7 +1240,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val toolWindowInstance = factory.MyToolWindow(project)
         val properties = mutableMapOf<String, String>()
 
-        val parentRow = toolWindowInstance.collectParentDependency(rootTag, properties)
+        val parentRow = RefreshSnapshotCollector(project).collectParentDependency(rootTag, properties)
         assertNull("Ohne Parent-Tag sollte null zurückgegeben werden", parentRow)
     }
 
@@ -1269,7 +1260,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val factory = MavenUpWindowFactory()
         val toolWindowInstance = factory.MyToolWindow(project)
 
-        val parentRow = toolWindowInstance.collectParentDependency(rootTag, mutableMapOf())
+        val parentRow = RefreshSnapshotCollector(project).collectParentDependency(rootTag, mutableMapOf())
         assertNull("Parent ohne groupId sollte übersprungen werden", parentRow)
     }
 
@@ -1313,11 +1304,10 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val rootTag = psiFile.document?.rootTag
         val parentTag = rootTag?.findFirstSubTag("parent")
 
-        val factory = MavenUpWindowFactory()
-        val toolWindowInstance = factory.MyToolWindow(project)
+        val pomUpdateService = PomUpdateService(project)
 
         WriteCommandAction.runWriteCommandAction(project) {
-            toolWindowInstance.updateXmlTagVersion(parentTag!!, "3.2.0", null)
+            pomUpdateService.updateXmlTagVersion(parentTag!!, "3.2.0", null)
         }
         assertEquals("3.2.0", parentTag?.findFirstSubTag("version")?.value?.text)
     }

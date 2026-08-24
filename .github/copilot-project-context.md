@@ -86,7 +86,7 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
     `triStateFilterOptionLabel`, die `*_FILTER_LABELS`, `FilterRow`, `FilterCriteria`,
     `rowMatchesFilter`.
   - `VulnerabilityCellModel.kt`: `VulnerabilityCell`, `buildVulnerabilityCell`,
-    `vulnerabilitySummary`, `worstSeverity`, `canCheckVulnerabilities`,
+    `vulnerabilitySummary`, `worstSeverity`, `canCheckVulnerabilities`, `vulnerabilityColor`,
     `VulnerabilityScanTargets`, `artifactNodeCoordinate`, `coordinateString`.
   - `RefreshSnapshot.kt`: `RefreshRow`, `RefreshSnapshot`.
   - `MavenRepositoryLink.kt`: `buildMavenRepositoryUrl`.
@@ -138,6 +138,16 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   quellenübergreifende Deduplizierung anhand von IDs/Aliasen; CVSS-Vektoren werden über
   `us.springett:cvss-calculator` normalisiert, bei nicht unterstützten CVSS-Versionen wird auf
   den Schweregrad der Quelle zurückgefallen.
+- **RefreshSnapshotCollector**: liest über PSI die deklarierten Dependencies, Plugins und
+  Versions-Properties der `pom.xml`-Dateien und liefert einen `RefreshSnapshot`; löst
+  Property-Platzhalter über `resolveVersionPlaceholder` auf. Zustandslos, benötigt nur das Projekt.
+- **PomUpdateService**: wendet ausgewählte Updates über PSI/`WriteCommandAction` auf die
+  `pom.xml` an (`applyUpdateToPom`, `updateXmlTagVersion`, Parent/Dependencies/Plugins) und
+  speichert die Dateien vor dem Maven-Sync (`persistPomChanges`).
+- **VulnerabilityScanService**: ermittelt direkte/transitive Scan-Ziele aus dem Maven-Modell
+  (`collectVulnerabilityScanTargets`, `collectResolvedDependencyRelations`) und kapselt die
+  OSS-Index-Abfrage (`resolveOssIndexResults`, Ergebnis `OssIndexScanResult`). Die reine
+  Farbzuordnung `vulnerabilityColor` liegt als Top-Level-Helfer in `VulnerabilityCellModel`.
 - **VulnerabilityDetailDialog**: Detailansicht für direkte und transitive Befunde. Rein informativer Dialog – zeigt ausschließlich einen **Close**-Button (kein OK/Cancel), entsprechend den JetBrains UI-Richtlinien für read-only Dialoge. Die Aktionen **Open in ...** und **References...** liegen in einer oberen `ActionToolbar` des Dialogs, sind initial deaktiviert und werden erst bei selektierter Vulnerability-Zeile aktiviert; zusätzlich öffnet ein Rechtsklick auf die selektierte Zeile in allen Spalten außer **References** das Kontextmenü mit **Open in Maven Repository** und **References...**.
 - **ReferencesListDialog**: Zeigt alle Referenz-Links eines Advisories als klickbare Liste. Ebenfalls rein informativer Dialog mit ausschließlich einem **Close**-Button.
 - **MyMessageBundle**: I18n-Wrapper (`messages.MyMessageBundle`).

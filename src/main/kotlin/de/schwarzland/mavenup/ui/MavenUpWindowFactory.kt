@@ -6,9 +6,9 @@ import de.schwarzland.mavenup.model.VulnerabilitySeverity
 import de.schwarzland.mavenup.service.DependencyApiService
 import de.schwarzland.mavenup.service.MavenUpSettings
 import de.schwarzland.mavenup.service.MAVEN_UP_SETTINGS_TOPIC
-import de.schwarzland.mavenup.service.OssIndexApiService
-import de.schwarzland.mavenup.service.OssIndexAuthenticationException
-import de.schwarzland.mavenup.service.OssIndexCredentialService
+import de.schwarzland.mavenup.service.RefreshSnapshotCollector
+import de.schwarzland.mavenup.service.PomUpdateService
+import de.schwarzland.mavenup.service.VulnerabilityScanService
 import de.schwarzland.mavenup.service.VersionAutoSelectionMode
 import de.schwarzland.mavenup.service.VulnerabilityApiService
 import de.schwarzland.mavenup.service.VulnerabilityMerger
@@ -114,9 +114,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
      */
     internal inner class MyToolWindow(private val project: Project) : Disposable {
         private val vulnerabilityApiService = VulnerabilityApiService()
-        private val ossIndexApiService = OssIndexApiService()
-        private val ossIndexCredentialService = OssIndexCredentialService()
+        private val vulnerabilityScanService = VulnerabilityScanService(project)
         private val dependencyApiService = DependencyApiService(project)
+        private val refreshSnapshotCollector = RefreshSnapshotCollector(project)
+        private val pomUpdateService = PomUpdateService(project)
         private val availableVersions = mutableMapOf<String, List<String>>()
         private val selectedVersions = mutableMapOf<String, String>()
         private val dependencyToProperty = mutableMapOf<String, String>()
@@ -522,7 +523,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 val managedDependencyType =
                     MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
                 ReadAction.nonBlocking<RefreshSnapshot> {
-                    collectRefreshSnapshot(managedDependencyType)
+                    refreshSnapshotCollector.collectRefreshSnapshot(managedDependencyType)
                 }.expireWith(this@MyToolWindow)
                     .finishOnUiThread(ModalityState.any()) { snapshot ->
                         if (generation != refreshGeneration) {
@@ -584,11 +585,11 @@ class MavenUpWindowFactory : ToolWindowFactory {
                                     val mavenManager = MavenProjectsManager.getInstance(project)
                                     val pomFiles = mavenManager.projects.map { it.file }
                                     mavenManager.projects.forEach { mavenProject ->
-                                        applyUpdateToPom(mavenProject, updates)
+                                        pomUpdateService.applyUpdateToPom(mavenProject, updates)
                                     }
 
                                     if (shouldSyncMaven) {
-                                        persistPomChanges(pomFiles)
+                                        pomUpdateService.persistPomChanges(pomFiles)
                                         mavenManager.forceUpdateAllProjectsOrFindAllAvailablePomFiles()
                                     }
 
@@ -1559,225 +1560,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
-         * Löst einen Versionswert auf, der als Maven-Property-Platzhalter der Form
-         * `${property.name}` vorliegen kann. Wird häufig für Einträge im
-         * `dependencyManagement` benötigt, deren Version über eine Property (z. B.
-         * `${netty-bom.version}`) definiert ist und die nicht im aufgelösten
-         * Abhängigkeitsbaum auftauchen.
-         *
-         * Ist [value] kein Platzhalter oder die Property in [properties] nicht (mit
-         * nicht-leerem Wert) vorhanden, wird [value] unverändert zurückgegeben.
-         *
-         * @param value Der möglicherweise als Platzhalter vorliegende Versionswert.
-         * @param properties Die effektiven Maven-Properties (Property-Name -> Wert).
-         * @return Die aufgelöste Version oder der ursprüngliche Wert.
-         */
-        internal fun resolveVersionPlaceholder(value: String, properties: Map<String, String>): String {
-            if (!value.startsWith("\${") || !value.endsWith("}")) return value
-            val propertyName = value.substring(2, value.length - 1)
-            return properties[propertyName]?.takeIf { it.isNotBlank() } ?: value
-        }
-
-        @Suppress("unused")
-        private fun collectDependenciesAndProperties(
-            parentTag: XmlTag?,
-            wrapperTagName: String,
-            itemTagName: String,
-            targetMap: MutableMap<String, String>
-        ) {
-            collectDependenciesAndProperties(
-                parentTag,
-                wrapperTagName,
-                itemTagName,
-                targetMap,
-                dependencyToProperty
-            )
-        }
-
-        /**
-         * Durchsucht die XML-Tags nach Abhängigkeiten und extrahiert deren Koordinaten sowie
-         * mögliche Platzhalter (Properties).
-         */
-        private fun collectDependenciesAndProperties(
-            parentTag: XmlTag?,
-            wrapperTagName: String,
-            itemTagName: String,
-            targetMap: MutableMap<String, String>,
-            propertyTargetMap: MutableMap<String, String>
-        ) {
-            val wrapperTag = parentTag?.findFirstSubTag(wrapperTagName) ?: parentTag
-            wrapperTag?.findSubTags(itemTagName)?.forEach { tag ->
-                val g = tag.findFirstSubTag("groupId")?.value?.text?.trim().orEmpty()
-                if (g.isEmpty()) return@forEach
-                val a = tag.findFirstSubTag("artifactId")?.value?.text ?: ""
-                val v = tag.findFirstSubTag("version")?.value?.text ?: ""
-                val key = "$g:$a"
-                targetMap[key] = v
-
-                val versionText = tag.findFirstSubTag("version")?.value?.trimmedText
-                if (versionText != null && versionText.startsWith("\${") && versionText.endsWith("}")) {
-                    propertyTargetMap[key] = versionText.substring(2, versionText.length - 1)
-                }
-            }
-        }
-
-        /**
-         * Liest die Parent-Dependency aus dem `<parent>`-Tag der `pom.xml` und erzeugt eine [RefreshRow].
-         * Gibt `null` zurück, wenn kein Parent-Tag vorhanden ist oder groupId/artifactId leer sind.
-         *
-         * @param rootTag Das Root-Tag der `pom.xml`.
-         * @param propertyTargetMap Ziel-Map für erkannte Maven-Property-Platzhalter.
-         * @return Eine [RefreshRow] mit Typ [PARENT_TYPE] oder `null`.
-         */
-        internal fun collectParentDependency(
-            rootTag: XmlTag?,
-            propertyTargetMap: MutableMap<String, String>
-        ): RefreshRow? {
-            val parentTag = rootTag?.findFirstSubTag("parent") ?: return null
-            val g = parentTag.findFirstSubTag("groupId")?.value?.text?.trim().orEmpty()
-            if (g.isEmpty()) return null
-            val a = parentTag.findFirstSubTag("artifactId")?.value?.text?.trim().orEmpty()
-            if (a.isEmpty()) return null
-            val v = parentTag.findFirstSubTag("version")?.value?.text?.trim().orEmpty()
-            val key = "$g:$a"
-
-            val versionText = parentTag.findFirstSubTag("version")?.value?.trimmedText
-            var propertyName = ""
-            if (versionText != null && versionText.startsWith("\${") && versionText.endsWith("}")) {
-                propertyName = versionText.substring(2, versionText.length - 1)
-                propertyTargetMap[key] = propertyName
-            }
-
-            return RefreshRow(
-                groupId = g,
-                artifactId = a,
-                propertyName = propertyName,
-                type = PARENT_TYPE,
-                currentVersion = v
-            )
-        }
-
-        /**
-         * Erstellt einen Schnappschuss der aktuellen Abhängigkeiten im Projekt.
-         * Muss außerhalb des Event Dispatch Threads aufgerufen werden.
-         */
-        internal fun collectRefreshSnapshot(managedDependencyType: String): RefreshSnapshot {
-            check(!ApplicationManager.getApplication().isDispatchThread) {
-                "Refresh data must not be collected on the Event Dispatch Thread"
-            }
-
-            val rows = mutableListOf<RefreshRow>()
-            val properties = mutableMapOf<String, String>()
-            MavenProjectsManager.getInstance(project).projects.forEach { mavenProject ->
-                val psiFile = PsiManager.getInstance(project).findFile(mavenProject.file) as? XmlFile
-                val localDependencies = mutableMapOf<String, String>()
-                val managedDependencies = mutableMapOf<String, String>()
-                val localPlugins = mutableMapOf<String, String>()
-                val managedPlugins = mutableMapOf<String, String>()
-
-                if (psiFile != null) {
-                    val documentElement = psiFile.document?.rootTag
-
-                    // Parent-Dependency erfassen
-                    collectParentDependency(documentElement, properties)?.let { parentRow ->
-                        rows.add(parentRow)
-                    }
-
-                    collectDependenciesAndProperties(
-                        documentElement,
-                        "dependencies",
-                        "dependency",
-                        localDependencies,
-                        properties
-                    )
-                    val dependencyManagement = documentElement?.findFirstSubTag("dependencyManagement")
-                    collectDependenciesAndProperties(
-                        dependencyManagement,
-                        "dependencies",
-                        "dependency",
-                        managedDependencies,
-                        properties
-                    )
-                    val buildTag = documentElement?.findFirstSubTag("build")
-                    collectDependenciesAndProperties(buildTag, "plugins", "plugin", localPlugins, properties)
-                    val pluginManagement = buildTag?.findFirstSubTag("pluginManagement")
-                    collectDependenciesAndProperties(
-                        pluginManagement,
-                        "plugins",
-                        "plugin",
-                        managedPlugins,
-                        properties
-                    )
-                }
-
-                val effectiveProperties =
-                    mavenProject.properties.entries.associate { (k, v) -> k.toString() to v.toString() }
-                val resolvedDependencies =
-                    mavenProject.dependencyTree.associateBy { "${it.artifact.groupId}:${it.artifact.artifactId}" }
-                val seenLocalDependencyKeys = mutableSetOf<String>()
-                val seenManagedDependencyKeys = mutableSetOf<String>()
-                localDependencies.forEach { (key, value) ->
-                    if (!seenLocalDependencyKeys.add(key)) return@forEach
-                    rows.add(
-                        RefreshRow(
-                            groupId = key.substringBefore(":"),
-                            artifactId = key.substringAfter(":"),
-                            propertyName = properties[key].orEmpty(),
-                            type = "dependency",
-                            currentVersion = resolvedDependencies[key]?.artifact?.version
-                                ?: resolveVersionPlaceholder(value, effectiveProperties)
-                        )
-                    )
-                }
-                managedDependencies.forEach { (key, value) ->
-                    if (!seenManagedDependencyKeys.add(key)) return@forEach
-                    rows.add(
-                        RefreshRow(
-                            groupId = key.substringBefore(":"),
-                            artifactId = key.substringAfter(":"),
-                            propertyName = properties[key].orEmpty(),
-                            type = managedDependencyType,
-                            currentVersion = resolvedDependencies[key]?.artifact?.version
-                                ?: resolveVersionPlaceholder(value, effectiveProperties)
-                        )
-                    )
-                }
-
-                val resolvedPlugins = mavenProject.plugins.associateBy { "${it.groupId}:${it.artifactId}" }
-                val seenLocalPluginKeys = mutableSetOf<String>()
-                val seenManagedPluginKeys = mutableSetOf<String>()
-                localPlugins.forEach { (key, value) ->
-                    if (!seenLocalPluginKeys.add(key)) return@forEach
-                    rows.add(
-                        RefreshRow(
-                            groupId = key.substringBefore(":"),
-                            artifactId = key.substringAfter(":"),
-                            propertyName = properties[key].orEmpty(),
-                            type = "plugin",
-                            currentVersion = resolvedPlugins[key]?.version
-                                ?: resolveVersionPlaceholder(value, effectiveProperties)
-                        )
-                    )
-                }
-                managedPlugins.forEach { (key, value) ->
-                    if (!seenManagedPluginKeys.add(key)) return@forEach
-                    rows.add(
-                        RefreshRow(
-                            groupId = key.substringBefore(":"),
-                            artifactId = key.substringAfter(":"),
-                            propertyName = properties[key].orEmpty(),
-                            type = MANAGED_PLUGIN,
-                            currentVersion = resolvedPlugins[key]?.version
-                                ?: resolveVersionPlaceholder(value, effectiveProperties)
-                        )
-                    )
-                }
-            }
-
-            return RefreshSnapshot(rows, properties)
-        }
-
-        /**
          * Orchestriert den Prozess der Versionssuche und aktualisiert die Aktionsleiste.
          *
          * @param refreshAfterCheck Callback, der nach Abschluss der Prüfung ausgeführt wird.
@@ -1800,148 +1582,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
-         * Wendet die ausgewählten Updates auf die `pom.xml` des Projekts an.
-         */
-        private fun applyUpdateToPom(
-            mavenProject: MavenProject,
-            updates: List<DependencyUpdate>
-        ) {
-            val pomFile = mavenProject.file
-            val psiFile = ApplicationManager.getApplication().runReadAction<XmlFile?> {
-                PsiManager.getInstance(project).findFile(pomFile) as? XmlFile
-            } ?: return
-
-            WriteCommandAction.runWriteCommandAction(project) {
-                val documentElement = psiFile.document?.rootTag ?: return@runWriteCommandAction
-                val propertiesTag = documentElement.findFirstSubTag("properties")
-
-                updates.forEach { update ->
-                    val managedDependencyType = MyMessageBundle.message(
-                        TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY
-                    )
-                    when (update.type) {
-                        PARENT_TYPE -> {
-                            updateParent(documentElement, update, propertiesTag)
-                        }
-                        "dependency", managedDependencyType -> {
-                            updateDependencies(documentElement, update, propertiesTag)
-                        }
-                        "plugin", MANAGED_PLUGIN -> {
-                            updatePlugins(documentElement, update, propertiesTag)
-                        }
-                    }
-                }
-            }
-        }
-
-        /**
-         * Schreibt die zuvor über PSI geänderten `pom.xml`-Dateien auf die Festplatte.
-         *
-         * PSI-/Document-Änderungen liegen zunächst nur im Speicher vor. Der anschließende
-         * Maven-Sync (`forceUpdateAllProjectsOrFindAllAvailablePomFiles`) liest die POM-Dateien
-         * jedoch von der Festplatte neu ein. Ohne vorheriges Speichern würde Maven den alten,
-         * unveränderten Inhalt importieren und das Projekt bliebe unsynchronisiert. Das Speichern
-         * erfolgt synchron auf dem EDT, damit es vor dem Auslösen des Sync abgeschlossen ist.
-         *
-         * @param pomFiles Die POM-Dateien, deren offene Documents gespeichert werden sollen.
-         */
-        private fun persistPomChanges(pomFiles: List<VirtualFile>) {
-            ApplicationManager.getApplication().invokeAndWait {
-                val psiDocumentManager = PsiDocumentManager.getInstance(project)
-                val fileDocumentManager = FileDocumentManager.getInstance()
-                pomFiles.forEach { pomFile ->
-                    val document = fileDocumentManager.getDocument(pomFile) ?: return@forEach
-                    psiDocumentManager.doPostponedOperationsAndUnblockDocument(document)
-                    fileDocumentManager.saveDocument(document)
-                }
-            }
-        }
-
-        /**
-         * Aktualisiert Abhängigkeitsversionen in `<dependencies>` und `<dependencyManagement>`
-         * des angegebenen POM-Root-Tags für ein einzelnes Update.
-         */
-        private fun updateDependencies(
-            documentElement: XmlTag,
-            update: DependencyUpdate,
-            propertiesTag: XmlTag?
-        ) {
-            val dependenciesTag = documentElement.findFirstSubTag("dependencies")
-            val dependencyManagementTag = documentElement.findFirstSubTag("dependencyManagement")
-            val dmDependenciesTag = dependencyManagementTag?.findFirstSubTag("dependencies")
-
-            // Search in <dependencies>
-            dependenciesTag?.findSubTags("dependency")?.forEach { depTag ->
-                updateIfMatch(depTag, update, propertiesTag)
-            }
-            // Search in <dependencyManagement><dependencies>
-            dmDependenciesTag?.findSubTags("dependency")?.forEach { depTag ->
-                updateIfMatch(depTag, update, propertiesTag)
-            }
-        }
-
-        /**
-         * Aktualisiert die Version im `<parent>`-Tag der `pom.xml` für ein Parent-Update.
-         *
-         * @param documentElement Das Root-Tag der `pom.xml`.
-         * @param update Das anzuwendende Update.
-         * @param propertiesTag Das `<properties>`-Tag für Property-basierte Versionsupdates.
-         */
-        private fun updateParent(
-            documentElement: XmlTag,
-            update: DependencyUpdate,
-            propertiesTag: XmlTag?
-        ) {
-            val parentTag = documentElement.findFirstSubTag("parent") ?: return
-            val g = parentTag.findFirstSubTag("groupId")?.value?.text
-            val a = parentTag.findFirstSubTag("artifactId")?.value?.text
-            if (g == update.groupId && a == update.artifactId) {
-                updateXmlTagVersion(parentTag, update.newVersion, propertiesTag)
-            }
-        }
-
-        /**
-         * Aktualisiert Plugin-Versionen in `<build><plugins>` und `<build><pluginManagement>`
-         * des angegebenen POM-Root-Tags für ein einzelnes Update.
-         */
-        private fun updatePlugins(
-            documentElement: XmlTag,
-            update: DependencyUpdate,
-            propertiesTag: XmlTag?
-        ) {
-            val buildTag = documentElement.findFirstSubTag("build")
-            val pluginsTag = buildTag?.findFirstSubTag("plugins")
-            val pluginManagementTag = buildTag?.findFirstSubTag("pluginManagement")
-            val pmPluginsTag = pluginManagementTag?.findFirstSubTag("plugins")
-
-            // Search in <build><plugins>
-            pluginsTag?.findSubTags("plugin")?.forEach { pluginTag ->
-                updateIfMatch(pluginTag, update, propertiesTag)
-            }
-            // Search in <build><pluginManagement><plugins>
-            pmPluginsTag?.findSubTags("plugin")?.forEach { pluginTag ->
-                updateIfMatch(pluginTag, update, propertiesTag)
-            }
-        }
-
-        /**
-         * Prüft, ob ein XML-Tag mit groupId und artifactId des Updates übereinstimmt,
-         * und aktualisiert in diesem Fall die Version.
-         */
-        private fun updateIfMatch(
-            tag: XmlTag,
-            update: DependencyUpdate,
-            propertiesTag: XmlTag?
-        ) {
-            val g = tag.findFirstSubTag("groupId")?.value?.text
-            val a = tag.findFirstSubTag("artifactId")?.value?.text
-
-            if (g == update.groupId && a == update.artifactId) {
-                updateXmlTagVersion(tag, update.newVersion, propertiesTag)
-            }
-        }
-
-        /**
          * Führt den Vulnerability-Scan für die erfassten Abhängigkeiten durch.
          * Nutzt OSV und optional den Sonatype OSS Index.
          */
@@ -1955,12 +1595,12 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     val directDependencies = knownDependencies.entries
                         .filter { it.value.isNotEmpty() }
                         .map { (key, version) -> Triple(key.substringBefore(":"), key.substringAfter(":"), version) }
-                    val scanTargets = collectVulnerabilityScanTargets(directDependencies)
+                    val scanTargets = vulnerabilityScanService.collectVulnerabilityScanTargets(directDependencies)
                     val dependencies = scanTargets.dependencies
                     LOG.info("Starting vulnerability check for ${dependencies.size} dependencies/plugins.")
 
                     val osvResults = vulnerabilityApiService.fetchVulnerabilityAdvisories(dependencies.toList(), indicator)
-                    val ossIndexScan = resolveOssIndexResults(dependencies.toList(), indicator)
+                    val ossIndexScan = vulnerabilityScanService.resolveOssIndexResults(dependencies.toList(), indicator)
                     val results = VulnerabilityMerger.merge(osvResults, ossIndexScan.advisories)
                     val vulnerableEntries = results.values.count { it.isNotEmpty() }
                     LOG.info(
@@ -1975,56 +1615,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     }
                 }
             })
-        }
-
-        /**
-         * Bündelt das Ergebnis einer OSS-Index-Abfrage: die gefundenen Advisories und eine
-         * optionale, bereits benutzergerecht formulierte Fehlermeldung.
-         */
-        private inner class OssIndexScanResult(
-            val advisories: Map<String, List<VulnerabilityAdvisory>>,
-            val errorMessage: String?
-        )
-
-        /**
-         * Ermittelt die OSS-Index-Befunde für die angegebenen Abhängigkeiten.
-         *
-         * Ist der OSS Index deaktiviert oder der Vorgang abgebrochen, wird ein leeres Ergebnis
-         * ohne Fehler zurückgegeben. Fehlt das API-Token oder lehnt Sonatype es ab (ungültig bzw.
-         * abgelaufen), enthält das Ergebnis eine qualifizierte Fehlermeldung.
-         */
-        private fun resolveOssIndexResults(
-            dependencies: List<Triple<String, String, String>>,
-            indicator: ProgressIndicator
-        ): OssIndexScanResult {
-            val settings = MavenUpSettings.getInstance().state
-            if (!settings.ossIndexEnabled || indicator.isCanceled) {
-                return OssIndexScanResult(emptyMap(), null)
-            }
-            return try {
-                val token = ossIndexCredentialService.retrieve()?.getPasswordAsString().orEmpty()
-                if (token.isBlank()) {
-                    LOG.warn("Skipping OSS Index vulnerability check because the API token is missing.")
-                    OssIndexScanResult(
-                        emptyMap(),
-                        MyMessageBundle.message("vulnerability.ossIndex.credentialsMissing")
-                    )
-                } else {
-                    OssIndexScanResult(
-                        ossIndexApiService.fetchVulnerabilityAdvisories(dependencies, token, indicator),
-                        null
-                    )
-                }
-            } catch (exception: OssIndexAuthenticationException) {
-                LOG.warn("OSS Index vulnerability check failed due to an invalid or expired API token", exception)
-                OssIndexScanResult(
-                    emptyMap(),
-                    MyMessageBundle.message("vulnerability.ossIndex.authenticationFailed")
-                )
-            } catch (exception: Exception) {
-                LOG.warn("OSS Index vulnerability check failed", exception)
-                OssIndexScanResult(emptyMap(), exception.message ?: exception.javaClass.simpleName)
-            }
         }
 
         /**
@@ -2062,75 +1652,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
             if (choice == 0) {
                 openSettings()
             }
-        }
-
-        /**
-         * Sammelt alle direkten und (falls konfiguriert) transitiven Abhängigkeiten für den Scan.
-         */
-        private fun collectVulnerabilityScanTargets(
-            directDependencies: List<Triple<String, String, String>>
-        ): VulnerabilityScanTargets {
-            val dependencies = LinkedHashSet(directDependencies)
-            if (!MavenUpSettings.getInstance().state.checkTransitiveDependencies) {
-                return VulnerabilityScanTargets(dependencies, emptySet(), emptyMap())
-            }
-
-            val transitiveCoordinates = linkedSetOf<String>()
-            val transitiveDependenciesByDirect = linkedMapOf<String, Set<String>>()
-            collectResolvedDependencyRelations(MavenProjectsManager.getInstance(project).projects)
-                .forEach { (directDependency, transitiveDependencies) ->
-                    dependencies.add(directDependency)
-                    dependencies.addAll(transitiveDependencies)
-                    transitiveDependenciesByDirect[coordinateString(directDependency)] =
-                        transitiveDependencies.mapTo(linkedSetOf(), ::coordinateString)
-                    transitiveDependencies
-                        .filterNotTo(linkedSetOf()) { it in directDependencies }
-                        .mapTo(transitiveCoordinates, ::coordinateString)
-                }
-            return VulnerabilityScanTargets(
-                dependencies,
-                transitiveCoordinates,
-                transitiveDependenciesByDirect
-            )
-        }
-
-        /**
-         * Ermittelt die Beziehungen zwischen direkten und transitiven Abhängigkeiten aus dem Maven-Modell.
-         */
-        internal fun collectResolvedDependencyRelations(
-            projects: Collection<MavenProject>
-        ): Map<Triple<String, String, String>, Set<Triple<String, String, String>>> {
-            val dependenciesByDirect = linkedMapOf<Triple<String, String, String>, MutableSet<Triple<String, String, String>>>()
-
-            fun collectTransitive(node: MavenArtifactNode, target: MutableSet<Triple<String, String, String>>) {
-                node.dependencies.forEach { dependency ->
-                    artifactNodeCoordinate(dependency)?.let(target::add)
-                    collectTransitive(dependency, target)
-                }
-            }
-
-            projects.forEach { project ->
-                project.dependencyTree.forEach { root ->
-                    val directDependency = artifactNodeCoordinate(root) ?: return@forEach
-                    val transitiveDependencies = dependenciesByDirect.getOrPut(directDependency) { linkedSetOf() }
-                    collectTransitive(root, transitiveDependencies)
-                }
-            }
-            return dependenciesByDirect
-        }
-
-        /**
-         * Bestimmt die Hintergrundfarbe für ein Tabellenfeld basierend auf dem Schweregrad der Sicherheitslücke.
-         */
-        private fun vulnerabilityColor(
-            severity: VulnerabilitySeverity,
-            defaultColor: Color
-        ): Color = when (severity) {
-            VulnerabilitySeverity.CRITICAL -> com.intellij.ui.JBColor(0xFFB3B3, 0x6E2C2C)
-            VulnerabilitySeverity.HIGH -> com.intellij.ui.JBColor(0xFFD5A3, 0x714A21)
-            VulnerabilitySeverity.MEDIUM -> com.intellij.ui.JBColor(0xFFF0A6, 0x665A21)
-            VulnerabilitySeverity.LOW -> com.intellij.ui.JBColor(0xC7E3FF, 0x294E6B)
-            VulnerabilitySeverity.UNKNOWN -> defaultColor
         }
 
         /**
@@ -2208,7 +1729,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     val a = parentTag.findFirstSubTag("artifactId")?.value?.text ?: ""
                     val v = parentTag.findFirstSubTag("version")?.value?.text ?: ""
                     if (g.isNotEmpty() && a.isNotEmpty() && !allKeysWithVersions.containsKey("$g:$a")) {
-                        allKeysWithVersions["$g:$a"] = resolveVersionPlaceholder(v, effectiveProperties)
+                        allKeysWithVersions["$g:$a"] = refreshSnapshotCollector.resolveVersionPlaceholder(v, effectiveProperties)
                     }
                 }
 
@@ -2248,7 +1769,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 val a = tag.findFirstSubTag("artifactId")?.value?.text ?: ""
                 val v = tag.findFirstSubTag("version")?.value?.text ?: ""
                 if (g.isNotEmpty() && a.isNotEmpty() && !allKeysWithVersions.containsKey("$g:$a")) {
-                    allKeysWithVersions["$g:$a"] = resolveVersionPlaceholder(v, effectiveProperties)
+                    allKeysWithVersions["$g:$a"] = refreshSnapshotCollector.resolveVersionPlaceholder(v, effectiveProperties)
                 }
             }
         }
@@ -2384,32 +1905,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private fun extractLeadingMajorNumber(version: String): Int? {
             val match = Regex("""^(\d+)""").find(version.trim()) ?: return null
             return match.groupValues[1].toIntOrNull()
-        }
-
-        /**
-         * Aktualisiert die Versionsnummer in einem XML-Tag. Berücksichtigt dabei, ob die Version
-         * direkt oder über eine Maven-Property definiert ist.
-         */
-        internal fun updateXmlTagVersion(tag: XmlTag, newVersion: String, propertiesTag: XmlTag?) {
-            val versionTag = tag.findFirstSubTag("version")
-            if (versionTag != null) {
-                // Use versionTag.value.trimmedText for recognition
-                val versionContent = versionTag.value.trimmedText
-
-                if (versionContent.startsWith("\${") && versionContent.endsWith("}")) {
-                    val propertyName = versionContent.substring(2, versionContent.length - 1)
-                    val propertyTag = propertiesTag?.findFirstSubTag(propertyName)
-                    if (propertyTag != null) {
-                        propertyTag.value.text = newVersion
-                        return // Property updated, don't overwrite version tag
-                    }
-                }
-                // Fallback or direct update: overwrite version tag
-                versionTag.value.text = newVersion
-            } else {
-                val newTag = tag.createChildTag("version", null, newVersion, false)
-                tag.addSubTag(newTag, false)
-            }
         }
 
         private fun fetchVersions(groupId: String, artifactId: String, currentVersion: String): List<String> {

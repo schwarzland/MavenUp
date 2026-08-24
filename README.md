@@ -175,6 +175,9 @@ Das Plugin ist klar in drei Schichten gegliedert:
 - `MavenUpSettings`: anwendungsweiter Persistenz-Service (`PersistentStateComponent`, `Service.Level.APP`) in `mavenup_settings.xml`; die Einstellungen gelten global für alle Projekte und enthalten auch die konfigurierbare Central-first-Short-Circuit-Strategie. Das OSS-Index-Token wird getrennt über `OssIndexCredentialService` im Password Safe gespeichert. Für die HTTP Basic Authentication wird ein fester Platzhalter-Benutzername verwendet, da Sonatype nur das Token auswertet.
 - `DependencyApiService`, `VulnerabilityApiService` und `OssIndexApiService`: kapseln externe API-Abfragen für Versionen und Vulnerabilities außerhalb der UI; `DependencyApiService` ermittelt die Maven-`settings.xml` robust über IDE-Pfad mit Fallback auf `${user.home}/.m2/settings.xml` und protokolliert den genutzten Pfad auf DEBUG-Ebene.
 - `VulnerabilityMerger`: dedupliziert Befunde aus mehreren Quellen anhand von Advisory-IDs und Aliasen.
+- `RefreshSnapshotCollector`: liest die im Projekt deklarierten Abhängigkeiten, Plugins und Versions-Properties über PSI und liefert einen `RefreshSnapshot`; löst Property-Platzhalter (`${...}`) auf.
+- `PomUpdateService`: wendet ausgewählte Versions-Updates über PSI auf die `pom.xml`-Dateien an (Dependencies, dependencyManagement, Plugins, pluginManagement, Parent) und speichert die Änderungen bei aktivem Maven-Sync.
+- `VulnerabilityScanService`: ermittelt direkte und transitive Scan-Ziele aus dem Maven-Modell und kapselt die Sonatype-OSS-Index-Abfrage inklusive Fehlerbehandlung.
 - Unterstützte CVSS-Vektoren aus OSV werden mit `us.springett:cvss-calculator` in vergleichbare Basisscores umgerechnet. Bei noch nicht unterstützten CVSS-Versionen bleibt der Befund erhalten und nutzt den Schweregrad der Quelle.
 
 ### UI (`de.schwarzland.mavenup.ui`)

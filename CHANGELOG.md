@@ -7,6 +7,7 @@
 ### Changed
 
 - Split the oversized tool window source file by extracting stateless UI helpers (table constants, version status rendering, filter model, vulnerability cell model, refresh snapshot, repository link, sortable header icon, and the help tooltip extension) and the update confirmation dialog into dedicated files without any functional change.
+- Extracted the POM update, refresh snapshot collection, and vulnerability scan logic from the tool window into dedicated services (`PomUpdateService`, `RefreshSnapshotCollector`, `VulnerabilityScanService`) and removed reflection-based access from the corresponding tests, without any functional change.
 
 ## 2.4.0
 
