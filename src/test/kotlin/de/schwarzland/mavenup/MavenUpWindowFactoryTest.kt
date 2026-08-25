@@ -17,6 +17,7 @@ import de.schwarzland.mavenup.ui.RefreshSnapshot
 import de.schwarzland.mavenup.ui.buildVulnerabilityCell
 import de.schwarzland.mavenup.ui.canCheckVulnerabilities
 import de.schwarzland.mavenup.ui.vulnerabilitySummary
+import de.schwarzland.mavenup.ui.vulnerabilityCellComparator
 import de.schwarzland.mavenup.ui.VersionUpdateArrowIcon
 import de.schwarzland.mavenup.ui.TriStateFilter
 import de.schwarzland.mavenup.ui.sortableHeaderIcon
@@ -61,9 +62,9 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         @Suppress("UNCHECKED_CAST")
         val sorter = table.rowSorter as javax.swing.table.TableRowSorter<javax.swing.table.DefaultTableModel>
 
-        // Vulnerabilities-, Current-Version- und New-Version-Spalte sind nicht sortierbar.
+        // Current-Version- und New-Version-Spalte sind nicht sortierbar; die Vulnerabilities-Spalte ist sortierbar.
         assertFalse(sorter.isSortable(4))
-        assertFalse(sorter.isSortable(5))
+        assertTrue(sorter.isSortable(5))
         assertFalse(sorter.isSortable(6))
         assertTrue(sorter.isSortable(0))
 
@@ -81,6 +82,39 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         sorter.toggleSortOrder(0)
         assertTrue(sorter.sortKeys.isEmpty())
         assertEquals("org.b", table.getValueAt(0, 0))
+    }
+
+    fun testVulnerabilityCellComparatorSortsBySeverityThenCount() {
+        fun cell(coordinate: String, vararg severities: VulnerabilitySeverity) =
+            buildVulnerabilityCell(
+                coordinate,
+                mapOf(coordinate to severities.mapIndexed { index, severity ->
+                    VulnerabilityAdvisory(id = "CVE-$coordinate-$index", severity = severity, sources = setOf("OSV"))
+                }),
+                emptySet()
+            )
+
+        val empty = buildVulnerabilityCell("org:empty:1.0.0", emptyMap(), emptySet())
+        val lowSingle = cell("org:low:1.0.0", VulnerabilitySeverity.LOW)
+        val highSingle = cell("org:high1:1.0.0", VulnerabilitySeverity.HIGH)
+        val highDouble = cell("org:high2:1.0.0", VulnerabilitySeverity.HIGH, VulnerabilitySeverity.LOW)
+        val critical = cell("org:critical:1.0.0", VulnerabilitySeverity.CRITICAL)
+
+        // Primär nach Kritikalität: leer < LOW < HIGH < CRITICAL.
+        assertTrue(vulnerabilityCellComparator.compare(empty, lowSingle) < 0)
+        assertTrue(vulnerabilityCellComparator.compare(lowSingle, highSingle) < 0)
+        assertTrue(vulnerabilityCellComparator.compare(highSingle, critical) < 0)
+
+        // Sekundär nach Anzahl bei gleichem höchsten Schweregrad: eine < zwei Warnungen.
+        assertTrue(vulnerabilityCellComparator.compare(highSingle, highDouble) < 0)
+        assertEquals(0, vulnerabilityCellComparator.compare(highSingle, highSingle))
+
+        // Nicht-Zellen-Werte (z. B. null) gelten als am wenigsten kritisch.
+        assertTrue(vulnerabilityCellComparator.compare(null, lowSingle) < 0)
+
+        val sorted = listOf(critical, empty, highDouble, lowSingle, highSingle)
+            .sortedWith(vulnerabilityCellComparator)
+        assertEquals(listOf(empty, lowSingle, highSingle, highDouble, critical), sorted)
     }
 
     fun testCurrentVersionColumnIsNotSortable() {

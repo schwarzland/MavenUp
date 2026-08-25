@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- Added column-header sorting to the Vulnerabilities column that orders rows primarily by the highest finding severity and secondarily by the finding count, so ascending lists the least critical dependencies first and descending the most critical first.
+
 ### Changed
 
 - Split the oversized tool window source file by extracting stateless UI helpers (table constants, version status rendering, filter model, vulnerability cell model, refresh snapshot, repository link, sortable header icon, and the help tooltip extension) and the update confirmation dialog into dedicated files without any functional change.

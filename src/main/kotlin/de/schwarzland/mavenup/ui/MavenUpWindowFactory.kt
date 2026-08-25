@@ -330,8 +330,12 @@ class MavenUpWindowFactory : ToolWindowFactory {
             }
             for (columnIndex in 0 until tableModel.columnCount) {
                 when (columnIndex) {
-                    CURRENT_VERSION_COLUMN, VULNERABILITIES_COLUMN, NEW_VERSION_COLUMN ->
+                    CURRENT_VERSION_COLUMN, NEW_VERSION_COLUMN ->
                         tableRowSorter.setSortable(columnIndex, false)
+                    VULNERABILITIES_COLUMN -> {
+                        tableRowSorter.setSortable(columnIndex, true)
+                        tableRowSorter.setComparator(columnIndex, vulnerabilityCellComparator)
+                    }
                     else -> {
                         tableRowSorter.setSortable(columnIndex, true)
                         tableRowSorter.setComparator(columnIndex, textComparator)
