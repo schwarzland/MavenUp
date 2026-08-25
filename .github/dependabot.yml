@@ -1,9 +1,11 @@
 version: 2
 updates:
+  # GitHub-Actions-Workflows monatlich auf neue Versionen prüfen
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "monthly"
+  # Gradle-Abhängigkeiten (Plugins und Bibliotheken) monatlich auf neue Versionen prüfen
   - package-ecosystem: "gradle"
     directory: "/"
     schedule:
