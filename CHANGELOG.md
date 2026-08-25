@@ -6,6 +6,7 @@
 
 ### Added
 
+- Color-coded the **Severity** column in the vulnerability details dialog using the same severity color scheme as the tool window's vulnerability column.
 - Added column-header sorting to the Vulnerabilities column that orders rows primarily by the highest finding severity and secondarily by the finding count, so ascending lists the least critical dependencies first and descending the most critical first.
 
 ### Changed

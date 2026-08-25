@@ -30,7 +30,7 @@
             <li><b>Optional Downgrades:</b> Enable an "offer all versions" setting to also list versions older than the current one when a rollback is needed; the current version is marked in the selection dropdown.</li>
             <li><b>Repository Browser Options:</b> Choose between MVN Repository and Sonatype Central for artifact links.</li>
             <li><b>Private Repository Support:</b> Access authenticated repositories from <code>settings.xml</code> with fallback to standard Maven user settings.</li>
-            <li><b>Detailed Security Reports:</b> View advisories with severity, CVSS scores, summaries, and sources for each finding.</li>
+            <li><b>Detailed Security Reports:</b> View advisories with severity, CVSS scores, summaries, and sources for each finding, with the severity column color-coded to match the tool window.</li>
             <li><b>Secure Token Storage:</b> API tokens are stored safely in IntelliJ Password Safe.</li>
             <li><b>Global Settings:</b> Configure behavior, filters, and integrations under <b>Settings | Tools | MavenUp</b> to apply across all projects.</li>
             <li><b>Responsive UI & Restart-Free:</b> Background processing and dynamic loading ensure smooth operation and updates without IDE restart.</li>
