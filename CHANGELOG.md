@@ -15,7 +15,18 @@
 - Removed `feature/**` and `release/**` from the CI `push` trigger so that pushing a branch with an open pull request no longer runs two identical builds; feature and release branches are now validated solely via the `pull_request` trigger against `main`, while `push` only builds `main`.
 - Added a separate `manual-build.yml` workflow with a `workflow_dispatch` trigger so the build can be started manually from the GitHub Actions tab for any selected branch (e.g. a feature branch without an open pull request), independent of the automatic CI workflow and its path filters.
 - Changed the report upload step in both CI workflows to run on every build (not only on failure) via `if: ${{ !cancelled() }}` and `if-no-files-found: ignore`, so test, detekt, and Kover coverage reports are always available as artifacts.
-- Upgraded `actions/upload-artifact` from v4 to v6 across all workflows to run on Node.js 24 and remove the Node.js 20 deprecation warning (v5 still targeted Node.js 20).
+- Upgraded `actions/upload-artifact` from v4 to v7 across all workflows to run on Node.js 24 and remove the Node.js 20 deprecation warning.
+- Integrated the IntelliJ Plugin Verifier into `verifyPlugin` and run it across the CI, manual, draft-release, and publish workflows to check IDE compatibility, replacing the separate standalone verifier steps.
+- Added a 30-minute job timeout and, for the publish workflow, a per-release-ref concurrency group that does not cancel running publish runs.
+- Extracted the common build setup (checkout, JDK, Gradle) into a reusable `.github/actions/setup` composite action used by all workflows.
+- Added support for `hotfix/**` branches to the CI `push` trigger so hotfix branches are validated on direct pushes.
+- Standardized the release naming convention to release branch `release/x.y.z` and Git tag `x.y.z`, both without a leading `V`.
+- Extended `.github/dependabot.yml` to also monitor Gradle dependencies monthly, in addition to GitHub Actions.
+- Bumped Gradle plugins and dependencies: Kotlin JVM 2.3.20 to 2.4.10, detekt 1.23.7 to 1.23.8, Kover 0.9.1 to 0.9.9, `us.springett:cvss-calculator` 1.4.1 to 1.5.1, and the Gradle wrapper 9.6.1 to 9.7.1.
+
+### Fixed
+
+- Calculated CVSS 4.0 base scores from OSV vectors (via the upgraded `cvss-calculator`) instead of falling back to the source severity.
 
 ## 2.4.0
 
