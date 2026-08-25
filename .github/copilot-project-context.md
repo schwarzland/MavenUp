@@ -53,8 +53,10 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   einen `TableRowSorter` mittels der Top-Level-Funktion `rowMatchesFilter`
   kombiniert. Der Changes-Filter ist nur aktiv, wenn mindestens eine abweichende Version ausgewählt wurde (`isChangesFilterAvailable`/`updateChangesFilterState`, ausgelöst über `updateUpdateButtonState`). Der Updates-Filter ist nur nach einer erfolgreichen Versionssuche aktiv (`isUpdatesFilterAvailable`/`updateUpdatesFilterState`) und nutzt die Top-Level-Funktion `hasNewerVersion`; der Vulnerabilities-Filter ist nur nach einer erfolgreichen Sicherheitsprüfung aktiv (`vulnerabilityScanPerformed` via `isVulnerabilitiesFilterAvailable`/`updateVulnerabilitiesFilterState`). Am Ende der Filterzeile setzt eine `ActionToolbar` mit einer einzelnen Reset-Aktion (`resetAllFilters`) alle Filter zurück; sie ist nur aktiv, solange `isResetFiltersEnabled` mindestens einen aktiven Filter meldet. Derselbe `TableRowSorter` übernimmt zusätzlich die spaltenweise Sortierung über die Kopfzeile:
   ein überschriebenes `toggleSortOrder` schaltet zyklisch zwischen aufsteigend, absteigend und
-  unsortiert (pom.xml-Reihenfolge) um; die Spalten **Current Version**, **Vulnerabilities (Current)**
-  und **New Version** sind nicht sortierbar. Ein über `installSortableHeaderRenderer` gesetzter Kopfzeilen-Renderer
+  unsortiert (pom.xml-Reihenfolge) um; die Spalten **Current Version** und **New Version** sind nicht
+  sortierbar. Die Spalte **Vulnerabilities (Current)** ist über den `vulnerabilityCellComparator`
+  (in `VulnerabilityCellModel.kt`) sortierbar: primär nach dem höchsten Schweregrad der Zelle, sekundär
+  nach der Anzahl der Warnungen. Ein über `installSortableHeaderRenderer` gesetzter Kopfzeilen-Renderer
   zeigt für sortierbare Spalten über die Top-Level-Funktion `sortableHeaderIcon` ein Indikator-Icon an
   (gedämpfter `AllIcons.General.ArrowSplitCenterV`-Doppelpfeil im unsortierten Zustand, `ArrowUp`/`ArrowDown` bei aktiver Sortierung).
   Die Spalte **New Version** zeigt über die Helper-Funktionen `isVersionUpToDate()`, `versionStatusText()`,
