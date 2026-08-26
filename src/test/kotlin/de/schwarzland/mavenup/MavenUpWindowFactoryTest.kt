@@ -1652,6 +1652,40 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertNull(selectedVersions[visibleKey])
     }
 
+    fun testResetVisibleVersionsToCurrentKeepsHiddenSelections() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val content = toolWindow.getContent()
+        val model = findTable(content)!!.model as javax.swing.table.DefaultTableModel
+        val (availableVersions, selectedVersions, knownDependencies) = versionMaps(toolWindow)
+
+        val visibleKey = "com.example:reset-visible"
+        val hiddenKey = "com.example:reset-hidden"
+        availableVersions[visibleKey] = listOf("2.0.0", "1.0.0")
+        availableVersions[hiddenKey] = listOf("2.0.0", "1.0.0")
+        knownDependencies[visibleKey] = "1.0.0"
+        knownDependencies[hiddenKey] = "1.0.0"
+        selectedVersions[visibleKey] = "2.0.0"
+        selectedVersions[hiddenKey] = "2.0.0"
+        model.addRow(arrayOf("com.example", "reset-visible", "", "dependency", "1.0.0", null, availableVersions[visibleKey]))
+        model.addRow(arrayOf("com.example", "reset-hidden", "", "plugin", "1.0.0", null, availableVersions[hiddenKey]))
+
+        toolWindow.updateTypeFilterOptions()
+        toolWindow.typeFilterComboBox.selectedItem = "dependency"
+        toolWindow.applyRowFilter()
+
+        toolWindow.resetVisibleVersionsToCurrent()
+
+        assertNull(
+            "Das gefilterte Zurücksetzen muss die sichtbare Auswahl entfernen.",
+            selectedVersions[visibleKey]
+        )
+        assertEquals(
+            "Eine ausgefilterte Auswahl darf beim gefilterten Zurücksetzen nicht verändert werden.",
+            "2.0.0",
+            selectedVersions[hiddenKey]
+        )
+    }
+
     fun testBulkSelectionActionDescriptionAppendsHintWhenFilterHidesRows() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         val content = toolWindow.getContent()

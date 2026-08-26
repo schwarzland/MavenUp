@@ -6,6 +6,7 @@
 
 ### Added
 
+- When a filter is active, the "Reset All to Current Versions" action now asks whether the reset should apply to all dependencies or only to the currently filtered (visible) ones; the "Don't ask again" confirmation dialog is used only when no filter is active.
 - Added **Set Highest Major Version** and **Set Highest Minor Version** entries to the dependency row context menu that select the target version for the right-clicked dependency only; both are disabled until that dependency's available versions have been retrieved.
 - Added a **Reset to Current Version** entry to the dependency row context menu that discards the selection for the right-clicked dependency only and is disabled unless a differing version is selected.
 - Made all columns of the vulnerability details dialog sortable through the ascending → descending → unsorted cycle with the same header sort indicators as the tool window; the Severity column leads with the most critical findings on the first click, ordered by criticality then CVSS score (highest first), and the References column sorts by reference count.

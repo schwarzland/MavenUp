@@ -80,9 +80,12 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   `selectHighestMajorVersionForAll()` wählt die höchste verfügbare Version, `selectHighestMinorVersionForAll()`
   die höchste Version innerhalb der aktuellen Major-Linie – beide nur für die aktuell sichtbaren
   (nicht ausgefilterten) Zeilen (`collectVisibleDependencyKeys()`) – und `resetAllVersionsToCurrent()` verwirft alle
-  Auswahlen unabhängig vom Filter; ihre Aktivierung steuern `isBulkVersionSelectionEnabled()` und `isResetVersionsEnabled()`.
-  `confirmAndResetAllVersionsToCurrent()` kapselt `resetAllVersionsToCurrent()` und zeigt bei aktivem `confirmVersionReset` zuvor
-  einen Ja/Nein-Bestätigungsdialog (`MessageDialogBuilder` mit `DoNotAskOption`, dessen „Don't ask again" die Einstellung deaktiviert).
+  Auswahlen unabhängig vom Filter, während `resetVisibleVersionsToCurrent()` nur die sichtbaren (gefilterten) Zeilen zurücksetzt;
+  ihre Aktivierung steuern `isBulkVersionSelectionEnabled()` und `isResetVersionsEnabled()`.
+  `confirmAndResetAllVersionsToCurrent()` verzweigt anhand von `isResetFiltersEnabled()`: ist kein Filter aktiv, zeigt es bei aktivem
+  `confirmVersionReset` einen Ja/Nein-Bestätigungsdialog (`MessageDialogBuilder` mit `DoNotAskOption`, dessen „Don't ask again" die
+  Einstellung deaktiviert) und ruft `resetAllVersionsToCurrent()`; ist ein Filter aktiv, zeigt `confirmAndResetWithActiveFilter()`
+  stattdessen einen Auswahldialog (`Messages.showDialog` mit den Optionen alle/gefiltert/abbrechen, ohne „Don't ask again").
   `isRowFilterHidingEntries()` und `bulkSelectionActionDescription()` erweitern den Tooltip der "Select Highest"-Aktionen bei aktivem Filter um einen Hinweis.
 - **UpdateConfirmationDialog**: eigenständiger `DialogWrapper` (Top-Level in `ui`), der vor
   dem Anwenden die anstehenden Updates in einer schreibgeschützten Tabelle bestätigen lässt und
