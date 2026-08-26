@@ -4,6 +4,10 @@ MavenUp ist ein IntelliJ-Plugin, das speziell für Maven-Projekte entwickelt wur
 
 Eine vollständige, englische Feature-Liste steht in `FEATURES.md`.
 
+## Funktionen
+
+Die vollständige, englische Funktionsübersicht ist in [`FEATURES.md`](FEATURES.md) dokumentiert.
+
 ## Benutzung
 
 Das Plugin öffnet ein Tool-Window namens **MavenUp** (meist am linken oder unteren Rand der IDE). In der Werkzeugleiste ist es an einem eigenen MavenUp-Icon (mit Light- und Dark-Variante) erkennbar.
@@ -20,6 +24,19 @@ Das Plugin öffnet ein Tool-Window namens **MavenUp** (meist am linken oder unte
 10. **Filter**: Über der Tabelle grenzt das Textfeld die Anzeige case-insensitiv nach **GroupId**, **ArtifactId** oder **Property** ein; vier Comboboxen filtern zusätzlich nach **Type** (Dependency-Typ), **Updates** (All / Update available / Up to date), **Pending** (All / Will update / Unchanged) und **Vulnerabilities** (All / Vulnerable / Not vulnerable). Die Optionstexte sind selbsterklärend formuliert, sodass der gewählte Wert für sich verständlich ist. Der **Updates**-Filter ist erst nach einer erfolgreichen Versionssuche (**Search for New Versions**) aktiv und zeigt dann nur Zeilen mit verfügbarem Update; der **Pending**-Filter ist erst aktiv, sobald für mindestens eine Zeile eine von der aktuellen abweichende Version ausgewählt wurde; der **Vulnerabilities**-Filter ist erst nach einer erfolgreichen Sicherheitsprüfung (**Scan for Vulnerabilities**) aktiv. Alle Filter wirken zusammen, sodass nur noch passende Zeilen sichtbar bleiben. Mit **All** wird der jeweilige Filter aufgehoben. Das Textfeld lässt sich auch über den Kontextmenü-Eintrag **Filter by "..."** einer **GroupId**-, **ArtifactId**- oder **Property**-Zelle befüllen. Jedes Filter-Control zeigt einen Tooltip mit einer Kurzerklärung. Am Ende der Filterzeile setzt ein Reset-Button alle Filter auf einmal zurück; er ist nur aktiv, solange mindestens ein Filter gesetzt ist.
 11. **Sortierung**: Ein Klick auf eine Spaltenüberschrift schaltet die Sortierung zyklisch weiter: aufsteigend, absteigend und zurück zur ursprünglichen Reihenfolge aus der `pom.xml`. Sortierbare Spalten tragen in der Kopfzeile ein Indikator-Icon – einen gedämpften Doppelpfeil im unsortierten Zustand und einen Auf- bzw. Ab-Pfeil bei aktiver Sortierrichtung –, sodass die Sortierbarkeit auf einen Blick erkennbar ist. Die Spalten **Current Version**, **Vulnerabilities (Current)** und **New Version** sind von der Sortierung ausgenommen.
 12. **Repository-Strategie anpassen**: In den Einstellungen unter **Stop after a successful Maven Central lookup** kann festgelegt werden, ob nach einer erfolgreichen Central-Abfrage weitere private Repositories übersprungen werden (schneller) oder zusätzlich abgefragt werden (vollständiger für private-only Versionen).
+
+## Usage
+
+Open the **MavenUp** tool window to review dependencies, plugins, parent POM entries, and managed entries from the active Maven modules.
+
+1. **Refresh** reloads the project data and clears selected target versions. **Search for New Versions** retrieves available versions without clearing vulnerability findings.
+2. Select a target in the **New Version** column, or use the **Select Highest Version** toolbar menu for the highest available version or the highest version within the current major line. These bulk actions affect visible rows only.
+3. Use **Reset All to Current Versions** to discard selections. With an active filter, choose whether to reset all or only filtered rows; without a filter, the optional confirmation dialog is shown.
+4. Click **Update** to review and apply the selected changes to the relevant `pom.xml` files. The confirmation dialog can trigger a Maven sync.
+5. Use **Scan for Vulnerabilities** to check direct and, when enabled, transitive dependencies. Select a finding and open **Vulnerability Details** to inspect severity, CVSS data, sources, and references.
+6. Filter by text, type, available updates, pending changes, or vulnerabilities. A right-click on a GroupId, ArtifactId, or Property cell offers **Filter by "..."**; the filter row reset action clears all filters.
+7. Sort supported columns through ascending, descending, and original `pom.xml` order. Double-click a row to navigate to its definition, or enable single-click navigation in Settings.
+8. Select a row and use **Open on [browser]** to open its current artifact page. The browser and update, filtering, vulnerability, and toolbar behavior are configured under **Settings > Tools > MavenUp**.
 
 ## Branching-Strategie und GitHub Actions
 
