@@ -1402,15 +1402,36 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
-         * Setzt alle Versionsauswahlen zurück und zeigt zuvor – sofern konfiguriert – einen
-         * Bestätigungsdialog an.
+         * Verwirft die Versionsauswahlen der aktuell sichtbaren (nicht ausgefilterten) Abhängigkeiten und
+         * setzt diese auf ihre aktuell verwendete Version zurück.
          *
-         * Ist die Einstellung [MavenUpSettings.State.confirmVersionReset] aktiv, wird ein Ja/Nein-Dialog
-         * angezeigt. Über die Option „Don't ask again" kann der Benutzer die Bestätigung dauerhaft
-         * deaktivieren; in diesem Fall wird die Einstellung entsprechend gespeichert. Bricht der Benutzer
-         * ab, bleibt die aktuelle Auswahl unverändert.
+         * Ausgefilterte Einträge bleiben unverändert, sodass ein Zurücksetzen gezielt nur auf die durch den
+         * aktiven Filter eingegrenzten Abhängigkeiten wirkt.
+         */
+        internal fun resetVisibleVersionsToCurrent() {
+            applyBulkVersionSelection(visibleOnly = true) { current, _ -> current }
+        }
+
+        /**
+         * Setzt Versionsauswahlen zurück und zeigt zuvor – abhängig vom aktiven Filter – einen
+         * Bestätigungs- bzw. Auswahldialog an.
+         *
+         * Ist ein Filter aktiv (siehe [isResetFiltersEnabled]), wird ein Dialog angezeigt, in dem der
+         * Benutzer wählt, ob das Zurücksetzen auf alle Abhängigkeiten oder nur auf die aktuell gefilterten
+         * (sichtbaren) Abhängigkeiten wirkt. In diesem Fall wird die Option „Don't ask again" bewusst nicht
+         * angeboten und [MavenUpSettings.State.confirmVersionReset] nicht ausgewertet.
+         *
+         * Ist kein Filter aktiv, bleibt das bisherige Verhalten erhalten: Ist die Einstellung
+         * [MavenUpSettings.State.confirmVersionReset] aktiv, wird ein Ja/Nein-Dialog angezeigt. Über die
+         * Option „Don't ask again" kann der Benutzer die Bestätigung dauerhaft deaktivieren; in diesem Fall
+         * wird die Einstellung entsprechend gespeichert. Bricht der Benutzer ab, bleibt die aktuelle Auswahl
+         * unverändert.
          */
         internal fun confirmAndResetAllVersionsToCurrent() {
+            if (isResetFiltersEnabled()) {
+                confirmAndResetWithActiveFilter()
+                return
+            }
             val settings = MavenUpSettings.getInstance()
             if (settings.state.confirmVersionReset) {
                 val doNotAsk = object : DoNotAskOption.Adapter() {
@@ -1431,6 +1452,34 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 if (!confirmed) return
             }
             resetAllVersionsToCurrent()
+        }
+
+        /**
+         * Zeigt bei aktivem Filter einen Auswahldialog an, ob das Zurücksetzen auf alle oder nur auf die
+         * gefilterten (sichtbaren) Abhängigkeiten angewendet werden soll, und führt die gewählte Aktion aus.
+         *
+         * Der Dialog bietet drei Optionen: „Alle Abhängigkeiten", „Nur gefilterte" und „Abbrechen". Bricht
+         * der Benutzer ab, bleibt die aktuelle Auswahl unverändert.
+         */
+        private fun confirmAndResetWithActiveFilter() {
+            val options = arrayOf(
+                MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.filtered.option.all"),
+                MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.filtered.option.filtered"),
+                MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.filtered.option.cancel")
+            )
+            val choice = Messages.showDialog(
+                project,
+                MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.filtered.message"),
+                MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.confirm.title"),
+                options,
+                0,
+                Messages.getWarningIcon()
+            )
+            when (choice) {
+                0 -> resetAllVersionsToCurrent()
+                1 -> resetVisibleVersionsToCurrent()
+                else -> return
+            }
         }
 
         /**
