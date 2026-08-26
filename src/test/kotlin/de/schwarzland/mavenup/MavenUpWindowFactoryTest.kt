@@ -811,15 +811,19 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertEquals("Reset", MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.button.short"))
     }
 
-    fun testResetActionLabelAndTooltipConveyGlobalScope() {
+    fun testResetActionLabelAndTooltipConveyFilterAwareScope() {
         assertEquals(
             "Reset All to Current Versions",
             MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.button")
         )
+        val tooltip = MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.tooltip")
         assertTrue(
-            "Der Reset-Tooltip sollte den globalen, filterunabhängigen Geltungsbereich benennen",
-            MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.tooltip")
-                .contains("regardless", ignoreCase = true)
+            "Der Reset-Tooltip sollte den filterlosen Fall (alle Abhängigkeiten) benennen",
+            tooltip.contains("all dependencies", ignoreCase = true)
+        )
+        assertTrue(
+            "Der Reset-Tooltip sollte den Fall eines aktiven Filters benennen",
+            tooltip.contains("filter", ignoreCase = true)
         )
     }
 
