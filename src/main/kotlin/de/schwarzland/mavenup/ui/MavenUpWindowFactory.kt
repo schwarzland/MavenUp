@@ -41,8 +41,6 @@ import com.intellij.openapi.wm.ToolWindowFactory
 import com.intellij.ui.DocumentAdapter
 import com.intellij.ui.SearchTextField
 import com.intellij.ui.components.JBPanel
-import com.intellij.openapi.ui.JBMenuItem
-import com.intellij.openapi.ui.JBPopupMenu
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.content.ContentFactory
 import com.intellij.ui.table.JBTable
@@ -282,10 +280,19 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     val currentVersion = table.getValueAt(row, CURRENT_VERSION_COLUMN) as? String ?: ""
                     val vulnerabilityCell = table.getValueAt(row, VULNERABILITIES_COLUMN) as? VulnerabilityCell
 
-                    // Use IntelliJ's popup implementation so the platform theme controls
-                    // insets, rounded corners and selection colors. A plain Swing
-                    // JPopupMenu renders noticeably denser and darker in current IDE themes.
-                    val popup = JBPopupMenu()
+                    // Build the menu through IntelliJ's ActionSystem. This is what gives
+                    // native context menus their current spacing, rounded border and
+                    // theme-aware (light-blue in Light theme) selection color.
+                    val group = DefaultActionGroup()
+                    fun addAction(label: String, enabled: Boolean = true, action: () -> Unit) {
+                        group.add(object : AnAction(label) {
+                            override fun getActionUpdateThread() = ActionUpdateThread.BGT
+                            override fun update(e: AnActionEvent) {
+                                e.presentation.isEnabled = enabled
+                            }
+                            override fun actionPerformed(e: AnActionEvent) = action()
+                        })
+                    }
                     val filterValue = when (column) {
                         GROUP_ID_COLUMN -> groupId
                         ARTIFACT_ID_COLUMN -> artifactId
@@ -293,53 +300,45 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         else -> ""
                     }
                     if (filterValue.isNotBlank()) {
-                        popup.add(JBMenuItem(MyMessageBundle.message(
-                            "toolwindow.MyToolWindow.contextMenu.filterBy", filterValue)).apply {
-                            addActionListener { filterBy(filterValue) }
-                        })
-                        popup.addSeparator()
+                        addAction(MyMessageBundle.message(
+                            "toolwindow.MyToolWindow.contextMenu.filterBy", filterValue)) { filterBy(filterValue) }
+                        group.addSeparator()
                     }
-                    popup.add(JBMenuItem(MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.navigateToPom")).apply {
-                        addActionListener { pomNavigationService.navigateToDependency(groupId, artifactId, type) }
-                    })
+                    addAction(MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.navigateToPom")) {
+                        pomNavigationService.navigateToDependency(groupId, artifactId, type)
+                    }
                     val browserName = MavenUpSettings.getInstance().state.repositoryBrowser.displayName
-                    popup.add(JBMenuItem(MyMessageBundle.message(
-                        TOOLWINDOW_MY_TOOL_WINDOW_CONTEXT_MENU_OPEN_IN_MVN_REPOSITORY, browserName)).apply {
-                        addActionListener { openInMavenRepository(groupId, artifactId, currentVersion) }
-                    })
+                    addAction(MyMessageBundle.message(
+                        TOOLWINDOW_MY_TOOL_WINDOW_CONTEXT_MENU_OPEN_IN_MVN_REPOSITORY, browserName)) {
+                        openInMavenRepository(groupId, artifactId, currentVersion)
+                    }
                     val dependencyKey = "$groupId:$artifactId"
                     val versionsAvailable = hasSelectableVersionsForDependency(dependencyKey)
-                    popup.addSeparator()
-                    popup.add(JBMenuItem(
-                        MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.selectHighestMajor")).apply {
-                        isEnabled = versionsAvailable
-                        addActionListener { selectHighestMajorVersionForDependency(dependencyKey) }
-                    })
-                    popup.add(JBMenuItem(
-                        MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.selectHighestMinor")).apply {
-                        isEnabled = versionsAvailable
-                        addActionListener { selectHighestMinorVersionForDependency(dependencyKey) }
-                    })
-                    popup.add(JBMenuItem(
-                        MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.resetToCurrent")).apply {
-                        isEnabled = isVersionResetEnabledForDependency(dependencyKey)
-                        addActionListener { resetVersionForDependency(dependencyKey) }
-                    })
+                    group.addSeparator()
+                    addAction(MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.selectHighestMajor"), versionsAvailable) {
+                        selectHighestMajorVersionForDependency(dependencyKey)
+                    }
+                    addAction(MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.selectHighestMinor"), versionsAvailable) {
+                        selectHighestMinorVersionForDependency(dependencyKey)
+                    }
+                    addAction(MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.resetToCurrent"),
+                        isVersionResetEnabledForDependency(dependencyKey)) {
+                        resetVersionForDependency(dependencyKey)
+                    }
                     val hasVulnerabilities = vulnerabilityCell != null && vulnerabilityCell.allAdvisories.isNotEmpty()
-                    popup.addSeparator()
-                    popup.add(JBMenuItem(MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.showVulnerabilityDetails")).apply {
-                        isEnabled = hasVulnerabilities
-                        addActionListener {
-                            val cell = vulnerabilityCell ?: return@addActionListener
-                            val coordinate = "$groupId:$artifactId:$currentVersion"
-                            VulnerabilityDetailDialog(
-                                project,
-                                cell.detailFindings(),
-                                "$coordinate - ${MyMessageBundle.message(VULNERABILITY_DETAILS_TITLE)}"
-                            ).show()
-                        }
-                    })
-                    popup.show(e.component, e.x, e.y)
+                    group.addSeparator()
+                    addAction(MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.showVulnerabilityDetails"), hasVulnerabilities) {
+                        val cell = vulnerabilityCell ?: return@addAction
+                        val coordinate = "$groupId:$artifactId:$currentVersion"
+                        VulnerabilityDetailDialog(
+                            project,
+                            cell.detailFindings(),
+                            "$coordinate - ${MyMessageBundle.message(VULNERABILITY_DETAILS_TITLE)}"
+                        ).show()
+                    }
+                    ActionManager.getInstance().createActionPopupMenu(
+                        "MavenUp.DependencyTable", group
+                    ).component.show(e.component, e.x, e.y)
                 }
             })
 
