@@ -295,19 +295,20 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         isEnabled = isVersionResetEnabledForDependency(dependencyKey)
                         addActionListener { resetVersionForDependency(dependencyKey) }
                     })
-                    if (vulnerabilityCell != null && vulnerabilityCell.allAdvisories.isNotEmpty()) {
-                        popup.addSeparator()
-                        popup.add(JMenuItem(MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.showVulnerabilityDetails")).apply {
-                            addActionListener {
-                                val coordinate = "$groupId:$artifactId:$currentVersion"
-                                VulnerabilityDetailDialog(
-                                    project,
-                                    vulnerabilityCell.detailFindings(),
-                                    "$coordinate - ${MyMessageBundle.message(VULNERABILITY_DETAILS_TITLE)}"
-                                ).show()
-                            }
-                        })
-                    }
+                    val hasVulnerabilities = vulnerabilityCell != null && vulnerabilityCell.allAdvisories.isNotEmpty()
+                    popup.addSeparator()
+                    popup.add(JMenuItem(MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.showVulnerabilityDetails")).apply {
+                        isEnabled = hasVulnerabilities
+                        addActionListener {
+                            val cell = vulnerabilityCell ?: return@addActionListener
+                            val coordinate = "$groupId:$artifactId:$currentVersion"
+                            VulnerabilityDetailDialog(
+                                project,
+                                cell.detailFindings(),
+                                "$coordinate - ${MyMessageBundle.message(VULNERABILITY_DETAILS_TITLE)}"
+                            ).show()
+                        }
+                    })
                     popup.show(e.component, e.x, e.y)
                 }
             })
