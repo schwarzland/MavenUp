@@ -277,6 +277,19 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         TOOLWINDOW_MY_TOOL_WINDOW_CONTEXT_MENU_OPEN_IN_MVN_REPOSITORY, browserName)).apply {
                         addActionListener { openInMavenRepository(groupId, artifactId, currentVersion) }
                     })
+                    val dependencyKey = "$groupId:$artifactId"
+                    val versionsAvailable = hasSelectableVersionsForDependency(dependencyKey)
+                    popup.addSeparator()
+                    popup.add(JMenuItem(
+                        MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.selectHighestMajor")).apply {
+                        isEnabled = versionsAvailable
+                        addActionListener { selectHighestMajorVersionForDependency(dependencyKey) }
+                    })
+                    popup.add(JMenuItem(
+                        MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.selectHighestMinor")).apply {
+                        isEnabled = versionsAvailable
+                        addActionListener { selectHighestMinorVersionForDependency(dependencyKey) }
+                    })
                     if (vulnerabilityCell != null && vulnerabilityCell.allAdvisories.isNotEmpty()) {
                         popup.addSeparator()
                         popup.add(JMenuItem(MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.showVulnerabilityDetails")).apply {
@@ -1249,6 +1262,94 @@ class MavenUpWindowFactory : ToolWindowFactory {
         internal fun selectHighestMinorVersionForAll() {
             applyBulkVersionSelection(visibleOnly = true) { current, versions ->
                 latestVersionWithinSameMajor(current, versions) ?: current
+            }
+        }
+
+        /**
+         * Wählt für eine einzelne Abhängigkeit die höchste verfügbare Version (über alle Major-Linien
+         * hinweg) aus.
+         *
+         * Wirkt ausschließlich auf die per [key] identifizierte Abhängigkeit und setzt eine Auswahl nur,
+         * wenn deren verfügbare Versionen bereits abgerufen wurden. Verwenden mehrere Einträge dieselbe
+         * Maven-Property, werden sie gemeinsam aktualisiert.
+         *
+         * @param key Der Schlüssel (`groupId:artifactId`) der Abhängigkeit.
+         */
+        internal fun selectHighestMajorVersionForDependency(key: String) {
+            applySingleVersionSelection(key) { _, versions -> versions.firstOrNull().orEmpty() }
+        }
+
+        /**
+         * Wählt für eine einzelne Abhängigkeit die höchste Version innerhalb derselben Major-Linie wie
+         * die aktuell verwendete Version aus.
+         *
+         * Wirkt ausschließlich auf die per [key] identifizierte Abhängigkeit und setzt eine Auswahl nur,
+         * wenn deren verfügbare Versionen bereits abgerufen wurden. Existiert keine passende Version
+         * derselben Major-Linie, bleibt die aktuelle Version erhalten. Verwenden mehrere Einträge dieselbe
+         * Maven-Property, werden sie gemeinsam aktualisiert.
+         *
+         * @param key Der Schlüssel (`groupId:artifactId`) der Abhängigkeit.
+         */
+        internal fun selectHighestMinorVersionForDependency(key: String) {
+            applySingleVersionSelection(key) { current, versions ->
+                latestVersionWithinSameMajor(current, versions) ?: current
+            }
+        }
+
+        /**
+         * Prüft, ob für die per [key] identifizierte Abhängigkeit eine höchste Major-/Minor-Version
+         * ausgewählt werden kann.
+         *
+         * @param key Der Schlüssel (`groupId:artifactId`) der Abhängigkeit.
+         * @return `true`, wenn keine Aktualisierung läuft und für die Abhängigkeit bereits verfügbare
+         *   Versionen abgerufen wurden.
+         */
+        internal fun hasSelectableVersionsForDependency(key: String): Boolean =
+            !isUpdating && availableVersions[key]?.isNotEmpty() == true
+
+        /**
+         * Wendet eine Auswahlstrategie auf eine einzelne Abhängigkeit an und aktualisiert die Tabelle.
+         *
+         * Sind für die Abhängigkeit noch keine Versionen abgerufen, geschieht nichts. Entspricht die
+         * ermittelte Zielversion der aktuellen Version (oder ist leer), wird die Auswahl entfernt, sodass
+         * keine Änderung angezeigt wird.
+         *
+         * @param key Der Schlüssel (`groupId:artifactId`) der Abhängigkeit.
+         * @param chooser Funktion, die aus der aktuellen Version und den verfügbaren Versionen die Zielversion ermittelt.
+         */
+        private fun applySingleVersionSelection(key: String, chooser: (String, List<String>) -> String) {
+            val versions = availableVersions[key] ?: return
+            if (versions.isEmpty()) return
+            val currentVersion = knownDependencies[key] ?: ""
+            val chosen = chooser(currentVersion, versions)
+            if (chosen.isNotEmpty() && chosen != currentVersion) {
+                synchronizePropertyVersions(key, chosen)
+            } else {
+                clearVersionSelection(key)
+            }
+            cancelActiveCellEditing()
+            table.repaint()
+            updateUpdateButtonState()
+            applyRowFilter()
+        }
+
+        /**
+         * Entfernt die getroffene Versionsauswahl einer Abhängigkeit.
+         *
+         * Verwenden mehrere Einträge dieselbe Maven-Property, werden auch deren Auswahlen entfernt, damit
+         * property-verknüpfte Abhängigkeiten konsistent bleiben.
+         *
+         * @param key Der Schlüssel (`groupId:artifactId`) der Abhängigkeit.
+         */
+        private fun clearVersionSelection(key: String) {
+            selectedVersions.remove(key)
+            val property = dependencyToProperty[key]
+            if (property != null) {
+                dependencyToProperty.forEach { (depKey, prop) ->
+                    if (prop == property) {
+                        selectedVersions.remove(depKey)
+                    }
+                }
             }
         }
 

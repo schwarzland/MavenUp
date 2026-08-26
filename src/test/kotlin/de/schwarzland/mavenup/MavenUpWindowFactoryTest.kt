@@ -1415,6 +1415,105 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         )
     }
 
+    fun testSelectHighestMajorVersionForDependencySelectsNewestOverall() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val content = toolWindow.getContent()
+        val model = findTable(content)!!.model as javax.swing.table.DefaultTableModel
+        val (availableVersions, selectedVersions, knownDependencies) = versionMaps(toolWindow)
+
+        val key = "com.example:major-row"
+        val other = "com.example:other-row"
+        availableVersions[key] = listOf("3.1.0", "3.0.0", "2.9.9", "2.5.0")
+        availableVersions[other] = listOf("9.0.0", "8.0.0")
+        knownDependencies[key] = "2.5.0"
+        knownDependencies[other] = "8.0.0"
+        model.addRow(arrayOf("com.example", "major-row", "", "dependency", "2.5.0", null, availableVersions[key]))
+        model.addRow(arrayOf("com.example", "other-row", "", "dependency", "8.0.0", null, availableVersions[other]))
+        toolWindow.applyRowFilter()
+
+        toolWindow.selectHighestMajorVersionForDependency(key)
+
+        assertEquals("3.1.0", selectedVersions[key])
+        assertNull(
+            "Nur die per Rechtsklick gewählte Dependency darf geändert werden.",
+            selectedVersions[other]
+        )
+    }
+
+    fun testSelectHighestMinorVersionForDependencyStaysWithinCurrentMajor() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val content = toolWindow.getContent()
+        val model = findTable(content)!!.model as javax.swing.table.DefaultTableModel
+        val (availableVersions, selectedVersions, knownDependencies) = versionMaps(toolWindow)
+
+        val key = "com.example:minor-row"
+        availableVersions[key] = listOf("3.1.0", "3.0.0", "2.9.9", "2.5.0")
+        knownDependencies[key] = "2.5.0"
+        model.addRow(arrayOf("com.example", "minor-row", "", "dependency", "2.5.0", null, availableVersions[key]))
+        toolWindow.applyRowFilter()
+
+        toolWindow.selectHighestMinorVersionForDependency(key)
+
+        assertEquals("2.9.9", selectedVersions[key])
+    }
+
+    fun testSelectHighestMinorVersionForDependencyKeepsCurrentWhenNoSameMajorExists() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val content = toolWindow.getContent()
+        val model = findTable(content)!!.model as javax.swing.table.DefaultTableModel
+        val (availableVersions, selectedVersions, knownDependencies) = versionMaps(toolWindow)
+
+        val key = "com.example:minor-row-none"
+        availableVersions[key] = listOf("3.2.0", "3.1.0")
+        knownDependencies[key] = "2.8.0"
+        model.addRow(arrayOf("com.example", "minor-row-none", "", "dependency", "2.8.0", null, availableVersions[key]))
+        toolWindow.applyRowFilter()
+
+        toolWindow.selectHighestMinorVersionForDependency(key)
+
+        assertNull(
+            "Ohne Version derselben Major-Linie darf keine abweichende Auswahl gesetzt werden.",
+            selectedVersions[key]
+        )
+    }
+
+    fun testSelectHighestVersionForDependencyDoesNothingWithoutFetchedVersions() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val content = toolWindow.getContent()
+        val model = findTable(content)!!.model as javax.swing.table.DefaultTableModel
+        val (_, selectedVersions, knownDependencies) = versionMaps(toolWindow)
+
+        val key = "com.example:no-versions"
+        knownDependencies[key] = "1.0.0"
+        model.addRow(arrayOf("com.example", "no-versions", "", "dependency", "1.0.0", null, emptyList<String>()))
+        toolWindow.applyRowFilter()
+
+        assertFalse(
+            "Ohne abgerufene Versionen dürfen die Kontextmenü-Aktionen nicht verfügbar sein.",
+            toolWindow.hasSelectableVersionsForDependency(key)
+        )
+
+        toolWindow.selectHighestMajorVersionForDependency(key)
+        toolWindow.selectHighestMinorVersionForDependency(key)
+
+        assertNull(
+            "Ohne verfügbare Versionen darf keine Auswahl gesetzt werden.",
+            selectedVersions[key]
+        )
+    }
+
+    fun testHasSelectableVersionsForDependencyReflectsAvailability() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+        val (availableVersions, _, _) = versionMaps(toolWindow)
+
+        val key = "com.example:availability"
+        assertFalse(toolWindow.hasSelectableVersionsForDependency(key))
+
+        availableVersions[key] = listOf("1.1.0", "1.0.0")
+        assertTrue(toolWindow.hasSelectableVersionsForDependency(key))
+    }
+
     fun testBulkSelectionSkipsRowsHiddenByFilter() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         val content = toolWindow.getContent()

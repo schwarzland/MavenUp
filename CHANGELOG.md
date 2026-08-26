@@ -6,6 +6,7 @@
 
 ### Added
 
+- Added **Set Highest Major Version** and **Set Highest Minor Version** entries to the dependency row context menu that select the target version for the right-clicked dependency only; both are disabled until that dependency's available versions have been retrieved.
 - Made all columns of the vulnerability details dialog sortable through the ascending → descending → unsorted cycle with the same header sort indicators as the tool window; the Severity column leads with the most critical findings on the first click, ordered by criticality then CVSS score (highest first), and the References column sorts by reference count.
 - Color-coded the **Severity** column in the vulnerability details dialog using the same severity color scheme as the tool window's vulnerability column.
 - Added column-header sorting to the Vulnerabilities column that orders rows primarily by the highest finding severity and secondarily by the finding count, so ascending lists the least critical dependencies first and descending the most critical first.
