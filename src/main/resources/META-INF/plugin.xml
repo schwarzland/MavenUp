@@ -18,7 +18,7 @@
         <p><b>Core Features:</b></p>
         <ul>
             <li><b>Complete Dependency Overview:</b> Displays all dependencies, plugins, and parent POM across Maven modules in an organized table.</li>
-            <li><b>Find & Update Versions:</b> Discover newer versions in Maven Central and private repositories, then apply a configurable auto-selection strategy (disabled, highest version, or latest minor in the current major line) or bulk-select the highest major, highest minor, or current version for all dependencies at once.</li>
+            <li><b>Find & Update Versions:</b> Discover newer versions in Maven Central and private repositories, then apply a configurable auto-selection strategy (disabled, highest version, or latest minor in the current major line), bulk-select the highest major, highest minor, or current version for all dependencies at once, or set the highest major or minor version—or reset to the current version—for a single dependency straight from its row context menu.</li>
             <li><b>Security Scanning:</b> Check dependencies and transitive components for known vulnerabilities via OSV.dev and Sonatype OSS Index.</li>
             <li><b>Smart Navigation:</b> Jump directly to <code>pom.xml</code> definitions or open artifacts in Maven Repository browsers with a single click.</li>
         </ul>
