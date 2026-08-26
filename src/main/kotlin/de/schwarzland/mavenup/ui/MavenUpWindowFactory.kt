@@ -98,7 +98,17 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
     /**
      * Die eigentliche Tool-Window-Komponente, die die Tabelle der Abhängigkeiten und die Aktions-Buttons verwaltet.
+     *
+     * Bewusste Ausnahme von der `LargeClass`-Regel: Diese Swing-basierte UI-Komponente bündelt
+     * Tabellen-Setup, Toolbar-Aktionen, Filterlogik, Versionsauswahl sowie Update- und
+     * Vulnerability-Prüfungen. Alle Bereiche teilen sich denselben veränderlichen UI- und
+     * Datenzustand (u. a. [availableVersions], [selectedVersions], [dependencyToProperty],
+     * [vulnerabilityAdvisories]) und greifen als `inner class` direkt auf [project] und die Services
+     * zu. Eine Aufteilung würde diesen Zustand künstlich über Controller-Grenzen ziehen und ist
+     * mit hohem Risiko für Verhalten und die bestehenden UI-Tests verbunden; daher wird die
+     * Klassengröße hier bewusst in Kauf genommen.
      */
+    @Suppress("LargeClass")
     internal inner class MyToolWindow(private val project: Project) : Disposable {
         private val vulnerabilityApiService = VulnerabilityApiService()
         private val vulnerabilityScanService = VulnerabilityScanService(project)
