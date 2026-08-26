@@ -290,6 +290,11 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         isEnabled = versionsAvailable
                         addActionListener { selectHighestMinorVersionForDependency(dependencyKey) }
                     })
+                    popup.add(JMenuItem(
+                        MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.resetToCurrent")).apply {
+                        isEnabled = isVersionResetEnabledForDependency(dependencyKey)
+                        addActionListener { resetVersionForDependency(dependencyKey) }
+                    })
                     if (vulnerabilityCell != null && vulnerabilityCell.allAdvisories.isNotEmpty()) {
                         popup.addSeparator()
                         popup.add(JMenuItem(MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.showVulnerabilityDetails")).apply {
@@ -1306,6 +1311,37 @@ class MavenUpWindowFactory : ToolWindowFactory {
          */
         internal fun hasSelectableVersionsForDependency(key: String): Boolean =
             !isUpdating && availableVersions[key]?.isNotEmpty() == true
+
+        /**
+         * Setzt die per [key] identifizierte Abhängigkeit auf ihre aktuell verwendete Version zurück und
+         * verwirft damit eine zuvor getroffene Auswahl.
+         *
+         * Wirkt ausschließlich auf die angeklickte Abhängigkeit. Verwenden mehrere Einträge dieselbe
+         * Maven-Property, werden deren Auswahlen gemeinsam entfernt.
+         *
+         * @param key Der Schlüssel (`groupId:artifactId`) der Abhängigkeit.
+         */
+        internal fun resetVersionForDependency(key: String) {
+            clearVersionSelection(key)
+            cancelActiveCellEditing()
+            table.repaint()
+            updateUpdateButtonState()
+            applyRowFilter()
+        }
+
+        /**
+         * Prüft, ob für die per [key] identifizierte Abhängigkeit eine abweichende Version ausgewählt
+         * wurde, die zurückgesetzt werden kann.
+         *
+         * @param key Der Schlüssel (`groupId:artifactId`) der Abhängigkeit.
+         * @return `true`, wenn keine Aktualisierung läuft und die ausgewählte Version von der aktuell
+         *   verwendeten Version abweicht.
+         */
+        internal fun isVersionResetEnabledForDependency(key: String): Boolean {
+            if (isUpdating) return false
+            val selected = selectedVersions[key] ?: return false
+            return selected != (knownDependencies[key] ?: "")
+        }
 
         /**
          * Wendet eine Auswahlstrategie auf eine einzelne Abhängigkeit an und aktualisiert die Tabelle.

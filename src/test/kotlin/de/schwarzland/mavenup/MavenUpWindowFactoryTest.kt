@@ -1514,6 +1514,84 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertTrue(toolWindow.hasSelectableVersionsForDependency(key))
     }
 
+    fun testResetVersionForDependencyRestoresCurrentForRowOnly() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val content = toolWindow.getContent()
+        val model = findTable(content)!!.model as javax.swing.table.DefaultTableModel
+        val (availableVersions, selectedVersions, knownDependencies) = versionMaps(toolWindow)
+
+        val key = "com.example:reset-row"
+        val other = "com.example:reset-other"
+        availableVersions[key] = listOf("3.1.0", "2.5.0")
+        availableVersions[other] = listOf("9.0.0", "8.0.0")
+        knownDependencies[key] = "2.5.0"
+        knownDependencies[other] = "8.0.0"
+        selectedVersions[key] = "3.1.0"
+        selectedVersions[other] = "9.0.0"
+        model.addRow(arrayOf("com.example", "reset-row", "", "dependency", "2.5.0", null, availableVersions[key]))
+        model.addRow(arrayOf("com.example", "reset-other", "", "dependency", "8.0.0", null, availableVersions[other]))
+        toolWindow.applyRowFilter()
+
+        assertTrue(toolWindow.isVersionResetEnabledForDependency(key))
+        toolWindow.resetVersionForDependency(key)
+
+        assertNull("Die angeklickte Dependency muss zurückgesetzt werden.", selectedVersions[key])
+        assertEquals(
+            "Andere Dependencies dürfen nicht zurückgesetzt werden.",
+            "9.0.0",
+            selectedVersions[other]
+        )
+        assertFalse(toolWindow.isVersionResetEnabledForDependency(key))
+    }
+
+    fun testResetVersionForDependencyClearsPropertyLinkedEntries() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val content = toolWindow.getContent()
+        findTable(content)
+        val (_, selectedVersions, knownDependencies) = versionMaps(toolWindow)
+
+        @Suppress("UNCHECKED_CAST")
+        val dependencyToProperty = toolWindow.javaClass.getDeclaredField("dependencyToProperty")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, String>
+
+        val keyA = "com.example:prop-a"
+        val keyB = "com.example:prop-b"
+        knownDependencies[keyA] = "1.0.0"
+        knownDependencies[keyB] = "1.0.0"
+        dependencyToProperty[keyA] = "shared.version"
+        dependencyToProperty[keyB] = "shared.version"
+        selectedVersions[keyA] = "2.0.0"
+        selectedVersions[keyB] = "2.0.0"
+
+        toolWindow.resetVersionForDependency(keyA)
+
+        assertNull(selectedVersions[keyA])
+        assertNull(
+            "Property-verknüpfte Einträge müssen ebenfalls zurückgesetzt werden.",
+            selectedVersions[keyB]
+        )
+    }
+
+    fun testIsVersionResetEnabledForDependencyFalseWithoutPendingChange() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+        val (_, selectedVersions, knownDependencies) = versionMaps(toolWindow)
+
+        val key = "com.example:reset-none"
+        knownDependencies[key] = "1.0.0"
+        assertFalse(
+            "Ohne Auswahl darf das Zurücksetzen nicht verfügbar sein.",
+            toolWindow.isVersionResetEnabledForDependency(key)
+        )
+
+        selectedVersions[key] = "1.0.0"
+        assertFalse(
+            "Wenn die Auswahl der aktuellen Version entspricht, ist kein Zurücksetzen nötig.",
+            toolWindow.isVersionResetEnabledForDependency(key)
+        )
+    }
+
     fun testBulkSelectionSkipsRowsHiddenByFilter() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         val content = toolWindow.getContent()
