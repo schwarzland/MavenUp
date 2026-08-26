@@ -262,13 +262,28 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     if (!table.isRowSelected(row)) {
                         table.setRowSelectionInterval(row, row)
                     }
+                    val column = table.columnAtPoint(e.point)
                     val groupId = table.getValueAt(row, GROUP_ID_COLUMN) as? String ?: ""
                     val artifactId = table.getValueAt(row, ARTIFACT_ID_COLUMN) as? String ?: ""
+                    val property = table.getValueAt(row, PROPERTY_COLUMN) as? String ?: ""
                     val type = table.getValueAt(row, TYPE_COLUMN) as? String ?: "dependency"
                     val currentVersion = table.getValueAt(row, CURRENT_VERSION_COLUMN) as? String ?: ""
                     val vulnerabilityCell = table.getValueAt(row, VULNERABILITIES_COLUMN) as? VulnerabilityCell
 
                     val popup = JPopupMenu()
+                    val filterValue = when (column) {
+                        GROUP_ID_COLUMN -> groupId
+                        ARTIFACT_ID_COLUMN -> artifactId
+                        PROPERTY_COLUMN -> property
+                        else -> ""
+                    }
+                    if (filterValue.isNotBlank()) {
+                        popup.add(JMenuItem(MyMessageBundle.message(
+                            "toolwindow.MyToolWindow.contextMenu.filterBy", filterValue)).apply {
+                            addActionListener { filterBy(filterValue) }
+                        })
+                        popup.addSeparator()
+                    }
                     popup.add(JMenuItem(MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.navigateToPom")).apply {
                         addActionListener { pomNavigationService.navigateToDependency(groupId, artifactId, type) }
                     })
@@ -975,6 +990,23 @@ class MavenUpWindowFactory : ToolWindowFactory {
             val vulnerabilitiesActive =
                 (vulnerabilitiesFilterComboBox.selectedItem as? TriStateFilter ?: TriStateFilter.ALL) != TriStateFilter.ALL
             return searchActive || typeActive || changesActive || updatesActive || vulnerabilitiesActive
+        }
+
+        /**
+         * Übernimmt den übergebenen Wert als alleinigen Textfilter der Filterzeile und
+         * aktualisiert die Tabellenansicht.
+         *
+         * Ein eventuell bereits vorhandener Suchtext wird vollständig durch [value] ersetzt.
+         * Das Setzen des Textes löst über den [DocumentListener][searchTextField] die
+         * Neuberechnung des Filters aus; zur Sicherheit wird [applyRowFilter] zusätzlich
+         * explizit aufgerufen.
+         *
+         * @param value Der zu setzende Filtertext (typischerweise eine GroupId, ArtifactId
+         *              oder ein Property-Name aus dem Kontextmenü).
+         */
+        internal fun filterBy(value: String) {
+            searchTextField.text = value
+            applyRowFilter()
         }
 
         /**
