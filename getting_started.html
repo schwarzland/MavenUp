@@ -38,16 +38,19 @@
 <ul>
     <li><strong>Filter the table</strong>: Type in the filter field above the table to narrow the list by GroupId,
         ArtifactId or Property, and use the combo boxes to filter by dependency type, pending version changes,
-        available updates, or security findings. The updates filter becomes available after a successful
-        "Search for New Versions" and then shows only rows with a newer version; the vulnerabilities filter becomes
-        available after a successful "Scan for Vulnerabilities". All filters combine so only matching
+        available updates, or security findings. You can also right-click a GroupId, ArtifactId, or Property cell and
+        choose <strong>Filter by "..."</strong> to filter by that exact value. The updates filter becomes available
+        after a successful "Search for New Versions" and then shows only rows with a newer version; the vulnerabilities
+        filter becomes available after a successful "Scan for Vulnerabilities". All filters combine so only matching
         rows remain visible. Use the reset button at the end of the filter row to clear all filters at once.</li>
     <li><strong>Sort the table</strong>: Click a column header to cycle through ascending, descending, and the original
         pom.xml order; sortable columns show a header indicator icon (a dimmed double arrow when unsorted, a directional
         arrow when sorted), while the Current Version, Vulnerabilities, and New Version columns stay unsorted.</li>
     <li><strong>Jump to the source</strong>: Double-click a row (or single-click if configured) to open the matching
         dependency or plugin entry directly in the editor.</li>
-    <li><strong>Use the context menu</strong>: Right-click any row to access <strong>Navigate to pom.xml</strong>,
+    <li><strong>Use the context menu</strong>: Right-click any row to access <strong>Filter by "..."</strong> (shown when
+        you right-click a GroupId, ArtifactId, or Property cell to filter the table by that value),
+        <strong>Navigate to pom.xml</strong>,
         <strong>Open in Maven Repository</strong>, <strong>Set Highest Major Version</strong> and
         <strong>Set Highest Minor Version</strong> for just that dependency (available once its versions have been
         retrieved via "Search for New Versions"), <strong>Reset to Current Version</strong> to discard that

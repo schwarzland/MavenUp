@@ -98,7 +98,17 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
     /**
      * Die eigentliche Tool-Window-Komponente, die die Tabelle der Abhängigkeiten und die Aktions-Buttons verwaltet.
+     *
+     * Bewusste Ausnahme von der `LargeClass`-Regel: Diese Swing-basierte UI-Komponente bündelt
+     * Tabellen-Setup, Toolbar-Aktionen, Filterlogik, Versionsauswahl sowie Update- und
+     * Vulnerability-Prüfungen. Alle Bereiche teilen sich denselben veränderlichen UI- und
+     * Datenzustand (u. a. [availableVersions], [selectedVersions], [dependencyToProperty],
+     * [vulnerabilityAdvisories]) und greifen als `inner class` direkt auf [project] und die Services
+     * zu. Eine Aufteilung würde diesen Zustand künstlich über Controller-Grenzen ziehen und ist
+     * mit hohem Risiko für Verhalten und die bestehenden UI-Tests verbunden; daher wird die
+     * Klassengröße hier bewusst in Kauf genommen.
      */
+    @Suppress("LargeClass")
     internal inner class MyToolWindow(private val project: Project) : Disposable {
         private val vulnerabilityApiService = VulnerabilityApiService()
         private val vulnerabilityScanService = VulnerabilityScanService(project)
@@ -262,13 +272,28 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     if (!table.isRowSelected(row)) {
                         table.setRowSelectionInterval(row, row)
                     }
+                    val column = table.columnAtPoint(e.point)
                     val groupId = table.getValueAt(row, GROUP_ID_COLUMN) as? String ?: ""
                     val artifactId = table.getValueAt(row, ARTIFACT_ID_COLUMN) as? String ?: ""
+                    val property = table.getValueAt(row, PROPERTY_COLUMN) as? String ?: ""
                     val type = table.getValueAt(row, TYPE_COLUMN) as? String ?: "dependency"
                     val currentVersion = table.getValueAt(row, CURRENT_VERSION_COLUMN) as? String ?: ""
                     val vulnerabilityCell = table.getValueAt(row, VULNERABILITIES_COLUMN) as? VulnerabilityCell
 
                     val popup = JPopupMenu()
+                    val filterValue = when (column) {
+                        GROUP_ID_COLUMN -> groupId
+                        ARTIFACT_ID_COLUMN -> artifactId
+                        PROPERTY_COLUMN -> property
+                        else -> ""
+                    }
+                    if (filterValue.isNotBlank()) {
+                        popup.add(JMenuItem(MyMessageBundle.message(
+                            "toolwindow.MyToolWindow.contextMenu.filterBy", filterValue)).apply {
+                            addActionListener { filterBy(filterValue) }
+                        })
+                        popup.addSeparator()
+                    }
                     popup.add(JMenuItem(MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.navigateToPom")).apply {
                         addActionListener { pomNavigationService.navigateToDependency(groupId, artifactId, type) }
                     })
@@ -975,6 +1000,23 @@ class MavenUpWindowFactory : ToolWindowFactory {
             val vulnerabilitiesActive =
                 (vulnerabilitiesFilterComboBox.selectedItem as? TriStateFilter ?: TriStateFilter.ALL) != TriStateFilter.ALL
             return searchActive || typeActive || changesActive || updatesActive || vulnerabilitiesActive
+        }
+
+        /**
+         * Übernimmt den übergebenen Wert als alleinigen Textfilter der Filterzeile und
+         * aktualisiert die Tabellenansicht.
+         *
+         * Ein eventuell bereits vorhandener Suchtext wird vollständig durch [value] ersetzt.
+         * Das Setzen des Textes löst über den [DocumentListener][searchTextField] die
+         * Neuberechnung des Filters aus; zur Sicherheit wird [applyRowFilter] zusätzlich
+         * explizit aufgerufen.
+         *
+         * @param value Der zu setzende Filtertext (typischerweise eine GroupId, ArtifactId
+         *              oder ein Property-Name aus dem Kontextmenü).
+         */
+        internal fun filterBy(value: String) {
+            searchTextField.text = value
+            applyRowFilter()
         }
 
         /**

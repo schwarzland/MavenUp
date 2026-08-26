@@ -9,6 +9,7 @@ import de.schwarzland.mavenup.service.MavenUpSettings
 import de.schwarzland.mavenup.service.MavenRepositoryBrowser
 import de.schwarzland.mavenup.service.VersionAutoSelectionMode
 import de.schwarzland.mavenup.ui.buildMavenRepositoryUrl
+import de.schwarzland.mavenup.ui.GROUP_ID_COLUMN
 import de.schwarzland.mavenup.ui.MavenUpWindowFactory
 import de.schwarzland.mavenup.ui.UpdateConfirmationDialog
 import de.schwarzland.mavenup.service.RefreshSnapshotCollector
@@ -1317,6 +1318,27 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertTrue(toolWindow.isResetFiltersEnabled())
         toolWindow.vulnerabilitiesFilterComboBox.selectedItem = TriStateFilter.ALL
         assertFalse(toolWindow.isResetFiltersEnabled())
+    }
+
+    fun testFilterByReplacesSearchTextAndAppliesFilter() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val content = toolWindow.getContent()
+        val table = findTable(content)!!
+        val model = table.model as javax.swing.table.DefaultTableModel
+
+        model.addRow(arrayOf("com.example", "lib-a", "", "dependency", "1.0.0", null, listOf("1.0.0")))
+        model.addRow(arrayOf("org.other", "lib-b", "", "dependency", "1.0.0", null, listOf("1.0.0")))
+
+        toolWindow.searchTextField.text = "org.other"
+        toolWindow.applyRowFilter()
+        assertEquals(1, table.rowCount)
+
+        toolWindow.filterBy("com.example")
+
+        assertEquals("com.example", toolWindow.searchTextField.text)
+        assertEquals(1, table.rowCount)
+        assertEquals("com.example", table.getValueAt(0, GROUP_ID_COLUMN))
+        assertTrue(toolWindow.isResetFiltersEnabled())
     }
 
     fun testResetAllFiltersRestoresDefaultsAndShowsAllRows() {
