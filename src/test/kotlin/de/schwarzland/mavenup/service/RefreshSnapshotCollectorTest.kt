@@ -144,11 +144,40 @@ class RefreshSnapshotCollectorTest : BasePlatformTestCase() {
 
         val properties = mutableMapOf<String, String>()
 
-        val parentRow = RefreshSnapshotCollector(project).collectParentDependency(rootTag, properties)
+        val parentRow = RefreshSnapshotCollector(project).collectParentDependency(
+            rootTag,
+            properties,
+            mapOf("boot.version" to "3.1.0")
+        )
 
         assertNotNull(parentRow)
         assertEquals("boot.version", parentRow!!.propertyName)
         assertEquals("boot.version", properties["org.springframework.boot:spring-boot-starter-parent"])
+        assertEquals("3.1.0", parentRow.currentVersion)
+    }
+
+    fun testCollectParentDependencyKeepsUnknownPropertyPlaceholder() {
+        val pomContent = """
+            <project>
+                <parent>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-parent</artifactId>
+                    <version>${"$"}{boot.version}</version>
+                </parent>
+            </project>
+        """.trimIndent()
+
+        val psiFile = myFixture.configureByText("pom.xml", pomContent) as XmlFile
+        val rootTag = psiFile.document?.rootTag
+
+        val parentRow = RefreshSnapshotCollector(project).collectParentDependency(
+            rootTag,
+            mutableMapOf(),
+            emptyMap()
+        )
+
+        assertNotNull(parentRow)
+        assertEquals("\${boot.version}", parentRow!!.currentVersion)
     }
 
     fun testResolveVersionPlaceholderResolvesProperty() {

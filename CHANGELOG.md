@@ -2,6 +2,12 @@
 
 # MavenUp Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- Resolved the parent POM version from Maven properties so property-based `<parent>` versions (for example `${revision}`) are scanned for vulnerabilities and version updates instead of being skipped as an unresolved placeholder.
+
 ## 2.5.0
 
 ### Added
