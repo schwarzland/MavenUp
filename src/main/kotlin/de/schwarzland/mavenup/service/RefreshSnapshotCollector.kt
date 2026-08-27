@@ -79,13 +79,20 @@ internal class RefreshSnapshotCollector(private val project: Project) {
      * Liest die Parent-Dependency aus dem `<parent>`-Tag der `pom.xml` und erzeugt eine [RefreshRow].
      * Gibt `null` zurück, wenn kein Parent-Tag vorhanden ist oder groupId/artifactId leer sind.
      *
+     * Ist die Parent-Version als Maven-Property-Platzhalter (`${property}`) definiert, wird sie – analog
+     * zu den übrigen Abhängigkeiten – über [effectiveProperties] zu einer konkreten Version aufgelöst.
+     * Andernfalls würde der unaufgelöste Platzhalter in den Vulnerability-Scan und die Anzeige gelangen und
+     * dort niemals gegen eine reale Koordinate matchen.
+     *
      * @param rootTag Das Root-Tag der `pom.xml`.
      * @param propertyTargetMap Ziel-Map für erkannte Maven-Property-Platzhalter.
+     * @param effectiveProperties Die effektiven Maven-Properties zur Auflösung von Versions-Platzhaltern.
      * @return Eine [RefreshRow] mit Typ [PARENT_TYPE] oder `null`.
      */
     internal fun collectParentDependency(
         rootTag: XmlTag?,
-        propertyTargetMap: MutableMap<String, String>
+        propertyTargetMap: MutableMap<String, String>,
+        effectiveProperties: Map<String, String> = emptyMap()
     ): RefreshRow? {
         val parentTag = rootTag?.findFirstSubTag("parent") ?: return null
         val g = parentTag.findFirstSubTag("groupId")?.value?.text?.trim().orEmpty()
@@ -107,7 +114,7 @@ internal class RefreshSnapshotCollector(private val project: Project) {
             artifactId = a,
             propertyName = propertyName,
             type = PARENT_TYPE,
-            currentVersion = v
+            currentVersion = resolveVersionPlaceholder(v, effectiveProperties)
         )
     }
 
@@ -132,11 +139,14 @@ internal class RefreshSnapshotCollector(private val project: Project) {
             val localPlugins = mutableMapOf<String, String>()
             val managedPlugins = mutableMapOf<String, String>()
 
+            val effectiveProperties =
+                mavenProject.properties.entries.associate { (k, v) -> k.toString() to v.toString() }
+
             if (psiFile != null) {
                 val documentElement = psiFile.document?.rootTag
 
                 // Parent-Dependency erfassen
-                collectParentDependency(documentElement, properties)?.let { parentRow ->
+                collectParentDependency(documentElement, properties, effectiveProperties)?.let { parentRow ->
                     rows.add(parentRow)
                 }
 
@@ -167,8 +177,6 @@ internal class RefreshSnapshotCollector(private val project: Project) {
                 )
             }
 
-            val effectiveProperties =
-                mavenProject.properties.entries.associate { (k, v) -> k.toString() to v.toString() }
             val resolvedDependencies =
                 mavenProject.dependencyTree.associateBy { "${it.artifact.groupId}:${it.artifact.artifactId}" }
             val seenLocalDependencyKeys = mutableSetOf<String>()

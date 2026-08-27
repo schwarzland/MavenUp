@@ -164,7 +164,7 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   den Schweregrad der Quelle zurückgefallen.
 - **RefreshSnapshotCollector**: liest über PSI die deklarierten Dependencies, Plugins und
   Versions-Properties der `pom.xml`-Dateien und liefert einen `RefreshSnapshot`; löst
-  Property-Platzhalter über `resolveVersionPlaceholder` auf. Zustandslos, benötigt nur das Projekt.
+  Property-Platzhalter (auch die Version im `<parent>`-Tag) über `resolveVersionPlaceholder` auf. Zustandslos, benötigt nur das Projekt.
 - **PomUpdateService**: wendet ausgewählte Updates über PSI/`WriteCommandAction` auf die
   `pom.xml` an (`applyUpdateToPom`, `updateXmlTagVersion`, Parent/Dependencies/Plugins) und
   speichert die Dateien vor dem Maven-Sync (`persistPomChanges`).
@@ -204,5 +204,4 @@ Siehe `.github/copilot-instructions.md` für die verbindliche Arbeitsanweisung
 - Proxy-Einstellungen gehören NICHT in die projektweite `gradle.properties`, sondern
   in die user-lokale `~/.gradle/gradle.properties`.
 - `checkliste-publication.md` enthält Checkliste für Plugin-Veröffentlichung.
-- `mavenup_plugin_de.html` vermutlich Marketplace-Beschreibung (DE).
 - `getting_started.html` ist die *Getting Started*-Seite im JetBrains Marketplace / Plugin Manager. Sie erklärt neuen Nutzern in einem kompakten HTML-Kurzleitfaden die ersten Schritte: Tool-Window öffnen, Refresh, Update-Check, Version auswählen, Update anwenden. Muss bei jeder Bedienungsänderung (neue Aktionen, umbenannte Buttons, neue Dialoge) aktuell gehalten werden.
