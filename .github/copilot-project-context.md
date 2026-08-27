@@ -199,6 +199,9 @@ injizierte Seams/Interfaces netzwerkfrei getestet.
 ## Doku- und Prozesspflichten
 Siehe `.github/copilot-instructions.md` für die verbindliche Arbeitsanweisung
 (README/CHANGELOG/FEATURES/plugin.xml-Description/Unittests pflegen, kein `git commit`).
+Die README ist eine schlanke, englische Landing Page; die ausführliche Dokumentation liegt (Englisch) unter
+`docs/` (`usage.md`, `configuration.md`, `privacy-and-security.md`, `architecture.md`, `development.md`,
+`release-and-ci.md`, `licenses.md`).
 
 ## Sonstiges
 - Proxy-Einstellungen gehören NICHT in die projektweite `gradle.properties`, sondern

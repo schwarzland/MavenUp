@@ -3,12 +3,20 @@
 Bei **jeder** Änderung im Repository sind diese Punkte immer zu berücksichtigen:
 
 1. **README.md** ergänzen/aktualisieren, wenn sich Nutzung, Konfiguration oder Architektur ändert. Dabei gelten folgende Regeln:
-   - **Sprache: Deutsch.** README.md wird nur auf Deutsch gepflegt.
-   - **Features: FEATURES.md ist die Single Source of Truth.** Ergänze oder aktualisiere neue/geänderte Funktionen ausschließlich in `FEATURES.md` (Englisch); die README.md-Abschnitte referenzieren auf FEATURES.md statt Features zu duplizieren.
-   - Jede neue Einstellung muss im Abschnitt **Einstellungen** ergänzt werden.
-   - Veraltete Formulierungen (z. B. „jetzt", „neu") sind beim Bearbeiten zu entfernen.
-   - Keine inhaltlichen Dopplungen zwischen den Abschnitten – jeder Punkt gehört genau an eine Stelle.
-   - Nach jeder Änderung die Abschnitte (Benutzung, Einstellungen, Architektur) auf Vollständigkeit und Konsistenz prüfen.
+   - **Sprache: Englisch.** README.md und alle Dateien unter `docs/` werden auf Englisch gepflegt.
+   - **README.md ist eine schlanke Landing Page.** Sie enthält nur Kurzbeschreibung, Installation, Quick Start und Verweise auf `FEATURES.md` sowie die Dateien unter `docs/`. Detailinhalte gehören ausschließlich in die jeweilige `docs/`-Datei, nicht in die README.
+   - **Features: FEATURES.md ist die Single Source of Truth.** Ergänze oder aktualisiere neue/geänderte Funktionen ausschließlich in `FEATURES.md` (Englisch); README.md und die `docs/`-Dateien referenzieren auf FEATURES.md statt Features zu duplizieren.
+   - **Ausgelagerte Dokumentation unter `docs/`** – jede Änderung wird in genau der thematisch passenden Datei gepflegt:
+     - `docs/usage.md`: Bedienung des Tool-Windows, Filter, Aktionen.
+     - `docs/configuration.md`: **alle Einstellungen** (jede neue Einstellung hier ergänzen) sowie die Gradle-Proxy-Konfiguration.
+     - `docs/privacy-and-security.md`: übertragene Daten und externe Endpunkte.
+     - `docs/architecture.md`: Paketstruktur und Komponenten.
+     - `docs/development.md`: Tests, Codequalität, Troubleshooting.
+     - `docs/release-and-ci.md`: Branching, GitHub-Actions-Workflows, Dependabot, Publishing.
+     - `docs/licenses.md`: eingebettete Drittanbieter-Bibliotheken und deren Lizenzen (siehe auch Punkt 9).
+   - Veraltete Formulierungen (z. B. „now", „new") sind beim Bearbeiten zu entfernen.
+   - Keine inhaltlichen Dopplungen zwischen README und `docs/`-Dateien oder zwischen den `docs/`-Dateien – jeder Punkt gehört genau an eine Stelle.
+   - Nach jeder Änderung README und die betroffenen `docs/`-Dateien auf Vollständigkeit und Konsistenz prüfen; neue `docs/`-Dateien in der Dokumentationsliste der README verlinken.
 2. **CHANGELOG.md** ergänzen/aktualisieren mit einem passenden Eintrag zur Änderung. Dabei gelten folgende Regeln:
    - Ermittle zunächst mit `git rev-parse --abbrev-ref HEAD`, ob du dich in einem Feature-Branch (erkennbar an `feature/*`) befindest.
    - Wenn du dich in einem Feature-Branch befindest, prüfe, ob eine Sektion `## [Unreleased]` existiert. Fehlt sie, füge sie ganz oben in der Datei als erste Überschrift hinzu.
@@ -58,7 +66,7 @@ Bei **jeder** Änderung im Repository sind diese Punkte immer zu berücksichtige
    - Die Lizenz jeder neu hinzugefügten Bibliothek ist zu ermitteln (z. B. aus dem POM-File im Gradle-Cache oder der offiziellen Projektseite).
    - Bibliotheken, die zur Laufzeit ins Plugin-JAR eingebettet werden (`implementation`-Scope), unterliegen den Weitergabepflichten ihrer Lizenz.
    - Bibliotheken, die nur zur Testzeit oder als provided/platform verwendet werden (`testImplementation`, `intellijPlatform`), sind davon in der Regel ausgenommen.
-   - Der Abschnitt **`## Third-party licenses`** in der `README.md` ist entsprechend zu ergänzen oder zu aktualisieren: jede eingebettete Bibliothek mit Name, Version, Lizenz (inkl. Link) und Verwendungszweck.
+   - Die Datei **`docs/licenses.md`** ist entsprechend zu ergänzen oder zu aktualisieren: jede eingebettete Bibliothek mit Name, Version, Lizenz (inkl. Link) und Verwendungszweck.
    - Veraltete oder entfernte Abhängigkeiten sind aus dem Abschnitt zu entfernen.
 10. **getting_started.html** ergänzen/aktualisieren, wenn sich die Bedienung des Plugins ändert (neue Schritte, umbenannte Aktionen, neue Dialoge oder Einstellungen, die für Einsteiger relevant sind). Dabei gelten folgende Regeln:
     - Sprache: Englisch. Die Datei wird als *Getting Started*-Seite im JetBrains Marketplace und im IDE Plugin Manager angezeigt.
