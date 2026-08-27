@@ -7,6 +7,7 @@
 ### Changed
 
 - Restructured the documentation into a slim English README landing page that links to dedicated guides under `docs/` (usage, configuration, privacy, architecture, development, release/CI, licenses).
+- Added GitHub Actions status badges (Build and Test, Create Draft Release, Publish Release to Marketplace) to the README.
 
 ### Fixed
 

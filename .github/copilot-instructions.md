@@ -14,6 +14,8 @@ Bei **jeder** Änderung im Repository sind diese Punkte immer zu berücksichtige
      - `docs/development.md`: Tests, Codequalität, Troubleshooting.
      - `docs/release-and-ci.md`: Branching, GitHub-Actions-Workflows, Dependabot, Publishing.
      - `docs/licenses.md`: eingebettete Drittanbieter-Bibliotheken und deren Lizenzen (siehe auch Punkt 9).
+   - **AGENTS.md** ist der herstellerübergreifende Agenten-Einstiegspunkt und verweist auf `.github/copilot-instructions.md` und `.github/copilot-project-context.md`; ändert sich der Speicherort oder die Rolle dieser verbindlichen Instruktionsdateien, ist AGENTS.md entsprechend anzugleichen.
+   - Der Abschnitt **AI instructions** der README verlinkt `AGENTS.md`, `.github/copilot-instructions.md` und `.github/copilot-project-context.md`; diese Linkliste ist bei Umbenennung oder Ergänzung solcher Dateien aktuell zu halten.
    - Veraltete Formulierungen (z. B. „now", „new") sind beim Bearbeiten zu entfernen.
    - Keine inhaltlichen Dopplungen zwischen README und `docs/`-Dateien oder zwischen den `docs/`-Dateien – jeder Punkt gehört genau an eine Stelle.
    - Nach jeder Änderung README und die betroffenen `docs/`-Dateien auf Vollständigkeit und Konsistenz prüfen; neue `docs/`-Dateien in der Dokumentationsliste der README verlinken.
