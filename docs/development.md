@@ -29,6 +29,28 @@ Static analysis and test coverage are integrated via Gradle:
 
 The CI (`.github/workflows/ci.yml`) runs `build verifyPlugin detekt koverXmlReport`. In doing so, `verifyPlugin` also checks compatibility with the configured IntelliJ IDE builds and uploads the test and analysis reports as an artifact.
 
+## Gradle proxy configuration
+
+If access to Maven Central in a corporate network only works via a proxy, proxy settings should **not** be maintained in the project-wide `gradle.properties`.
+Use the user-local file instead:
+
+`./<USER>/.gradle/gradle.properties`
+
+Example:
+```properties
+systemProp.java.net.useSystemProxies=true
+org.gradle.jvmargs=-Djava.net.useSystemProxies=true -Djava.net.preferIPv4Stack=true
+
+# If a fixed proxy is required:
+# systemProp.http.proxyHost=<proxy-host>
+# systemProp.http.proxyPort=<proxy-port>
+# systemProp.https.proxyHost=<proxy-host>
+# systemProp.https.proxyPort=<proxy-port>
+# systemProp.http.nonProxyHosts=localhost|127.0.0.1|*.local
+```
+
+Afterwards, run `gradlew --stop` once so the Gradle daemon picks up the new settings.
+
 ## Troubleshooting
 
 ### Increase the Git buffer size

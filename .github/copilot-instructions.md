@@ -8,10 +8,10 @@ Bei **jeder** Änderung im Repository sind diese Punkte immer zu berücksichtige
    - **Features: FEATURES.md ist die Single Source of Truth.** Ergänze oder aktualisiere neue/geänderte Funktionen ausschließlich in `FEATURES.md` (Englisch); README.md und die `docs/`-Dateien referenzieren auf FEATURES.md statt Features zu duplizieren.
    - **Ausgelagerte Dokumentation unter `docs/`** – jede Änderung wird in genau der thematisch passenden Datei gepflegt:
      - `docs/usage.md`: Bedienung des Tool-Windows, Filter, Aktionen.
-     - `docs/configuration.md`: **alle Einstellungen** (jede neue Einstellung hier ergänzen) sowie die Gradle-Proxy-Konfiguration.
+     - `docs/configuration.md`: **alle Einstellungen** (jede neue Einstellung hier ergänzen).
      - `docs/privacy-and-security.md`: übertragene Daten und externe Endpunkte.
      - `docs/architecture.md`: Paketstruktur und Komponenten.
-     - `docs/development.md`: Tests, Codequalität, Troubleshooting.
+     - `docs/development.md`: Tests, Codequalität, Gradle-Proxy-Konfiguration, Troubleshooting.
      - `docs/release-and-ci.md`: Branching, GitHub-Actions-Workflows, Dependabot, Publishing.
      - `docs/licenses.md`: eingebettete Drittanbieter-Bibliotheken und deren Lizenzen (siehe auch Punkt 9).
    - **AGENTS.md** ist der herstellerübergreifende Agenten-Einstiegspunkt und verweist auf `.github/copilot-instructions.md` und `.github/copilot-project-context.md`; ändert sich der Speicherort oder die Rolle dieser verbindlichen Instruktionsdateien, ist AGENTS.md entsprechend anzugleichen.
