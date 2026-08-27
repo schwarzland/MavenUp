@@ -4,8 +4,13 @@
 
 ## [Unreleased]
 
+### Added
+
+- Added a master-detail split view to the Vulnerability Details dialog whose lower detail pane shows the selected finding's summary and references as clickable hyperlinks.
+
 ### Changed
 
+- Replaced the Summary and References columns in the Vulnerability Details dialog with the detail pane, and removed the separate references list dialog.
 - Restructured the documentation into a slim English README landing page that links to dedicated guides under `docs/` (usage, configuration, privacy, architecture, development, release/CI, licenses); the Gradle proxy configuration is documented under development.
 - Added GitHub Actions status badges (Build and Test, Create Draft Release, Publish Release to Marketplace) to the README.
 
