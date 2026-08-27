@@ -69,7 +69,9 @@
     <li><strong>Inspect the findings</strong>: Select a dependency with findings and click <strong>Vulnerability Details</strong>
         or click the populated vulnerability cell. The dialog opens a split view: the upper table lists the advisories
         (component, source, advisory ID, aliases, and severity) for the direct dependency and related transitive findings,
-        while the lower detail pane shows the selected advisory's summary and references as clickable links. The
+        while the lower detail pane shows the selected advisory's affected component with an <strong>Open on ...</strong>
+        link to the configured repository browser, the CVSS vector and fixed-in versions when available, and the full
+        summary and references as clickable links. The
         <strong>Severity</strong> column is color-coded by severity, matching the tool window's vulnerability column. Every
         table column is sortable by clicking its header (ascending, descending, or unsorted); the <strong>Severity</strong>
         column leads with the most critical findings and highest CVSS score on the first click.</li>

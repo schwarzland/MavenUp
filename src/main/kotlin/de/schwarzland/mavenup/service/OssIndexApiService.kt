@@ -177,6 +177,8 @@ class OssIndexApiService {
         if (id.isEmpty()) return null
 
         val cvssScore = vulnerability.get("cvssScore")?.takeUnless { it.isJsonNull }?.asDouble
+        val cvssVector = vulnerability.get("cvssVector")?.takeUnless { it.isJsonNull }?.asString
+            ?.trim()?.takeIf(String::isNotEmpty)
         val aliases = buildSet {
             vulnerability.get("cve")?.takeUnless { it.isJsonNull }?.asString
                 ?.split(',', ' ')
@@ -193,6 +195,7 @@ class OssIndexApiService {
                 ?: "",
             severity = VulnerabilitySeverity.fromScore(cvssScore),
             cvssScore = cvssScore,
+            cvssVector = cvssVector,
             references = setOfNotNull(reference.takeIf(String::isNotEmpty)),
             sources = setOf(OSS_INDEX_SOURCE)
         )
