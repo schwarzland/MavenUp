@@ -30,6 +30,8 @@ class OssIndexApiServiceTest {
                   "cvssScore":9.8,
                   "cvssVector":"CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
                   "title":"Critical issue",
+                  "description":"A detailed technical description.",
+                  "cwe":"CWE-79",
                   "reference":"https://example.test/sonatype-2026-1"
                 }]
               }
@@ -48,6 +50,9 @@ class OssIndexApiServiceTest {
         assertEquals("CRITICAL", advisory.severity.name)
         assertEquals(9.8, advisory.cvssScore)
         assertEquals("CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H", advisory.cvssVector)
+        assertEquals("Critical issue", advisory.summary)
+        assertEquals("A detailed technical description.", advisory.details)
+        assertEquals(setOf("CWE-79"), advisory.cweIds)
         assertTrue(result.getValue("com.example:clean:1.0").isEmpty())
     }
 
