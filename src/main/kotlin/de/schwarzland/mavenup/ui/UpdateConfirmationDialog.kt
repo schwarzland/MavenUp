@@ -95,9 +95,12 @@ class UpdateConfirmationDialog(
             )
         }
 
-        val table = JBTable(tableModel)
-        table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION)
-        table.tableHeader.reorderingAllowed = false
+        val table = JBTable(tableModel).apply {
+            autoResizeMode = JBTable.AUTO_RESIZE_SUBSEQUENT_COLUMNS
+            setSelectionMode(ListSelectionModel.SINGLE_SELECTION)
+            tableHeader.reorderingAllowed = false
+            trimColumnWidthsToContent(this)
+        }
         return table
     }
 }

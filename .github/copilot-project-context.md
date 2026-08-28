@@ -111,8 +111,8 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   - `MavenRepositoryLink.kt`: `buildMavenRepositoryUrl`.
   - `SortableHeaderIcon.kt`: `sortableHeaderIcon`.
   - `TableColumnWidths.kt`: `trimColumnWidthsToContent` samt `DEFAULT_COLUMN_WIDTH_PADDING`,
-    `DEFAULT_MIN_COLUMN_WIDTH`, `DEFAULT_MAX_COLUMN_WIDTH` (inhaltsbasierte Spaltenbreiten für
-    Haupttabelle und Vulnerability-Detail-Tabelle).
+    `DEFAULT_MIN_COLUMN_WIDTH`, `DEFAULT_MAX_COLUMN_WIDTH` (allgemeine Regel für alle Plugin-Tabellen:
+    Spaltenbreiten werden nach Inhalt getrimmt und mit der Fenster-/Dialoggröße proportional skaliert).
   - `VersionAutoSelection.kt`: `chooseAutoSelectedVersion`, `latestVersionWithinSameMajor`,
     `extractLeadingMajorNumber` (zustandslose Auto-Selektions-Helfer).
   - `HelpTooltipExtensions.kt`: `HelpTooltip.withWrappingDescription` (versionsunabhängige

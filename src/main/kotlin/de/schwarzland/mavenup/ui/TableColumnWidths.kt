@@ -13,10 +13,10 @@ internal const val DEFAULT_MAX_COLUMN_WIDTH = 600
 
 /**
  * Trimmt die Spaltenbreiten einer Tabelle auf den tatsächlichen Zellen- und Kopfzeileninhalt, damit
- * beim Öffnen bzw. nach dem Befüllen möglichst viel gut lesbar ist. Für jede Spalte wird die
- * breiteste gerenderte Zelle (inklusive Kopfzeile) ermittelt, um einen Innenabstand ergänzt und auf
- * eine sinnvolle Mindest- und Höchstbreite begrenzt, sodass einzelne sehr lange Werte die Tabelle
- * nicht überproportional breit machen.
+ * beim Öffnen bzw. nach dem Befüllen möglichst viel gut lesbar ist. Diese Regel gilt für alle
+ * Plugin-Tabellen: Für jede Spalte wird die breiteste gerenderte Zelle (inklusive Kopfzeile)
+ * ermittelt, um einen Innenabstand ergänzt und auf eine sinnvolle Mindest- und Höchstbreite
+ * begrenzt, sodass einzelne sehr lange Werte die Tabelle nicht überproportional breit machen.
  *
  * @param table Die Tabelle, deren Spaltenbreiten optimiert werden.
  * @param padding Zusätzlicher Innenabstand pro Spalte.
