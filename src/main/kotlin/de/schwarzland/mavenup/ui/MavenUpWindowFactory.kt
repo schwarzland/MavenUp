@@ -831,8 +831,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.checkUpdates.button",
                     AllIcons.Actions.Find,
-                    { !isUpdating },
-                    shortLabelKey = "toolwindow.MyToolWindow.checkUpdates.button.short"
+                    { isCheckUpdatesEnabled() },
+                    shortLabelKey = "toolwindow.MyToolWindow.checkUpdates.button.short",
+                    descriptionProvider = { currentCheckUpdatesDescription() }
                 ) { refreshAction(true, true, false) })
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.checkVulnerabilities.button",
@@ -1684,6 +1685,32 @@ class MavenUpWindowFactory : ToolWindowFactory {
          */
         internal fun isResetVersionsEnabled(): Boolean =
             !isUpdating && hasSelectedUpdates()
+
+        /**
+         * Prüft, ob die Suche nach neuen Versionen ausführbar ist.
+         *
+         * Die Aktion wirkt ausschließlich auf die Haupttabelle: Sie verwirft deren offene Versionsauswahlen
+         * und lädt Versionen nur für direkte Abhängigkeiten. In der transitiven Sicherheitslücken-Ansicht
+         * hätte sie daher keine sichtbare Wirkung, würde aber unbemerkt Auswahlen der Haupttabelle löschen.
+         * Deshalb ist sie dort deaktiviert.
+         *
+         * @return `true`, wenn gerade kein Update läuft und die Haupttabelle sichtbar ist.
+         */
+        internal fun isCheckUpdatesEnabled(): Boolean = !isUpdating && !showingTransitiveView
+
+        /**
+         * Liefert den Tooltip der Aktion **Search for New Versions** passend zur aktiven Ansicht.
+         *
+         * In der transitiven Sicherheitslücken-Ansicht wird erklärt, warum die Aktion dort deaktiviert ist.
+         *
+         * @return Der anzuzeigende Tooltip-Text.
+         */
+        internal fun currentCheckUpdatesDescription(): String =
+            if (showingTransitiveView) {
+                MyMessageBundle.message("toolwindow.MyToolWindow.checkUpdates.tooltip.transitiveView")
+            } else {
+                MyMessageBundle.message("toolwindow.MyToolWindow.checkUpdates.button")
+            }
 
         /**
          * Prüft, ob die Sammelauswahl der höchsten Versionen für die aktuell sichtbare Ansicht ausführbar ist.

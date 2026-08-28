@@ -989,6 +989,55 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertEquals("Transitive CVEs", event.presentation.text)
     }
 
+    fun testCheckUpdatesIsDisabledWhileTransitiveViewIsShown() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        assertTrue(
+            "In der Haupttabelle muss die Versionssuche verfügbar sein",
+            toolWindow.isCheckUpdatesEnabled()
+        )
+        assertEquals(
+            "Search for New Versions",
+            toolWindow.currentCheckUpdatesDescription()
+        )
+
+        val coordinate = "com.example:transitive:2.0.0"
+        val coords = toolWindow.javaClass.getDeclaredField("transitiveCoordinates")
+            .apply { isAccessible = true }
+            .get(toolWindow)
+        @Suppress("UNCHECKED_CAST")
+        (coords as MutableSet<String>).add(coordinate)
+        val advisories = toolWindow.javaClass.getDeclaredField("vulnerabilityAdvisories")
+            .apply { isAccessible = true }
+            .get(toolWindow)
+        @Suppress("UNCHECKED_CAST")
+        (advisories as MutableMap<String, List<VulnerabilityAdvisory>>)[coordinate] = listOf(
+            VulnerabilityAdvisory(
+                id = "CVE-TRANSITIVE",
+                severity = VulnerabilitySeverity.HIGH,
+                sources = setOf("OSV")
+            )
+        )
+        toolWindow.updateTransitiveVulnerabilitiesView()
+        toolWindow.setTransitiveViewVisible(true)
+
+        assertFalse(
+            "In der transitiven Ansicht darf die Versionssuche nicht ausführbar sein",
+            toolWindow.isCheckUpdatesEnabled()
+        )
+        assertTrue(
+            "Der Tooltip muss erklären, warum die Aktion dort deaktiviert ist",
+            toolWindow.currentCheckUpdatesDescription().contains("main dependency table")
+        )
+
+        toolWindow.setTransitiveViewVisible(false)
+        assertTrue(
+            "Nach dem Zurückschalten muss die Versionssuche wieder verfügbar sein",
+            toolWindow.isCheckUpdatesEnabled()
+        )
+    }
+
     fun testTransitiveVulnerabilitiesAbsentWithoutScan() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         toolWindow.getContent()
