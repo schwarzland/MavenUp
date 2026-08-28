@@ -104,6 +104,8 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   `MavenUpWindowFactory.setTransitiveViewVisible`/`updateTransitiveVulnerabilitiesView`/`hasTransitiveVulnerabilities`);
   die Filterzeile wird dabei ausgeblendet. Die reine Top-Level-Funktion `collectTransitiveVulnerabilityRows`
   (samt `TransitiveVulnerabilityRow` und den `TRANSITIVE_*_COLUMN`-Konstanten) baut und sortiert die Zeilen.
+  Ein Rechtsklick öffnet über IntelliJs `ActionSystem` ein Kontextmenü (`showContextMenu`) mit
+  **Open on [Browser]** (konfigurierter Repository-Browser) und **Show Vulnerability Details** (nur bei Funden aktiv).
   Ein Klick auf die Vulnerabilities-Zelle öffnet den `VulnerabilityDetailDialog`. Bewusst als eigene
   Komponente ausgelegt, damit ihr künftig weitere Aktionen hinzugefügt werden können.
 - **UI-Hilfsdateien (ui)**: Zustandslose Top-Level-Helfer, die aus `MavenUpWindowFactory.kt`

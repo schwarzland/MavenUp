@@ -1,10 +1,17 @@
 package de.schwarzland.mavenup.ui
 
+import com.intellij.ide.BrowserUtil
+import com.intellij.openapi.actionSystem.ActionManager
+import com.intellij.openapi.actionSystem.ActionUpdateThread
+import com.intellij.openapi.actionSystem.AnAction
+import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.project.Project
 import com.intellij.ui.components.JBPanel
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.table.JBTable
 import de.schwarzland.mavenup.model.VulnerabilityAdvisory
+import de.schwarzland.mavenup.service.MavenUpSettings
 import java.awt.BorderLayout
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
@@ -139,6 +146,14 @@ internal class TransitiveVulnerabilitiesView(private val project: Project) : JBP
         installSortableHeaderRenderer(table)
 
         table.addMouseListener(object : MouseAdapter() {
+            override fun mousePressed(e: MouseEvent) {
+                if (e.isPopupTrigger) showContextMenu(e)
+            }
+
+            override fun mouseReleased(e: MouseEvent) {
+                if (e.isPopupTrigger) showContextMenu(e)
+            }
+
             override fun mouseClicked(e: MouseEvent) {
                 val row = table.rowAtPoint(e.point)
                 val column = table.columnAtPoint(e.point)
@@ -149,6 +164,60 @@ internal class TransitiveVulnerabilitiesView(private val project: Project) : JBP
         })
 
         add(JBScrollPane(table), BorderLayout.CENTER)
+    }
+
+    /**
+     * Zeigt das zeilenbezogene Kontextmenü der transitiven Ansicht an.
+     *
+     * Angelehnt an das Kontextmenü der Haupttabelle bietet es **Open on [Browser]** (öffnet die
+     * angeklickte Koordinate im konfigurierten Maven-Repository-Browser) und **Show Vulnerability
+     * Details** (öffnet den Detaildialog; nur aktiv, wenn Sicherheitswarnungen vorliegen). Das Menü
+     * wird über IntelliJs `ActionSystem` erzeugt, damit Theme, Abstände und Auswahlfarben der IDE
+     * verwendet werden.
+     *
+     * @param e Das auslösende Maus-Ereignis mit der Klickposition.
+     */
+    private fun showContextMenu(e: MouseEvent) {
+        val viewRow = table.rowAtPoint(e.point)
+        if (viewRow < 0) return
+        if (!table.isRowSelected(viewRow)) {
+            table.setRowSelectionInterval(viewRow, viewRow)
+        }
+        val modelRow = table.convertRowIndexToModel(viewRow)
+        val groupId = tableModel.getValueAt(modelRow, TRANSITIVE_GROUP_ID_COLUMN) as? String ?: ""
+        val artifactId = tableModel.getValueAt(modelRow, TRANSITIVE_ARTIFACT_ID_COLUMN) as? String ?: ""
+        val version = tableModel.getValueAt(modelRow, TRANSITIVE_VERSION_COLUMN) as? String ?: ""
+        val cell = tableModel.getValueAt(modelRow, TRANSITIVE_VULNERABILITIES_COLUMN) as? VulnerabilityCell
+
+        val group = DefaultActionGroup()
+        fun addAction(label: String, enabled: Boolean = true, action: () -> Unit) {
+            group.add(object : AnAction(label) {
+                override fun getActionUpdateThread() = ActionUpdateThread.BGT
+                override fun update(e: AnActionEvent) {
+                    e.presentation.isEnabled = enabled
+                }
+                override fun actionPerformed(e: AnActionEvent) = action()
+            })
+        }
+
+        val browser = MavenUpSettings.getInstance().state.repositoryBrowser
+        addAction(
+            MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_CONTEXT_MENU_OPEN_IN_MVN_REPOSITORY, browser.displayName)
+        ) {
+            BrowserUtil.browse(buildMavenRepositoryUrl(groupId, artifactId, version, browser))
+        }
+        val hasVulnerabilities = cell != null && cell.allAdvisories.isNotEmpty()
+        group.addSeparator()
+        addAction(
+            MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.showVulnerabilityDetails"),
+            hasVulnerabilities
+        ) {
+            openVulnerabilityDetails(viewRow)
+        }
+
+        ActionManager.getInstance().createActionPopupMenu(
+            "MavenUp.TransitiveVulnerabilitiesTable", group
+        ).component.show(e.component, e.x, e.y)
     }
 
     /**
