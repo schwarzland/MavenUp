@@ -113,12 +113,21 @@ class PomUpdateServiceTest : BasePlatformTestCase() {
         assertEquals("org.trans", managed?.findFirstSubTag("groupId")?.value?.text)
         assertEquals("1.2.4", managed?.findFirstSubTag("version")?.value?.text)
 
-        val comment = PsiTreeUtil.findChildOfType(dependenciesTag, XmlComment::class.java)
-        assertNotNull("A MavenUp comment should be added", comment)
+        val comment = PsiTreeUtil.findChildOfType(managed, XmlComment::class.java)
+        assertNotNull("A MavenUp comment should be added inside the dependency", comment)
         val commentText = comment!!.text
         assertTrue("Comment mentions MavenUp", commentText.contains("MavenUp"))
         assertTrue("Comment lists CVE-1", commentText.contains("CVE-1"))
         assertTrue("Comment lists GHSA-2", commentText.contains("GHSA-2"))
+        val groupIdTag = managed!!.findFirstSubTag("groupId")
+        assertTrue(
+            "Comment is placed right after the opening <dependency> tag, before groupId",
+            comment.textRange.startOffset < groupIdTag!!.textRange.startOffset
+        )
+        assertTrue(
+            "Comment starts on its own line after the opening <dependency> tag",
+            Regex("<dependency>\\s*\\R\\s*<!--").containsMatchIn(managed.text)
+        )
     }
 
     fun testAddManagedDependencyReusesExistingContainer() {

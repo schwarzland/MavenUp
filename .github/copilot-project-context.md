@@ -210,9 +210,9 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   `pom.xml` an (`applyUpdateToPom`, `updateXmlTagVersion`, Parent/Dependencies/Plugins) und
   speichert die Dateien vor dem Maven-Sync (`persistPomChanges`). Für „managed dependency"-Updates
   ohne vorhandenen Eintrag legt `addManagedDependency` einen neuen `<dependencyManagement>`-Eintrag an
-  (Container werden bei Bedarf erzeugt) und stellt ihm über `createManagedDependencyComment` einen
-  XML-Kommentar mit den behobenen Vulnerability-IDs und MavenUp-Hinweis voran; genutzt für das Pinnen
-  transitiver Abhängigkeiten.
+  (Container werden bei Bedarf erzeugt) und stellt der Abhängigkeit über `managedDependencyCommentText`
+  einen XML-Kommentar mit den behobenen Vulnerability-IDs und MavenUp-Hinweis als erste Zeile voran
+  (Erzeugung aus Text via `createTagFromText` + `reformat`); genutzt für das Pinnen transitiver Abhängigkeiten.
 - **VulnerabilityScanService**: ermittelt direkte/transitive Scan-Ziele aus dem Maven-Modell
   (`collectVulnerabilityScanTargets`, `collectResolvedDependencyRelations`) und kapselt die
   OSS-Index-Abfrage (`resolveOssIndexResults`, Ergebnis `OssIndexScanResult`). Zugangsdaten
