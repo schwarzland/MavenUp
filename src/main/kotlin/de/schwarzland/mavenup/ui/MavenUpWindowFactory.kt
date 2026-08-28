@@ -594,6 +594,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         updateTypeFilterOptions()
                         updateUpdatesFilterState()
                         updateVulnerabilitiesFilterState()
+                        trimColumnWidthsToContent(table)
 
                         if (checkUpdates) {
                             performUpdateCheck {
