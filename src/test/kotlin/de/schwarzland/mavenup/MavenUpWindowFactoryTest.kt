@@ -930,6 +930,85 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         )
     }
 
+    fun testTransitiveViewToggleActionIsPresentInToolbar() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        val hasToggle = toolWindow.topToolbarActions()
+            .filterIsInstance<com.intellij.openapi.actionSystem.ToggleAction>()
+            .isNotEmpty()
+        assertTrue("Die Toolbar sollte eine Umschalt-Aktion für die transitive Ansicht enthalten", hasToggle)
+    }
+
+    fun testTransitiveVulnerabilitiesAbsentWithoutScan() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        assertFalse(
+            "Ohne Scan-Ergebnisse sollten keine transitiven Sicherheitslücken vorliegen",
+            toolWindow.hasTransitiveVulnerabilities()
+        )
+    }
+
+    fun testTransitiveViewTogglesVisibilityAndFilterPanel() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        val coordinate = "com.example:transitive:2.0.0"
+        val coords = toolWindow.javaClass.getDeclaredField("transitiveCoordinates")
+            .apply { isAccessible = true }.get(toolWindow) as MutableSet<String>
+        val advisories = toolWindow.javaClass.getDeclaredField("vulnerabilityAdvisories")
+            .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, List<VulnerabilityAdvisory>>
+        coords.add(coordinate)
+        advisories[coordinate] = listOf(
+            VulnerabilityAdvisory(id = "CVE-1", severity = VulnerabilitySeverity.HIGH, sources = setOf("OSV"))
+        )
+
+        assertTrue(toolWindow.hasTransitiveVulnerabilities())
+
+        val filterPanel = toolWindow.javaClass.getDeclaredField("filterPanel")
+            .apply { isAccessible = true }.get(toolWindow) as javax.swing.JComponent
+        val showingField = toolWindow.javaClass.getDeclaredField("showingTransitiveView")
+            .apply { isAccessible = true }
+
+        toolWindow.setTransitiveViewVisible(true)
+        assertTrue("Die transitive Ansicht sollte aktiv sein", showingField.getBoolean(toolWindow))
+        assertFalse("Die Filterzeile sollte in der transitiven Ansicht ausgeblendet sein", filterPanel.isVisible)
+
+        toolWindow.setTransitiveViewVisible(false)
+        assertFalse("Die Ansicht sollte zurück zur Haupttabelle wechseln", showingField.getBoolean(toolWindow))
+        assertTrue("Die Filterzeile sollte in der Haupttabelle wieder sichtbar sein", filterPanel.isVisible)
+    }
+
+    fun testTransitiveViewReturnsToMainTableWhenFindingsCleared() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        val coordinate = "com.example:transitive:2.0.0"
+        val coords = toolWindow.javaClass.getDeclaredField("transitiveCoordinates")
+            .apply { isAccessible = true }.get(toolWindow) as MutableSet<String>
+        val advisories = toolWindow.javaClass.getDeclaredField("vulnerabilityAdvisories")
+            .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, List<VulnerabilityAdvisory>>
+        coords.add(coordinate)
+        advisories[coordinate] = listOf(
+            VulnerabilityAdvisory(id = "CVE-1", severity = VulnerabilitySeverity.HIGH, sources = setOf("OSV"))
+        )
+        val showingField = toolWindow.javaClass.getDeclaredField("showingTransitiveView")
+            .apply { isAccessible = true }
+
+        toolWindow.setTransitiveViewVisible(true)
+        assertTrue(showingField.getBoolean(toolWindow))
+
+        coords.clear()
+        advisories.clear()
+        toolWindow.updateTransitiveVulnerabilitiesView()
+
+        assertFalse(
+            "Ohne verbleibende Funde sollte automatisch zur Haupttabelle zurückgeschaltet werden",
+            showingField.getBoolean(toolWindow)
+        )
+    }
+
     fun testApplySelectLatestVersionSettingSelectsNewest() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         toolWindow.getContent()

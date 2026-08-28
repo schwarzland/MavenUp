@@ -45,7 +45,7 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   **Reset to Current Version** (verwirft ausschließlich für die angeklickte Dependency die Auswahl; nur aktiv bei
   abweichender Auswahl – siehe `resetVersionForDependency`/`isVersionResetEnabledForDependency`)
   und **Show Vulnerability Details** (deaktiviert, wenn die Dependency keine Befunde hat). Alle Kontextmenü-Einträge
-  bleiben stets sichtbar und ändern nur ihren Aktivierungszustand (kein Ein-/Ausblenden). Die Aktionen liegen in einer oberen `ActionToolbar` (Icon-Actions mit Tooltip): links die Kernaktionen **Refresh**, **Search for New Versions**, **Scan for Vulnerabilities** und **Update**, durch einen Trenner abgesetzt das Aufklappmenü **Select Highest Version** (Icon `VersionUpdateArrowIcon`, dasselbe Aufwärtspfeil-Glyph „↑" wie die New-Version-Spalte) mit den beiden Aktionen **Select Highest Major Version** und **Select Highest Minor Version**, gefolgt von der eigenständigen Aktion **Reset All to Current Versions**, durch einen weiteren Trenner abgesetzt die selektionsabhängigen Aktionen **Open on [Browser]** und **Vulnerability Details**, am Ende **Settings**. Bei aktivierten Textbeschriftungen zeigen die Buttons gekürzte Labels (z.B. **Search Versions**, **Scan**, **Update**, **Highest**, **Reset**, **Open**, **Details**), während die vollständige Beschriftung als Tooltip erhalten bleibt; der Tooltip des **Select Highest Version**-Menüs weist darauf hin, dass nur die aktuell sichtbaren Dependencies geändert werden, während der Tooltip von **Reset All to Current Versions** benennt, dass ohne aktiven Filter alle Dependencies zurückgesetzt werden und bei aktivem Filter zwischen allen und nur den gefilterten gewählt werden kann. Die **Open on [Browser]**-Aktion wird aktiv, sobald eine Dependency-Zeile selektiert ist, und zeigt dynamisch den konfigurierten Browser-Namen im Tooltip (z.B. **Open on MVN Repository** oder **Open on Sonatype Central**). Die **Vulnerability Details**-Aktion ist erst aktiv, wenn eine Dependency-Zeile mit Befunden selektiert ist, und zeigt ausschließlich die Befunde der selektierten Dependency (direkte und transitive). Der verwendete Repository-Browser
+  bleiben stets sichtbar und ändern nur ihren Aktivierungszustand (kein Ein-/Ausblenden). Die Aktionen liegen in einer oberen `ActionToolbar` (Icon-Actions mit Tooltip): links die Kernaktionen **Refresh**, **Search for New Versions**, **Scan for Vulnerabilities** und **Update**, durch einen Trenner abgesetzt das Aufklappmenü **Select Highest Version** (Icon `VersionUpdateArrowIcon`, dasselbe Aufwärtspfeil-Glyph „↑" wie die New-Version-Spalte) mit den beiden Aktionen **Select Highest Major Version** und **Select Highest Minor Version**, gefolgt von der eigenständigen Aktion **Reset All to Current Versions**, durch einen weiteren Trenner abgesetzt die selektionsabhängigen Aktionen **Open on [Browser]** und **Vulnerability Details**, gefolgt von der **Show Transitive Vulnerabilities**-Umschaltaktion (`ToggleAction`, blendet über ein zentrales `CardLayout` die `TransitiveVulnerabilitiesView` ein/aus; nur aktiv, wenn ein Scan transitive Sicherheitslücken gefunden hat, und blendet dabei die Filterzeile aus), am Ende **Settings**. Bei aktivierten Textbeschriftungen zeigen die Buttons gekürzte Labels (z.B. **Search Versions**, **Scan**, **Update**, **Highest**, **Reset**, **Open**, **Details**), während die vollständige Beschriftung als Tooltip erhalten bleibt; der Tooltip des **Select Highest Version**-Menüs weist darauf hin, dass nur die aktuell sichtbaren Dependencies geändert werden, während der Tooltip von **Reset All to Current Versions** benennt, dass ohne aktiven Filter alle Dependencies zurückgesetzt werden und bei aktivem Filter zwischen allen und nur den gefilterten gewählt werden kann. Die **Open on [Browser]**-Aktion wird aktiv, sobald eine Dependency-Zeile selektiert ist, und zeigt dynamisch den konfigurierten Browser-Namen im Tooltip (z.B. **Open on MVN Repository** oder **Open on Sonatype Central**). Die **Vulnerability Details**-Aktion ist erst aktiv, wenn eine Dependency-Zeile mit Befunden selektiert ist, und zeigt ausschließlich die Befunde der selektierten Dependency (direkte und transitive). Der verwendete Repository-Browser
   (**MVN Repository** oder **Sonatype Central**) ist in den Einstellungen
   konfigurierbar und gilt einheitlich für das Kontextmenü sowie das zeilenbezogene Rechtsklick-Menü im
   Vulnerability-Details-Dialog. Die Kontextmenüs werden über IntelliJs `ActionSystem` beziehungsweise
@@ -94,10 +94,20 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
 - **UpdateConfirmationDialog**: eigenständiger `DialogWrapper` (Top-Level in `ui`), der vor
   dem Anwenden die anstehenden Updates in einer schreibgeschützten Tabelle bestätigen lässt und
   die Option **Sync Maven Changes** (vorbelegt aus `MavenUpSettings.syncMavenAfterUpdate`) anbietet.
+- **TransitiveVulnerabilitiesView**: eigenständige `JBPanel`-Ansicht (Top-Level in `ui`), die alle
+  transitiven, verwundbaren Abhängigkeiten in einer sortierbaren Tabelle (GroupId, ArtifactId, Version,
+  Vulnerabilities-Anzahl mit Severity-Färbung) auflistet. Wird über einen `ToggleAction` in der
+  Tool-Window-Aktionsleiste ein-/ausgeblendet (Umschaltung über ein `CardLayout` im Zentrum, siehe
+  `MavenUpWindowFactory.setTransitiveViewVisible`/`updateTransitiveVulnerabilitiesView`/`hasTransitiveVulnerabilities`);
+  die Filterzeile wird dabei ausgeblendet. Die reine Top-Level-Funktion `collectTransitiveVulnerabilityRows`
+  (samt `TransitiveVulnerabilityRow` und den `TRANSITIVE_*_COLUMN`-Konstanten) baut und sortiert die Zeilen.
+  Ein Klick auf die Vulnerabilities-Zelle öffnet den `VulnerabilityDetailDialog`. Bewusst als eigene
+  Komponente ausgelegt, damit ihr künftig weitere Aktionen hinzugefügt werden können.
 - **UI-Hilfsdateien (ui)**: Zustandslose Top-Level-Helfer, die aus `MavenUpWindowFactory.kt`
   in eigene Dateien desselben Packages ausgelagert wurden (reine Logik/Icons, keine
   `MyToolWindow`-Abhängigkeit):
-  - `MavenUpTableConstants.kt`: Spalten-Indizes und Message-Key-/Typ-Konstanten.
+  - `MavenUpTableConstants.kt`: Spalten-Indizes und Message-Key-/Typ-Konstanten sowie die
+    `CARD_MAIN_TABLE`/`CARD_TRANSITIVE_VIEW`-Namen des zentralen `CardLayout`.
   - `VersionStatusUi.kt`: `VersionUpdateArrowIcon`, `isVersionUpToDate`, `hasNewerVersion`,
     `versionStatusText`/`versionStatusColor`/`versionStatusTooltip`, `versionDropdownItemText`,
     `createVersionPanel` samt Status-Glyphen und `JBColor`-Werten.
@@ -106,10 +116,12 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
     `rowMatchesFilter`.
   - `VulnerabilityCellModel.kt`: `VulnerabilityCell`, `buildVulnerabilityCell`,
     `vulnerabilitySummary`, `worstSeverity`, `canCheckVulnerabilities`, `vulnerabilityColor`,
+    `vulnerabilityCellRenderer` (geteilter Zell-Renderer von Haupttabelle und transitiver Ansicht),
     `VulnerabilityScanTargets`, `artifactNodeCoordinate`, `coordinateString`.
   - `RefreshSnapshot.kt`: `RefreshRow`, `RefreshSnapshot`.
   - `MavenRepositoryLink.kt`: `buildMavenRepositoryUrl`.
-  - `SortableHeaderIcon.kt`: `sortableHeaderIcon`.
+  - `SortableHeaderIcon.kt`: `sortableHeaderIcon` und `installSortableHeaderRenderer`
+    (geteilter Kopfzeilen-Renderer für alle Plugin-Tabellen).
   - `TableColumnWidths.kt`: `trimColumnWidthsToContent` samt `DEFAULT_COLUMN_WIDTH_PADDING`,
     `DEFAULT_MIN_COLUMN_WIDTH`, `DEFAULT_MAX_COLUMN_WIDTH` (allgemeine Regel für alle Plugin-Tabellen:
     Spaltenbreiten werden nach Inhalt getrimmt und mit der Fenster-/Dialoggröße proportional skaliert).
