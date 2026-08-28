@@ -11,6 +11,7 @@ import de.schwarzland.mavenup.service.VersionAutoSelectionMode
 import de.schwarzland.mavenup.ui.buildMavenRepositoryUrl
 import de.schwarzland.mavenup.ui.GROUP_ID_COLUMN
 import de.schwarzland.mavenup.ui.MavenUpWindowFactory
+import de.schwarzland.mavenup.ui.TransitiveVulnerabilitiesView
 import de.schwarzland.mavenup.ui.UpdateConfirmationDialog
 import de.schwarzland.mavenup.service.RefreshSnapshotCollector
 import de.schwarzland.mavenup.ui.MyMessageBundle
@@ -1007,6 +1008,35 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         toolWindow.setTransitiveViewVisible(false)
         assertFalse("Die Ansicht sollte zurück zur Haupttabelle wechseln", showingField.getBoolean(toolWindow))
         assertTrue("Die Filterzeile sollte in der Haupttabelle wieder sichtbar sein", filterPanel.isVisible)
+    }
+
+    fun testToolbarActionsTargetTransitiveViewWhenActive() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        val coordinate = "com.example:transitive:2.0.0"
+        val coords = toolWindow.javaClass.getDeclaredField("transitiveCoordinates")
+            .apply { isAccessible = true }.get(toolWindow) as MutableSet<String>
+        val advisories = toolWindow.javaClass.getDeclaredField("vulnerabilityAdvisories")
+            .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, List<VulnerabilityAdvisory>>
+        coords.add(coordinate)
+        advisories[coordinate] = listOf(
+            VulnerabilityAdvisory(id = "CVE-1", severity = VulnerabilitySeverity.HIGH, sources = setOf("OSV"))
+        )
+        toolWindow.updateTransitiveVulnerabilitiesView()
+        toolWindow.setTransitiveViewVisible(true)
+
+        // Without a selection in the transitive view the actions are disabled.
+        assertFalse(toolWindow.isOpenInRepositoryEnabled())
+        assertFalse(toolWindow.isVulnerabilityDetailsEnabled())
+
+        val view = toolWindow.javaClass.getDeclaredField("transitiveVulnerabilitiesView")
+            .apply { isAccessible = true }.get(toolWindow) as TransitiveVulnerabilitiesView
+        view.table.setRowSelectionInterval(0, 0)
+
+        // With a vulnerable transitive row selected both actions become available.
+        assertTrue(toolWindow.isOpenInRepositoryEnabled())
+        assertTrue(toolWindow.isVulnerabilityDetailsEnabled())
     }
 
     fun testTransitiveViewReturnsToMainTableWhenFindingsCleared() {

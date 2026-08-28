@@ -368,6 +368,12 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 }
             }
 
+            transitiveVulnerabilitiesView.table.selectionModel.addListSelectionListener { event ->
+                if (!event.valueIsAdjusting) {
+                    refreshToolbar()
+                }
+            }
+
             tableRowSorter = object : TableRowSorter<DefaultTableModel>(tableModel) {
                 /**
                  * Schaltet die Sortierung einer Spalte zyklisch weiter: aufsteigend →
@@ -1739,20 +1745,27 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /**
          * Prüft, ob für die aktuell selektierte Zeile die Repository-Browser-Aktion verfügbar ist.
          *
+         * Wirkt je nach aktiver Ansicht auf die Haupttabelle oder die transitive Sicherheitslücken-Ansicht.
+         *
          * @return `true`, wenn eine Zeile selektiert ist.
          */
         internal fun isOpenInRepositoryEnabled(): Boolean =
-            table.selectedRow >= 0
+            if (showingTransitiveView) transitiveVulnerabilitiesView.hasSelectedRow()
+            else table.selectedRow >= 0
 
         /**
          * Prüft, ob für die aktuell selektierte Zeile Vulnerability-Details angezeigt werden können.
          *
+         * Wirkt je nach aktiver Ansicht auf die Haupttabelle oder die transitive Sicherheitslücken-Ansicht.
+         *
          * @return `true`, wenn die selektierte Zeile mindestens eine Sicherheitswarnung besitzt.
          */
         internal fun isVulnerabilityDetailsEnabled(): Boolean {
+            if (isUpdating) return false
+            if (showingTransitiveView) return transitiveVulnerabilitiesView.selectedRowHasVulnerabilities()
             val row = table.selectedRow
             val cell = if (row >= 0) table.getValueAt(row, VULNERABILITIES_COLUMN) as? VulnerabilityCell else null
-            return !isUpdating && cell?.allAdvisories?.isNotEmpty() == true
+            return cell?.allAdvisories?.isNotEmpty() == true
         }
 
         /**
@@ -1770,8 +1783,14 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
         /**
          * Öffnet die aktuell selektierte Abhängigkeit im konfigurierten Repository-Browser.
+         *
+         * Wirkt je nach aktiver Ansicht auf die Haupttabelle oder die transitive Sicherheitslücken-Ansicht.
          */
         internal fun openInMavenRepositoryForSelectedRow() {
+            if (showingTransitiveView) {
+                transitiveVulnerabilitiesView.openSelectedInRepository()
+                return
+            }
             val row = table.selectedRow
             if (row < 0) return
             val groupId = table.getValueAt(row, GROUP_ID_COLUMN)?.toString().orEmpty()
@@ -1782,8 +1801,14 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
         /**
          * Öffnet den Vulnerability-Details-Dialog für die aktuell selektierte Abhängigkeit.
+         *
+         * Wirkt je nach aktiver Ansicht auf die Haupttabelle oder die transitive Sicherheitslücken-Ansicht.
          */
         internal fun openVulnerabilityDetailsForSelectedRow() {
+            if (showingTransitiveView) {
+                transitiveVulnerabilitiesView.openSelectedVulnerabilityDetails()
+                return
+            }
             val row = table.selectedRow
             if (row < 0) return
             val cell = table.getValueAt(row, VULNERABILITIES_COLUMN) as? VulnerabilityCell

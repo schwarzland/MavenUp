@@ -184,9 +184,6 @@ internal class TransitiveVulnerabilitiesView(private val project: Project) : JBP
             table.setRowSelectionInterval(viewRow, viewRow)
         }
         val modelRow = table.convertRowIndexToModel(viewRow)
-        val groupId = tableModel.getValueAt(modelRow, TRANSITIVE_GROUP_ID_COLUMN) as? String ?: ""
-        val artifactId = tableModel.getValueAt(modelRow, TRANSITIVE_ARTIFACT_ID_COLUMN) as? String ?: ""
-        val version = tableModel.getValueAt(modelRow, TRANSITIVE_VERSION_COLUMN) as? String ?: ""
         val cell = tableModel.getValueAt(modelRow, TRANSITIVE_VULNERABILITIES_COLUMN) as? VulnerabilityCell
 
         val group = DefaultActionGroup()
@@ -204,7 +201,7 @@ internal class TransitiveVulnerabilitiesView(private val project: Project) : JBP
         addAction(
             MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_CONTEXT_MENU_OPEN_IN_MVN_REPOSITORY, browser.displayName)
         ) {
-            BrowserUtil.browse(buildMavenRepositoryUrl(groupId, artifactId, version, browser))
+            openInRepository(viewRow)
         }
         val hasVulnerabilities = cell != null && cell.allAdvisories.isNotEmpty()
         group.addSeparator()
@@ -218,6 +215,67 @@ internal class TransitiveVulnerabilitiesView(private val project: Project) : JBP
         ActionManager.getInstance().createActionPopupMenu(
             "MavenUp.TransitiveVulnerabilitiesTable", group
         ).component.show(e.component, e.x, e.y)
+    }
+
+    /**
+     * Prüft, ob aktuell eine Zeile der transitiven Tabelle selektiert ist.
+     *
+     * @return `true`, wenn mindestens eine Zeile selektiert ist.
+     */
+    internal fun hasSelectedRow(): Boolean = table.selectedRow >= 0
+
+    /**
+     * Prüft, ob die aktuell selektierte Zeile mindestens eine Sicherheitswarnung besitzt.
+     *
+     * @return `true`, wenn die selektierte Zeile Sicherheitswarnungen enthält.
+     */
+    internal fun selectedRowHasVulnerabilities(): Boolean {
+        val cell = selectedCell() ?: return false
+        return cell.allAdvisories.isNotEmpty()
+    }
+
+    /**
+     * Öffnet die aktuell selektierte Koordinate im konfigurierten Maven-Repository-Browser.
+     */
+    internal fun openSelectedInRepository() {
+        val viewRow = table.selectedRow
+        if (viewRow < 0) return
+        openInRepository(viewRow)
+    }
+
+    /**
+     * Öffnet den Vulnerability-Detaildialog für die aktuell selektierte Zeile.
+     */
+    internal fun openSelectedVulnerabilityDetails() {
+        val viewRow = table.selectedRow
+        if (viewRow < 0) return
+        openVulnerabilityDetails(viewRow)
+    }
+
+    /**
+     * Liefert die Sicherheitslücken-Zelle der aktuell selektierten Zeile.
+     *
+     * @return Die [VulnerabilityCell] der selektierten Zeile oder `null`, wenn keine Zeile selektiert ist.
+     */
+    private fun selectedCell(): VulnerabilityCell? {
+        val viewRow = table.selectedRow
+        if (viewRow < 0) return null
+        val modelRow = table.convertRowIndexToModel(viewRow)
+        return tableModel.getValueAt(modelRow, TRANSITIVE_VULNERABILITIES_COLUMN) as? VulnerabilityCell
+    }
+
+    /**
+     * Öffnet die Koordinate der angegebenen Sichtzeile im konfigurierten Maven-Repository-Browser.
+     *
+     * @param viewRow Der Zeilenindex in der (ggf. sortierten) Sicht.
+     */
+    private fun openInRepository(viewRow: Int) {
+        val modelRow = table.convertRowIndexToModel(viewRow)
+        val groupId = tableModel.getValueAt(modelRow, TRANSITIVE_GROUP_ID_COLUMN) as? String ?: ""
+        val artifactId = tableModel.getValueAt(modelRow, TRANSITIVE_ARTIFACT_ID_COLUMN) as? String ?: ""
+        val version = tableModel.getValueAt(modelRow, TRANSITIVE_VERSION_COLUMN) as? String ?: ""
+        val browser = MavenUpSettings.getInstance().state.repositoryBrowser
+        BrowserUtil.browse(buildMavenRepositoryUrl(groupId, artifactId, version, browser))
     }
 
     /**
