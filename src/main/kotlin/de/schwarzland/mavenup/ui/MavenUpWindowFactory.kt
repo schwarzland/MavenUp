@@ -862,6 +862,11 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     else confirmAndResetAllVersionsToCurrent()
                 })
                 addSeparator()
+                // Der Ansichtsumschalter bildet ein eigenes Segment vor den selektionsabhängigen
+                // Aktionen: Er legt fest, auf welche Tabelle diese wirken, und ist selbst nicht
+                // selektionsabhängig, sondern hängt am Scan-Ergebnis.
+                add(toggleTransitiveViewAction)
+                addSeparator()
                 add(openInRepositoryAction)
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.vulnerabilityDetails.button",
@@ -869,7 +874,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     { isVulnerabilityDetailsEnabled() },
                     shortLabelKey = "toolwindow.MyToolWindow.vulnerabilityDetails.button.short"
                 ) { openVulnerabilityDetailsForSelectedRow() })
-                add(toggleTransitiveViewAction)
                 add(Separator.getInstance())
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.settings.button",

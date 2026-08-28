@@ -989,6 +989,32 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertEquals("Transitive CVEs", event.presentation.text)
     }
 
+    fun testTransitiveViewToggleFormsItsOwnToolbarSegmentBeforeSelectionActions() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        val actions = toolWindow.topToolbarActions()
+        val toggleIndex = actions.indexOfFirst { it is com.intellij.openapi.actionSystem.ToggleAction }
+        assertTrue("Die Umschalt-Aktion muss in der Toolbar enthalten sein", toggleIndex >= 0)
+
+        assertTrue(
+            "Vor der Umschalt-Aktion muss ein Trenner stehen",
+            actions[toggleIndex - 1] is com.intellij.openapi.actionSystem.Separator
+        )
+        assertTrue(
+            "Nach der Umschalt-Aktion muss ein Trenner stehen",
+            actions[toggleIndex + 1] is com.intellij.openapi.actionSystem.Separator
+        )
+
+        val detailsLabel = MyMessageBundle.message("toolwindow.MyToolWindow.vulnerabilityDetails.button")
+        val detailsIndex = actions.indexOfFirst { it.templatePresentation.text == detailsLabel }
+        assertTrue("Die Vulnerability-Details-Aktion muss in der Toolbar enthalten sein", detailsIndex >= 0)
+        assertTrue(
+            "Der Ansichtsumschalter muss vor den selektionsabhängigen Aktionen stehen",
+            toggleIndex < detailsIndex
+        )
+    }
+
     fun testCheckUpdatesIsDisabledWhileTransitiveViewIsShown() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         toolWindow.getContent()
