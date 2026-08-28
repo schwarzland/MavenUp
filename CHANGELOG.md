@@ -23,6 +23,7 @@
 ### Changed
 
 - Made the **Open on [Browser]** and **Vulnerability Details** toolbar actions operate on the selected row of whichever view is active, so they target the transitive vulnerabilities view while it is shown.
+- Renamed the short toolbar label of the transitive vulnerabilities toggle from *Transitive* to *Transitive CVEs* and replaced its generic tree icon with the dependency analyzer icon.
 - Made the **Select Highest Version** dropdown and the **Reset All to Current Versions** toolbar action operate on the transitive vulnerabilities view while it is shown.
 - Limited the bulk version selection in the transitive vulnerabilities view to the rows visible under its filter, and made the reset action ask whether to reset all transitive coordinates or only the filtered ones while a filter is active.
 - Replaced the Summary and References columns in the Vulnerability Details dialog with the detail pane, and removed the separate references list dialog.

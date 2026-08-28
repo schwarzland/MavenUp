@@ -757,7 +757,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     e.presentation.text = shortLabel
                     e.presentation.description = tooltip
                     e.presentation.putClientProperty(ActionButton.CUSTOM_HELP_TOOLTIP, HelpTooltip().withWrappingDescription(tooltip))
-                    e.presentation.icon = AllIcons.Actions.ShowAsTree
+                    e.presentation.icon = AllIcons.Actions.DependencyAnalyzer
                     e.presentation.putClientProperty(ActionUtil.SHOW_TEXT_IN_TOOLBAR, showText)
                 }
             }

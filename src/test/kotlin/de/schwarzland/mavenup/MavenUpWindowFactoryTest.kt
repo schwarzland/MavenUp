@@ -811,6 +811,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertEquals("Open", MyMessageBundle.message("toolwindow.MyToolWindow.openInRepository.button.short"))
         assertEquals("Details", MyMessageBundle.message("toolwindow.MyToolWindow.vulnerabilityDetails.button.short"))
         assertEquals("Reset", MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.button.short"))
+        assertEquals("Transitive CVEs", MyMessageBundle.message("toolwindow.MyToolWindow.transitiveView.button.short"))
     }
 
     fun testResetActionLabelAndTooltipConveyFilterAwareScope() {
@@ -968,6 +969,24 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
             .filterIsInstance<com.intellij.openapi.actionSystem.ToggleAction>()
             .isNotEmpty()
         assertTrue("Die Toolbar sollte eine Umschalt-Aktion für die transitive Ansicht enthalten", hasToggle)
+    }
+
+    fun testTransitiveViewToggleUsesDependencyAnalyzerIconAndShortLabel() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        val toggle = toolWindow.topToolbarActions()
+            .filterIsInstance<com.intellij.openapi.actionSystem.ToggleAction>()
+            .first()
+        val event = com.intellij.testFramework.TestActionEvent.createTestEvent(toggle)
+        toggle.update(event)
+
+        assertEquals(
+            "Die Umschalt-Aktion sollte das Dependency-Analyzer-Icon verwenden",
+            com.intellij.icons.AllIcons.Actions.DependencyAnalyzer,
+            event.presentation.icon
+        )
+        assertEquals("Transitive CVEs", event.presentation.text)
     }
 
     fun testTransitiveVulnerabilitiesAbsentWithoutScan() {
