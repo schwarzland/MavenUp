@@ -47,7 +47,7 @@ class UpdateConfirmationDialog(
      */
     override fun createCenterPanel(): JComponent {
         val panel = JBPanel<JBPanel<*>>(BorderLayout())
-        panel.preferredSize = java.awt.Dimension(600, 450)
+        panel.preferredSize = java.awt.Dimension(900, 500)
 
         val topPanel = JBPanel<JBPanel<*>>(BorderLayout())
         topPanel.add(
