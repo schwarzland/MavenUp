@@ -1,5 +1,10 @@
 package de.schwarzland.mavenup.ui
 
+import java.awt.Component
+import javax.swing.DefaultListCellRenderer
+import javax.swing.JList
+import javax.swing.ListCellRenderer
+
 /**
  * Filteroption für dreiwertige Filterkriterien (Alle, Ja, Nein) in der Filterzeile.
  *
@@ -54,6 +59,30 @@ internal fun triStateFilterOptionLabel(option: TriStateFilter, labels: TriStateF
         TriStateFilter.ALL -> MyMessageBundle.message(labels.allKey)
         TriStateFilter.YES -> MyMessageBundle.message(labels.yesKey)
         TriStateFilter.NO -> MyMessageBundle.message(labels.noKey)
+    }
+
+/**
+ * Erzeugt einen Renderer, der die [TriStateFilter]-Werte einer Filter-Combobox mit
+ * kontextspezifischen, selbsterklärenden Texten anzeigt.
+ *
+ * Wird von allen Filterzeilen (Haupttabelle und transitive Ansicht) gemeinsam genutzt.
+ *
+ * @param labels Die Message-Bundle-Schlüssel der Optionstexte des jeweiligen Filters.
+ * @return Ein [ListCellRenderer] für die Filter-Combobox.
+ */
+internal fun triStateFilterRenderer(labels: TriStateFilterLabels): ListCellRenderer<in TriStateFilter> =
+    object : DefaultListCellRenderer() {
+        override fun getListCellRendererComponent(
+            list: JList<*>?,
+            value: Any?,
+            index: Int,
+            isSelected: Boolean,
+            cellHasFocus: Boolean
+        ): Component {
+            val text = (value as? TriStateFilter)?.let { triStateFilterOptionLabel(it, labels) }
+                ?: value?.toString()
+            return super.getListCellRendererComponent(list, text, index, isSelected, cellHasFocus)
+        }
     }
 
 /** Kontextspezifische Optionstexte des Änderungs-Filters. */

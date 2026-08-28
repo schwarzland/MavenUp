@@ -937,28 +937,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
         internal fun topToolbarActions(): Array<AnAction> = toolbarGroup.childActionsOrStubs
 
         /**
-         * Erzeugt einen Renderer, der die [TriStateFilter]-Werte einer Filter-Combobox mit
-         * kontextspezifischen, selbsterklärenden Texten anzeigt.
-         *
-         * @param labels Die Message-Bundle-Schlüssel der Optionstexte des jeweiligen Filters.
-         * @return Ein [ListCellRenderer] für die Filter-Combobox.
-         */
-        private fun triStateFilterRenderer(labels: TriStateFilterLabels): ListCellRenderer<in TriStateFilter> =
-            object : DefaultListCellRenderer() {
-                override fun getListCellRendererComponent(
-                    list: JList<*>?,
-                    value: Any?,
-                    index: Int,
-                    isSelected: Boolean,
-                    cellHasFocus: Boolean
-                ): Component {
-                    val text = (value as? TriStateFilter)?.let { triStateFilterOptionLabel(it, labels) }
-                        ?: value?.toString()
-                    return super.getListCellRendererComponent(list, text, index, isSelected, cellHasFocus)
-                }
-            }
-
-        /**
          * Erstellt die Filterzeile mit Typ-, Updates-, Änderungs- und Vulnerabilities-Combobox sowie Textfeld unterhalb der Aktionsleiste.
          *
          * @return Die konfigurierte Filter-Komponente.
@@ -1107,8 +1085,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /**
          * Schaltet zwischen der Hauptabhängigkeitstabelle und der transitiven Sicherheitslücken-Ansicht um.
          *
-         * In der transitiven Ansicht wird die Filterzeile ausgeblendet, da sie ausschließlich für die
-         * Hauptabhängigkeitstabelle gilt.
+         * In der transitiven Ansicht wird die Filterzeile der Haupttabelle ausgeblendet; die transitive
+         * Ansicht bringt eine eigene Filterzeile mit.
          *
          * @param visible `true`, um die transitive Ansicht anzuzeigen, `false` für die Hauptabhängigkeitstabelle.
          */
@@ -1583,12 +1561,27 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * der Benutzer ab, bleibt die aktuelle Auswahl unverändert.
          */
         private fun confirmAndResetWithActiveFilter() {
+            when (askResetScopeWithActiveFilter()) {
+                0 -> resetAllVersionsToCurrent()
+                1 -> resetVisibleVersionsToCurrent()
+                else -> return
+            }
+        }
+
+        /**
+         * Zeigt den Auswahldialog für den Geltungsbereich eines Zurücksetzens bei aktivem Filter an.
+         *
+         * Der Dialog bietet drei Optionen: „Alle Abhängigkeiten", „Nur gefilterte" und „Abbrechen".
+         *
+         * @return `0` für alle, `1` für nur die gefilterten Abhängigkeiten, ein anderer Wert bei Abbruch.
+         */
+        private fun askResetScopeWithActiveFilter(): Int {
             val options = arrayOf(
                 MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.filtered.option.all"),
                 MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.filtered.option.filtered"),
                 MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.filtered.option.cancel")
             )
-            val choice = Messages.showDialog(
+            return Messages.showDialog(
                 project,
                 MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.filtered.message"),
                 MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_RESET_VERSIONS_CONFIRM_TITLE),
@@ -1596,11 +1589,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 0,
                 Messages.getWarningIcon()
             )
-            when (choice) {
-                0 -> resetAllVersionsToCurrent()
-                1 -> resetVisibleVersionsToCurrent()
-                else -> return
-            }
         }
 
         /**
@@ -1656,9 +1644,13 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /**
          * Prüft, ob der aktive Zeilenfilter aktuell Einträge ausblendet.
          *
+         * Berücksichtigt die jeweils sichtbare Ansicht: in der transitiven Ansicht deren eigenen Filter,
+         * sonst den Filter der Haupttabelle.
+         *
          * @return `true`, wenn weniger Zeilen sichtbar sind als das Tabellenmodell enthält.
          */
         internal fun isRowFilterHidingEntries(): Boolean {
+            if (showingTransitiveView) return transitiveVulnerabilitiesView.isRowFilterHidingEntries()
             val model = table.model as? DefaultTableModel ?: return false
             return table.rowCount < model.rowCount
         }
@@ -1735,12 +1727,23 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * Setzt die Versionsauswahlen der transitiven Sicherheitslücken-Ansicht zurück und zeigt bei
          * aktivierter Einstellung zuvor einen Bestätigungsdialog an.
          *
+         * Ist in der transitiven Ansicht ein Filter aktiv, wird stattdessen abgefragt, ob alle oder nur die
+         * gefilterten (sichtbaren) Koordinaten zurückgesetzt werden sollen.
+         *
          * Ist [MavenUpSettings.State.confirmVersionReset] aktiv, wird ein Ja/Nein-Dialog angezeigt; über die
          * Option „Don't ask again" kann der Benutzer die Bestätigung dauerhaft deaktivieren. Bricht der
          * Benutzer ab, bleibt die aktuelle Auswahl unverändert.
          */
         internal fun confirmAndResetTransitiveSelections() {
             if (!transitiveVulnerabilitiesView.hasPendingUpdates()) return
+            if (transitiveVulnerabilitiesView.filterPanel.isResetFiltersEnabled()) {
+                when (askResetScopeWithActiveFilter()) {
+                    0 -> transitiveVulnerabilitiesView.resetSelections()
+                    1 -> transitiveVulnerabilitiesView.resetVisibleSelections()
+                    else -> return
+                }
+                return
+            }
             val settings = MavenUpSettings.getInstance()
             if (settings.state.confirmVersionReset) {
                 val doNotAsk = object : DoNotAskOption.Adapter() {

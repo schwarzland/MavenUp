@@ -25,6 +25,7 @@ import javax.swing.JLabel
 import javax.swing.JPanel
 import javax.swing.JTable
 import javax.swing.ListSelectionModel
+import javax.swing.RowFilter
 import javax.swing.SortOrder
 import javax.swing.table.DefaultTableModel
 import javax.swing.table.TableCellRenderer
@@ -147,6 +148,11 @@ internal fun collectTransitiveVulnerabilityRows(
  * Komponente. Eine in der New-Version-Spalte gewählte, von der aktuellen abweichende Version wird als
  * anstehendes Update in `dependencyManagement` gepinnt (siehe [collectPendingUpdates]).
  *
+ * Oberhalb der Tabelle liegt eine Filterzeile, die Optik und Verhalten der Filterzeile des Hauptfensters
+ * übernimmt: Textfilter über GroupId und ArtifactId, Filter nach verfügbaren Updates und nach anstehenden
+ * Änderungen sowie ein Button zum Zurücksetzen aller Filter. Eine Filterung nach Typ und Sicherheitslücken
+ * entfällt, da die Ansicht ausschließlich verwundbare transitive Abhängigkeiten zeigt.
+ *
  * @param project Das zugehörige Projekt, für das der Detaildialog geöffnet wird.
  * @param onSelectionChanged Callback, der bei jeder Änderung der Versionsauswahl aufgerufen wird
  * (z. B. um die Aktionsleiste zu aktualisieren).
@@ -199,6 +205,19 @@ internal class TransitiveVulnerabilitiesView(
     /** Die Tabelle der transitiven, verwundbaren Abhängigkeiten. */
     internal val table: JBTable = JBTable(tableModel)
 
+    /** Filterzeile oberhalb der Tabelle; steuert Textfilter, Updates- und Änderungs-Filter. */
+    internal val filterPanel = TransitiveVulnerabilitiesFilterPanel(
+        updatesAvailable = { isBulkVersionSelectionEnabled() },
+        changesAvailable = { hasPendingUpdates() },
+        onFilterChanged = { applyRowFilter() }
+    )
+
+    /**
+     * Row-Sorter der Tabelle, der sowohl das Filtern der Zeilen als auch das spaltenweise Sortieren
+     * über die Kopfzeile übernimmt; wird im Init-Block zugewiesen.
+     */
+    private val rowSorter: TableRowSorter<DefaultTableModel>
+
     init {
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION)
         table.tableHeader.reorderingAllowed = false
@@ -243,6 +262,7 @@ internal class TransitiveVulnerabilitiesView(
             }
         }
         table.rowSorter = sorter
+        rowSorter = sorter
         installSortableHeaderRenderer(table)
         installNewVersionColumn()
 
@@ -264,7 +284,46 @@ internal class TransitiveVulnerabilitiesView(
             }
         })
 
+        add(filterPanel, BorderLayout.NORTH)
         add(JBScrollPane(table), BorderLayout.CENTER)
+        applyRowFilter()
+    }
+
+    /**
+     * Wendet die aktuellen Filter (Suchtext, verfügbare Updates, anstehende Änderungen) auf die
+     * Tabelle an.
+     *
+     * Der Textfilter wird gegen GroupId und ArtifactId geprüft; Typ- und Vulnerabilities-Filter
+     * entfallen in dieser Ansicht und bleiben daher inaktiv.
+     */
+    internal fun applyRowFilter() {
+        val criteria = filterPanel.criteria()
+
+        rowSorter.rowFilter = object : RowFilter<DefaultTableModel, Int>() {
+            override fun include(entry: Entry<out DefaultTableModel, out Int>): Boolean {
+                val groupId = entry.getValue(TRANSITIVE_GROUP_ID_COLUMN)?.toString().orEmpty()
+                val artifactId = entry.getValue(TRANSITIVE_ARTIFACT_ID_COLUMN)?.toString().orEmpty()
+                val currentVersion = entry.getValue(TRANSITIVE_VERSION_COLUMN)?.toString().orEmpty()
+
+                val key = "$groupId:$artifactId"
+                val effectiveVersion = selectedVersions[key] ?: currentVersion
+                val hasChange = effectiveVersion != currentVersion && effectiveVersion.isNotEmpty()
+                val newestVersion = availableVersions[key]?.firstOrNull().orEmpty()
+
+                return rowMatchesFilter(
+                    FilterRow(
+                        groupId = groupId,
+                        artifactId = artifactId,
+                        property = "",
+                        type = "",
+                        hasChange = hasChange,
+                        hasUpdate = hasNewerVersion(currentVersion, newestVersion)
+                    ),
+                    criteria
+                )
+            }
+        }
+        filterPanel.refreshResetAction()
     }
 
     /**
@@ -393,6 +452,7 @@ internal class TransitiveVulnerabilitiesView(
             selectedVersions[key] = selectedVersion
         }
         onSelectionChanged()
+        filterPanel.updateAvailability()
     }
 
     /**
@@ -434,8 +494,30 @@ internal class TransitiveVulnerabilitiesView(
     internal fun resetSelections() {
         if (selectedVersions.isEmpty()) return
         selectedVersions.clear()
+        finishSelectionReset()
+    }
+
+    /**
+     * Verwirft die Auswahlen der aktuell sichtbaren (nicht ausgefilterten) Koordinaten und
+     * aktualisiert die Ansicht.
+     *
+     * Durch einen aktiven Filter ausgeblendete Auswahlen bleiben erhalten.
+     */
+    internal fun resetVisibleSelections() {
+        if (selectedVersions.isEmpty()) return
+        val visibleKeys = currentVersionsByKey(visibleOnly = true).keys
+        if (!selectedVersions.keys.removeAll(visibleKeys)) return
+        finishSelectionReset()
+    }
+
+    /**
+     * Aktualisiert Tabellenmodell, Änderungs-Filter und Zeilenfilter nach dem Verwerfen von Auswahlen.
+     */
+    private fun finishSelectionReset() {
         tableModel.fireTableDataChanged()
         onSelectionChanged()
+        filterPanel.updateAvailability()
+        applyRowFilter()
     }
 
     /**
@@ -482,7 +564,7 @@ internal class TransitiveVulnerabilitiesView(
         selectedVersions.containsKey(key)
 
     /**
-     * Wählt für alle dargestellten transitiven Koordinaten die höchste verfügbare Version
+     * Wählt für die aktuell sichtbaren transitiven Koordinaten die höchste verfügbare Version
      * (über alle Major-Linien hinweg) aus.
      */
     internal fun selectHighestMajorVersionForAll() {
@@ -490,7 +572,7 @@ internal class TransitiveVulnerabilitiesView(
     }
 
     /**
-     * Wählt für alle dargestellten transitiven Koordinaten die höchste Version innerhalb derselben
+     * Wählt für die aktuell sichtbaren transitiven Koordinaten die höchste Version innerhalb derselben
      * Major-Linie wie die aktuell aufgelöste Version aus.
      */
     internal fun selectHighestMinorVersionForAll() {
@@ -498,7 +580,7 @@ internal class TransitiveVulnerabilitiesView(
     }
 
     /**
-     * Wählt für alle dargestellten transitiven Koordinaten die empfohlene Fix-Version aus.
+     * Wählt für die aktuell sichtbaren transitiven Koordinaten die empfohlene Fix-Version aus.
      *
      * Koordinaten ohne empfohlene Fix-Version bleiben unverändert.
      */
@@ -545,14 +627,16 @@ internal class TransitiveVulnerabilitiesView(
     }
 
     /**
-     * Wendet eine Auswahlstrategie auf alle dargestellten Koordinaten an und aktualisiert die Ansicht.
+     * Wendet eine Auswahlstrategie auf die aktuell sichtbaren Koordinaten an und aktualisiert die Ansicht.
+     *
+     * Durch einen aktiven Filter ausgeblendete Zeilen bleiben – wie in der Haupttabelle – unverändert.
      *
      * @param chooser Funktion, die aus aktueller Version, verfügbaren Versionen und empfohlener
      * Fix-Version die Zielversion ermittelt.
      */
     private fun applyBulkSelection(chooser: (String, List<String>, String) -> String) {
         var changed = false
-        for ((key, currentVersion) in currentVersionsByKey()) {
+        for ((key, currentVersion) in currentVersionsByKey(visibleOnly = true)) {
             if (applySelectionForKey(key, currentVersion, chooser)) changed = true
         }
         if (changed) finishSelectionChange()
@@ -609,16 +693,25 @@ internal class TransitiveVulnerabilitiesView(
         tableModel.fireTableDataChanged()
         enforcedRowHeight?.let { table.rowHeight = it }
         onSelectionChanged()
+        filterPanel.updateAvailability()
+        applyRowFilter()
     }
 
     /**
      * Liefert die aktuell aufgelöste Version je Koordinatenschlüssel aus dem Tabellenmodell.
      *
+     * @param visibleOnly Wenn `true`, werden nur aktuell sichtbare (nicht ausgefilterte) Zeilen
+     *   berücksichtigt; ansonsten alle Zeilen des Modells.
      * @return Zuordnung von `groupId:artifactId` zur aktuell aufgelösten Version.
      */
-    private fun currentVersionsByKey(): Map<String, String> {
+    private fun currentVersionsByKey(visibleOnly: Boolean = false): Map<String, String> {
         val result = mutableMapOf<String, String>()
-        for (row in 0 until tableModel.rowCount) {
+        val modelRows = if (visibleOnly) {
+            (0 until table.rowCount).map { table.convertRowIndexToModel(it) }
+        } else {
+            (0 until tableModel.rowCount).toList()
+        }
+        for (row in modelRows) {
             val groupId = tableModel.getValueAt(row, TRANSITIVE_GROUP_ID_COLUMN) as? String
             val artifactId = tableModel.getValueAt(row, TRANSITIVE_ARTIFACT_ID_COLUMN) as? String
             if (groupId != null && artifactId != null) {
@@ -628,6 +721,13 @@ internal class TransitiveVulnerabilitiesView(
         }
         return result
     }
+
+    /**
+     * Prüft, ob der aktive Zeilenfilter aktuell Einträge ausblendet.
+     *
+     * @return `true`, wenn weniger Zeilen sichtbar sind als das Tabellenmodell enthält.
+     */
+    internal fun isRowFilterHidingEntries(): Boolean = table.rowCount < tableModel.rowCount
 
     /**
      * Editor der New-Version-Spalte: bietet eine `ComboBox` mit verfügbaren Versionen und übernimmt
@@ -661,7 +761,8 @@ internal class TransitiveVulnerabilitiesView(
     /**
      * Zeigt das zeilenbezogene Kontextmenü der transitiven Ansicht an.
      *
-     * Angelehnt an das Kontextmenü der Haupttabelle bietet es **Open on `<Browser>`** (öffnet die
+     * Angelehnt an das Kontextmenü der Haupttabelle bietet es **Filter by "…"** (übernimmt den Wert der
+     * angeklickten GroupId- oder ArtifactId-Zelle als Textfilter), **Open on `<Browser>`** (öffnet die
      * angeklickte Koordinate im konfigurierten Maven-Repository-Browser), die Versionsauswahl-Aktionen
      * **Set Highest Major Version**, **Set Highest Minor Version** und **Set Recommended Version**, ein
      * **Reset to Current Version** (nur aktiv, wenn eine abweichende Version gewählt wurde) sowie **Show
@@ -692,6 +793,20 @@ internal class TransitiveVulnerabilitiesView(
         }
 
         val browser = MavenUpSettings.getInstance().state.repositoryBrowser
+        val filterValue = when (table.columnAtPoint(e.point)) {
+            TRANSITIVE_GROUP_ID_COLUMN -> tableModel.getValueAt(modelRow, TRANSITIVE_GROUP_ID_COLUMN) as? String ?: ""
+            TRANSITIVE_ARTIFACT_ID_COLUMN ->
+                tableModel.getValueAt(modelRow, TRANSITIVE_ARTIFACT_ID_COLUMN) as? String ?: ""
+            else -> ""
+        }
+        if (filterValue.isNotBlank()) {
+            addAction(
+                MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.filterBy", filterValue)
+            ) {
+                filterPanel.filterBy(filterValue)
+            }
+            group.addSeparator()
+        }
         addAction(
             MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_CONTEXT_MENU_OPEN_IN_MVN_REPOSITORY, browser.displayName)
         ) {
@@ -847,6 +962,8 @@ internal class TransitiveVulnerabilitiesView(
         }
         trimColumnWidthsToContent(table)
         enforcedRowHeight?.let { table.rowHeight = it }
+        filterPanel.updateAvailability()
+        applyRowFilter()
     }
 
     /**

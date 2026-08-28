@@ -45,7 +45,7 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   **Reset to Current Version** (verwirft ausschließlich für die angeklickte Dependency die Auswahl; nur aktiv bei
   abweichender Auswahl – siehe `resetVersionForDependency`/`isVersionResetEnabledForDependency`)
   und **Show Vulnerability Details** (deaktiviert, wenn die Dependency keine Befunde hat). Alle Kontextmenü-Einträge
-  bleiben stets sichtbar und ändern nur ihren Aktivierungszustand (kein Ein-/Ausblenden). Die Aktionen liegen in einer oberen `ActionToolbar` (Icon-Actions mit Tooltip): links die Kernaktionen **Refresh**, **Search for New Versions**, **Scan for Vulnerabilities** und **Update**, durch einen Trenner abgesetzt das Aufklappmenü **Select Highest Version** (Icon `VersionUpdateArrowIcon`, dasselbe Aufwärtspfeil-Glyph „↑" wie die New-Version-Spalte) mit den Aktionen **Select Highest Major Version**, **Select Highest Minor Version** und **Select Recommended Version** (letztere nur aktiv, während die transitive Ansicht sichtbar ist), gefolgt von der eigenständigen Aktion **Reset All to Current Versions**, durch einen weiteren Trenner abgesetzt die selektionsabhängigen Aktionen **Open on [Browser]** und **Vulnerability Details**, gefolgt von der **Show Transitive Vulnerabilities**-Umschaltaktion (`ToggleAction`, blendet über ein zentrales `CardLayout` die `TransitiveVulnerabilitiesView` ein/aus; nur aktiv, wenn ein Scan transitive Sicherheitslücken gefunden hat, und blendet dabei die Filterzeile aus), am Ende **Settings**. Bei aktivierten Textbeschriftungen zeigen die Buttons gekürzte Labels (z.B. **Search Versions**, **Scan**, **Update**, **Highest**, **Reset**, **Open**, **Details**), während die vollständige Beschriftung als Tooltip erhalten bleibt; der Tooltip des **Select Highest Version**-Menüs weist darauf hin, dass nur die aktuell sichtbaren Dependencies geändert werden, während der Tooltip von **Reset All to Current Versions** benennt, dass ohne aktiven Filter alle Dependencies zurückgesetzt werden und bei aktivem Filter zwischen allen und nur den gefilterten gewählt werden kann. Die **Open on [Browser]**-Aktion wird aktiv, sobald eine Dependency-Zeile selektiert ist, und zeigt dynamisch den konfigurierten Browser-Namen im Tooltip (z.B. **Open on MVN Repository** oder **Open on Sonatype Central**). Die **Vulnerability Details**-Aktion ist erst aktiv, wenn eine Dependency-Zeile mit Befunden selektiert ist, und zeigt ausschließlich die Befunde der selektierten Dependency (direkte und transitive). Beide selektionsabhängigen Aktionen wirken je nach aktiver Ansicht (Haupttabelle oder `TransitiveVulnerabilitiesView`) auf die dort selektierte Zeile; die Umschaltung erfolgt über `showingTransitiveView` in `isOpenInRepositoryEnabled`/`isVulnerabilityDetailsEnabled`/`openInMavenRepositoryForSelectedRow`/`openVulnerabilityDetailsForSelectedRow`, und ein Selektions-Listener der transitiven Tabelle stößt `refreshToolbar` an. Der verwendete Repository-Browser
+  bleiben stets sichtbar und ändern nur ihren Aktivierungszustand (kein Ein-/Ausblenden). Die Aktionen liegen in einer oberen `ActionToolbar` (Icon-Actions mit Tooltip): links die Kernaktionen **Refresh**, **Search for New Versions**, **Scan for Vulnerabilities** und **Update**, durch einen Trenner abgesetzt das Aufklappmenü **Select Highest Version** (Icon `VersionUpdateArrowIcon`, dasselbe Aufwärtspfeil-Glyph „↑" wie die New-Version-Spalte) mit den Aktionen **Select Highest Major Version**, **Select Highest Minor Version** und **Select Recommended Version** (letztere nur aktiv, während die transitive Ansicht sichtbar ist), gefolgt von der eigenständigen Aktion **Reset All to Current Versions**, durch einen weiteren Trenner abgesetzt die selektionsabhängigen Aktionen **Open on [Browser]** und **Vulnerability Details**, gefolgt von der **Show Transitive Vulnerabilities**-Umschaltaktion (`ToggleAction`, blendet über ein zentrales `CardLayout` die `TransitiveVulnerabilitiesView` ein/aus; nur aktiv, wenn ein Scan transitive Sicherheitslücken gefunden hat, und blendet dabei die Filterzeile der Haupttabelle aus), am Ende **Settings**. Bei aktivierten Textbeschriftungen zeigen die Buttons gekürzte Labels (z.B. **Search Versions**, **Scan**, **Update**, **Highest**, **Reset**, **Open**, **Details**), während die vollständige Beschriftung als Tooltip erhalten bleibt; der Tooltip des **Select Highest Version**-Menüs weist darauf hin, dass nur die aktuell sichtbaren Dependencies geändert werden, während der Tooltip von **Reset All to Current Versions** benennt, dass ohne aktiven Filter alle Dependencies zurückgesetzt werden und bei aktivem Filter zwischen allen und nur den gefilterten gewählt werden kann. Die **Open on [Browser]**-Aktion wird aktiv, sobald eine Dependency-Zeile selektiert ist, und zeigt dynamisch den konfigurierten Browser-Namen im Tooltip (z.B. **Open on MVN Repository** oder **Open on Sonatype Central**). Die **Vulnerability Details**-Aktion ist erst aktiv, wenn eine Dependency-Zeile mit Befunden selektiert ist, und zeigt ausschließlich die Befunde der selektierten Dependency (direkte und transitive). Beide selektionsabhängigen Aktionen wirken je nach aktiver Ansicht (Haupttabelle oder `TransitiveVulnerabilitiesView`) auf die dort selektierte Zeile; die Umschaltung erfolgt über `showingTransitiveView` in `isOpenInRepositoryEnabled`/`isVulnerabilityDetailsEnabled`/`openInMavenRepositoryForSelectedRow`/`openVulnerabilityDetailsForSelectedRow`, und ein Selektions-Listener der transitiven Tabelle stößt `refreshToolbar` an. Der verwendete Repository-Browser
   (**MVN Repository** oder **Sonatype Central**) ist in den Einstellungen
   konfigurierbar und gilt einheitlich für das Kontextmenü sowie das zeilenbezogene Rechtsklick-Menü im
   Vulnerability-Details-Dialog. Die Kontextmenüs werden über IntelliJs `ActionSystem` beziehungsweise
@@ -95,7 +95,9 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   (inkl. dritter Aktion **Select Recommended Version**) und **Reset All to Current Versions** auf die transitiven Koordinaten:
   `isBulkVersionSelectionEnabledForCurrentView()`/`isRecommendedSelectionEnabledForCurrentView()`/`isResetVersionsEnabledForCurrentView()`
   steuern die Aktivierung und routen die Ausführung an die `TransitiveVulnerabilitiesView`; `confirmAndResetTransitiveSelections()`
-  zeigt dabei denselben Ja/Nein-Bestätigungsdialog (`confirmVersionReset`) und ruft `resetSelections()`.
+  zeigt bei aktivem Filter der transitiven Ansicht (`filterPanel.isResetFiltersEnabled()`) über `askResetScopeWithActiveFilter()`
+  die Auswahl „alle/nur gefilterte" (`resetSelections()`/`resetVisibleSelections()`) und sonst denselben
+  Ja/Nein-Bestätigungsdialog (`confirmVersionReset`). `isRowFilterHidingEntries()` berücksichtigt die jeweils sichtbare Ansicht.
 - **UpdateConfirmationDialog**: eigenständiger `DialogWrapper` (Top-Level in `ui`), der vor
   dem Anwenden die anstehenden Updates in einer schreibgeschützten Tabelle bestätigen lässt und
   die Option **Sync Maven Changes** (vorbelegt aus `MavenUpSettings.syncMavenAfterUpdate`) anbietet.
@@ -122,7 +124,8 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   Vulnerabilities (`clearVulnerabilities`) bzw. bei einem neuen Scan zurückgesetzt. Wird über einen `ToggleAction` in der
   Tool-Window-Aktionsleiste ein-/ausgeblendet (Umschaltung über ein `CardLayout` im Zentrum, siehe
   `MavenUpWindowFactory.setTransitiveViewVisible`/`updateTransitiveVulnerabilitiesView`/`hasTransitiveVulnerabilities`);
-  die Filterzeile wird dabei ausgeblendet. Die reine Top-Level-Funktion `collectTransitiveVulnerabilityRows`
+  die Filterzeile der Haupttabelle wird dabei ausgeblendet, die Ansicht bringt eine eigene Filterzeile mit
+  (`TransitiveVulnerabilitiesFilterPanel`, siehe unten). Die reine Top-Level-Funktion `collectTransitiveVulnerabilityRows`
   (samt `TransitiveVulnerabilityRow` und den `TRANSITIVE_*_COLUMN`-Konstanten) baut und sortiert die Zeilen.
   Die Tabelle nutzt – wie die Haupttabelle – einen `TableRowSorter` mit überschriebenem `toggleSortOrder`
   (zyklisch aufsteigend → absteigend → unsortiert); die **Version**- und **New Version**-Spalten sind nicht sortierbar,
@@ -130,18 +133,30 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   `enforcedRowHeight` an die Haupttabelle angeglichen (aus `table.rowHeight`), damit das ComboBox-Panel die
   Zeilen nicht höher macht.
   Ein Rechtsklick öffnet über IntelliJs `ActionSystem` ein Kontextmenü (`showContextMenu`) mit
+  **Filter by "..."** (nur beim Rechtsklick auf die Spalten GroupId oder ArtifactId mit nicht-leerem Wert; setzt den
+  angeklickten Wert über `filterPanel.filterBy` als alleinigen Textfilter),
   **Open on [Browser]** (konfigurierter Repository-Browser), den Versionsauswahl-Aktionen **Set Highest Major Version**,
   **Set Highest Minor Version** und **Set Recommended Version** (`selectHighestMajorVersionForDependency`/
   `selectHighestMinorVersionForDependency`/`selectRecommendedVersionForDependency`, aktiv über
   `hasSelectableVersionsForDependency`/`hasRecommendedVersionForDependency`), **Reset to Current Version**
   (`resetVersionForDependency`/`isVersionResetEnabledForDependency`) und **Show Vulnerability Details** (nur bei Funden aktiv).
   Für die Sammelauswahl über die Toolbar wirken `selectHighestMajorVersionForAll`/`selectHighestMinorVersionForAll`/
-  `selectRecommendedVersionForAll` auf alle dargestellten Koordinaten; ihre Aktivierung steuern
-  `isBulkVersionSelectionEnabled`/`hasRecommendedVersions`, das Zurücksetzen erfolgt über `resetSelections`.
+  `selectRecommendedVersionForAll` auf die aktuell sichtbaren (nicht ausgefilterten) Koordinaten; ihre Aktivierung steuern
+  `isBulkVersionSelectionEnabled`/`hasRecommendedVersions`, das Zurücksetzen erfolgt über `resetSelections`
+  (alle) bzw. `resetVisibleSelections` (nur gefilterte). `applyRowFilter` setzt den `RowFilter` des `TableRowSorter`
+  aus `filterPanel.criteria()` und `rowMatchesFilter`; `isRowFilterHidingEntries` meldet ausgeblendete Zeilen.
   Über `hasSelectedRow`/`selectedRowHasVulnerabilities`/`openSelectedInRepository`/`openSelectedVulnerabilityDetails`
   bedienen dieselben Toolbar-Aktionen der Haupt-Aktionsleiste die aktuell selektierte Zeile dieser Ansicht.
   Ein Klick auf die Vulnerabilities-Zelle öffnet den `VulnerabilityDetailDialog`. Bewusst als eigene
   Komponente ausgelegt, damit ihr künftig weitere Aktionen hinzugefügt werden können.
+- **TransitiveVulnerabilitiesFilterPanel**: Filterzeile der `TransitiveVulnerabilitiesView` (Top-Level in `ui`),
+  die Optik und Verhalten der Filterzeile der Haupttabelle übernimmt: `SearchTextField` (Textfilter über GroupId und
+  ArtifactId), `TriStateFilter`-Comboboxen für **Updates** und **Pending** (mit `triStateFilterRenderer` und den
+  `UPDATES_FILTER_LABELS`/`CHANGES_FILTER_LABELS`) sowie eine `ActionToolbar` mit Reset-Aktion. Eine Filterung nach Typ
+  und Vulnerabilities entfällt bewusst. `criteria()` liefert die `FilterCriteria`, `updateAvailability()` aktiviert die
+  Comboboxen über die Callbacks `updatesAvailable` (`isBulkVersionSelectionEnabled`) und `changesAvailable`
+  (`hasPendingUpdates`), `isResetFiltersEnabled`/`resetAllFilters`/`filterBy`/`refreshResetAction` steuern
+  Reset-Button und Textfilter.
 - **UI-Hilfsdateien (ui)**: Zustandslose Top-Level-Helfer, die aus `MavenUpWindowFactory.kt`
   in eigene Dateien desselben Packages ausgelagert wurden (reine Logik/Icons, keine
   `MyToolWindow`-Abhängigkeit):
@@ -151,7 +166,8 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
     `versionStatusText`/`versionStatusColor`/`versionStatusTooltip`, `versionDropdownItemText`,
     `createVersionPanel` samt Status-Glyphen und `JBColor`-Werten.
   - `DependencyFilterModel.kt`: `TriStateFilter`, `TriStateFilterLabels`,
-    `triStateFilterOptionLabel`, die `*_FILTER_LABELS`, `FilterRow`, `FilterCriteria`,
+    `triStateFilterOptionLabel`, `triStateFilterRenderer` (geteilter Combobox-Renderer von Haupttabelle
+    und transitiver Filterzeile), die `*_FILTER_LABELS`, `FilterRow`, `FilterCriteria`,
     `rowMatchesFilter`.
   - `VulnerabilityCellModel.kt`: `VulnerabilityCell`, `buildVulnerabilityCell`,
     `vulnerabilitySummary`, `worstSeverity`, `canCheckVulnerabilities`, `vulnerabilityColor`,
