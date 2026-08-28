@@ -177,6 +177,8 @@ class OssIndexApiService {
         if (id.isEmpty()) return null
 
         val cvssScore = vulnerability.get("cvssScore")?.takeUnless { it.isJsonNull }?.asDouble
+        val cvssVector = vulnerability.get("cvssVector")?.takeUnless { it.isJsonNull }?.asString
+            ?.trim()?.takeIf(String::isNotEmpty)
         val aliases = buildSet {
             vulnerability.get("cve")?.takeUnless { it.isJsonNull }?.asString
                 ?.split(',', ' ')
@@ -185,17 +187,40 @@ class OssIndexApiService {
                 ?.let(::addAll)
         } - id
         val reference = vulnerability.get("reference")?.takeUnless { it.isJsonNull }?.asString.orEmpty()
+        val title = vulnerability.get("title")?.takeUnless { it.isJsonNull }?.asString?.trim().orEmpty()
+        val description = vulnerability.get("description")?.takeUnless { it.isJsonNull }?.asString?.trim().orEmpty()
+        val summary = title.ifEmpty { description }
+        val details = if (title.isNotEmpty() && description.isNotEmpty() && description != summary) description else ""
+        val cweIds = parseCweIds(vulnerability)
         return VulnerabilityAdvisory(
             id = id,
             aliases = aliases,
-            summary = vulnerability.get("title")?.asString
-                ?: vulnerability.get("description")?.asString
-                ?: "",
+            summary = summary,
             severity = VulnerabilitySeverity.fromScore(cvssScore),
             cvssScore = cvssScore,
+            cvssVector = cvssVector,
+            details = details,
+            cweIds = cweIds,
             references = setOfNotNull(reference.takeIf(String::isNotEmpty)),
             sources = setOf(OSS_INDEX_SOURCE)
         )
+    }
+
+    /**
+     * Liest die CWE-Kennungen aus dem OSS-Index-Vulnerability-Objekt aus.
+     * Berücksichtigt sowohl ein einzelnes `cwe`-Feld als auch ein `cwe`-Array.
+     *
+     * @param vulnerability Das OSS-Index-Vulnerability-Objekt.
+     * @return Die Menge der CWE-Kennungen (z. B. `CWE-79`) oder eine leere Menge.
+     */
+    private fun parseCweIds(vulnerability: JsonObject): Set<String> {
+        val element = vulnerability.get("cwe")?.takeUnless { it.isJsonNull } ?: return emptySet()
+        val values = when {
+            element.isJsonArray -> element.asJsonArray.mapNotNull { it.asString?.trim() }
+            element.isJsonPrimitive -> element.asString.split(',', ' ').map(String::trim)
+            else -> emptyList()
+        }
+        return values.filter(String::isNotEmpty).toSet()
     }
 
     /**

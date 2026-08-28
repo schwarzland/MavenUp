@@ -51,7 +51,7 @@
     <li><strong>Use the context menu</strong>: Right-click any row to access <strong>Filter by "..."</strong> (shown when
         you right-click a GroupId, ArtifactId, or Property cell to filter the table by that value),
         <strong>Navigate to pom.xml</strong>,
-        <strong>Open in Maven Repository</strong>, <strong>Set Highest Major Version</strong> and
+        <strong>Open on [Browser]</strong>, <strong>Set Highest Major Version</strong> and
         <strong>Set Highest Minor Version</strong> for just that dependency (available once its versions have been
         retrieved via "Search for New Versions"), <strong>Reset to Current Version</strong> to discard that
         dependency's selection, and <strong>Show Vulnerability Details</strong> (disabled when the dependency has no
@@ -67,11 +67,15 @@
         dependencies and, when enabled, their resolved transitive dependencies. Results are shown in the
         <strong>Vulnerabilities (Current)</strong> column.</li>
     <li><strong>Inspect the findings</strong>: Select a dependency with findings and click <strong>Vulnerability Details</strong>
-        or click the populated vulnerability cell. The dialog shows advisory IDs, summaries, severity information, sources,
-        and references for the direct dependency and related transitive findings. The <strong>Severity</strong> column is
-        color-coded by severity, matching the tool window's vulnerability column. Every column is sortable by clicking its
-        header (ascending, descending, or unsorted); the <strong>Severity</strong> column leads with the most critical
-        findings and highest CVSS score on the first click.</li>
+        or click the populated vulnerability cell. The dialog opens a split view: the upper table lists the advisories
+        (component, source, advisory ID, aliases, and severity) for the direct dependency and related transitive findings,
+        while the lower detail pane shows the selected advisory's affected component with an <strong>Open on ...</strong>
+        link to the configured repository browser, the CVSS vector, CWE identifiers, publish/last-modified dates,
+        affected version ranges and fixed-in versions when available, and the full summary, detailed description, and
+        references as clickable links. The
+        <strong>Severity</strong> column is color-coded by severity, matching the tool window's vulnerability column. Every
+        table column is sortable by clicking its header (ascending, descending, or unsorted); the <strong>Severity</strong>
+        column leads with the most critical findings and highest CVSS score on the first click.</li>
 </ol>
 
 <h3>Adjust the plugin to your workflow</h3>

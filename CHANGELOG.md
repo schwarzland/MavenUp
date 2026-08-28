@@ -4,8 +4,21 @@
 
 ## [Unreleased]
 
+### Added
+
+- Added a master-detail split view to the Vulnerability Details dialog whose lower detail pane shows the selected finding's affected component, summary, and references as clickable hyperlinks.
+- Added an "Open on ..." hyperlink in the detail pane that opens the selected component in the configured Maven repository browser.
+- Added the CVSS vector and the fixed-in versions of the selected finding to the detail pane when available.
+- Added the detailed description, CWE identifiers, publish/last-modified dates, and affected version ranges of the selected finding to the detail pane when available.
+
 ### Changed
 
+- Replaced the Summary and References columns in the Vulnerability Details dialog with the detail pane, and removed the separate references list dialog.
+- Moved the "Open in ..." toolbar action of the Vulnerability Details dialog into the detail pane as a hyperlink and removed the dialog toolbar.
+- Aligned the documentation with the actual UI label of the repository context menu entry, which is **Open on [Browser]** (e.g. *Open on MVN Repository*) rather than *Open in Maven Repository*.
+- Trimmed the Vulnerability Details table columns to their content when the dialog opens, let them scale with the dialog size, and enlarged the dialog for better readability.
+- Trimmed the main dependency table columns to their content after the table is populated for better readability.
+- Soft-wrapped overlong lines (for example long reference URLs) in the Vulnerability Details detail pane so no horizontal scrolling is needed.
 - Restructured the documentation into a slim English README landing page that links to dedicated guides under `docs/` (usage, configuration, privacy, architecture, development, release/CI, licenses); the Gradle proxy configuration is documented under development.
 - Added GitHub Actions status badges (Build and Test, Create Draft Release, Publish Release to Marketplace) to the README.
 
