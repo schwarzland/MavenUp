@@ -113,4 +113,38 @@ class TransitiveVulnerabilitiesViewTest {
         assertEquals(1, rows.size)
         assertEquals("1.0.0:classifier", rows[0].version)
     }
+
+    @Test
+    fun testRecommendedFixVersionPicksLowestHigherFix() {
+        val advisories = listOf(
+            VulnerabilityAdvisory(id = "CVE-1", sources = setOf("TEST"), fixedVersions = setOf("1.2.4", "2.0.0")),
+            VulnerabilityAdvisory(id = "CVE-2", sources = setOf("TEST"), fixedVersions = setOf("1.3.0"))
+        )
+        assertEquals("1.2.4", recommendedFixVersion(advisories, "1.2.0"))
+    }
+
+    @Test
+    fun testRecommendedFixVersionIgnoresLowerOrEqualFixes() {
+        val advisories = listOf(
+            VulnerabilityAdvisory(id = "CVE-1", sources = setOf("TEST"), fixedVersions = setOf("1.0.0", "1.2.0"))
+        )
+        assertEquals("", recommendedFixVersion(advisories, "1.2.0"))
+    }
+
+    @Test
+    fun testRecommendedFixVersionEmptyWhenNoFixedVersions() {
+        val advisories = listOf(advisory("CVE-1", VulnerabilitySeverity.HIGH))
+        assertEquals("", recommendedFixVersion(advisories, "1.0.0"))
+    }
+
+    @Test
+    fun testCollectRowsExposesRecommendedVersion() {
+        val advisories = mapOf(
+            "org.a:vuln:1.2.0" to listOf(
+                VulnerabilityAdvisory(id = "CVE-1", sources = setOf("TEST"), fixedVersions = setOf("1.2.4"))
+            )
+        )
+        val rows = collectTransitiveVulnerabilityRows(advisories, setOf("org.a:vuln:1.2.0"))
+        assertEquals("1.2.4", rows[0].recommendedVersion)
+    }
 }

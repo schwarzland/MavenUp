@@ -96,16 +96,23 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   die Option **Sync Maven Changes** (vorbelegt aus `MavenUpSettings.syncMavenAfterUpdate`) anbietet.
 - **TransitiveVulnerabilitiesView**: eigenständige `JBPanel`-Ansicht (Top-Level in `ui`), die alle
   transitiven, verwundbaren Abhängigkeiten in einer sortierbaren Tabelle (GroupId, ArtifactId, Type, Version,
-  Vulnerabilities-Anzahl mit Severity-Färbung) auflistet. Die **Type**-Spalte übernimmt für Koordinaten, die
+  Vulnerabilities-Anzahl mit Severity-Färbung, Recommended Version, New Version) auflistet. Die **Type**-Spalte übernimmt für Koordinaten, die
   bereits in der `pom.xml` (z. B. im `dependencyManagement`) deklariert sind, den Typ der Haupttabelle
   (`knownTypes`, Schlüssel `groupId:artifactId`) und zeigt sonst den transitiven Standardtyp
-  (`toolwindow.TransitiveVulnerabilities.type.transitive`). Wird über einen `ToggleAction` in der
+  (`toolwindow.TransitiveVulnerabilities.type.transitive`). Die **Recommended Version** wird über die reine
+  Funktion `recommendedFixVersion` (niedrigste Fixed-Version > aktueller Version) aus den Advisories abgeleitet.
+  Die editierbare **New Version**-Spalte spiegelt die New-Version-Spalte der Haupttabelle (Renderer/Editor via
+  `buildVersionPanel`/`applyDropdownRenderer`, `createVersionPanel`); die Auswahl liegt in `selectedVersions`
+  (nur bewusst gewählte Werte, Standard = aktuelle Version) und wird über den `onSelectionChanged`-Callback an
+  `refreshToolbar` gemeldet. `collectPendingUpdates`/`hasPendingUpdates` erzeugen daraus `DependencyUpdate`s vom
+  Typ „managed dependency"; die verfügbaren Versionen stammen aus der geteilten `availableVersions`-Map der
+  Versionssuche. Wird über einen `ToggleAction` in der
   Tool-Window-Aktionsleiste ein-/ausgeblendet (Umschaltung über ein `CardLayout` im Zentrum, siehe
   `MavenUpWindowFactory.setTransitiveViewVisible`/`updateTransitiveVulnerabilitiesView`/`hasTransitiveVulnerabilities`);
   die Filterzeile wird dabei ausgeblendet. Die reine Top-Level-Funktion `collectTransitiveVulnerabilityRows`
   (samt `TransitiveVulnerabilityRow` und den `TRANSITIVE_*_COLUMN`-Konstanten) baut und sortiert die Zeilen.
   Die Tabelle nutzt – wie die Haupttabelle – einen `TableRowSorter` mit überschriebenem `toggleSortOrder`
-  (zyklisch aufsteigend → absteigend → unsortiert); die **Version**-Spalte ist nicht sortierbar,
+  (zyklisch aufsteigend → absteigend → unsortiert); die **Version**- und **New Version**-Spalten sind nicht sortierbar,
   die **Vulnerabilities**-Spalte sortiert über `vulnerabilityCellComparator`.
   Ein Rechtsklick öffnet über IntelliJs `ActionSystem` ein Kontextmenü (`showContextMenu`) mit
   **Open on [Browser]** (konfigurierter Repository-Browser) und **Show Vulnerability Details** (nur bei Funden aktiv).
@@ -191,7 +198,9 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   Property-Platzhalter (auch die Version im `<parent>`-Tag) über `resolveVersionPlaceholder` auf. Zustandslos, benötigt nur das Projekt.
 - **PomUpdateService**: wendet ausgewählte Updates über PSI/`WriteCommandAction` auf die
   `pom.xml` an (`applyUpdateToPom`, `updateXmlTagVersion`, Parent/Dependencies/Plugins) und
-  speichert die Dateien vor dem Maven-Sync (`persistPomChanges`).
+  speichert die Dateien vor dem Maven-Sync (`persistPomChanges`). Für „managed dependency"-Updates
+  ohne vorhandenen Eintrag legt `addManagedDependency` einen neuen `<dependencyManagement>`-Eintrag an
+  (Container werden bei Bedarf erzeugt); genutzt für das Pinnen transitiver Abhängigkeiten.
 - **VulnerabilityScanService**: ermittelt direkte/transitive Scan-Ziele aus dem Maven-Modell
   (`collectVulnerabilityScanTargets`, `collectResolvedDependencyRelations`) und kapselt die
   OSS-Index-Abfrage (`resolveOssIndexResults`, Ergebnis `OssIndexScanResult`). Zugangsdaten

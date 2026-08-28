@@ -3,6 +3,7 @@ package de.schwarzland.mavenup.service
 import com.intellij.openapi.command.WriteCommandAction
 import com.intellij.psi.xml.XmlFile
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import de.schwarzland.mavenup.model.DependencyUpdate
 
 /**
  * Testet das Anwenden von Versions-Updates auf `pom.xml`-Tags durch den [PomUpdateService],
@@ -75,5 +76,72 @@ class PomUpdateServiceTest : BasePlatformTestCase() {
             pomUpdateService.updateXmlTagVersion(parentTag!!, "3.2.0", null)
         }
         assertEquals("3.2.0", parentTag?.findFirstSubTag("version")?.value?.text)
+    }
+
+    fun testAddManagedDependencyCreatesContainersWhenMissing() {
+        val pomContent = """
+            <project>
+                <dependencies>
+                    <dependency>
+                        <groupId>com.example</groupId>
+                        <artifactId>direct</artifactId>
+                        <version>1.0.0</version>
+                    </dependency>
+                </dependencies>
+            </project>
+        """.trimIndent()
+
+        val psiFile = myFixture.configureByText("pom.xml", pomContent) as XmlFile
+        val rootTag = psiFile.document?.rootTag!!
+        val pomUpdateService = PomUpdateService(project)
+
+        WriteCommandAction.runWriteCommandAction(project) {
+            pomUpdateService.addManagedDependency(
+                rootTag,
+                DependencyUpdate("org.trans", "lib", "managed dependency", "1.2.3", "1.2.4")
+            )
+        }
+
+        val managed = rootTag.findFirstSubTag("dependencyManagement")
+            ?.findFirstSubTag("dependencies")
+            ?.findSubTags("dependency")
+            ?.find { it.findFirstSubTag("artifactId")?.value?.text == "lib" }
+        assertNotNull("New managed dependency should be created", managed)
+        assertEquals("org.trans", managed?.findFirstSubTag("groupId")?.value?.text)
+        assertEquals("1.2.4", managed?.findFirstSubTag("version")?.value?.text)
+    }
+
+    fun testAddManagedDependencyReusesExistingContainer() {
+        val pomContent = """
+            <project>
+                <dependencyManagement>
+                    <dependencies>
+                        <dependency>
+                            <groupId>com.example</groupId>
+                            <artifactId>existing</artifactId>
+                            <version>1.0.0</version>
+                        </dependency>
+                    </dependencies>
+                </dependencyManagement>
+            </project>
+        """.trimIndent()
+
+        val psiFile = myFixture.configureByText("pom.xml", pomContent) as XmlFile
+        val rootTag = psiFile.document?.rootTag!!
+        val pomUpdateService = PomUpdateService(project)
+
+        WriteCommandAction.runWriteCommandAction(project) {
+            pomUpdateService.addManagedDependency(
+                rootTag,
+                DependencyUpdate("org.trans", "lib", "managed dependency", "2.0.0", "2.0.1")
+            )
+        }
+
+        val dependencies = rootTag.findFirstSubTag("dependencyManagement")
+            ?.findFirstSubTag("dependencies")
+            ?.findSubTags("dependency")
+        assertEquals("Existing entry should be preserved and one added", 2, dependencies?.size)
+        val added = dependencies?.find { it.findFirstSubTag("artifactId")?.value?.text == "lib" }
+        assertEquals("2.0.1", added?.findFirstSubTag("version")?.value?.text)
     }
 }

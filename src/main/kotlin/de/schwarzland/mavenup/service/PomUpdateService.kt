@@ -53,8 +53,14 @@ internal class PomUpdateService(private val project: Project) {
                     PARENT_TYPE -> {
                         updateParent(documentElement, update, propertiesTag)
                     }
-                    "dependency", managedDependencyType -> {
+                    "dependency" -> {
                         updateDependencies(documentElement, update, propertiesTag)
+                    }
+                    managedDependencyType -> {
+                        val updated = updateDependencies(documentElement, update, propertiesTag)
+                        if (!updated) {
+                            addManagedDependency(documentElement, update)
+                        }
                     }
                     "plugin", MANAGED_PLUGIN -> {
                         updatePlugins(documentElement, update, propertiesTag)
@@ -94,24 +100,53 @@ internal class PomUpdateService(private val project: Project) {
      * @param documentElement Das Root-Tag der `pom.xml`.
      * @param update Das anzuwendende Update.
      * @param propertiesTag Das `<properties>`-Tag für Property-basierte Versionsupdates.
+     * @return `true`, wenn mindestens ein passender Eintrag gefunden und aktualisiert wurde.
      */
     private fun updateDependencies(
         documentElement: XmlTag,
         update: DependencyUpdate,
         propertiesTag: XmlTag?
-    ) {
+    ): Boolean {
         val dependenciesTag = documentElement.findFirstSubTag("dependencies")
         val dependencyManagementTag = documentElement.findFirstSubTag("dependencyManagement")
         val dmDependenciesTag = dependencyManagementTag?.findFirstSubTag("dependencies")
 
+        var updated = false
         // Search in <dependencies>
         dependenciesTag?.findSubTags("dependency")?.forEach { depTag ->
-            updateIfMatch(depTag, update, propertiesTag)
+            updated = updateIfMatch(depTag, update, propertiesTag) || updated
         }
         // Search in <dependencyManagement><dependencies>
         dmDependenciesTag?.findSubTags("dependency")?.forEach { depTag ->
-            updateIfMatch(depTag, update, propertiesTag)
+            updated = updateIfMatch(depTag, update, propertiesTag) || updated
         }
+        return updated
+    }
+
+    /**
+     * Fügt eine neue verwaltete Abhängigkeit in `<dependencyManagement><dependencies>` hinzu und pinnt
+     * damit die Version einer bisher nicht in der `pom.xml` deklarierten (transitiven) Abhängigkeit.
+     *
+     * Fehlende Container-Tags (`<dependencyManagement>`, `<dependencies>`) werden bei Bedarf erzeugt.
+     *
+     * @param documentElement Das Root-Tag der `pom.xml`.
+     * @param update Das anzuwendende Update mit der zu pinnenden Zielversion.
+     */
+    internal fun addManagedDependency(documentElement: XmlTag, update: DependencyUpdate) {
+        val dependencyManagementTag = documentElement.findFirstSubTag("dependencyManagement")
+            ?: documentElement.addSubTag(
+                documentElement.createChildTag("dependencyManagement", null, "", false), false
+            )
+        val dependenciesTag = dependencyManagementTag.findFirstSubTag("dependencies")
+            ?: dependencyManagementTag.addSubTag(
+                dependencyManagementTag.createChildTag("dependencies", null, "", false), false
+            )
+        val dependencyTag = dependenciesTag.addSubTag(
+            dependenciesTag.createChildTag("dependency", null, "", false), false
+        )
+        dependencyTag.addSubTag(dependencyTag.createChildTag("groupId", null, update.groupId, false), false)
+        dependencyTag.addSubTag(dependencyTag.createChildTag("artifactId", null, update.artifactId, false), false)
+        dependencyTag.addSubTag(dependencyTag.createChildTag("version", null, update.newVersion, false), false)
     }
 
     /**
@@ -169,17 +204,21 @@ internal class PomUpdateService(private val project: Project) {
      * @param tag Das zu prüfende `dependency`- oder `plugin`-Tag.
      * @param update Das anzuwendende Update.
      * @param propertiesTag Das `<properties>`-Tag für Property-basierte Versionsupdates.
+     * @return `true`, wenn das Tag übereinstimmte und aktualisiert wurde.
      */
     private fun updateIfMatch(
         tag: XmlTag,
         update: DependencyUpdate,
         propertiesTag: XmlTag?
-    ) {
+    ): Boolean {
         val g = tag.findFirstSubTag("groupId")?.value?.text
         val a = tag.findFirstSubTag("artifactId")?.value?.text
 
-        if (g == update.groupId && a == update.artifactId) {
+        return if (g == update.groupId && a == update.artifactId) {
             updateXmlTagVersion(tag, update.newVersion, propertiesTag)
+            true
+        } else {
+            false
         }
     }
 

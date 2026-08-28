@@ -128,7 +128,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private val transitiveDependenciesByDirect = mutableMapOf<String, Set<String>>()
 
         /** Alternative Ansicht, die ausschließlich transitive, verwundbare Abhängigkeiten auflistet. */
-        private val transitiveVulnerabilitiesView = TransitiveVulnerabilitiesView(project)
+        private val transitiveVulnerabilitiesView = TransitiveVulnerabilitiesView(project) { refreshToolbar() }
 
         /** Layout, das zwischen Hauptabhängigkeitstabelle und transitiver Sicherheitslücken-Ansicht umschaltet. */
         private val centerCardLayout = CardLayout()
@@ -612,7 +612,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
 
             val updateAction = {
-                if (!isUpdating && selectedVersions.isNotEmpty()) {
+                if (!isUpdating && (selectedVersions.isNotEmpty() || transitiveVulnerabilitiesView.hasPendingUpdates())) {
                     val updates = collectSelectedUpdates()
 
                     if (updates.isNotEmpty()) {
@@ -640,6 +640,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                                     ApplicationManager.getApplication().invokeLater {
                                         selectedVersions.clear()
                                         availableVersions.clear()
+                                        transitiveVulnerabilitiesView.resetSelections()
                                         refreshAction(false, true, true)
 
                                         for (row in 0 until tableModel.rowCount) {
@@ -1097,7 +1098,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * Hauptabhängigkeitstabelle zurückgeschaltet.
          */
         internal fun updateTransitiveVulnerabilitiesView() {
-            transitiveVulnerabilitiesView.update(vulnerabilityAdvisories, transitiveCoordinates, knownTypes)
+            transitiveVulnerabilitiesView.update(vulnerabilityAdvisories, transitiveCoordinates, knownTypes, availableVersions)
             if (showingTransitiveView && !hasTransitiveVulnerabilities()) {
                 setTransitiveViewVisible(false)
             }
@@ -1724,7 +1725,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             return knownDependencies.any { (key, currentVersion) ->
                 val newVersion = selectedVersions[key]
                 newVersion != null && newVersion != currentVersion
-            }
+            } || transitiveVulnerabilitiesView.hasPendingUpdates()
         }
 
         /**
@@ -1826,9 +1827,12 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
         /**
          * Sammelt alle in der UI ausgewählten Updates, für die eine neue Version gewählt wurde.
+         *
+         * Enthält sowohl die Auswahlen der Haupttabelle als auch die in der transitiven Ansicht
+         * gepinnten Versionen (als verwaltete Abhängigkeiten).
          */
         internal fun collectSelectedUpdates(): List<DependencyUpdate> {
-            return selectedVersions.mapNotNull { (key, newVersion) ->
+            val mainUpdates = selectedVersions.mapNotNull { (key, newVersion) ->
                 val currentVersion = knownDependencies[key] ?: return@mapNotNull null
                 val type = knownTypes[key] ?: return@mapNotNull null
                 if (newVersion == currentVersion) return@mapNotNull null
@@ -1841,6 +1845,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     newVersion
                 )
             }
+            return mainUpdates + transitiveVulnerabilitiesView.collectPendingUpdates()
         }
 
         /**
