@@ -47,6 +47,36 @@ class TransitiveVulnerabilitiesViewTest {
     }
 
     @Test
+    fun testUnmanagedCoordinateUsesTransitiveTypeLabel() {
+        val advisories = mapOf("org.a:vuln:1.0.0" to listOf(advisory("CVE-1", VulnerabilitySeverity.HIGH)))
+
+        val rows = collectTransitiveVulnerabilityRows(
+            advisories,
+            setOf("org.a:vuln:1.0.0"),
+            knownTypes = emptyMap(),
+            transitiveTypeLabel = "transitive"
+        )
+
+        assertEquals(1, rows.size)
+        assertEquals("transitive", rows[0].type)
+    }
+
+    @Test
+    fun testManagedCoordinateUsesKnownType() {
+        val advisories = mapOf("org.a:vuln:1.0.0" to listOf(advisory("CVE-1", VulnerabilitySeverity.HIGH)))
+
+        val rows = collectTransitiveVulnerabilityRows(
+            advisories,
+            setOf("org.a:vuln:1.0.0"),
+            knownTypes = mapOf("org.a:vuln" to "managed dependency"),
+            transitiveTypeLabel = "transitive"
+        )
+
+        assertEquals(1, rows.size)
+        assertEquals("managed dependency", rows[0].type)
+    }
+
+    @Test
     fun testCoordinateWithoutThreePartsIsSkipped() {
         val advisories = mapOf(
             "incomplete:coordinate" to listOf(advisory("CVE-1", VulnerabilitySeverity.HIGH))

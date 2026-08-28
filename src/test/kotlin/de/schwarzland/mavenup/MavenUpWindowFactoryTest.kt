@@ -930,6 +930,35 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         )
     }
 
+    fun testTransitiveViewToggleActionSwitchesBothWays() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        val coordinate = "com.example:transitive:2.0.0"
+        val coords = toolWindow.javaClass.getDeclaredField("transitiveCoordinates")
+            .apply { isAccessible = true }.get(toolWindow) as MutableSet<String>
+        val advisories = toolWindow.javaClass.getDeclaredField("vulnerabilityAdvisories")
+            .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, List<VulnerabilityAdvisory>>
+        coords.add(coordinate)
+        advisories[coordinate] = listOf(
+            VulnerabilityAdvisory(id = "CVE-1", severity = VulnerabilitySeverity.HIGH, sources = setOf("OSV"))
+        )
+
+        val toggle = toolWindow.topToolbarActions()
+            .filterIsInstance<com.intellij.openapi.actionSystem.ToggleAction>()
+            .first()
+        val showingField = toolWindow.javaClass.getDeclaredField("showingTransitiveView")
+            .apply { isAccessible = true }
+
+        val enterEvent = com.intellij.testFramework.TestActionEvent.createTestEvent(toggle)
+        toggle.actionPerformed(enterEvent)
+        assertTrue("Erster Klick sollte in die transitive Ansicht wechseln", showingField.getBoolean(toolWindow))
+
+        val leaveEvent = com.intellij.testFramework.TestActionEvent.createTestEvent(toggle)
+        toggle.actionPerformed(leaveEvent)
+        assertFalse("Zweiter Klick sollte zurück zur Haupttabelle wechseln", showingField.getBoolean(toolWindow))
+    }
+
     fun testTransitiveViewToggleActionIsPresentInToolbar() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         toolWindow.getContent()

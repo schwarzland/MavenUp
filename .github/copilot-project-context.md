@@ -95,8 +95,11 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   dem Anwenden die anstehenden Updates in einer schreibgeschützten Tabelle bestätigen lässt und
   die Option **Sync Maven Changes** (vorbelegt aus `MavenUpSettings.syncMavenAfterUpdate`) anbietet.
 - **TransitiveVulnerabilitiesView**: eigenständige `JBPanel`-Ansicht (Top-Level in `ui`), die alle
-  transitiven, verwundbaren Abhängigkeiten in einer sortierbaren Tabelle (GroupId, ArtifactId, Version,
-  Vulnerabilities-Anzahl mit Severity-Färbung) auflistet. Wird über einen `ToggleAction` in der
+  transitiven, verwundbaren Abhängigkeiten in einer sortierbaren Tabelle (GroupId, ArtifactId, Type, Version,
+  Vulnerabilities-Anzahl mit Severity-Färbung) auflistet. Die **Type**-Spalte übernimmt für Koordinaten, die
+  bereits in der `pom.xml` (z. B. im `dependencyManagement`) deklariert sind, den Typ der Haupttabelle
+  (`knownTypes`, Schlüssel `groupId:artifactId`) und zeigt sonst den transitiven Standardtyp
+  (`toolwindow.TransitiveVulnerabilities.type.transitive`). Wird über einen `ToggleAction` in der
   Tool-Window-Aktionsleiste ein-/ausgeblendet (Umschaltung über ein `CardLayout` im Zentrum, siehe
   `MavenUpWindowFactory.setTransitiveViewVisible`/`updateTransitiveVulnerabilitiesView`/`hasTransitiveVulnerabilities`);
   die Filterzeile wird dabei ausgeblendet. Die reine Top-Level-Funktion `collectTransitiveVulnerabilityRows`

@@ -842,7 +842,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             }
             val toolbar = ActionManager.getInstance()
                 .createActionToolbar("MavenUpToolWindow", toolbarGroup, true)
-            toolbar.targetComponent = table
+            toolbar.targetComponent = centerPanel
             actionToolbar = toolbar
 
             topPanel.add(toolbar.component, BorderLayout.NORTH)
@@ -1091,7 +1091,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * Hauptabhängigkeitstabelle zurückgeschaltet.
          */
         internal fun updateTransitiveVulnerabilitiesView() {
-            transitiveVulnerabilitiesView.update(vulnerabilityAdvisories, transitiveCoordinates)
+            transitiveVulnerabilitiesView.update(vulnerabilityAdvisories, transitiveCoordinates, knownTypes)
             if (showingTransitiveView && !hasTransitiveVulnerabilities()) {
                 setTransitiveViewVisible(false)
             }
@@ -1277,7 +1277,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             actionToolbar?.let { topPanel.remove(it.component) }
             val toolbar = ActionManager.getInstance()
                 .createActionToolbar("MavenUpToolWindow", toolbarGroup, true)
-            toolbar.targetComponent = table
+            toolbar.targetComponent = centerPanel
             actionToolbar = toolbar
             topPanel.add(toolbar.component, BorderLayout.NORTH)
             topPanel.revalidate()
