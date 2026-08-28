@@ -25,7 +25,6 @@ import javax.swing.JLabel
 import javax.swing.JPanel
 import javax.swing.JTable
 import javax.swing.ListSelectionModel
-import javax.swing.RowSorter.SortKey
 import javax.swing.SortOrder
 import javax.swing.table.DefaultTableModel
 import javax.swing.table.TableCellRenderer
@@ -37,20 +36,14 @@ internal const val TRANSITIVE_GROUP_ID_COLUMN = 0
 /** Spaltenindex der ArtifactId in der Tabelle der transitiven Sicherheitslücken. */
 internal const val TRANSITIVE_ARTIFACT_ID_COLUMN = 1
 
-/** Spaltenindex des Typs in der Tabelle der transitiven Sicherheitslücken. */
-internal const val TRANSITIVE_TYPE_COLUMN = 2
-
 /** Spaltenindex der Version in der Tabelle der transitiven Sicherheitslücken. */
 internal const val TRANSITIVE_VERSION_COLUMN = 3
 
 /** Spaltenindex der Sicherheitslücken-Zelle in der Tabelle der transitiven Sicherheitslücken. */
 internal const val TRANSITIVE_VULNERABILITIES_COLUMN = 4
 
-/** Spaltenindex der empfohlenen Fix-Version in der Tabelle der transitiven Sicherheitslücken. */
-internal const val TRANSITIVE_RECOMMENDED_VERSION_COLUMN = 5
-
 /** Spaltenindex der auszuwählenden neuen Version in der Tabelle der transitiven Sicherheitslücken. */
-internal const val TRANSITIVE_NEW_VERSION_COLUMN = 6
+internal const val TRANSITIVE_NEW_VERSION_COLUMN = 5
 
 /**
  * Eine Zeile der Ansicht der transitiven, verwundbaren Abhängigkeiten.
@@ -183,6 +176,9 @@ internal class TransitiveVulnerabilitiesView(
             value?.let { table.rowHeight = it }
         }
 
+    /** Zuordnung von `groupId:artifactId` zur empfohlenen Fix-Version (für die Dropdown-Markierung). */
+    private var recommendedByKey: Map<String, String> = emptyMap()
+
     /** Tabellenmodell der Ansicht; nur die New-Version-Spalte ist editierbar, befüllt über [update]. */
     private val tableModel = object : DefaultTableModel() {
         override fun isCellEditable(row: Int, column: Int): Boolean =
@@ -194,7 +190,6 @@ internal class TransitiveVulnerabilitiesView(
         addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.type"))
         addColumn(MyMessageBundle.message("toolwindow.TransitiveVulnerabilities.table.header.version"))
         addColumn(MyMessageBundle.message("toolwindow.TransitiveVulnerabilities.table.header.vulnerabilities"))
-        addColumn(MyMessageBundle.message("toolwindow.TransitiveVulnerabilities.table.header.recommendedVersion"))
         addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.newVersion"))
     }
 
@@ -333,13 +328,15 @@ internal class TransitiveVulnerabilitiesView(
     }
 
     /**
-     * Setzt den Dropdown-Renderer der ComboBox: das Anzeigefeld übernimmt Farbe/Font der Box, und
-     * die aktuelle Version wird in der aufgeklappten Liste mit Marker und Fettschrift hervorgehoben.
+     * Setzt den Dropdown-Renderer der ComboBox: das Anzeigefeld übernimmt Farbe/Font der Box; die
+     * aktuelle Version wird in der aufgeklappten Liste mit „(current)"-Marker und Fettschrift, die
+     * empfohlene Fix-Version mit „(recommended)"-Marker und Fettschrift hervorgehoben.
      *
      * @param box Die zu konfigurierende ComboBox.
      * @param currentVersion Die aktuell aufgelöste Version der Koordinate.
+     * @param recommendedVersion Die empfohlene Fix-Version (oder leer, wenn keine vorliegt).
      */
-    private fun applyDropdownRenderer(box: ComboBox<String>, currentVersion: String) {
+    private fun applyDropdownRenderer(box: ComboBox<String>, currentVersion: String, recommendedVersion: String) {
         box.setRenderer { _, itemValue, index, _, _ ->
             JLabel(itemValue ?: "").apply {
                 when {
@@ -349,6 +346,12 @@ internal class TransitiveVulnerabilitiesView(
                     }
                     itemValue != null && itemValue == currentVersion -> {
                         text = versionDropdownItemText(itemValue, currentVersion)
+                        font = font.deriveFont(Font.BOLD)
+                    }
+                    itemValue != null && recommendedVersion.isNotEmpty() && itemValue == recommendedVersion -> {
+                        text = MyMessageBundle.message(
+                            "toolwindow.TransitiveVulnerabilities.version.recommendedMarker", itemValue
+                        )
                         font = font.deriveFont(Font.BOLD)
                     }
                 }
@@ -468,7 +471,7 @@ internal class TransitiveVulnerabilitiesView(
             val effectiveVersion = selectedVersions[currentKey] ?: currentVersion
             return buildVersionPanel(versions, currentVersion, effectiveVersion) { box ->
                 comboBox = box
-                applyDropdownRenderer(box, currentVersion)
+                applyDropdownRenderer(box, currentVersion, recommendedByKey[currentKey].orEmpty())
                 box.addActionListener {
                     (box.selectedItem as? String)?.let { applySelection(currentKey, it, currentVersion) }
                 }
@@ -481,7 +484,7 @@ internal class TransitiveVulnerabilitiesView(
     /**
      * Zeigt das zeilenbezogene Kontextmenü der transitiven Ansicht an.
      *
-     * Angelehnt an das Kontextmenü der Haupttabelle bietet es **Open on [Browser]** (öffnet die
+     * Angelehnt an das Kontextmenü der Haupttabelle bietet es **Open on `<Browser>`** (öffnet die
      * angeklickte Koordinate im konfigurierten Maven-Repository-Browser) und **Show Vulnerability
      * Details** (öffnet den Detaildialog; nur aktiv, wenn Sicherheitswarnungen vorliegen). Das Menü
      * wird über IntelliJs `ActionSystem` erzeugt, damit Theme, Abstände und Auswahlfarben der IDE
@@ -615,6 +618,9 @@ internal class TransitiveVulnerabilitiesView(
             knownTypes,
             MyMessageBundle.message("toolwindow.TransitiveVulnerabilities.type.transitive")
         )
+        recommendedByKey = rows
+            .filter { it.recommendedVersion.isNotEmpty() }
+            .associate { "${it.groupId}:${it.artifactId}" to it.recommendedVersion }
         selectedVersions.keys.retainAll(rows.map { "${it.groupId}:${it.artifactId}" }.toSet())
         tableModel.setRowCount(0)
         rows.forEach { row ->
@@ -626,7 +632,6 @@ internal class TransitiveVulnerabilitiesView(
                     row.type,
                     row.version,
                     row.cell,
-                    row.recommendedVersion,
                     availableVersions[key].orEmpty()
                 )
             )

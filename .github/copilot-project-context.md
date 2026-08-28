@@ -96,11 +96,13 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   die Option **Sync Maven Changes** (vorbelegt aus `MavenUpSettings.syncMavenAfterUpdate`) anbietet.
 - **TransitiveVulnerabilitiesView**: eigenständige `JBPanel`-Ansicht (Top-Level in `ui`), die alle
   transitiven, verwundbaren Abhängigkeiten in einer sortierbaren Tabelle (GroupId, ArtifactId, Type, Version,
-  Vulnerabilities-Anzahl mit Severity-Färbung, Recommended Version, New Version) auflistet. Die **Type**-Spalte übernimmt für Koordinaten, die
+  Vulnerabilities-Anzahl mit Severity-Färbung, New Version) auflistet. Die **Type**-Spalte übernimmt für Koordinaten, die
   bereits in der `pom.xml` (z. B. im `dependencyManagement`) deklariert sind, den Typ der Haupttabelle
   (`knownTypes`, Schlüssel `groupId:artifactId`) und zeigt sonst den transitiven Standardtyp
-  (`toolwindow.TransitiveVulnerabilities.type.transitive`). Die **Recommended Version** wird über die reine
-  Funktion `recommendedFixVersion` (niedrigste Fixed-Version > aktueller Version) aus den Advisories abgeleitet.
+  (`toolwindow.TransitiveVulnerabilities.type.transitive`). Die empfohlene Fix-Version wird über die reine
+  Funktion `recommendedFixVersion` (niedrigste Fixed-Version > aktueller Version) aus den Advisories abgeleitet und
+  über `recommendedByKey` im New-Version-Dropdown fett mit „(recommended)"-Marker hervorgehoben (analog zum
+  „(current)"-Marker; keine eigene Spalte).
   Die editierbare **New Version**-Spalte spiegelt die New-Version-Spalte der Haupttabelle (Renderer/Editor via
   `buildVersionPanel`/`applyDropdownRenderer`, `createVersionPanel`); die Auswahl liegt in `selectedVersions`
   (nur bewusst gewählte Werte, Standard = aktuelle Version) und wird über den `onSelectionChanged`-Callback an
