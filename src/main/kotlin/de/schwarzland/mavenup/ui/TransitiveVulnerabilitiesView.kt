@@ -172,6 +172,17 @@ internal class TransitiveVulnerabilitiesView(
     /** Zuordnung von `groupId:artifactId` zu den verfügbaren Versionen der letzten Versionssuche. */
     private var availableVersions: Map<String, List<String>> = emptyMap()
 
+    /**
+     * Optional erzwungene Zeilenhöhe. Wird gesetzt, damit die Ansicht exakt die Zeilenhöhe der
+     * Haupttabelle übernimmt (JBTable würde sonst aus dem höheren ComboBox-Panel eine größere Höhe
+     * ableiten). Bei jedem [update] erneut angewendet.
+     */
+    internal var enforcedRowHeight: Int? = null
+        set(value) {
+            field = value
+            value?.let { table.rowHeight = it }
+        }
+
     /** Tabellenmodell der Ansicht; nur die New-Version-Spalte ist editierbar, befüllt über [update]. */
     private val tableModel = object : DefaultTableModel() {
         override fun isCellEditable(row: Int, column: Int): Boolean =
@@ -621,6 +632,7 @@ internal class TransitiveVulnerabilitiesView(
             )
         }
         trimColumnWidthsToContent(table)
+        enforcedRowHeight?.let { table.rowHeight = it }
     }
 
     /**

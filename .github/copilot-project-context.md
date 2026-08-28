@@ -105,15 +105,22 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   `buildVersionPanel`/`applyDropdownRenderer`, `createVersionPanel`); die Auswahl liegt in `selectedVersions`
   (nur bewusst gewählte Werte, Standard = aktuelle Version) und wird über den `onSelectionChanged`-Callback an
   `refreshToolbar` gemeldet. `collectPendingUpdates`/`hasPendingUpdates` erzeugen daraus `DependencyUpdate`s vom
-  Typ „managed dependency"; die verfügbaren Versionen stammen aus der geteilten `availableVersions`-Map der
-  Versionssuche. Wird über einen `ToggleAction` in der
+  Typ „managed dependency"; die verfügbaren Versionen stammen aus der Vereinigung von `availableVersions`
+  (normale Versionssuche) und der persistenten `transitiveAvailableVersions`-Map, die nach einem
+  Vulnerability-Scan über `fetchVulnerableTransitiveVersions` (nur für die verwundbaren transitiven
+  Koordinaten, via `DependencyVersionService.fetchAvailableVersions`) befüllt wird. Die Trennung
+  verhindert, dass ein zwischenzeitliches „Search for New Versions" (das `availableVersions` leert) die
+  New-Version-Spalte der transitiven Ansicht leert; `transitiveAvailableVersions` wird nur beim Leeren der
+  Vulnerabilities (`clearVulnerabilities`) bzw. bei einem neuen Scan zurückgesetzt. Wird über einen `ToggleAction` in der
   Tool-Window-Aktionsleiste ein-/ausgeblendet (Umschaltung über ein `CardLayout` im Zentrum, siehe
   `MavenUpWindowFactory.setTransitiveViewVisible`/`updateTransitiveVulnerabilitiesView`/`hasTransitiveVulnerabilities`);
   die Filterzeile wird dabei ausgeblendet. Die reine Top-Level-Funktion `collectTransitiveVulnerabilityRows`
   (samt `TransitiveVulnerabilityRow` und den `TRANSITIVE_*_COLUMN`-Konstanten) baut und sortiert die Zeilen.
   Die Tabelle nutzt – wie die Haupttabelle – einen `TableRowSorter` mit überschriebenem `toggleSortOrder`
   (zyklisch aufsteigend → absteigend → unsortiert); die **Version**- und **New Version**-Spalten sind nicht sortierbar,
-  die **Vulnerabilities**-Spalte sortiert über `vulnerabilityCellComparator`.
+  die **Vulnerabilities**-Spalte sortiert über `vulnerabilityCellComparator`. Die Zeilenhöhe wird über
+  `enforcedRowHeight` an die Haupttabelle angeglichen (aus `table.rowHeight`), damit das ComboBox-Panel die
+  Zeilen nicht höher macht.
   Ein Rechtsklick öffnet über IntelliJs `ActionSystem` ein Kontextmenü (`showContextMenu`) mit
   **Open on [Browser]** (konfigurierter Repository-Browser) und **Show Vulnerability Details** (nur bei Funden aktiv).
   Über `hasSelectedRow`/`selectedRowHasVulnerabilities`/`openSelectedInRepository`/`openSelectedVulnerabilityDetails`
@@ -208,7 +215,9 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   Die reine Farbzuordnung `vulnerabilityColor` liegt als Top-Level-Helfer in `VulnerabilityCellModel`.
 - **DependencyVersionService**: fragt über `searchVersions` die verfügbaren Versionen aller
   Dependencies/Plugins ab (inkl. PSI-Erfassung verwalteter Einträge und Property-Schnittmengen)
-  und liefert verfügbare Versionen samt Vorauswahl als `VersionSearchResult`. Die Versionsabfrage
+  und liefert verfügbare Versionen samt Vorauswahl als `VersionSearchResult`. `fetchAvailableVersions`
+  ruft gezielt die Versionslisten einer übergebenen Koordinatenmenge ab (ohne Vorauswahl; genutzt für die
+  verwundbaren transitiven Koordinaten nach einem Scan). Die Versionsabfrage
   ist als Funktions-Seam per Konstruktor injizierbar (netzwerkfreie Tests). Die zustandslosen
   Auto-Selektions-Helfer (`chooseAutoSelectedVersion`, `latestVersionWithinSameMajor`,
   `extractLeadingMajorNumber`) liegen als Top-Level-Funktionen in `ui/VersionAutoSelection`.

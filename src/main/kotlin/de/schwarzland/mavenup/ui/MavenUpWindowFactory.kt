@@ -127,6 +127,14 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private val transitiveCoordinates = mutableSetOf<String>()
         private val transitiveDependenciesByDirect = mutableMapOf<String, Set<String>>()
 
+        /**
+         * Verfügbare Versionen der verwundbaren transitiven Koordinaten (`groupId:artifactId`), die
+         * beim Vulnerability-Scan ermittelt werden. Bewusst getrennt von [availableVersions], damit die
+         * New-Version-Spalte der transitiven Ansicht bei einem zwischenzeitlichen „Search for New Versions"
+         * (das [availableVersions] leert und neu füllt) nicht geleert wird.
+         */
+        private val transitiveAvailableVersions = mutableMapOf<String, List<String>>()
+
         /** Alternative Ansicht, die ausschließlich transitive, verwundbare Abhängigkeiten auflistet. */
         private val transitiveVulnerabilitiesView = TransitiveVulnerabilitiesView(project) { refreshToolbar() }
 
@@ -555,6 +563,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     vulnerabilityAdvisories.clear()
                     transitiveCoordinates.clear()
                     transitiveDependenciesByDirect.clear()
+                    transitiveAvailableVersions.clear()
                     vulnerabilityScanPerformed = false
                 }
                 dependencyToProperty.clear()
@@ -669,6 +678,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
             }
 
             refreshAction(false, true, true)
+
+            transitiveVulnerabilitiesView.enforcedRowHeight = table.rowHeight
 
             centerPanel.add(JBScrollPane(table), CARD_MAIN_TABLE)
             centerPanel.add(transitiveVulnerabilitiesView, CARD_TRANSITIVE_VIEW)
@@ -1098,7 +1109,12 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * Hauptabhängigkeitstabelle zurückgeschaltet.
          */
         internal fun updateTransitiveVulnerabilitiesView() {
-            transitiveVulnerabilitiesView.update(vulnerabilityAdvisories, transitiveCoordinates, knownTypes, availableVersions)
+            transitiveVulnerabilitiesView.update(
+                vulnerabilityAdvisories,
+                transitiveCoordinates,
+                knownTypes,
+                availableVersions + transitiveAvailableVersions
+            )
             if (showingTransitiveView && !hasTransitiveVulnerabilities()) {
                 setTransitiveViewVisible(false)
             }
@@ -1897,13 +1913,46 @@ class MavenUpWindowFactory : ToolWindowFactory {
                             "Results for ${results.size} entries, $vulnerableEntries entries with known vulnerabilities."
                     )
 
+                    val transitiveVersions = fetchVulnerableTransitiveVersions(scanTargets, results, indicator)
+
                     ApplicationManager.getApplication().invokeLater {
+                        transitiveAvailableVersions.clear()
+                        transitiveAvailableVersions.putAll(transitiveVersions)
                         applyVulnerabilityResults(results, scanTargets)
                         ossIndexScan.errorMessage?.let(::showOssIndexError)
                         onFinished()
                     }
                 }
             })
+        }
+
+        /**
+         * Ermittelt für die verwundbaren transitiven Koordinaten des Scans die verfügbaren Versionen.
+         *
+         * Beschränkt die (netzwerklastige) Versionsabfrage auf transitive Koordinaten mit mindestens
+         * einer Sicherheitswarnung, sodass die New-Version-Spalte der transitiven Ansicht bereits nach
+         * dem Scan – ohne separate Versionssuche – auswählbare Versionen anbietet.
+         *
+         * @param scanTargets Die Scan-Ziele mit allen transitiven Koordinaten.
+         * @param results Die zusammengeführten Scan-Ergebnisse je Koordinate.
+         * @param indicator Der Fortschrittsindikator der laufenden Hintergrundaufgabe.
+         * @return Zuordnung von `groupId:artifactId` zu den verfügbaren Versionen.
+         */
+        private fun fetchVulnerableTransitiveVersions(
+            scanTargets: VulnerabilityScanTargets,
+            results: Map<String, List<VulnerabilityAdvisory>>,
+            indicator: ProgressIndicator
+        ): Map<String, List<String>> {
+            val coordinates = scanTargets.transitiveCoordinates
+                .filter { results[it]?.isNotEmpty() == true }
+                .mapNotNull { coordinate ->
+                    val parts = coordinate.split(":")
+                    if (parts.size < 3) null
+                    else "${parts[0]}:${parts[1]}" to parts.drop(2).joinToString(":")
+                }
+                .toMap()
+            if (coordinates.isEmpty()) return emptyMap()
+            return dependencyVersionService.fetchAvailableVersions(coordinates, indicator)
         }
 
         /**

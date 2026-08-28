@@ -71,4 +71,23 @@ class TransitiveVulnerabilitiesViewPendingUpdatesTest : BasePlatformTestCase() {
         view.update(emptyMap(), emptySet(), emptyMap(), emptyMap())
         assertTrue(view.selectedVersions.isEmpty())
     }
+
+    fun testEnforcedRowHeightIsAppliedAndSurvivesUpdate() {
+        val view = TransitiveVulnerabilitiesView(project)
+        view.enforcedRowHeight = 17
+        assertEquals(17, view.table.rowHeight)
+
+        val coordinate = "org.trans:lib:1.2.0"
+        view.update(
+            mapOf(
+                coordinate to listOf(
+                    VulnerabilityAdvisory(id = "CVE-1", severity = VulnerabilitySeverity.HIGH, sources = setOf("OSV"))
+                )
+            ),
+            setOf(coordinate),
+            emptyMap(),
+            mapOf("org.trans:lib" to listOf("1.2.4", "1.2.0"))
+        )
+        assertEquals("Row height stays pinned after populating rows", 17, view.table.rowHeight)
+    }
 }

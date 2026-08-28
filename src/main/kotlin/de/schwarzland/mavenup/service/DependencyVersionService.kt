@@ -67,6 +67,35 @@ internal class DependencyVersionService(
     }
 
     /**
+     * Ruft die verfügbaren Versionen für eine gezielte Menge von Koordinaten ab.
+     *
+     * Wird u. a. genutzt, um nach einem Vulnerability-Scan ausschließlich für die verwundbaren
+     * transitiven Koordinaten Versionen zu ermitteln, ohne den gesamten Dependency-Tree abzufragen.
+     * Es findet keine Vorauswahl statt; zurückgegeben werden nur die Versionslisten.
+     *
+     * @param coordinates Zuordnung von `groupId:artifactId` zur aktuell aufgelösten Version.
+     * @param indicator Der Fortschrittsindikator der laufenden Hintergrundaufgabe.
+     * @return Zuordnung von `groupId:artifactId` zu den verfügbaren Versionen (nur nicht-leere Listen).
+     */
+    internal fun fetchAvailableVersions(
+        coordinates: Map<String, String>,
+        indicator: ProgressIndicator
+    ): Map<String, List<String>> {
+        val result = mutableMapOf<String, List<String>>()
+        coordinates.forEach { (key, version) ->
+            if (indicator.isCanceled) return@forEach
+            val groupId = key.substringBefore(":")
+            val artifactId = key.substringAfter(":")
+            indicator.text2 = "$groupId:$artifactId"
+            val versions = fetchVersions(groupId, artifactId, version)
+            if (versions.isNotEmpty()) {
+                result[key] = versions
+            }
+        }
+        return result
+    }
+
+    /**
      * Verarbeitet alle Abhängigkeiten und Plugins eines einzelnen Maven-Projekts
      * und fragt deren verfügbare Updates ab.
      */
