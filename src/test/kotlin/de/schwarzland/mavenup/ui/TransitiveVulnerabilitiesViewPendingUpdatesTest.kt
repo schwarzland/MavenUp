@@ -73,6 +73,60 @@ class TransitiveVulnerabilitiesViewPendingUpdatesTest : BasePlatformTestCase() {
         assertTrue(view.selectedVersions.isEmpty())
     }
 
+    fun testSelectHighestMajorVersionForDependencyPicksNewest() {
+        val view = buildView()
+        view.selectHighestMajorVersionForDependency("org.trans:lib")
+        assertEquals("1.2.4", view.selectedVersions["org.trans:lib"])
+    }
+
+    fun testSelectHighestMinorVersionForDependencyStaysInSameMajor() {
+        val view = buildView()
+        view.selectHighestMinorVersionForDependency("org.trans:lib")
+        assertEquals("1.2.4", view.selectedVersions["org.trans:lib"])
+    }
+
+    fun testSelectRecommendedVersionForDependencyUsesFixVersion() {
+        val view = buildView()
+        view.selectRecommendedVersionForDependency("org.trans:lib")
+        assertEquals("1.2.4", view.selectedVersions["org.trans:lib"])
+    }
+
+    fun testResetVersionForDependencyClearsSelection() {
+        val view = buildView()
+        view.selectedVersions["org.trans:lib"] = "1.2.4"
+        assertTrue(view.isVersionResetEnabledForDependency("org.trans:lib"))
+        view.resetVersionForDependency("org.trans:lib")
+        assertFalse(view.selectedVersions.containsKey("org.trans:lib"))
+        assertFalse(view.isVersionResetEnabledForDependency("org.trans:lib"))
+    }
+
+    fun testSelectHighestMajorVersionForAllSelectsEveryRow() {
+        val view = buildView()
+        view.selectHighestMajorVersionForAll()
+        assertEquals("1.2.4", view.selectedVersions["org.trans:lib"])
+    }
+
+    fun testSelectRecommendedVersionForAllSelectsEveryRow() {
+        val view = buildView()
+        view.selectRecommendedVersionForAll()
+        assertEquals("1.2.4", view.selectedVersions["org.trans:lib"])
+    }
+
+    fun testSelectionEnablementReflectsAvailableData() {
+        val view = buildView()
+        assertTrue(view.isBulkVersionSelectionEnabled())
+        assertTrue(view.hasRecommendedVersions())
+        assertTrue(view.hasSelectableVersionsForDependency("org.trans:lib"))
+        assertTrue(view.hasRecommendedVersionForDependency("org.trans:lib"))
+    }
+
+    fun testSelectionEnablementFalseForUnknownDependency() {
+        val view = buildView()
+        assertFalse(view.hasSelectableVersionsForDependency("org.other:missing"))
+        assertFalse(view.hasRecommendedVersionForDependency("org.other:missing"))
+        assertFalse(view.isVersionResetEnabledForDependency("org.other:missing"))
+    }
+
     fun testEnforcedRowHeightIsAppliedAndSurvivesUpdate() {
         val view = TransitiveVulnerabilitiesView(project)
         view.enforcedRowHeight = 17

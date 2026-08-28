@@ -68,6 +68,8 @@ import javax.swing.table.TableRowSorter
 private val LOG = Logger.getInstance(MavenUpWindowFactory::class.java)
 
 
+private const val TOOLWINDOW_MY_TOOL_WINDOW_RESET_VERSIONS_CONFIRM_TITLE = "toolwindow.MyToolWindow.resetVersions.confirm.title"
+
 /**
  * -----------------------------------------------------------------------------------------------
  * Factory-Klasse zur Erstellung und Initialisierung des MavenUp Tool Windows in der IntelliJ-IDE.
@@ -772,7 +774,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     val showText = isToolbarTextEnabled()
                     val shortLabel = MyMessageBundle.message("toolwindow.MyToolWindow.versionActions.group.button.short")
                     val tooltip = MyMessageBundle.message("toolwindow.MyToolWindow.versionActions.group.tooltip")
-                    e.presentation.isEnabled = isBulkVersionSelectionEnabled()
+                    e.presentation.isEnabled = isBulkVersionSelectionEnabledForCurrentView() ||
+                        isRecommendedSelectionEnabledForCurrentView()
                     // Identischer Tooltip in beiden Modi über CUSTOM_HELP_TOOLTIP (siehe toolbarAction);
                     // der lange Tooltip wird stets als umbrechende Beschreibung gezeigt.
                     e.presentation.text = shortLabel
@@ -786,25 +789,37 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.selectHighestMajor.button",
                     AllIcons.Actions.Play_last,
-                    { isBulkVersionSelectionEnabled() },
+                    { isBulkVersionSelectionEnabledForCurrentView() },
                     descriptionProvider = {
                         bulkSelectionActionDescription(
                             MyMessageBundle.message("toolwindow.MyToolWindow.selectHighestMajor.button")
                         )
                     },
                     isMenuItem = true
-                ) { selectHighestMajorVersionForAll() })
+                ) {
+                    if (showingTransitiveView) transitiveVulnerabilitiesView.selectHighestMajorVersionForAll()
+                    else selectHighestMajorVersionForAll()
+                })
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.selectHighestMinor.button",
                     AllIcons.Actions.Play_forward,
-                    { isBulkVersionSelectionEnabled() },
+                    { isBulkVersionSelectionEnabledForCurrentView() },
                     descriptionProvider = {
                         bulkSelectionActionDescription(
                             MyMessageBundle.message("toolwindow.MyToolWindow.selectHighestMinor.button")
                         )
                     },
                     isMenuItem = true
-                ) { selectHighestMinorVersionForAll() })
+                ) {
+                    if (showingTransitiveView) transitiveVulnerabilitiesView.selectHighestMinorVersionForAll()
+                    else selectHighestMinorVersionForAll()
+                })
+                add(toolbarAction(
+                    "toolwindow.MyToolWindow.selectRecommended.button",
+                    AllIcons.Actions.Checked,
+                    { isRecommendedSelectionEnabledForCurrentView() },
+                    isMenuItem = true
+                ) { transitiveVulnerabilitiesView.selectRecommendedVersionForAll() })
             }
 
             toolbarGroup.apply {
@@ -836,12 +851,15 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.resetVersions.button",
                     AllIcons.Actions.Undo,
-                    { isResetVersionsEnabled() },
+                    { isResetVersionsEnabledForCurrentView() },
                     shortLabelKey = "toolwindow.MyToolWindow.resetVersions.button.short",
                     descriptionProvider = {
                         MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.tooltip")
                     }
-                ) { confirmAndResetAllVersionsToCurrent() })
+                ) {
+                    if (showingTransitiveView) confirmAndResetTransitiveSelections()
+                    else confirmAndResetAllVersionsToCurrent()
+                })
                 addSeparator()
                 add(openInRepositoryAction)
                 add(toolbarAction(
@@ -1546,7 +1564,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 }
                 val confirmed = MessageDialogBuilder
                     .yesNo(
-                        MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.confirm.title"),
+                        MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_RESET_VERSIONS_CONFIRM_TITLE),
                         MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.confirm.message")
                     )
                     .icon(Messages.getWarningIcon())
@@ -1573,7 +1591,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             val choice = Messages.showDialog(
                 project,
                 MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.filtered.message"),
-                MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.confirm.title"),
+                MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_RESET_VERSIONS_CONFIRM_TITLE),
                 options,
                 0,
                 Messages.getWarningIcon()
@@ -1674,6 +1692,76 @@ class MavenUpWindowFactory : ToolWindowFactory {
          */
         internal fun isResetVersionsEnabled(): Boolean =
             !isUpdating && hasSelectedUpdates()
+
+        /**
+         * Prüft, ob die Sammelauswahl der höchsten Versionen für die aktuell sichtbare Ansicht ausführbar ist.
+         *
+         * In der transitiven Sicherheitslücken-Ansicht wirkt sie auf deren Zeilen, ansonsten auf die Haupttabelle.
+         *
+         * @return `true`, wenn die Sammelauswahl für die aktive Ansicht ausgeführt werden kann.
+         */
+        internal fun isBulkVersionSelectionEnabledForCurrentView(): Boolean =
+            if (showingTransitiveView) {
+                !isUpdating && transitiveVulnerabilitiesView.isBulkVersionSelectionEnabled()
+            } else {
+                isBulkVersionSelectionEnabled()
+            }
+
+        /**
+         * Prüft, ob die Auswahl der empfohlenen Fix-Version für die aktuell sichtbare Ansicht ausführbar ist.
+         *
+         * Empfohlene Fix-Versionen existieren ausschließlich in der transitiven Sicherheitslücken-Ansicht.
+         *
+         * @return `true`, wenn die transitive Ansicht sichtbar ist und mindestens eine empfohlene Fix-Version vorliegt.
+         */
+        internal fun isRecommendedSelectionEnabledForCurrentView(): Boolean =
+            !isUpdating && showingTransitiveView && transitiveVulnerabilitiesView.hasRecommendedVersions()
+
+        /**
+         * Prüft, ob das Zurücksetzen der Versionsauswahlen für die aktuell sichtbare Ansicht ausführbar ist.
+         *
+         * In der transitiven Sicherheitslücken-Ansicht wirkt es auf deren Auswahlen, ansonsten auf die Haupttabelle.
+         *
+         * @return `true`, wenn das Zurücksetzen für die aktive Ansicht ausgeführt werden kann.
+         */
+        internal fun isResetVersionsEnabledForCurrentView(): Boolean =
+            if (showingTransitiveView) {
+                !isUpdating && transitiveVulnerabilitiesView.hasPendingUpdates()
+            } else {
+                isResetVersionsEnabled()
+            }
+
+        /**
+         * Setzt die Versionsauswahlen der transitiven Sicherheitslücken-Ansicht zurück und zeigt bei
+         * aktivierter Einstellung zuvor einen Bestätigungsdialog an.
+         *
+         * Ist [MavenUpSettings.State.confirmVersionReset] aktiv, wird ein Ja/Nein-Dialog angezeigt; über die
+         * Option „Don't ask again" kann der Benutzer die Bestätigung dauerhaft deaktivieren. Bricht der
+         * Benutzer ab, bleibt die aktuelle Auswahl unverändert.
+         */
+        internal fun confirmAndResetTransitiveSelections() {
+            if (!transitiveVulnerabilitiesView.hasPendingUpdates()) return
+            val settings = MavenUpSettings.getInstance()
+            if (settings.state.confirmVersionReset) {
+                val doNotAsk = object : DoNotAskOption.Adapter() {
+                    override fun rememberChoice(isSelected: Boolean, exitCode: Int) {
+                        if (isSelected && exitCode == Messages.YES) {
+                            settings.state.confirmVersionReset = false
+                        }
+                    }
+                }
+                val confirmed = MessageDialogBuilder
+                    .yesNo(
+                        MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_RESET_VERSIONS_CONFIRM_TITLE),
+                        MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.confirm.message")
+                    )
+                    .icon(Messages.getWarningIcon())
+                    .doNotAsk(doNotAsk)
+                    .ask(project)
+                if (!confirmed) return
+            }
+            transitiveVulnerabilitiesView.resetSelections()
+        }
 
         /**
          * Synchronisiert die Version-Auswahl über alle Einträge, die dieselbe Maven-Property verwenden.

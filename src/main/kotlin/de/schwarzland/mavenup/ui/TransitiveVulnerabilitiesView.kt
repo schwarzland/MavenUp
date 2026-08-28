@@ -439,6 +439,179 @@ internal class TransitiveVulnerabilitiesView(
     }
 
     /**
+     * Prüft, ob für mindestens eine transitive Koordinate auswählbare Versionen vorliegen.
+     *
+     * @return `true`, wenn wenigstens eine dargestellte Koordinate abrufbare Versionen besitzt.
+     */
+    internal fun isBulkVersionSelectionEnabled(): Boolean =
+        currentVersionsByKey().keys.any { availableVersions[it]?.isNotEmpty() == true }
+
+    /**
+     * Prüft, ob für mindestens eine transitive Koordinate eine empfohlene Fix-Version vorliegt.
+     *
+     * @return `true`, wenn wenigstens eine dargestellte Koordinate eine empfohlene Fix-Version besitzt.
+     */
+    internal fun hasRecommendedVersions(): Boolean =
+        currentVersionsByKey().keys.any { recommendedByKey[it]?.isNotEmpty() == true }
+
+    /**
+     * Prüft, ob für die per [key] identifizierte Koordinate auswählbare Versionen vorliegen.
+     *
+     * @param key Der Schlüssel (`groupId:artifactId`) der Koordinate.
+     * @return `true`, wenn abrufbare Versionen vorliegen.
+     */
+    internal fun hasSelectableVersionsForDependency(key: String): Boolean =
+        availableVersions[key]?.isNotEmpty() == true
+
+    /**
+     * Prüft, ob für die per [key] identifizierte Koordinate eine empfohlene Fix-Version vorliegt.
+     *
+     * @param key Der Schlüssel (`groupId:artifactId`) der Koordinate.
+     * @return `true`, wenn eine empfohlene Fix-Version bekannt ist.
+     */
+    internal fun hasRecommendedVersionForDependency(key: String): Boolean =
+        recommendedByKey[key]?.isNotEmpty() == true
+
+    /**
+     * Prüft, ob für die per [key] identifizierte Koordinate eine abweichende Version ausgewählt wurde.
+     *
+     * @param key Der Schlüssel (`groupId:artifactId`) der Koordinate.
+     * @return `true`, wenn für die Koordinate eine Auswahl vorliegt, die zurückgesetzt werden kann.
+     */
+    internal fun isVersionResetEnabledForDependency(key: String): Boolean =
+        selectedVersions.containsKey(key)
+
+    /**
+     * Wählt für alle dargestellten transitiven Koordinaten die höchste verfügbare Version
+     * (über alle Major-Linien hinweg) aus.
+     */
+    internal fun selectHighestMajorVersionForAll() {
+        applyBulkSelection { _, versions, _ -> versions.firstOrNull().orEmpty() }
+    }
+
+    /**
+     * Wählt für alle dargestellten transitiven Koordinaten die höchste Version innerhalb derselben
+     * Major-Linie wie die aktuell aufgelöste Version aus.
+     */
+    internal fun selectHighestMinorVersionForAll() {
+        applyBulkSelection { current, versions, _ -> latestVersionWithinSameMajor(current, versions) ?: current }
+    }
+
+    /**
+     * Wählt für alle dargestellten transitiven Koordinaten die empfohlene Fix-Version aus.
+     *
+     * Koordinaten ohne empfohlene Fix-Version bleiben unverändert.
+     */
+    internal fun selectRecommendedVersionForAll() {
+        applyBulkSelection { current, _, recommended -> recommended.ifEmpty { current } }
+    }
+
+    /**
+     * Wählt für die per [key] identifizierte Koordinate die höchste verfügbare Version aus.
+     *
+     * @param key Der Schlüssel (`groupId:artifactId`) der Koordinate.
+     */
+    internal fun selectHighestMajorVersionForDependency(key: String) {
+        applySingleSelection(key) { _, versions, _ -> versions.firstOrNull().orEmpty() }
+    }
+
+    /**
+     * Wählt für die per [key] identifizierte Koordinate die höchste Version derselben Major-Linie aus.
+     *
+     * @param key Der Schlüssel (`groupId:artifactId`) der Koordinate.
+     */
+    internal fun selectHighestMinorVersionForDependency(key: String) {
+        applySingleSelection(key) { current, versions, _ -> latestVersionWithinSameMajor(current, versions) ?: current }
+    }
+
+    /**
+     * Wählt für die per [key] identifizierte Koordinate die empfohlene Fix-Version aus.
+     *
+     * @param key Der Schlüssel (`groupId:artifactId`) der Koordinate.
+     */
+    internal fun selectRecommendedVersionForDependency(key: String) {
+        applySingleSelection(key) { current, _, recommended -> recommended.ifEmpty { current } }
+    }
+
+    /**
+     * Setzt die per [key] identifizierte Koordinate auf ihre aktuell aufgelöste Version zurück und
+     * verwirft damit eine zuvor getroffene Auswahl.
+     *
+     * @param key Der Schlüssel (`groupId:artifactId`) der Koordinate.
+     */
+    internal fun resetVersionForDependency(key: String) {
+        if (selectedVersions.remove(key) == null) return
+        finishSelectionChange()
+    }
+
+    /**
+     * Wendet eine Auswahlstrategie auf alle dargestellten Koordinaten an und aktualisiert die Ansicht.
+     *
+     * @param chooser Funktion, die aus aktueller Version, verfügbaren Versionen und empfohlener
+     * Fix-Version die Zielversion ermittelt.
+     */
+    private fun applyBulkSelection(chooser: (String, List<String>, String) -> String) {
+        var changed = false
+        for ((key, currentVersion) in currentVersionsByKey()) {
+            if (applySelectionForKey(key, currentVersion, chooser)) changed = true
+        }
+        if (changed) finishSelectionChange()
+    }
+
+    /**
+     * Wendet eine Auswahlstrategie auf eine einzelne Koordinate an und aktualisiert die Ansicht.
+     *
+     * Ist die Koordinate nicht (mehr) dargestellt, geschieht nichts.
+     *
+     * @param key Der Schlüssel (`groupId:artifactId`) der Koordinate.
+     * @param chooser Funktion, die aus aktueller Version, verfügbaren Versionen und empfohlener
+     * Fix-Version die Zielversion ermittelt.
+     */
+    private fun applySingleSelection(key: String, chooser: (String, List<String>, String) -> String) {
+        val currentVersion = currentVersionsByKey()[key] ?: return
+        if (applySelectionForKey(key, currentVersion, chooser)) finishSelectionChange()
+    }
+
+    /**
+     * Ermittelt die Zielversion einer Koordinate über [chooser] und übernimmt sie in [selectedVersions].
+     *
+     * Entspricht die ermittelte Version der aktuellen Version (oder ist sie leer), wird eine bestehende
+     * Auswahl entfernt. Die Methode aktualisiert die Ansicht nicht selbst.
+     *
+     * @param key Der Schlüssel (`groupId:artifactId`) der Koordinate.
+     * @param currentVersion Die aktuell aufgelöste Version der Koordinate.
+     * @param chooser Funktion, die aus aktueller Version, verfügbaren Versionen und empfohlener
+     * Fix-Version die Zielversion ermittelt.
+     * @return `true`, wenn sich die Auswahl der Koordinate geändert hat.
+     */
+    private fun applySelectionForKey(
+        key: String,
+        currentVersion: String,
+        chooser: (String, List<String>, String) -> String
+    ): Boolean {
+        val versions = availableVersions[key].orEmpty()
+        val recommended = recommendedByKey[key].orEmpty()
+        val chosen = chooser(currentVersion, versions, recommended)
+        val previous = selectedVersions[key]
+        return if (chosen.isNotEmpty() && chosen != currentVersion) {
+            if (previous == chosen) false else { selectedVersions[key] = chosen; true }
+        } else {
+            if (previous == null) false else { selectedVersions.remove(key); true }
+        }
+    }
+
+    /**
+     * Bricht eine laufende Zellbearbeitung ab, benachrichtigt das Tabellenmodell über die geänderten
+     * Auswahlen und meldet die Änderung über [onSelectionChanged].
+     */
+    private fun finishSelectionChange() {
+        if (table.isEditing) table.cellEditor?.cancelCellEditing()
+        tableModel.fireTableDataChanged()
+        enforcedRowHeight?.let { table.rowHeight = it }
+        onSelectionChanged()
+    }
+
+    /**
      * Liefert die aktuell aufgelöste Version je Koordinatenschlüssel aus dem Tabellenmodell.
      *
      * @return Zuordnung von `groupId:artifactId` zur aktuell aufgelösten Version.
@@ -489,9 +662,11 @@ internal class TransitiveVulnerabilitiesView(
      * Zeigt das zeilenbezogene Kontextmenü der transitiven Ansicht an.
      *
      * Angelehnt an das Kontextmenü der Haupttabelle bietet es **Open on `<Browser>`** (öffnet die
-     * angeklickte Koordinate im konfigurierten Maven-Repository-Browser) und **Show Vulnerability
-     * Details** (öffnet den Detaildialog; nur aktiv, wenn Sicherheitswarnungen vorliegen). Das Menü
-     * wird über IntelliJs `ActionSystem` erzeugt, damit Theme, Abstände und Auswahlfarben der IDE
+     * angeklickte Koordinate im konfigurierten Maven-Repository-Browser), die Versionsauswahl-Aktionen
+     * **Set Highest Major Version**, **Set Highest Minor Version** und **Set Recommended Version**, ein
+     * **Reset to Current Version** (nur aktiv, wenn eine abweichende Version gewählt wurde) sowie **Show
+     * Vulnerability Details** (öffnet den Detaildialog; nur aktiv, wenn Sicherheitswarnungen vorliegen).
+     * Das Menü wird über IntelliJs `ActionSystem` erzeugt, damit Theme, Abstände und Auswahlfarben der IDE
      * verwendet werden.
      *
      * @param e Das auslösende Maus-Ereignis mit der Klickposition.
@@ -521,6 +696,33 @@ internal class TransitiveVulnerabilitiesView(
             MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_CONTEXT_MENU_OPEN_IN_MVN_REPOSITORY, browser.displayName)
         ) {
             openInRepository(viewRow)
+        }
+        val key = "${tableModel.getValueAt(modelRow, TRANSITIVE_GROUP_ID_COLUMN)}:" +
+            "${tableModel.getValueAt(modelRow, TRANSITIVE_ARTIFACT_ID_COLUMN)}"
+        group.addSeparator()
+        addAction(
+            MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.selectHighestMajor"),
+            hasSelectableVersionsForDependency(key)
+        ) {
+            selectHighestMajorVersionForDependency(key)
+        }
+        addAction(
+            MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.selectHighestMinor"),
+            hasSelectableVersionsForDependency(key)
+        ) {
+            selectHighestMinorVersionForDependency(key)
+        }
+        addAction(
+            MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.selectRecommended"),
+            hasRecommendedVersionForDependency(key)
+        ) {
+            selectRecommendedVersionForDependency(key)
+        }
+        addAction(
+            MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.resetToCurrent"),
+            isVersionResetEnabledForDependency(key)
+        ) {
+            resetVersionForDependency(key)
         }
         val hasVulnerabilities = cell != null && cell.allAdvisories.isNotEmpty()
         group.addSeparator()

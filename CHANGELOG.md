@@ -9,6 +9,8 @@
 - Added a toolbar toggle that switches between the main dependency table and a dedicated view listing all transitive dependencies with known vulnerabilities and their vulnerability count; pressing it again returns to the main table.
 - Added a **Type** column to the transitive vulnerabilities view that shows the same type as the main table (e.g. *managed dependency*) when the coordinate is declared in the pom.xml, or *transitive* otherwise.
 - Added a right-click context menu to the transitive vulnerabilities view with **Open on [Browser]** and **Show Vulnerability Details**, mirroring the main table's context menu.
+- Added **Set Highest Major Version**, **Set Highest Minor Version**, **Set Recommended Version**, and **Reset to Current Version** entries to the transitive vulnerabilities view context menu for the right-clicked coordinate.
+- Added a **Select Recommended Version** entry to the toolbar's **Select Highest Version** dropdown that selects the recommended fix version for every transitive coordinate while the transitive vulnerabilities view is shown.
 - Added an editable **New Version** column to the transitive vulnerabilities view; available versions for vulnerable transitive dependencies are fetched automatically after a vulnerability scan, and selecting a version pins it in `<dependencyManagement>` (creating the entry if needed) and applies it through the shared **Update** action. The recommended fix version (lowest known fix above the current one) is highlighted in the version dropdown in bold with a *(recommended)* marker.
 - Added an explanatory XML comment as the first line inside each newly pinned transitive `<dependencyManagement>` entry that lists the fixed vulnerability IDs and notes the change was made by MavenUp.
 - Added a master-detail split view to the Vulnerability Details dialog whose lower detail pane shows the selected finding's affected component, summary, and references as clickable hyperlinks.
@@ -19,6 +21,7 @@
 ### Changed
 
 - Made the **Open on [Browser]** and **Vulnerability Details** toolbar actions operate on the selected row of whichever view is active, so they target the transitive vulnerabilities view while it is shown.
+- Made the **Select Highest Version** dropdown and the **Reset All to Current Versions** toolbar action operate on the transitive vulnerabilities view while it is shown.
 - Replaced the Summary and References columns in the Vulnerability Details dialog with the detail pane, and removed the separate references list dialog.
 - Moved the "Open in ..." toolbar action of the Vulnerability Details dialog into the detail pane as a hyperlink and removed the dialog toolbar.
 - Aligned the documentation with the actual UI label of the repository context menu entry, which is **Open on [Browser]** (e.g. *Open on MVN Repository*) rather than *Open in Maven Repository*.

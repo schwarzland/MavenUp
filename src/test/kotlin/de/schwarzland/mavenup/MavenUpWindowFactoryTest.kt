@@ -734,8 +734,8 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
             .firstOrNull { it.isPopup }
         assertNotNull("Die \"Select Highest\"-Aktionen sollten in einem Aufklappmenü gebündelt sein", group)
         assertEquals(
-            "Das Untermenü sollte genau die beiden \"Select Highest\"-Aktionen enthalten",
-            2,
+            "Das Untermenü sollte die beiden \"Select Highest\"-Aktionen und die empfohlene Version enthalten",
+            3,
             group!!.childrenCount
         )
         assertSame(
@@ -1037,6 +1037,42 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         // With a vulnerable transitive row selected both actions become available.
         assertTrue(toolWindow.isOpenInRepositoryEnabled())
         assertTrue(toolWindow.isVulnerabilityDetailsEnabled())
+    }
+
+    fun testBulkAndResetActionsTargetTransitiveViewWhenActive() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        val coordinate = "com.example:transitive:2.0.0"
+        val coords = toolWindow.javaClass.getDeclaredField("transitiveCoordinates")
+            .apply { isAccessible = true }.get(toolWindow) as MutableSet<String>
+        val advisories = toolWindow.javaClass.getDeclaredField("vulnerabilityAdvisories")
+            .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, List<VulnerabilityAdvisory>>
+        @Suppress("UNCHECKED_CAST")
+        val transitiveVersions = toolWindow.javaClass.getDeclaredField("transitiveAvailableVersions")
+            .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, List<String>>
+        coords.add(coordinate)
+        advisories[coordinate] = listOf(
+            VulnerabilityAdvisory(
+                id = "CVE-1",
+                severity = VulnerabilitySeverity.HIGH,
+                sources = setOf("OSV"),
+                fixedVersions = setOf("2.0.4")
+            )
+        )
+        transitiveVersions["com.example:transitive"] = listOf("2.0.4", "2.0.0")
+        toolWindow.updateTransitiveVulnerabilitiesView()
+        toolWindow.setTransitiveViewVisible(true)
+
+        assertTrue(toolWindow.isBulkVersionSelectionEnabledForCurrentView())
+        assertTrue(toolWindow.isRecommendedSelectionEnabledForCurrentView())
+        assertFalse(toolWindow.isResetVersionsEnabledForCurrentView())
+
+        val view = toolWindow.javaClass.getDeclaredField("transitiveVulnerabilitiesView")
+            .apply { isAccessible = true }.get(toolWindow) as TransitiveVulnerabilitiesView
+        view.selectRecommendedVersionForAll()
+        assertEquals("2.0.4", view.selectedVersions["com.example:transitive"])
+        assertTrue(toolWindow.isResetVersionsEnabledForCurrentView())
     }
 
     fun testTransitiveViewReturnsToMainTableWhenFindingsCleared() {
