@@ -8,11 +8,15 @@ package de.schwarzland.mavenup.model
  * @property type Der Typ der Abhängigkeit (z. B. `dependency`, `plugin`, `managed dependency`).
  * @property oldVersion Die aktuell verwendete Version.
  * @property newVersion Die neu ausgewählte Zielversion.
+ * @property fixedVulnerabilities IDs der durch dieses Update behobenen Sicherheitswarnungen; nur für
+ * transitive Pins gesetzt und wird beim Neuanlegen eines `dependencyManagement`-Eintrags als Kommentar
+ * in die `pom.xml` geschrieben.
  */
 data class DependencyUpdate(
     val groupId: String,
     val artifactId: String,
     val type: String,
     val oldVersion: String,
-    val newVersion: String
+    val newVersion: String,
+    val fixedVulnerabilities: List<String> = emptyList()
 )

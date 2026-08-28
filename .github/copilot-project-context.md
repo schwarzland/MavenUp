@@ -107,7 +107,8 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   `buildVersionPanel`/`applyDropdownRenderer`, `createVersionPanel`); die Auswahl liegt in `selectedVersions`
   (nur bewusst gewählte Werte, Standard = aktuelle Version) und wird über den `onSelectionChanged`-Callback an
   `refreshToolbar` gemeldet. `collectPendingUpdates`/`hasPendingUpdates` erzeugen daraus `DependencyUpdate`s vom
-  Typ „managed dependency"; die verfügbaren Versionen stammen aus der Vereinigung von `availableVersions`
+  Typ „managed dependency" (inkl. `fixedVulnerabilities` aus `advisoryIdsByKey` für den pom-Kommentar);
+  die verfügbaren Versionen stammen aus der Vereinigung von `availableVersions`
   (normale Versionssuche) und der persistenten `transitiveAvailableVersions`-Map, die nach einem
   Vulnerability-Scan über `fetchVulnerableTransitiveVersions` (nur für die verwundbaren transitiven
   Koordinaten, via `DependencyVersionService.fetchAvailableVersions`) befüllt wird. Die Trennung
@@ -209,7 +210,9 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   `pom.xml` an (`applyUpdateToPom`, `updateXmlTagVersion`, Parent/Dependencies/Plugins) und
   speichert die Dateien vor dem Maven-Sync (`persistPomChanges`). Für „managed dependency"-Updates
   ohne vorhandenen Eintrag legt `addManagedDependency` einen neuen `<dependencyManagement>`-Eintrag an
-  (Container werden bei Bedarf erzeugt); genutzt für das Pinnen transitiver Abhängigkeiten.
+  (Container werden bei Bedarf erzeugt) und stellt ihm über `createManagedDependencyComment` einen
+  XML-Kommentar mit den behobenen Vulnerability-IDs und MavenUp-Hinweis voran; genutzt für das Pinnen
+  transitiver Abhängigkeiten.
 - **VulnerabilityScanService**: ermittelt direkte/transitive Scan-Ziele aus dem Maven-Modell
   (`collectVulnerabilityScanTargets`, `collectResolvedDependencyRelations`) und kapselt die
   OSS-Index-Abfrage (`resolveOssIndexResults`, Ergebnis `OssIndexScanResult`). Zugangsdaten

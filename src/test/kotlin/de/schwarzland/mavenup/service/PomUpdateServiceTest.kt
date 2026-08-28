@@ -1,6 +1,8 @@
 package de.schwarzland.mavenup.service
 
 import com.intellij.openapi.command.WriteCommandAction
+import com.intellij.psi.util.PsiTreeUtil
+import com.intellij.psi.xml.XmlComment
 import com.intellij.psi.xml.XmlFile
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.schwarzland.mavenup.model.DependencyUpdate
@@ -98,17 +100,25 @@ class PomUpdateServiceTest : BasePlatformTestCase() {
         WriteCommandAction.runWriteCommandAction(project) {
             pomUpdateService.addManagedDependency(
                 rootTag,
-                DependencyUpdate("org.trans", "lib", "managed dependency", "1.2.3", "1.2.4")
+                DependencyUpdate("org.trans", "lib", "managed dependency", "1.2.3", "1.2.4", listOf("CVE-1", "GHSA-2"))
             )
         }
 
-        val managed = rootTag.findFirstSubTag("dependencyManagement")
+        val dependenciesTag = rootTag.findFirstSubTag("dependencyManagement")
             ?.findFirstSubTag("dependencies")
+        val managed = dependenciesTag
             ?.findSubTags("dependency")
             ?.find { it.findFirstSubTag("artifactId")?.value?.text == "lib" }
         assertNotNull("New managed dependency should be created", managed)
         assertEquals("org.trans", managed?.findFirstSubTag("groupId")?.value?.text)
         assertEquals("1.2.4", managed?.findFirstSubTag("version")?.value?.text)
+
+        val comment = PsiTreeUtil.findChildOfType(dependenciesTag, XmlComment::class.java)
+        assertNotNull("A MavenUp comment should be added", comment)
+        val commentText = comment!!.text
+        assertTrue("Comment mentions MavenUp", commentText.contains("MavenUp"))
+        assertTrue("Comment lists CVE-1", commentText.contains("CVE-1"))
+        assertTrue("Comment lists GHSA-2", commentText.contains("GHSA-2"))
     }
 
     fun testAddManagedDependencyReusesExistingContainer() {

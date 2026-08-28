@@ -11,7 +11,11 @@ import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiDocumentManager
+import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiManager
+import com.intellij.psi.XmlElementFactory
+import com.intellij.psi.util.PsiTreeUtil
+import com.intellij.psi.xml.XmlComment
 import com.intellij.psi.xml.XmlFile
 import com.intellij.psi.xml.XmlTag
 import org.jetbrains.idea.maven.project.MavenProject
@@ -147,6 +151,30 @@ internal class PomUpdateService(private val project: Project) {
         dependencyTag.addSubTag(dependencyTag.createChildTag("groupId", null, update.groupId, false), false)
         dependencyTag.addSubTag(dependencyTag.createChildTag("artifactId", null, update.artifactId, false), false)
         dependencyTag.addSubTag(dependencyTag.createChildTag("version", null, update.newVersion, false), false)
+        dependenciesTag.addBefore(createManagedDependencyComment(update.fixedVulnerabilities), dependencyTag)
+    }
+
+    /**
+     * Erzeugt den XML-Kommentar, der einer neu angelegten verwalteten Abhängigkeit vorangestellt wird.
+     *
+     * Listet knapp die IDs der behobenen Sicherheitswarnungen auf und weist darauf hin, dass die
+     * Änderung durch MavenUp erfolgt ist. Doppelte Bindestriche werden entschärft, da sie in
+     * XML-Kommentaren unzulässig sind.
+     *
+     * @param fixedVulnerabilities Die IDs der behobenen Sicherheitswarnungen.
+     * @return Ein [PsiElement] mit dem erzeugten XML-Kommentar.
+     */
+    private fun createManagedDependencyComment(fixedVulnerabilities: List<String>): PsiElement {
+        val text = if (fixedVulnerabilities.isNotEmpty()) {
+            MyMessageBundle.message("pom.comment.managedDependency", fixedVulnerabilities.joinToString(", "))
+        } else {
+            MyMessageBundle.message("pom.comment.managedDependencyNoIds")
+        }
+        val safeText = text.replace("--", "- -")
+        val holder = XmlElementFactory.getInstance(project)
+            .createTagFromText("<holder><!-- $safeText --></holder>")
+        return PsiTreeUtil.findChildOfType(holder, XmlComment::class.java)
+            ?: error("Failed to create XML comment for managed dependency")
     }
 
     /**

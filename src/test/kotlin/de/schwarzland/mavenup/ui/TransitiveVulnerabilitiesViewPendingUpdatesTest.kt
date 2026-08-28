@@ -49,6 +49,7 @@ class TransitiveVulnerabilitiesViewPendingUpdatesTest : BasePlatformTestCase() {
         assertEquals("managed dependency", pending[0].type)
         assertEquals("1.2.0", pending[0].oldVersion)
         assertEquals("1.2.4", pending[0].newVersion)
+        assertEquals(listOf("CVE-1"), pending[0].fixedVulnerabilities)
     }
 
     fun testSelectingCurrentVersionIsNoUpdate() {

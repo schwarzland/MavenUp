@@ -179,6 +179,9 @@ internal class TransitiveVulnerabilitiesView(
     /** Zuordnung von `groupId:artifactId` zur empfohlenen Fix-Version (für die Dropdown-Markierung). */
     private var recommendedByKey: Map<String, String> = emptyMap()
 
+    /** Zuordnung von `groupId:artifactId` zu den IDs der Sicherheitswarnungen der Koordinate. */
+    private var advisoryIdsByKey: Map<String, List<String>> = emptyMap()
+
     /** Tabellenmodell der Ansicht; nur die New-Version-Spalte ist editierbar, befüllt über [update]. */
     private val tableModel = object : DefaultTableModel() {
         override fun isCellEditable(row: Int, column: Int): Boolean =
@@ -412,7 +415,8 @@ internal class TransitiveVulnerabilitiesView(
                 key.substringAfter(":"),
                 managedType,
                 currentVersion,
-                newVersion
+                newVersion,
+                advisoryIdsByKey[key].orEmpty()
             )
         }
     }
@@ -621,6 +625,9 @@ internal class TransitiveVulnerabilitiesView(
         recommendedByKey = rows
             .filter { it.recommendedVersion.isNotEmpty() }
             .associate { "${it.groupId}:${it.artifactId}" to it.recommendedVersion }
+        advisoryIdsByKey = rows.associate { row ->
+            "${row.groupId}:${row.artifactId}" to row.cell.allAdvisories.map { it.id }.distinct()
+        }
         selectedVersions.keys.retainAll(rows.map { "${it.groupId}:${it.artifactId}" }.toSet())
         tableModel.setRowCount(0)
         rows.forEach { row ->
