@@ -16,6 +16,8 @@ import java.awt.BorderLayout
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import javax.swing.ListSelectionModel
+import javax.swing.RowSorter.SortKey
+import javax.swing.SortOrder
 import javax.swing.table.DefaultTableModel
 import javax.swing.table.TableRowSorter
 
@@ -133,13 +135,39 @@ internal class TransitiveVulnerabilitiesView(private val project: Project) : JBP
         val textComparator = Comparator<Any?> { a, b ->
             String.CASE_INSENSITIVE_ORDER.compare(a?.toString().orEmpty(), b?.toString().orEmpty())
         }
-        val sorter = TableRowSorter(tableModel)
+        val sorter = object : TableRowSorter<DefaultTableModel>(tableModel) {
+            /**
+             * Schaltet die Sortierung einer Spalte zyklisch weiter: aufsteigend →
+             * absteigend → unsortiert (ursprüngliche, nach Schweregrad vorsortierte Reihenfolge).
+             *
+             * @param column Modellindex der angeklickten Spalte.
+             */
+            override fun toggleSortOrder(column: Int) {
+                if (!isSortable(column)) return
+                val current = sortKeys.firstOrNull { it.column == column }?.sortOrder
+                val next = when (current) {
+                    SortOrder.ASCENDING -> SortOrder.DESCENDING
+                    SortOrder.DESCENDING -> SortOrder.UNSORTED
+                    else -> SortOrder.ASCENDING
+                }
+                sortKeys = if (next == SortOrder.UNSORTED) {
+                    emptyList()
+                } else {
+                    listOf(SortKey(column, next))
+                }
+            }
+        }
         for (column in 0 until tableModel.columnCount) {
-            sorter.setSortable(column, true)
-            if (column == TRANSITIVE_VULNERABILITIES_COLUMN) {
-                sorter.setComparator(column, vulnerabilityCellComparator)
-            } else {
-                sorter.setComparator(column, textComparator)
+            when (column) {
+                TRANSITIVE_VERSION_COLUMN -> sorter.setSortable(column, false)
+                TRANSITIVE_VULNERABILITIES_COLUMN -> {
+                    sorter.setSortable(column, true)
+                    sorter.setComparator(column, vulnerabilityCellComparator)
+                }
+                else -> {
+                    sorter.setSortable(column, true)
+                    sorter.setComparator(column, textComparator)
+                }
             }
         }
         table.rowSorter = sorter

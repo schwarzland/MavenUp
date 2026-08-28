@@ -28,6 +28,7 @@
 
 ### Fixed
 
+- Aligned the transitive vulnerabilities view sorting with the main table by cycling column sorting through ascending, descending, and unsorted states, and made its **Version** column non-sortable.
 - Resolved the parent POM version from Maven properties so property-based `<parent>` versions (for example `${revision}`) are scanned for vulnerabilities and version updates instead of being skipped as an unresolved placeholder.
 
 ## 2.5.0
