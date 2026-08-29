@@ -157,6 +157,7 @@ internal fun collectTransitiveVulnerabilityRows(
  * @param onSelectionChanged Callback, der bei jeder Änderung der Versionsauswahl aufgerufen wird
  * (z. B. um die Aktionsleiste zu aktualisieren).
  */
+@Suppress("TooManyFunctions")
 internal class TransitiveVulnerabilitiesView(
     private val project: Project,
     private val onSelectionChanged: () -> Unit = {}
@@ -286,6 +287,7 @@ internal class TransitiveVulnerabilitiesView(
 
         add(filterPanel, BorderLayout.NORTH)
         add(JBScrollPane(table), BorderLayout.CENTER)
+        updateEmptyText(withoutFindings = true)
         applyRowFilter()
     }
 
@@ -962,8 +964,26 @@ internal class TransitiveVulnerabilitiesView(
         }
         trimColumnWidthsToContent(table)
         enforcedRowHeight?.let { table.rowHeight = it }
+        updateEmptyText(rows.isEmpty())
         filterPanel.updateAvailability()
         applyRowFilter()
+    }
+
+    /**
+     * Setzt den Empty-State-Text der Tabelle passend zur Ursache der leeren Ansicht.
+     *
+     * Der Tab bleibt gemäß den JetBrains-UI-Guidelines stets auswählbar; statt ihn zu deaktivieren,
+     * erklärt dieser Text im Tab-Inhalt, warum keine Einträge vorliegen.
+     *
+     * @param withoutFindings `true`, wenn überhaupt keine transitiven Funde vorliegen, `false`, wenn
+     * lediglich der aktive Filter alle Zeilen ausblendet.
+     */
+    private fun updateEmptyText(withoutFindings: Boolean) {
+        table.emptyText.text = if (withoutFindings) {
+            MyMessageBundle.message("toolwindow.TransitiveVulnerabilities.emptyText.noScan")
+        } else {
+            MyMessageBundle.message("toolwindow.TransitiveVulnerabilities.emptyText.noMatches")
+        }
     }
 
     /**

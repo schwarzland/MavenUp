@@ -42,7 +42,11 @@ import com.intellij.ui.DocumentAdapter
 import com.intellij.ui.SearchTextField
 import com.intellij.ui.components.JBPanel
 import com.intellij.ui.components.JBScrollPane
+import com.intellij.ui.content.Content
 import com.intellij.ui.content.ContentFactory
+import com.intellij.ui.content.ContentManager
+import com.intellij.ui.content.ContentManagerEvent
+import com.intellij.ui.content.ContentManagerListener
 import com.intellij.ui.table.JBTable
 import com.intellij.util.concurrency.AppExecutorUtil
 import com.intellij.util.ui.AbstractTableCellEditor
@@ -51,7 +55,6 @@ import org.jetbrains.idea.maven.project.MavenImportListener
 import org.jetbrains.idea.maven.project.MavenProject
 import org.jetbrains.idea.maven.project.MavenProjectsManager
 import java.awt.BorderLayout
-import com.intellij.ui.components.JBTabbedPane
 import java.awt.Component
 import java.awt.FlowLayout
 import java.awt.Font
@@ -87,16 +90,37 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
     /**
      * Erstellt den Inhalt des Tool Windows und fügt ihn dem ContentManager hinzu.
+     *
+     * Beide Ansichten werden als eigenständige [Content]-Instanzen registriert. Die IDE stellt sie
+     * dadurch als Tabs in der Kopfzeile des Tool Windows dar, sodass keine zusätzliche Tab-Zeile im
+     * Inhaltsbereich nötig ist.
      */
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
         val myToolWindow = MyToolWindow(project)
+        val contentFactory = ContentFactory.getInstance()
 
-        val content = ContentFactory
-            .getInstance()
-            .createContent(myToolWindow.getContent(), null, false)
-        content.setDisposer(myToolWindow)
+        val dependenciesContent = contentFactory.createContent(
+            myToolWindow.getContent(),
+            MyMessageBundle.message("toolwindow.MyToolWindow.tab.dependencies"),
+            false
+        ).apply {
+            isCloseable = false
+            description = MyMessageBundle.message("toolwindow.MyToolWindow.tab.dependencies.tooltip")
+            setDisposer(myToolWindow)
+        }
 
-        toolWindow.contentManager.addContent(content)
+        val transitiveContent = contentFactory.createContent(
+            myToolWindow.getTransitiveContent(),
+            MyMessageBundle.message("toolwindow.MyToolWindow.tab.transitiveView"),
+            false
+        ).apply {
+            isCloseable = false
+            description = MyMessageBundle.message("toolwindow.MyToolWindow.tab.transitiveView.tooltip")
+        }
+
+        toolWindow.contentManager.addContent(dependenciesContent)
+        toolWindow.contentManager.addContent(transitiveContent)
+        myToolWindow.bindTabs(toolWindow.contentManager, dependenciesContent, transitiveContent)
     }
 
     /**
@@ -139,15 +163,20 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /** Alternative Ansicht, die ausschließlich transitive, verwundbare Abhängigkeiten auflistet. */
         private val transitiveVulnerabilitiesView = TransitiveVulnerabilitiesView(project) { refreshToolbar() }
 
-        /**
-         * Tab-Leiste im Zentrum des Tool-Windows, die die Hauptabhängigkeitstabelle
-         * ([TAB_INDEX_MAIN_TABLE]) und die transitive Sicherheitslücken-Ansicht
-         * ([TAB_INDEX_TRANSITIVE_VIEW]) als gleichrangige Sichten anbietet.
-         */
-        private val viewTabs = JBTabbedPane()
+        /** Wurzelkomponente des Tabs **Transitive CVEs**: Aktionsleiste über der transitiven Ansicht. */
+        private val transitiveContent = JBPanel<JBPanel<*>>(BorderLayout())
 
-        /** Tab-Inhalt der Hauptabhängigkeitstabelle: Filterzeile über der Tabelle. */
-        private val mainTablePanel = JBPanel<JBPanel<*>>(BorderLayout())
+        /** Container für die Aktionsleiste des Tabs **Transitive CVEs**. */
+        private val transitiveTopPanel = JBPanel<JBPanel<*>>(BorderLayout())
+
+        /** ContentManager des Tool Windows; erst nach [bindTabs] gesetzt. */
+        private var contentManager: ContentManager? = null
+
+        /** Tab **Dependencies**; erst nach [bindTabs] gesetzt. */
+        private var dependenciesTab: Content? = null
+
+        /** Tab **Transitive CVEs**; erst nach [bindTabs] gesetzt. */
+        private var transitiveTab: Content? = null
 
         /** `true`, solange der Tab der transitiven Sicherheitslücken-Ansicht ausgewählt ist. */
         private var showingTransitiveView = false
@@ -173,8 +202,11 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /** Die Tabelle der Abhängigkeiten; wird im Property-Initializer von [content] zugewiesen. */
         private var table: JBTable
 
-        /** Die obere Aktionsleiste des Tool-Windows; wird im Init-Block initialisiert. */
+        /** Die Aktionsleiste des Tabs **Dependencies**; wird in [installToolbars] gesetzt. */
         private var actionToolbar: ActionToolbar? = null
+
+        /** Die Aktionsleiste des Tabs **Transitive CVEs**; wird in [installToolbars] gesetzt. */
+        private var transitiveActionToolbar: ActionToolbar? = null
 
         /** Die Aktionsgruppe der oberen Aktionsleiste; wird im Init-Block befüllt. */
         private val toolbarGroup = DefaultActionGroup()
@@ -203,7 +235,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private val allTypesFilterLabel =
             MyMessageBundle.message("toolwindow.MyToolWindow.filter.type.all")
 
-        /** Container für die Aktionsleiste im Nordbereich. */
+        /** Container für die Aktionsleiste und die Filterzeile des Tabs **Dependencies**. */
         private val topPanel = JBPanel<JBPanel<*>>(BorderLayout())
 
         /** Aktionsleiste am Ende der Filterzeile zum Zurücksetzen aller Filter. */
@@ -683,22 +715,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
             transitiveVulnerabilitiesView.enforcedRowHeight = table.rowHeight
 
-            mainTablePanel.add(JBScrollPane(table), BorderLayout.CENTER)
-            viewTabs.addTab(
-                MyMessageBundle.message("toolwindow.MyToolWindow.tab.dependencies"),
-                null,
-                mainTablePanel,
-                MyMessageBundle.message("toolwindow.MyToolWindow.tab.dependencies.tooltip")
-            )
-            viewTabs.addTab(
-                MyMessageBundle.message("toolwindow.MyToolWindow.tab.transitiveView"),
-                null,
-                transitiveVulnerabilitiesView,
-                MyMessageBundle.message("toolwindow.MyToolWindow.tab.transitiveView.tooltip")
-            )
-            viewTabs.setEnabledAt(TAB_INDEX_TRANSITIVE_VIEW, false)
-            viewTabs.addChangeListener { syncSelectedViewTab() }
-            add(viewTabs, BorderLayout.CENTER)
+            add(JBScrollPane(table), BorderLayout.CENTER)
+            transitiveContent.add(transitiveTopPanel, BorderLayout.NORTH)
+            transitiveContent.add(transitiveVulnerabilitiesView, BorderLayout.CENTER)
 
             fun toolbarAction(
                 messageKey: String,
@@ -870,13 +889,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     { true }
                 ) { openSettings() })
             }
-            val toolbar = ActionManager.getInstance()
-                .createActionToolbar("MavenUpToolWindow", toolbarGroup, true)
-            toolbar.targetComponent = viewTabs
-            actionToolbar = toolbar
-
-            topPanel.add(toolbar.component, BorderLayout.NORTH)
-            mainTablePanel.add(buildFilterPanel(), BorderLayout.NORTH)
+            installToolbars()
+            topPanel.add(buildFilterPanel(), BorderLayout.SOUTH)
             add(topPanel, BorderLayout.NORTH)
 
             project.messageBus.connect(this@MyToolWindow).subscribe(MavenImportListener.TOPIC, object : MavenImportListener {
@@ -903,11 +917,68 @@ class MavenUpWindowFactory : ToolWindowFactory {
         override fun dispose() = Unit
 
         /**
-         * Fordert die obere Aktionsleiste auf, den Aktivierungszustand und die Beschriftungen
+         * Verbindet die Komponente mit den Tabs des Tool Windows.
+         *
+         * Registriert einen [ContentManagerListener], der einen Tab-Wechsel in [showingTransitiveView]
+         * überträgt, und setzt den Titel des transitiven Tabs initial.
+         *
+         * @param manager ContentManager des Tool Windows.
+         * @param dependencies Tab mit der Hauptabhängigkeitstabelle.
+         * @param transitive Tab mit der transitiven Sicherheitslücken-Ansicht.
+         */
+        internal fun bindTabs(manager: ContentManager, dependencies: Content, transitive: Content) {
+            contentManager = manager
+            dependenciesTab = dependencies
+            transitiveTab = transitive
+            manager.addContentManagerListener(object : ContentManagerListener {
+                override fun selectionChanged(event: ContentManagerEvent) = applySelectedTab()
+            })
+            updateTransitiveTabTitle()
+            applySelectedTab()
+        }
+
+        /**
+         * Erzeugt eine Aktionsleiste über der gemeinsamen [toolbarGroup] für die angegebene Zielkomponente.
+         *
+         * Beide Tabs benötigen eine eigene Instanz, da eine Swing-Komponente nur einen Container haben kann.
+         *
+         * @param target Komponente, gegen die die Aktionen ihren Kontext auflösen.
+         * @return Die neu erzeugte Aktionsleiste.
+         */
+        private fun createToolbar(target: JComponent): ActionToolbar =
+            ActionManager.getInstance()
+                .createActionToolbar("MavenUpToolWindow", toolbarGroup, true)
+                .also { it.targetComponent = target }
+
+        /**
+         * Erzeugt die Aktionsleisten beider Tabs und hängt sie in ihre Container ein.
+         *
+         * Bereits vorhandene Aktionsleisten werden zuvor entfernt, damit ein geänderter Text-/Icon-Modus
+         * wirksam wird. Muss auf dem Event Dispatch Thread laufen.
+         */
+        private fun installToolbars() {
+            actionToolbar?.let { topPanel.remove(it.component) }
+            val dependenciesBar = createToolbar(content)
+            actionToolbar = dependenciesBar
+            topPanel.add(dependenciesBar.component, BorderLayout.NORTH)
+            topPanel.revalidate()
+            topPanel.repaint()
+
+            transitiveActionToolbar?.let { transitiveTopPanel.remove(it.component) }
+            val transitiveBar = createToolbar(transitiveVulnerabilitiesView)
+            transitiveActionToolbar = transitiveBar
+            transitiveTopPanel.add(transitiveBar.component, BorderLayout.NORTH)
+            transitiveTopPanel.revalidate()
+            transitiveTopPanel.repaint()
+        }
+
+        /**
+         * Fordert die Aktionsleisten beider Tabs auf, den Aktivierungszustand und die Beschriftungen
          * ihrer Aktionen neu zu berechnen.
          */
         private fun refreshToolbar() {
             actionToolbar?.updateActionsAsync()
+            transitiveActionToolbar?.updateActionsAsync()
         }
 
         /**
@@ -1084,34 +1155,54 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /**
          * Wählt den Tab der Hauptabhängigkeitstabelle oder den der transitiven Sicherheitslücken-Ansicht.
          *
-         * Ist der transitive Tab mangels Funden deaktiviert, bleibt der Aufruf wirkungslos.
+         * Sind die Tabs noch nicht über [bindTabs] verbunden (z.B. in Tests ohne Tool Window), wird nur
+         * der interne Zustand geführt.
          *
          * @param visible `true`, um den transitiven Tab zu wählen, `false` für die Hauptabhängigkeitstabelle.
          */
         internal fun setTransitiveViewVisible(visible: Boolean) {
-            val targetIndex = if (visible) TAB_INDEX_TRANSITIVE_VIEW else TAB_INDEX_MAIN_TABLE
-            if (!viewTabs.isEnabledAt(targetIndex)) return
-            viewTabs.selectedIndex = targetIndex
-            syncSelectedViewTab()
-        }
-
-        /**
-         * Übernimmt den aktuell gewählten Tab in den internen Zustand und aktualisiert die Aktionsleiste,
-         * damit die Toolbar-Aktionen auf die sichtbare Tabelle wirken.
-         */
-        private fun syncSelectedViewTab() {
-            val visible = viewTabs.selectedIndex == TAB_INDEX_TRANSITIVE_VIEW
+            val manager = contentManager
+            val target = if (visible) transitiveTab else dependenciesTab
+            if (manager != null && target != null) {
+                manager.setSelectedContent(target)
+                applySelectedTab()
+                return
+            }
             if (showingTransitiveView == visible) return
             showingTransitiveView = visible
             refreshToolbar()
         }
 
         /**
-         * Aktualisiert die transitive Sicherheitslücken-Ansicht mit den aktuellen Scan-Ergebnissen.
+         * Übernimmt den aktuell ausgewählten Tab in den internen Zustand und aktualisiert die
+         * Aktionsleisten, damit die Toolbar-Aktionen auf die sichtbare Tabelle wirken.
+         */
+        private fun applySelectedTab() {
+            val transitive = transitiveTab ?: return
+            val visible = contentManager?.selectedContent === transitive
+            if (showingTransitiveView == visible) return
+            showingTransitiveView = visible
+            refreshToolbar()
+        }
+
+        /**
+         * Schreibt die Anzahl der verwundbaren transitiven Koordinaten in den Titel des transitiven Tabs.
          *
-         * Der zugehörige Tab wird nur aktiviert, wenn transitive Funde vorliegen, und trägt deren Anzahl
-         * im Titel. Fehlen nach dem Scan transitive Funde, während der Tab aktiv ist, wird automatisch auf
-         * die Hauptabhängigkeitstabelle zurückgeschaltet.
+         * Der Tab bleibt bewusst stets auswählbar; ohne Funde erklärt der Empty State der Tabelle, wie
+         * Ergebnisse erzeugt werden.
+         */
+        private fun updateTransitiveTabTitle() {
+            val count = transitiveVulnerabilityCount()
+            transitiveTab?.displayName = if (count > 0) {
+                MyMessageBundle.message("toolwindow.MyToolWindow.tab.transitiveView.withCount", count)
+            } else {
+                MyMessageBundle.message("toolwindow.MyToolWindow.tab.transitiveView")
+            }
+        }
+
+        /**
+         * Aktualisiert die transitive Sicherheitslücken-Ansicht mit den aktuellen Scan-Ergebnissen
+         * und schreibt die Anzahl der Funde in den Tab-Titel.
          */
         internal fun updateTransitiveVulnerabilitiesView() {
             transitiveVulnerabilitiesView.update(
@@ -1120,20 +1211,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 knownTypes,
                 availableVersions + transitiveAvailableVersions
             )
-            val count = transitiveVulnerabilityCount()
-            viewTabs.setTitleAt(
-                TAB_INDEX_TRANSITIVE_VIEW,
-                if (count > 0) {
-                    MyMessageBundle.message("toolwindow.MyToolWindow.tab.transitiveView.withCount", count)
-                } else {
-                    MyMessageBundle.message("toolwindow.MyToolWindow.tab.transitiveView")
-                }
-            )
-            if (count == 0 && showingTransitiveView) {
-                viewTabs.selectedIndex = TAB_INDEX_MAIN_TABLE
-                syncSelectedViewTab()
-            }
-            viewTabs.setEnabledAt(TAB_INDEX_TRANSITIVE_VIEW, count > 0)
+            updateTransitiveTabTitle()
             refreshToolbar()
         }
 
@@ -1308,20 +1386,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
-         * Baut die obere Aktionsleiste neu auf, damit ein geänderter Text-/Icon-Modus wirksam wird.
-         * Ersetzt die bestehende Aktionsleiste im Nordbereich durch eine neu erstellte Instanz.
+         * Baut die Aktionsleisten beider Tabs neu auf, damit ein geänderter Text-/Icon-Modus wirksam wird.
          * Muss auf dem Event Dispatch Thread laufen.
          */
-        private fun rebuildToolbar() {
-            actionToolbar?.let { topPanel.remove(it.component) }
-            val toolbar = ActionManager.getInstance()
-                .createActionToolbar("MavenUpToolWindow", toolbarGroup, true)
-            toolbar.targetComponent = viewTabs
-            actionToolbar = toolbar
-            topPanel.add(toolbar.component, BorderLayout.NORTH)
-            topPanel.revalidate()
-            topPanel.repaint()
-        }
+        private fun rebuildToolbar() = installToolbars()
 
         /**
          * Wendet die Auto-Selektionsstrategie nur dann erneut an, wenn sich ihr Wert geändert hat.
@@ -2156,9 +2224,14 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
-         * Liefert die UI-Komponente des Tool Windows zurück.
+         * Liefert die UI-Komponente des Tabs **Dependencies**.
          */
         fun getContent(): JBPanel<JBPanel<*>> = content
+
+        /**
+         * Liefert die UI-Komponente des Tabs **Transitive CVEs**.
+         */
+        fun getTransitiveContent(): JBPanel<JBPanel<*>> = transitiveContent
 
         /**
          * Öffnet die Plugin-Einstellungen.

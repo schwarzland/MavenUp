@@ -6,7 +6,7 @@
 
 ### Added
 
-- Added two tabs in the tool window — **Dependencies** and **Transitive CVEs** — that switch between the main dependency table and a dedicated view listing all transitive dependencies with known vulnerabilities and their vulnerability count; the **Transitive CVEs** tab shows the number of affected coordinates in its title and stays disabled until a scan finds transitive vulnerabilities.
+- Added two tool window tabs in the tool window header — **Dependencies** and **Transitive CVEs** — that switch between the main dependency table and a dedicated view listing all transitive dependencies with known vulnerabilities and their vulnerability count; the **Transitive CVEs** tab shows the number of affected coordinates in its title, stays selectable at all times, and explains in its own empty state how to produce results when no findings exist.
 - Added a **Type** column to the transitive vulnerabilities view that shows the same type as the main table (e.g. *managed dependency*) when the coordinate is declared in the pom.xml, or *transitive* otherwise.
 - Added a right-click context menu to the transitive vulnerabilities view with **Open on [Browser]** and **Show Vulnerability Details**, mirroring the main table's context menu.
 - Added a filter row to the transitive vulnerabilities view that matches the main window's filter row in look and behavior, with a text filter for GroupId and ArtifactId, an **Updates** and a **Pending** combo box, and a reset button; filtering by type and vulnerabilities is omitted.

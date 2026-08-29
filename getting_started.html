@@ -76,10 +76,10 @@
         <strong>Severity</strong> column is color-coded by severity, matching the tool window's vulnerability column. Every
         table column is sortable by clicking its header (ascending, descending, or unsorted); the <strong>Severity</strong>
         column leads with the most critical findings and highest CVSS score on the first click.</li>
-    <li><strong>Review transitive vulnerabilities</strong>: After a scan finds vulnerable transitive dependencies, switch to the
-        <strong>Transitive CVEs</strong> tab (next to the <strong>Dependencies</strong> tab) to open a dedicated view
+    <li><strong>Review transitive vulnerabilities</strong>: Switch to the
+        <strong>Transitive CVEs</strong> tab in the tool window header (next to the <strong>Dependencies</strong> tab) to open a dedicated view
         listing every transitive dependency with known vulnerabilities, its type, its vulnerability count, and an
-        editable new-version column. The tab title shows how many transitive coordinates are affected. Pick a new version to pin it in <code>dependencyManagement</code>
+        editable new-version column. The tab title shows how many transitive coordinates are affected; before the first scan the view explains how to fill it. Pick a new version to pin it in <code>dependencyManagement</code>
         and apply it with <strong>Update</strong>; the recommended fix version is shown in bold with a
         <em>(recommended)</em> marker in the dropdown. In this view the toolbar's <strong>Select Highest Version</strong>
         dropdown (including <strong>Select Recommended Version</strong>) and <strong>Reset All to Current Versions</strong>
