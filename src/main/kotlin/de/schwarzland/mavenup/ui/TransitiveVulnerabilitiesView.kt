@@ -14,6 +14,7 @@ import com.intellij.ui.table.JBTable
 import com.intellij.util.ui.AbstractTableCellEditor
 import de.schwarzland.mavenup.model.DependencyUpdate
 import de.schwarzland.mavenup.model.VulnerabilityAdvisory
+import de.schwarzland.mavenup.model.isFixedIn
 import de.schwarzland.mavenup.service.MavenUpSettings
 import org.apache.maven.artifact.versioning.ComparableVersion
 import java.awt.BorderLayout
@@ -70,9 +71,13 @@ internal data class TransitiveVulnerabilityRow(
 /**
  * Ermittelt die empfohlene Fix-Version für eine transitive Koordinate.
  *
- * Betrachtet alle in den Warnungen genannten Fixed-Versionen und wählt die niedrigste Version, die
- * echt größer als die aktuell aufgelöste Version ist. So wird die geringste nötige Anhebung empfohlen,
- * die alle bekannten Fixes berücksichtigt. Versionen werden über [ComparableVersion] verglichen.
+ * Betrachtet alle in den Warnungen genannten Fixed-Versionen, die echt größer als die aktuell
+ * aufgelöste Version sind, und wählt daraus die niedrigste Version, in der **alle** Warnungen der
+ * Koordinate behoben sind (siehe [isFixedIn]). Dadurch wird weder eine Version empfohlen, die eine
+ * weitere Warnung offen lässt, noch eine Version, die laut den betroffenen Versionsbereichen selbst
+ * noch verwundbar ist (z. B. bei unvollständigen Fixes mit aufeinanderfolgenden Bereichen).
+ * Lässt sich keine vollständig behebende Version bestimmen, wird die höchste bekannte Fix-Version als
+ * bestmögliche Anhebung empfohlen. Versionen werden über [ComparableVersion] verglichen.
  *
  * @param advisories Die Sicherheitswarnungen der Koordinate.
  * @param currentVersion Die aktuell aufgelöste Version der transitiven Abhängigkeit.
@@ -80,13 +85,17 @@ internal data class TransitiveVulnerabilityRow(
  */
 internal fun recommendedFixVersion(advisories: List<VulnerabilityAdvisory>, currentVersion: String): String {
     val current = currentVersion.takeIf { it.isNotEmpty() }?.let { ComparableVersion(it) }
-    return advisories.asSequence()
+    val candidates = advisories.asSequence()
         .flatMap { it.fixedVersions.asSequence() }
         .filter { it.isNotEmpty() }
         .distinct()
-        .filter { current == null || ComparableVersion(it) > current }
-        .minWithOrNull(compareBy { ComparableVersion(it) })
-        .orEmpty()
+        .map { it to ComparableVersion(it) }
+        .filter { (_, parsed) -> current == null || parsed > current }
+        .sortedBy { it.second }
+        .toList()
+    if (candidates.isEmpty()) return ""
+    val fullyFixing = candidates.firstOrNull { (_, parsed) -> advisories.all { it.isFixedIn(parsed) } }
+    return (fullyFixing ?: candidates.last()).first
 }
 
 /**

@@ -115,12 +115,58 @@ class TransitiveVulnerabilitiesViewTest {
     }
 
     @Test
-    fun testRecommendedFixVersionPicksLowestHigherFix() {
+    fun testRecommendedFixVersionPicksLowestFixResolvingAllAdvisories() {
         val advisories = listOf(
             VulnerabilityAdvisory(id = "CVE-1", sources = setOf("TEST"), fixedVersions = setOf("1.2.4", "2.0.0")),
             VulnerabilityAdvisory(id = "CVE-2", sources = setOf("TEST"), fixedVersions = setOf("1.3.0"))
         )
+        assertEquals("1.3.0", recommendedFixVersion(advisories, "1.2.0"))
+    }
+
+    @Test
+    fun testRecommendedFixVersionSkipsFixStillCoveredByLaterRange() {
+        val advisories = listOf(
+            VulnerabilityAdvisory(
+                id = "CVE-1",
+                sources = setOf("TEST"),
+                affectedRanges = setOf("< 4.1.16"),
+                fixedVersions = setOf("4.1.16")
+            ),
+            VulnerabilityAdvisory(
+                id = "CVE-2",
+                sources = setOf("TEST"),
+                affectedRanges = setOf("< 4.1.16", ">= 4.1.16, < 4.1.17"),
+                fixedVersions = setOf("4.1.16", "4.1.17")
+            )
+        )
+        assertEquals("4.1.17", recommendedFixVersion(advisories, "4.1.10"))
+    }
+
+    @Test
+    fun testRecommendedFixVersionKeepsLowestFixWhenRangesAreDisjoint() {
+        val advisories = listOf(
+            VulnerabilityAdvisory(
+                id = "CVE-1",
+                sources = setOf("TEST"),
+                affectedRanges = setOf(">= 1.0.0, < 1.2.4", ">= 2.0.0, < 2.0.5"),
+                fixedVersions = setOf("1.2.4", "2.0.5")
+            )
+        )
         assertEquals("1.2.4", recommendedFixVersion(advisories, "1.2.0"))
+    }
+
+    @Test
+    fun testRecommendedFixVersionFallsBackToHighestFixWhenNoVersionResolvesAll() {
+        val advisories = listOf(
+            VulnerabilityAdvisory(
+                id = "CVE-1",
+                sources = setOf("TEST"),
+                affectedRanges = setOf(">= 1.0.0"),
+                fixedVersions = setOf("1.2.4")
+            ),
+            VulnerabilityAdvisory(id = "CVE-2", sources = setOf("TEST"), fixedVersions = setOf("1.3.0"))
+        )
+        assertEquals("1.3.0", recommendedFixVersion(advisories, "1.2.0"))
     }
 
     @Test

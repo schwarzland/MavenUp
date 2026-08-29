@@ -19,7 +19,7 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
 ## Kernkomponenten (`src/main/kotlin/de/schwarzland/mavenup/`)
 
 ### Paketstruktur
-- **`model`**: `DependencyUpdate`, `VulnerabilityAdvisory`, `VulnerabilitySeverity` – reine Daten-DTOs ohne Logik.
+- **`model`**: `DependencyUpdate`, `VulnerabilityAdvisory`, `VulnerabilitySeverity`, `AffectedVersionRange` – reine Daten-DTOs ohne Logik.
 - **`service`**: Alle externen API-Zugriffe, Settings, Startup-Logik und Hilfsfunktionen.
 - **`ui`**: Tool-Window, Dialoge, Settings-UI, I18n-Bundle sowie ausgelagerte, zustandslose
   UI-Hilfsdateien (siehe Komponente **UI-Hilfsdateien (ui)**).
@@ -113,7 +113,10 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   bereits in der `pom.xml` (z. B. im `dependencyManagement`) deklariert sind, den Typ der Haupttabelle
   (`knownTypes`, Schlüssel `groupId:artifactId`) und zeigt sonst den transitiven Standardtyp
   (`toolwindow.TransitiveVulnerabilities.type.transitive`). Die empfohlene Fix-Version wird über die reine
-  Funktion `recommendedFixVersion` (niedrigste Fixed-Version > aktueller Version) aus den Advisories abgeleitet und
+  Funktion `recommendedFixVersion` aus den Advisories abgeleitet: Aus allen Fixed-Versionen oberhalb der aktuellen
+  Version wird die niedrigste gewählt, in der laut `isFixedIn` **alle** Advisories der Koordinate behoben sind
+  (betroffene Versionsbereiche schlagen dabei die reinen Fixed-Versionen, siehe **AffectedVersionRange**); lässt sich
+  keine solche Version bestimmen, dient die höchste bekannte Fix-Version als bestmögliche Empfehlung. Sie wird
   über `recommendedByKey` im New-Version-Dropdown fett mit „(recommended)"-Marker hervorgehoben (analog zum
   „(current)"-Marker; keine eigene Spalte).
   Die editierbare **New Version**-Spalte spiegelt die New-Version-Spalte der Haupttabelle (Renderer/Editor via
@@ -228,7 +231,11 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   verlinkt auf die Sonatype-Kontoeinstellungen zur Token-Erzeugung. Das Token wird außerhalb des EDT
   aus dem Password Safe geladen und für `isModified()` im UI-Modell gecacht.
 - **VulnerabilityApiService**: OSV-Batchabfrage plus Detailanreicherung und Filterung
-  zurückgezogener Advisories. Umfangreiche Komponenten- und Versionslisten werden nur gekürzt auf
+  zurückgezogener Advisories. Betroffene Versionsbereiche und Fixed-Versionen werden über `packageNameOf`
+  je Koordinate auf das tatsächlich verwendete Maven-Artefakt eingegrenzt (`parseAdvisory`/`parseAffectedRanges`/
+  `parseFixedVersions` mit `packageName`), damit Advisories über mehrere Artefakte keine fremden Fix-Versionen
+  einmischen; die Detailanreicherung lädt das Roh-JSON je ID einmal (`fetchAdvisoryJson`) und wertet es je
+  Koordinate aus. Umfangreiche Komponenten- und Versionslisten werden nur gekürzt auf
   DEBUG-Ebene protokolliert, um starkes Wachstum der von der IDE überwachten `idea.log` zu vermeiden.
 - **LogSummary**: Hilfsfunktion `summarizeForDebugLog`, die lange String-Listen (z. B. Versionslisten)
   für Debug-Logs auf maximal zehn Einträge kürzt und die Anzahl ausgelassener Elemente anhängt.
@@ -247,6 +254,11 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   quellenübergreifende Deduplizierung anhand von IDs/Aliasen; CVSS-Vektoren werden über
   `us.springett:cvss-calculator` normalisiert, bei nicht unterstützten CVSS-Versionen wird auf
   den Schweregrad der Quelle zurückgefallen.
+- **AffectedVersionRange**: parst die lesbaren Bereichsbeschreibungen (`>= x, < y`, `< y`, `>= x`) einer
+  Warnung zurück in vergleichbare Grenzen (`parseAffectedVersionRange`/`parseAffectedVersionRanges`) und
+  beantwortet über `VulnerabilityAdvisory.isFixedIn`, ob eine Version noch betroffen ist; ohne
+  Bereichsangaben dienen ersatzweise die Fixed-Versionen als Kriterium. Grundlage der Empfehlungslogik
+  in `recommendedFixVersion`.
 - **RefreshSnapshotCollector**: liest über PSI die deklarierten Dependencies, Plugins und
   Versions-Properties der `pom.xml`-Dateien und liefert einen `RefreshSnapshot`; löst
   Property-Platzhalter (auch die Version im `<parent>`-Tag) über `resolveVersionPlaceholder` auf. Zustandslos, benötigt nur das Projekt.
