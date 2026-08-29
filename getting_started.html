@@ -29,7 +29,8 @@
         first, and you can disable this from the dialog's "Don't ask again" option or in the settings; when a filter is
         active it instead asks whether to reset all dependencies or only the currently filtered ones.</li>
     <li><strong>Update your project</strong>: Click <strong>Update</strong> to review the planned changes in a confirmation
-        dialog and apply the selected versions to the relevant <code>pom.xml</code> files. The
+        dialog and apply the selected versions to the relevant <code>pom.xml</code> files. Entries listed as
+        <em>transitive -&gt; managed dependency</em> are pinned in <code>dependencyManagement</code> for the first time. The
         <strong>Sync Maven Changes after update</strong> checkbox is enabled by default and triggers the IDE's Maven sync
         immediately after the change.</li>
 </ol>

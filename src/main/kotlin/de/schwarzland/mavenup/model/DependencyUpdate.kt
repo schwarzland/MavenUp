@@ -11,6 +11,9 @@ package de.schwarzland.mavenup.model
  * @property fixedVulnerabilities IDs der durch dieses Update behobenen Sicherheitswarnungen; nur für
  * transitive Pins gesetzt und wird beim Neuanlegen eines `dependencyManagement`-Eintrags als Kommentar
  * in die `pom.xml` geschrieben.
+ * @property transitive `true`, wenn das Update aus einer bislang nur transitiv aufgelösten Abhängigkeit
+ * entsteht, die durch das Update erstmals in der `pom.xml` gepinnt wird. Rein informativ für die
+ * Anzeige (siehe Bestätigungsdialog); die Schreiblogik richtet sich weiterhin ausschließlich nach [type].
  */
 data class DependencyUpdate(
     val groupId: String,
@@ -18,5 +21,6 @@ data class DependencyUpdate(
     val type: String,
     val oldVersion: String,
     val newVersion: String,
-    val fixedVulnerabilities: List<String> = emptyList()
+    val fixedVulnerabilities: List<String> = emptyList(),
+    val transitive: Boolean = false
 )

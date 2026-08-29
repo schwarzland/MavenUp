@@ -711,6 +711,38 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         )
     }
 
+    fun testConfirmChangesDialogMarksTransitiveUpdates() {
+        val transitiveUpdate = DependencyUpdate(
+            "com.example",
+            "trans-lib",
+            "managed dependency",
+            "1.0.0",
+            "1.1.0",
+            transitive = true
+        )
+        val directUpdate = DependencyUpdate("com.example", "demo-lib", "dependency", "1.0.0", "1.1.0")
+        val dialog = UpdateConfirmationDialog(project, listOf(transitiveUpdate, directUpdate))
+
+        assertEquals(
+            "Transitive Updates sollten den Zieltyp mit Herkunft anzeigen",
+            "transitive -> managed dependency",
+            dialog.typeLabel(transitiveUpdate)
+        )
+        assertEquals(
+            "Direkte Updates sollten unveraendert ihren Typ anzeigen",
+            "dependency",
+            dialog.typeLabel(directUpdate)
+        )
+
+        val table = dialog.buildTable()
+        assertEquals(
+            "Die Typ-Spalte sollte den transitiven Hinweis enthalten",
+            "transitive -> managed dependency",
+            table.getValueAt(0, 2)
+        )
+        assertEquals("dependency", table.getValueAt(1, 2))
+    }
+
     fun testConfirmChangesDialogSyncCheckboxReflectsSetting() {
         val settings = MavenUpSettings.getInstance()
         val original = settings.state.syncMavenAfterUpdate

@@ -50,6 +50,30 @@ class TransitiveVulnerabilitiesViewPendingUpdatesTest : BasePlatformTestCase() {
         assertEquals("1.2.0", pending[0].oldVersion)
         assertEquals("1.2.4", pending[0].newVersion)
         assertEquals(listOf("CVE-1"), pending[0].fixedVulnerabilities)
+        assertTrue("Rein transitive Koordinaten sollten als transitiv markiert sein", pending[0].transitive)
+    }
+
+    fun testKnownCoordinateIsNotMarkedTransitive() {
+        val view = TransitiveVulnerabilitiesView(project)
+        val coordinate = "org.trans:lib:1.2.0"
+        view.update(
+            mapOf(
+                coordinate to listOf(
+                    VulnerabilityAdvisory(id = "CVE-1", severity = VulnerabilitySeverity.HIGH, sources = setOf("OSV"))
+                )
+            ),
+            setOf(coordinate),
+            mapOf("org.trans:lib" to "managed dependency"),
+            mapOf("org.trans:lib" to listOf("1.2.4", "1.2.0"))
+        )
+        view.selectedVersions["org.trans:lib"] = "1.2.4"
+
+        val pending = view.collectPendingUpdates()
+        assertEquals(1, pending.size)
+        assertFalse(
+            "In der pom.xml deklarierte Koordinaten sollten nicht als transitiv markiert sein",
+            pending[0].transitive
+        )
     }
 
     fun testSelectingCurrentVersionIsNoUpdate() {

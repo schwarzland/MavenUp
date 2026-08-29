@@ -92,7 +92,7 @@ class UpdateConfirmationDialog(
                 arrayOf(
                     update.groupId,
                     update.artifactId,
-                    update.type,
+                    typeLabel(update),
                     update.oldVersion,
                     update.newVersion
                 )
@@ -109,6 +109,23 @@ class UpdateConfirmationDialog(
         }
         return table
     }
+
+    /**
+     * Ermittelt den in der Spalte "Type" anzuzeigenden Text eines Updates.
+     *
+     * Updates aus bislang ausschließlich transitiv aufgelösten Abhängigkeiten werden als
+     * `transitive -> <Zieltyp>` gekennzeichnet, damit erkennbar ist, dass die Abhängigkeit durch das
+     * Update erstmals in der `pom.xml` (im `dependencyManagement`) gepinnt wird.
+     *
+     * @param update Das anzuzeigende Update.
+     * @return Der Anzeigetext für die Typ-Spalte.
+     */
+    internal fun typeLabel(update: DependencyUpdate): String =
+        if (update.transitive) {
+            MyMessageBundle.message("toolwindow.MyToolWindow.update.confirm.type.transitive", update.type)
+        } else {
+            update.type
+        }
 
     /**
      * Erstellt den [TableRowSorter] für die Bestätigungstabelle. Die Textspalten "Group Id",

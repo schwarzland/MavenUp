@@ -101,6 +101,9 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
 - **UpdateConfirmationDialog**: eigenständiger `DialogWrapper` (Top-Level in `ui`), der vor
   dem Anwenden die anstehenden Updates in einer schreibgeschützten Tabelle bestätigen lässt und
   die Option **Sync Maven Changes** (vorbelegt aus `MavenUpSettings.syncMavenAfterUpdate`) anbietet.
+  `typeLabel()` erzeugt den Text der **Type**-Spalte und kennzeichnet Updates mit
+  `DependencyUpdate.transitive = true` über `toolwindow.MyToolWindow.update.confirm.type.transitive`
+  als „transitive -> managed dependency".
   `buildRowSorter()` macht die Spalten Group Id, Artifact Id und Type über `cellTextComparator`
   sortierbar (Zyklus aufsteigend → absteigend → unsortiert, `installSortableHeaderRenderer`);
   ab `CONFIRM_CURRENT_VERSION_COLUMN` (Index 3) sind die Versionsspalten nicht sortierbar.
@@ -117,7 +120,8 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   `buildVersionPanel`/`applyDropdownRenderer`, `createVersionPanel`); die Auswahl liegt in `selectedVersions`
   (nur bewusst gewählte Werte, Standard = aktuelle Version) und wird über den `onSelectionChanged`-Callback an
   `refreshToolbar` gemeldet. `collectPendingUpdates`/`hasPendingUpdates` erzeugen daraus `DependencyUpdate`s vom
-  Typ „managed dependency" (inkl. `fixedVulnerabilities` aus `advisoryIdsByKey` für den pom-Kommentar);
+  Typ „managed dependency" (inkl. `fixedVulnerabilities` aus `advisoryIdsByKey` für den pom-Kommentar und
+  `transitive = true` für Koordinaten aus `transitiveOnlyKeys`, also solche, die nicht in der `pom.xml` deklariert sind);
   die verfügbaren Versionen stammen aus der Vereinigung von `availableVersions`
   (normale Versionssuche) und der persistenten `transitiveAvailableVersions`-Map, die nach einem
   Vulnerability-Scan über `fetchVulnerableTransitiveVersions` (nur für die verwundbaren transitiven

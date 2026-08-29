@@ -189,6 +189,12 @@ internal class TransitiveVulnerabilitiesView(
     /** Zuordnung von `groupId:artifactId` zu den IDs der Sicherheitswarnungen der Koordinate. */
     private var advisoryIdsByKey: Map<String, List<String>> = emptyMap()
 
+    /**
+     * Schlüssel (`groupId:artifactId`) der Koordinaten, die ausschließlich transitiv aufgelöst und
+     * nicht in der `pom.xml` deklariert sind. Kennzeichnet die daraus erzeugten Updates als transitiv.
+     */
+    private var transitiveOnlyKeys: Set<String> = emptySet()
+
     /** Tabellenmodell der Ansicht; nur die New-Version-Spalte ist editierbar, befüllt über [update]. */
     private val tableModel = object : DefaultTableModel() {
         override fun isCellEditable(row: Int, column: Int): Boolean =
@@ -462,7 +468,8 @@ internal class TransitiveVulnerabilitiesView(
      *
      * Für jede Koordinate mit einer von der aktuellen abweichenden Auswahl wird ein Update vom Typ
      * „managed dependency" erzeugt, sodass die Version beim Anwenden im `dependencyManagement` gepinnt
-     * (bzw. neu angelegt) wird.
+     * (bzw. neu angelegt) wird. Koordinaten, die bislang ausschließlich transitiv aufgelöst werden,
+     * werden zusätzlich als transitiv markiert (siehe [DependencyUpdate.transitive]).
      *
      * @return Die Liste der anstehenden Pin-Updates.
      */
@@ -478,7 +485,8 @@ internal class TransitiveVulnerabilitiesView(
                 managedType,
                 currentVersion,
                 newVersion,
-                advisoryIdsByKey[key].orEmpty()
+                advisoryIdsByKey[key].orEmpty(),
+                transitive = key in transitiveOnlyKeys
             )
         }
     }
@@ -935,12 +943,17 @@ internal class TransitiveVulnerabilitiesView(
         availableVersions: Map<String, List<String>> = emptyMap()
     ) {
         this.availableVersions = availableVersions
+        val transitiveTypeLabel = MyMessageBundle.message("toolwindow.TransitiveVulnerabilities.type.transitive")
         val rows = collectTransitiveVulnerabilityRows(
             advisoriesByCoordinate,
             transitiveCoordinates,
             knownTypes,
-            MyMessageBundle.message("toolwindow.TransitiveVulnerabilities.type.transitive")
+            transitiveTypeLabel
         )
+        transitiveOnlyKeys = rows
+            .filter { it.type == transitiveTypeLabel }
+            .map { "${it.groupId}:${it.artifactId}" }
+            .toSet()
         recommendedByKey = rows
             .filter { it.recommendedVersion.isNotEmpty() }
             .associate { "${it.groupId}:${it.artifactId}" to it.recommendedVersion }
