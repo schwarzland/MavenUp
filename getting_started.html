@@ -23,7 +23,9 @@
         tooltip explains the current status.</li>
     <li><strong>Select versions in bulk</strong>: Open the <strong>Select Highest Version</strong> dropdown in the top action toolbar to apply a version to many dependencies at
         once — <strong>Select Highest Major Version</strong> picks the highest available version and <strong>Select Highest
-        Minor Version</strong> stays within each dependency's current major line. Both act only on the currently visible
+        Minor Version</strong> stays within each dependency's current major line. After a vulnerability scan,
+        <strong>Select Recommended Version</strong> picks the recommended fix version for every visible dependency that
+        is affected itself. All three act only on the currently visible
         rows, so any active filter narrows their scope. Use the separate <strong>Reset All to Current
         Versions</strong> toolbar action to discard all selections. When no filter is active it asks for confirmation
         first, and you can disable this from the dialog's "Don't ask again" option or in the settings; when a filter is
@@ -57,7 +59,8 @@
         <strong>Navigate to pom.xml</strong>,
         <strong>Open on [Browser]</strong>, <strong>Set Highest Major Version</strong> and
         <strong>Set Highest Minor Version</strong> for just that dependency (available once its versions have been
-        retrieved via "Search for New Versions"), <strong>Reset to Current Version</strong> to discard that
+        retrieved via "Search for New Versions"), <strong>Set Recommended Version</strong> to jump to the fix version
+        recommended for that dependency's own security findings, <strong>Reset to Current Version</strong> to discard that
         dependency's selection, and <strong>Show Vulnerability Details</strong> (disabled when the dependency has no
         findings). All entries stay visible and only toggle their enabled state.</li>
     <li><strong>Open the current artifact page</strong>: Select a row and use the top action toolbar to open the current

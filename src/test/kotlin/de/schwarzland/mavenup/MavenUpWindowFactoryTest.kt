@@ -1355,6 +1355,109 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertTrue(toolWindow.isResetVersionsEnabledForCurrentView())
     }
 
+    /**
+     * Stellt sicher, dass die Empfehlung einer direkten Abhängigkeit aus deren eigenen Warnungen
+     * ermittelt, auf die abrufbaren Versionen abgebildet und über Kontext- und Sammelmenü angeboten wird.
+     */
+    fun testRecommendedVersionIsOfferedForDirectVulnerabilities() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        val key = "com.example:direct"
+        val knownDependencies = toolWindow.javaClass.getDeclaredField("knownDependencies")
+            .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, String>
+        val availableVersions = toolWindow.javaClass.getDeclaredField("availableVersions")
+            .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, List<String>>
+        val selectedVersions = toolWindow.javaClass.getDeclaredField("selectedVersions")
+            .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, String>
+        val advisories = toolWindow.javaClass.getDeclaredField("vulnerabilityAdvisories")
+            .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, List<VulnerabilityAdvisory>>
+
+        knownDependencies[key] = "1.0.0"
+        availableVersions[key] = listOf("2.0.0", "1.2.0", "1.0.0")
+
+        assertFalse("Ohne eigene Warnungen darf keine Empfehlung angeboten werden",
+            toolWindow.hasRecommendedVersionForDependency(key))
+        assertFalse(toolWindow.hasRecommendedVersions())
+        assertFalse(toolWindow.isRecommendedSelectionEnabledForCurrentView())
+
+        advisories["$key:1.0.0"] = listOf(
+            VulnerabilityAdvisory(
+                id = "CVE-2",
+                severity = VulnerabilitySeverity.HIGH,
+                sources = setOf("OSV"),
+                fixedVersions = setOf("1.2.0")
+            )
+        )
+
+        assertEquals("1.2.0", toolWindow.recommendedVersionForDependency(key))
+        assertTrue(toolWindow.hasRecommendedVersionForDependency(key))
+        assertTrue(toolWindow.hasRecommendedVersions())
+        assertTrue(toolWindow.isRecommendedSelectionEnabledForCurrentView())
+
+        toolWindow.selectRecommendedVersionForDependency(key)
+        assertEquals("1.2.0", selectedVersions[key])
+    }
+
+    /**
+     * Stellt sicher, dass rein transitive Warnungen einer Abhängigkeit keine Empfehlung für die
+     * direkte Abhängigkeit selbst auslösen.
+     */
+    fun testRecommendedVersionIsAbsentForOnlyTransitiveVulnerabilities() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        val key = "com.example:direct"
+        val knownDependencies = toolWindow.javaClass.getDeclaredField("knownDependencies")
+            .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, String>
+        val availableVersions = toolWindow.javaClass.getDeclaredField("availableVersions")
+            .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, List<String>>
+        val advisories = toolWindow.javaClass.getDeclaredField("vulnerabilityAdvisories")
+            .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, List<VulnerabilityAdvisory>>
+
+        knownDependencies[key] = "1.0.0"
+        availableVersions[key] = listOf("2.0.0", "1.2.0", "1.0.0")
+        advisories["com.example:transitive:3.0.0"] = listOf(
+            VulnerabilityAdvisory(
+                id = "CVE-3",
+                severity = VulnerabilitySeverity.HIGH,
+                sources = setOf("OSV"),
+                fixedVersions = setOf("3.0.1")
+            )
+        )
+
+        assertEquals("", toolWindow.recommendedVersionForDependency(key))
+        assertFalse(toolWindow.hasRecommendedVersions())
+    }
+
+    /**
+     * Stellt sicher, dass ohne abgerufene Versionsliste keine Empfehlung angeboten wird, da die
+     * Auswahl in der Spalte „New Version" dann nicht übernommen werden kann.
+     */
+    fun testRecommendedVersionRequiresFetchedVersions() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        val key = "com.example:direct"
+        val knownDependencies = toolWindow.javaClass.getDeclaredField("knownDependencies")
+            .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, String>
+        val advisories = toolWindow.javaClass.getDeclaredField("vulnerabilityAdvisories")
+            .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, List<VulnerabilityAdvisory>>
+
+        knownDependencies[key] = "1.0.0"
+        advisories["$key:1.0.0"] = listOf(
+            VulnerabilityAdvisory(
+                id = "CVE-4",
+                severity = VulnerabilitySeverity.HIGH,
+                sources = setOf("OSV"),
+                fixedVersions = setOf("1.2.0")
+            )
+        )
+
+        assertEquals("", toolWindow.recommendedVersionForDependency(key))
+        assertFalse(toolWindow.hasRecommendedVersionForDependency(key))
+    }
+
     fun testTransitiveTabTitleDropsCountWhenFindingsCleared() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         toolWindow.getContent()

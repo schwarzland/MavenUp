@@ -384,6 +384,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     addAction(MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.selectHighestMinor"), versionsAvailable) {
                         selectHighestMinorVersionForDependency(dependencyKey)
                     }
+                    addAction(MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.selectRecommended"),
+                        hasRecommendedVersionForDependency(dependencyKey)) {
+                        selectRecommendedVersionForDependency(dependencyKey)
+                    }
                     addAction(MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.resetToCurrent"),
                         isVersionResetEnabledForDependency(dependencyKey)) {
                         resetVersionForDependency(dependencyKey)
@@ -833,8 +837,16 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     "toolwindow.MyToolWindow.selectRecommended.button",
                     AllIcons.Actions.Checked,
                     { isRecommendedSelectionEnabledForCurrentView() },
+                    descriptionProvider = {
+                        bulkSelectionActionDescription(
+                            MyMessageBundle.message("toolwindow.MyToolWindow.selectRecommended.button")
+                        )
+                    },
                     isMenuItem = true
-                ) { transitiveVulnerabilitiesView.selectRecommendedVersionForAll() })
+                ) {
+                    if (showingTransitiveView) transitiveVulnerabilitiesView.selectRecommendedVersionForAll()
+                    else selectRecommendedVersionForAll()
+                })
             }
 
             toolbarGroup.apply {
@@ -1445,7 +1457,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * steht jeweils an erster Stelle der von [de.schwarzland.mavenup.service.DependencyApiService.fetchVersions] gelieferten Liste.
          */
         internal fun selectHighestMajorVersionForAll() {
-            applyBulkVersionSelection(visibleOnly = true) { _, versions -> versions.firstOrNull().orEmpty() }
+            applyBulkVersionSelection(visibleOnly = true) { _, _, versions -> versions.firstOrNull().orEmpty() }
         }
 
         /**
@@ -1456,8 +1468,21 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * passende Version derselben Major-Linie, bleibt die aktuelle Version erhalten.
          */
         internal fun selectHighestMinorVersionForAll() {
-            applyBulkVersionSelection(visibleOnly = true) { current, versions ->
+            applyBulkVersionSelection(visibleOnly = true) { _, current, versions ->
                 latestVersionWithinSameMajor(current, versions) ?: current
+            }
+        }
+
+        /**
+         * Wählt für alle aktuell sichtbaren Abhängigkeiten mit **eigenen** (nicht nur transitiven)
+         * Sicherheitswarnungen die empfohlene Fix-Version aus.
+         *
+         * Abhängigkeiten ohne eigene Warnungen oder ohne auswählbare Empfehlung bleiben unverändert.
+         * Ist ein Filter aktiv, werden ausgeblendete Einträge bewusst nicht verändert.
+         */
+        internal fun selectRecommendedVersionForAll() {
+            applyBulkVersionSelection(visibleOnly = true) { key, current, _ ->
+                recommendedVersionForDependency(key).ifEmpty { current }
             }
         }
 
@@ -1474,6 +1499,63 @@ class MavenUpWindowFactory : ToolWindowFactory {
         internal fun selectHighestMajorVersionForDependency(key: String) {
             applySingleVersionSelection(key) { _, versions -> versions.firstOrNull().orEmpty() }
         }
+
+        /**
+         * Wählt für eine einzelne Abhängigkeit die empfohlene Fix-Version ihrer **eigenen**
+         * Sicherheitswarnungen aus.
+         *
+         * Liegt keine auswählbare Empfehlung vor, bleibt die bestehende Auswahl unverändert.
+         * Verwenden mehrere Einträge dieselbe Maven-Property, werden sie gemeinsam aktualisiert.
+         *
+         * @param key Der Schlüssel (`groupId:artifactId`) der Abhängigkeit.
+         */
+        internal fun selectRecommendedVersionForDependency(key: String) {
+            val recommended = recommendedVersionForDependency(key)
+            if (recommended.isEmpty()) return
+            applySingleVersionSelection(key) { _, _ -> recommended }
+        }
+
+        /**
+         * Ermittelt die auswählbare empfohlene Fix-Version einer direkten Abhängigkeit.
+         *
+         * Berücksichtigt ausschließlich Warnungen der Abhängigkeit selbst (Koordinate
+         * `groupId:artifactId:version`), nicht die ihrer transitiven Kinder. Die über
+         * [recommendedFixVersion] ermittelte Empfehlung wird anschließend über
+         * [selectableRecommendedVersion] auf die tatsächlich abrufbaren Versionen abgebildet.
+         *
+         * @param key Der Schlüssel (`groupId:artifactId`) der Abhängigkeit.
+         * @return Die auswählbare Empfehlung oder ein leerer String, wenn keine vorliegt.
+         */
+        internal fun recommendedVersionForDependency(key: String): String {
+            if (vulnerabilityAdvisories.isEmpty()) return ""
+            val currentVersion = knownDependencies[key] ?: return ""
+            val advisories = vulnerabilityAdvisories["$key:$currentVersion"].orEmpty()
+            if (advisories.isEmpty()) return ""
+            return selectableRecommendedVersion(
+                recommendedFixVersion(advisories, currentVersion),
+                availableVersions[key].orEmpty()
+            )
+        }
+
+        /**
+         * Prüft, ob für die per [key] identifizierte Abhängigkeit eine empfohlene Fix-Version
+         * ausgewählt werden kann.
+         *
+         * @param key Der Schlüssel (`groupId:artifactId`) der Abhängigkeit.
+         * @return `true`, wenn keine Aktualisierung läuft und eine auswählbare Empfehlung vorliegt.
+         */
+        internal fun hasRecommendedVersionForDependency(key: String): Boolean =
+            !isUpdating && recommendedVersionForDependency(key).isNotEmpty()
+
+        /**
+         * Prüft, ob mindestens eine direkte Abhängigkeit eine auswählbare empfohlene Fix-Version besitzt.
+         *
+         * @return `true`, wenn keine Aktualisierung läuft und wenigstens eine Abhängigkeit eigene
+         *   Sicherheitswarnungen mit auswählbarer Fix-Version aufweist.
+         */
+        internal fun hasRecommendedVersions(): Boolean =
+            !isUpdating && vulnerabilityAdvisories.isNotEmpty() &&
+                knownDependencies.keys.any { recommendedVersionForDependency(it).isNotEmpty() }
 
         /**
          * Wählt für eine einzelne Abhängigkeit die höchste Version innerhalb derselben Major-Linie wie
@@ -1588,7 +1670,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * garantiert alle offenen Änderungen entfernt.
          */
         internal fun resetAllVersionsToCurrent() {
-            applyBulkVersionSelection(visibleOnly = false) { current, _ -> current }
+            applyBulkVersionSelection(visibleOnly = false) { _, current, _ -> current }
         }
 
         /**
@@ -1599,7 +1681,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * aktiven Filter eingegrenzten Abhängigkeiten wirkt.
          */
         internal fun resetVisibleVersionsToCurrent() {
-            applyBulkVersionSelection(visibleOnly = true) { current, _ -> current }
+            applyBulkVersionSelection(visibleOnly = true) { _, current, _ -> current }
         }
 
         /**
@@ -1691,16 +1773,20 @@ class MavenUpWindowFactory : ToolWindowFactory {
          *
          * @param visibleOnly Wenn `true`, werden nur aktuell in der Tabelle sichtbare (nicht ausgefilterte)
          *   Abhängigkeiten berücksichtigt; ansonsten alle geladenen Abhängigkeiten.
-         * @param chooser Funktion, die aus der aktuellen Version und den verfügbaren Versionen die Zielversion ermittelt.
+         * @param chooser Funktion, die aus Schlüssel, aktueller Version und den verfügbaren Versionen die
+         *   Zielversion ermittelt.
          */
-        private fun applyBulkVersionSelection(visibleOnly: Boolean, chooser: (String, List<String>) -> String) {
+        private fun applyBulkVersionSelection(
+            visibleOnly: Boolean,
+            chooser: (String, String, List<String>) -> String
+        ) {
             if (availableVersions.isEmpty()) return
             val visibleKeys = if (visibleOnly) collectVisibleDependencyKeys() else null
             for ((key, versions) in availableVersions) {
                 if (versions.isEmpty()) continue
                 if (visibleKeys != null && key !in visibleKeys) continue
                 val currentVersion = knownDependencies[key] ?: ""
-                val chosen = chooser(currentVersion, versions)
+                val chosen = chooser(key, currentVersion, versions)
                 if (chosen.isNotEmpty() && chosen != currentVersion) {
                     selectedVersions[key] = chosen
                 } else {
@@ -1819,12 +1905,17 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /**
          * Prüft, ob die Auswahl der empfohlenen Fix-Version für die aktuell sichtbare Ansicht ausführbar ist.
          *
-         * Empfohlene Fix-Versionen existieren ausschließlich in der transitiven Sicherheitslücken-Ansicht.
+         * In der transitiven Sicherheitslücken-Ansicht wirkt sie auf deren Koordinaten; in der Haupttabelle
+         * auf Abhängigkeiten mit eigenen (nicht nur transitiven) Sicherheitswarnungen.
          *
-         * @return `true`, wenn die transitive Ansicht sichtbar ist und mindestens eine empfohlene Fix-Version vorliegt.
+         * @return `true`, wenn in der aktiven Ansicht mindestens eine empfohlene Fix-Version vorliegt.
          */
         internal fun isRecommendedSelectionEnabledForCurrentView(): Boolean =
-            !isUpdating && showingTransitiveView && transitiveVulnerabilitiesView.hasRecommendedVersions()
+            if (showingTransitiveView) {
+                !isUpdating && transitiveVulnerabilitiesView.hasRecommendedVersions()
+            } else {
+                hasRecommendedVersions()
+            }
 
         /**
          * Prüft, ob das Zurücksetzen der Versionsauswahlen für die aktuell sichtbare Ansicht ausführbar ist.
