@@ -41,6 +41,7 @@
 - Marked updates that originate from a purely transitive dependency in the **Type** column of the **Confirm Changes** dialog as `transitive -> managed dependency`, so it is obvious that the dependency is pinned in `<dependencyManagement>` for the first time.
 - Restructured the documentation into a slim English README landing page that links to dedicated guides under `docs/` (usage, configuration, privacy, architecture, development, release/CI, licenses); the Gradle proxy configuration is documented under development.
 - Added GitHub Actions status badges (Build and Test, Create Draft Release, Publish Release to Marketplace) to the README.
+- Simplified the settings change detection by comparing UI and stored values through a value list instead of a long boolean chain, keeping the detekt cyclomatic complexity within its threshold.
 
 ### Fixed
 

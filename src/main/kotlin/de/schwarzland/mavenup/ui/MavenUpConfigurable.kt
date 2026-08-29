@@ -259,22 +259,31 @@ class MavenUpConfigurable internal constructor(
      * Prüft, ob der Benutzer Änderungen an den Einstellungen vorgenommen hat, die noch nicht gespeichert wurden.
      */
     override fun isModified(): Boolean {
-        val settings = MavenUpSettings.getInstance()
-        return jumpOnSingleClickCheckBox?.isSelected != settings.state.jumpOnSingleClick ||
-                repositoryBrowserComboBox?.selectedItem != settings.state.repositoryBrowser ||
-                toolbarShowTextCheckBox?.isSelected != settings.state.toolbarShowText ||
-                syncMavenAfterUpdateCheckBox?.isSelected != settings.state.syncMavenAfterUpdate ||
-                stopAfterCentralSuccessCheckBox?.isSelected != settings.state.stopAfterCentralSuccess ||
-                versionAutoSelectionModeComboBox?.selectedItem != settings.state.versionAutoSelectionMode ||
-                offerAllVersionsCheckBox?.isSelected != settings.state.offerAllVersions ||
-                confirmVersionResetCheckBox?.isSelected != settings.state.confirmVersionReset ||
-                hideUnstableVersionsCheckBox?.isSelected != settings.state.hideUnstableVersions ||
-                hiddenVersionQualifiersField?.text != settings.state.hiddenVersionQualifiers ||
-                checkTransitiveDependenciesCheckBox?.isSelected != settings.state.checkTransitiveDependencies ||
-                addVulnerabilityFixCommentCheckBox?.isSelected != settings.state.addVulnerabilityFixComment ||
-                ossIndexEnabledCheckBox?.isSelected != settings.state.ossIndexEnabled ||
-                credentialsLoaded && currentToken() != storedToken
+        val state = MavenUpSettings.getInstance().state
+        val comparisons: List<Pair<Any?, Any?>> = listOf(
+            jumpOnSingleClickCheckBox?.isSelected to state.jumpOnSingleClick,
+            repositoryBrowserComboBox?.selectedItem to state.repositoryBrowser,
+            toolbarShowTextCheckBox?.isSelected to state.toolbarShowText,
+            syncMavenAfterUpdateCheckBox?.isSelected to state.syncMavenAfterUpdate,
+            stopAfterCentralSuccessCheckBox?.isSelected to state.stopAfterCentralSuccess,
+            versionAutoSelectionModeComboBox?.selectedItem to state.versionAutoSelectionMode,
+            offerAllVersionsCheckBox?.isSelected to state.offerAllVersions,
+            confirmVersionResetCheckBox?.isSelected to state.confirmVersionReset,
+            hideUnstableVersionsCheckBox?.isSelected to state.hideUnstableVersions,
+            hiddenVersionQualifiersField?.text to state.hiddenVersionQualifiers,
+            checkTransitiveDependenciesCheckBox?.isSelected to state.checkTransitiveDependencies,
+            addVulnerabilityFixCommentCheckBox?.isSelected to state.addVulnerabilityFixComment,
+            ossIndexEnabledCheckBox?.isSelected to state.ossIndexEnabled
+        )
+        return comparisons.any { (uiValue, storedValue) -> uiValue != storedValue } || isTokenModified()
     }
+
+    /**
+     * Prüft, ob das eingegebene OSS-Index-Token vom gespeicherten Token abweicht.
+     * Liefert nur dann `true`, wenn die Zugangsdaten bereits geladen wurden.
+     * @return `true`, wenn das Token geändert wurde.
+     */
+    private fun isTokenModified(): Boolean = credentialsLoaded && currentToken() != storedToken
 
     /**
      * Speichert die vom Benutzer vorgenommenen Änderungen in [MavenUpSettings] und [OssIndexCredentialStore].
