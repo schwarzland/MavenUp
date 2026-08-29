@@ -21,11 +21,11 @@ internal const val PROPERTY_COLUMN = 2
 /** Spaltenindex des Typs in der Abhängigkeitstabelle. */
 internal const val TYPE_COLUMN = 3
 
-/** Spaltenindex der aktuellen Version in der Abhängigkeitstabelle. */
-internal const val CURRENT_VERSION_COLUMN = 4
-
 /** Spaltenindex der Sicherheitslücken-Zelle in der Abhängigkeitstabelle. */
-internal const val VULNERABILITIES_COLUMN = 5
+internal const val VULNERABILITIES_COLUMN = 4
+
+/** Spaltenindex der aktuellen Version in der Abhängigkeitstabelle. */
+internal const val CURRENT_VERSION_COLUMN = 5
 
 /** Spaltenindex der auszuwählenden neuen Version in der Abhängigkeitstabelle. */
 internal const val NEW_VERSION_COLUMN = 6

@@ -255,8 +255,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.artifactId"))
                 addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.property"))
                 addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.type"))
-                addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.currentVersion"))
                 addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.vulnerabilities"))
+                addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.currentVersion"))
                 addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.newVersion"))
             }
 
@@ -626,12 +626,12 @@ class MavenUpWindowFactory : ToolWindowFactory {
                                     row.artifactId,
                                     row.propertyName,
                                     row.type,
-                                    row.currentVersion,
                                     buildVulnerabilityCell(
                                         "${row.key}:${row.currentVersion}",
                                         vulnerabilityAdvisories,
                                         transitiveDependenciesByDirect["${row.key}:${row.currentVersion}"].orEmpty()
                                     ),
+                                    row.currentVersion,
                                     availableVersions[row.key].orEmpty()
                                 )
                             )

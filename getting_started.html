@@ -46,7 +46,8 @@
         rows remain visible. Use the reset button at the end of the filter row to clear all filters at once.</li>
     <li><strong>Sort the table</strong>: Click a column header to cycle through ascending, descending, and the original
         pom.xml order; sortable columns show a header indicator icon (a dimmed double arrow when unsorted, a directional
-        arrow when sorted), while the Current Version, Vulnerabilities, and New Version columns stay unsorted.</li>
+        arrow when sorted), while the Current Version and New Version columns stay unsorted; the Vulnerabilities
+        column sorts by severity.</li>
     <li><strong>Jump to the source</strong>: Double-click a row (or single-click if configured) to open the matching
         dependency or plugin entry directly in the editor.</li>
     <li><strong>Use the context menu</strong>: Right-click any row to access <strong>Filter by "..."</strong> (shown when
@@ -66,7 +67,7 @@
 <ol>
     <li><strong>Run a vulnerability scan</strong>: Click <strong>Scan for Vulnerabilities</strong> to check the direct
         dependencies and, when enabled, their resolved transitive dependencies. Results are shown in the
-        <strong>Vulnerabilities (Current)</strong> column.</li>
+        <strong>Vulnerabilities</strong> column, shown directly before <strong>Current Version</strong>.</li>
     <li><strong>Inspect the findings</strong>: Select a dependency with findings and click <strong>Vulnerability Details</strong>
         or click the populated vulnerability cell. The dialog opens a split view: the upper table lists the advisories
         (component, source, advisory ID, aliases, and severity) for the direct dependency and related transitive findings,

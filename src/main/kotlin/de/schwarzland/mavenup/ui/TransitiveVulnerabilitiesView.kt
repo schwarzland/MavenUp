@@ -38,11 +38,11 @@ internal const val TRANSITIVE_GROUP_ID_COLUMN = 0
 /** Spaltenindex der ArtifactId in der Tabelle der transitiven Sicherheitslücken. */
 internal const val TRANSITIVE_ARTIFACT_ID_COLUMN = 1
 
-/** Spaltenindex der Version in der Tabelle der transitiven Sicherheitslücken. */
-internal const val TRANSITIVE_VERSION_COLUMN = 3
-
 /** Spaltenindex der Sicherheitslücken-Zelle in der Tabelle der transitiven Sicherheitslücken. */
-internal const val TRANSITIVE_VULNERABILITIES_COLUMN = 4
+internal const val TRANSITIVE_VULNERABILITIES_COLUMN = 3
+
+/** Spaltenindex der aktuellen Version in der Tabelle der transitiven Sicherheitslücken. */
+internal const val TRANSITIVE_VERSION_COLUMN = 4
 
 /** Spaltenindex der auszuwählenden neuen Version in der Tabelle der transitiven Sicherheitslücken. */
 internal const val TRANSITIVE_NEW_VERSION_COLUMN = 5
@@ -150,10 +150,10 @@ internal fun collectTransitiveVulnerabilityRows(
  * Alternative Ansicht des MavenUp-Tool-Windows, die ausschließlich die transitiven, verwundbaren
  * Abhängigkeiten auflistet.
  *
- * Zeigt pro transitiver Koordinate GroupId, ArtifactId, Typ, aufgelöste Version, die Anzahl der
- * Sicherheitslücken (inklusive höchstem Schweregrad und farblicher Hervorhebung), die empfohlene
- * Fix-Version sowie – wie in der Haupttabelle – eine editierbare Spalte zur Auswahl einer neuen
- * Version an. Ein Klick auf die Sicherheitslücken-Zelle öffnet den Detaildialog der jeweiligen
+ * Zeigt pro transitiver Koordinate GroupId, ArtifactId, Typ, die Anzahl der Sicherheitslücken
+ * (inklusive höchsten Schweregrades und farblicher Hervorhebung), die aufgelöste aktuelle Version, die
+ * empfohlene Fix-Version sowie – wie in der Haupttabelle – eine editierbare Spalte zur Auswahl einer
+ * neuen Version an. Ein Klick auf die Sicherheitslücken-Zelle öffnet den Detaildialog der jeweiligen
  * Komponente. Eine in der New-Version-Spalte gewählte, von der aktuellen abweichende Version wird als
  * anstehendes Update in `dependencyManagement` gepinnt (siehe [collectPendingUpdates]).
  *
@@ -202,8 +202,8 @@ internal class TransitiveVulnerabilitiesView(
         addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.groupId"))
         addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.artifactId"))
         addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.type"))
-        addColumn(MyMessageBundle.message("toolwindow.TransitiveVulnerabilities.table.header.version"))
-        addColumn(MyMessageBundle.message("toolwindow.TransitiveVulnerabilities.table.header.vulnerabilities"))
+        addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.vulnerabilities"))
+        addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.currentVersion"))
         addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.newVersion"))
     }
 
@@ -968,8 +968,8 @@ internal class TransitiveVulnerabilitiesView(
                     row.groupId,
                     row.artifactId,
                     row.type,
-                    row.version,
                     row.cell,
+                    row.version,
                     availableVersions[key].orEmpty()
                 )
             )

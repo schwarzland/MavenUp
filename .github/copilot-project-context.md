@@ -50,8 +50,8 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   konfigurierbar und gilt einheitlich für das Kontextmenü sowie das zeilenbezogene Rechtsklick-Menü im
   Vulnerability-Details-Dialog. Die Kontextmenüs werden über IntelliJs `ActionSystem` beziehungsweise
   plattformkonforme `JBPopupMenu`/`JBMenuItem`-Komponenten erzeugt, damit Theme, Abstände und
-  Auswahlfarben der IDE verwendet werden. Die Tabellenspalte **Vulnerabilities (Current)** steht direkt
-  hinter **Current Version** und ordnet transitive Befunde über den Maven-Dependency-Tree der
+  Auswahlfarben der IDE verwendet werden. Die Tabellenspalte **Vulnerabilities** steht direkt
+  vor **Current Version** und ordnet transitive Befunde über den Maven-Dependency-Tree der
   jeweiligen direkten Dependency zu. Sie zeigt Gesamtzahl, transitive Anzahl und höchste Severity;
   der zeilenbezogene Detaildialog markiert die zugehörigen transitiven Komponenten.
   Maven-/PSI-Daten für Refreshes werden über eine
@@ -65,7 +65,7 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   kombiniert. Der Changes-Filter ist nur aktiv, wenn mindestens eine abweichende Version ausgewählt wurde (`isChangesFilterAvailable`/`updateChangesFilterState`, ausgelöst über `updateUpdateButtonState`). Der Updates-Filter ist nur nach einer erfolgreichen Versionssuche aktiv (`isUpdatesFilterAvailable`/`updateUpdatesFilterState`) und nutzt die Top-Level-Funktion `hasNewerVersion`; der Vulnerabilities-Filter ist nur nach einer erfolgreichen Sicherheitsprüfung aktiv (`vulnerabilityScanPerformed` via `isVulnerabilitiesFilterAvailable`/`updateVulnerabilitiesFilterState`). Am Ende der Filterzeile setzt eine `ActionToolbar` mit einer einzelnen Reset-Aktion (`resetAllFilters`) alle Filter zurück; sie ist nur aktiv, solange `isResetFiltersEnabled` mindestens einen aktiven Filter meldet. Derselbe `TableRowSorter` übernimmt zusätzlich die spaltenweise Sortierung über die Kopfzeile:
   ein überschriebenes `toggleSortOrder` schaltet zyklisch zwischen aufsteigend, absteigend und
   unsortiert (pom.xml-Reihenfolge) um; die Spalten **Current Version** und **New Version** sind nicht
-  sortierbar. Die Spalte **Vulnerabilities (Current)** ist über den `vulnerabilityCellComparator`
+  sortierbar. Die Spalte **Vulnerabilities** ist über den `vulnerabilityCellComparator`
   (in `VulnerabilityCellModel.kt`) sortierbar: primär nach dem höchsten Schweregrad der Zelle, sekundär
   nach der Anzahl der Warnungen. Ein über `installSortableHeaderRenderer` gesetzter Kopfzeilen-Renderer
   zeigt für sortierbare Spalten über die Top-Level-Funktion `sortableHeaderIcon` ein Indikator-Icon an
@@ -108,8 +108,8 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   sortierbar (Zyklus aufsteigend → absteigend → unsortiert, `installSortableHeaderRenderer`);
   ab `CONFIRM_CURRENT_VERSION_COLUMN` (Index 3) sind die Versionsspalten nicht sortierbar.
 - **TransitiveVulnerabilitiesView**: eigenständige `JBPanel`-Ansicht (Top-Level in `ui`), die alle
-  transitiven, verwundbaren Abhängigkeiten in einer sortierbaren Tabelle (GroupId, ArtifactId, Type, Version,
-  Vulnerabilities-Anzahl mit Severity-Färbung, New Version) auflistet. Die **Type**-Spalte übernimmt für Koordinaten, die
+  transitiven, verwundbaren Abhängigkeiten in einer sortierbaren Tabelle (GroupId, ArtifactId, Type,
+  Vulnerabilities-Anzahl mit Severity-Färbung, Current Version, New Version) auflistet. Die **Type**-Spalte übernimmt für Koordinaten, die
   bereits in der `pom.xml` (z. B. im `dependencyManagement`) deklariert sind, den Typ der Haupttabelle
   (`knownTypes`, Schlüssel `groupId:artifactId`) und zeigt sonst den transitiven Standardtyp
   (`toolwindow.TransitiveVulnerabilities.type.transitive`). Die empfohlene Fix-Version wird über die reine
