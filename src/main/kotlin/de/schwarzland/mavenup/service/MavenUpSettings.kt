@@ -94,36 +94,6 @@ class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
         var addVulnerabilityFixComment: Boolean = true
     ) {
         /**
-         * Sekundärer Konstruktor zur Binärkompatibilität mit bereits kompiliertem Code,
-         * der den früheren Zustand ohne `stopAfterCentralSuccess` und `versionAutoSelectionMode` erwartet.
-         */
-        @Suppress("LongParameterList")
-        constructor(
-            jumpOnSingleClick: Boolean,
-            selectLatestVersion: Boolean,
-            hideUnstableVersions: Boolean,
-            hiddenVersionQualifiers: String,
-            ossIndexEnabled: Boolean,
-            checkTransitiveDependencies: Boolean,
-            repositoryBrowser: MavenRepositoryBrowser,
-            toolbarShowText: Boolean,
-            syncMavenAfterUpdate: Boolean
-        ) : this(
-            jumpOnSingleClick = jumpOnSingleClick,
-            versionAutoSelectionMode = if (selectLatestVersion) VersionAutoSelectionMode.LATEST else VersionAutoSelectionMode.DISABLED,
-            hideUnstableVersions = hideUnstableVersions,
-            hiddenVersionQualifiers = hiddenVersionQualifiers,
-            ossIndexEnabled = ossIndexEnabled,
-            checkTransitiveDependencies = checkTransitiveDependencies,
-            repositoryBrowser = repositoryBrowser,
-            toolbarShowText = toolbarShowText,
-            syncMavenAfterUpdate = syncMavenAfterUpdate,
-            stopAfterCentralSuccess = true,
-            selectLatestVersion = selectLatestVersion,
-            selectLatestMinorVersion = false
-        )
-
-        /**
          * Normalisiert den geladenen Zustand und migriert Legacy-Bool-Flags auf [versionAutoSelectionMode].
          *
          * Wenn ein Zustand aus älteren Plugin-Versionen geladen wird, kann [versionAutoSelectionMode]
