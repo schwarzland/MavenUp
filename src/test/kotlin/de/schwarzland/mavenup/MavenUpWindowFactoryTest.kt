@@ -647,6 +647,70 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         )
     }
 
+    fun testConfirmChangesDialogFirstThreeColumnsAreSortable() {
+        val updates = listOf(
+            DependencyUpdate("com.example", "demo-lib", "dependency", "1.0.0", "1.1.0")
+        )
+        val table = UpdateConfirmationDialog(project, updates).buildTable()
+        val sorter = table.rowSorter as javax.swing.table.TableRowSorter<*>
+        for (column in 0 until UpdateConfirmationDialog.CONFIRM_CURRENT_VERSION_COLUMN) {
+            assertTrue("Spalte $column sollte sortierbar sein", sorter.isSortable(column))
+        }
+        for (column in UpdateConfirmationDialog.CONFIRM_CURRENT_VERSION_COLUMN until table.columnCount) {
+            assertFalse("Versionsspalte $column sollte nicht sortierbar sein", sorter.isSortable(column))
+        }
+    }
+
+    fun testConfirmChangesDialogSortsTextColumnsCaseInsensitively() {
+        val updates = listOf(
+            DependencyUpdate("org.zulu", "zeta-lib", "dependency", "1.0.0", "1.1.0"),
+            DependencyUpdate("com.Alpha", "alpha-lib", "dependency", "2.0.0", "2.1.0")
+        )
+        val table = UpdateConfirmationDialog(project, updates).buildTable()
+        table.rowSorter.toggleSortOrder(0)
+        assertEquals(
+            "Nach aufsteigender Sortierung sollte com.Alpha zuerst stehen",
+            "com.Alpha",
+            table.getValueAt(0, 0)
+        )
+        table.rowSorter.toggleSortOrder(0)
+        assertEquals(
+            "Nach absteigender Sortierung sollte org.zulu zuerst stehen",
+            "org.zulu",
+            table.getValueAt(0, 0)
+        )
+    }
+
+    fun testConfirmChangesDialogSortCycleReturnsToOriginalOrder() {
+        val updates = listOf(
+            DependencyUpdate("org.zulu", "zeta-lib", "dependency", "1.0.0", "1.1.0"),
+            DependencyUpdate("com.alpha", "alpha-lib", "dependency", "2.0.0", "2.1.0")
+        )
+        val table = UpdateConfirmationDialog(project, updates).buildTable()
+        repeat(3) { table.rowSorter.toggleSortOrder(0) }
+        assertTrue(
+            "Der dritte Klick sollte die Sortierung aufheben",
+            table.rowSorter.sortKeys.isEmpty()
+        )
+        assertEquals(
+            "Ohne Sortierung sollte die ursprüngliche Reihenfolge gelten",
+            "org.zulu",
+            table.getValueAt(0, 0)
+        )
+    }
+
+    fun testConfirmChangesDialogIgnoresToggleOnNonSortableColumn() {
+        val updates = listOf(
+            DependencyUpdate("com.example", "demo-lib", "dependency", "1.0.0", "1.1.0")
+        )
+        val table = UpdateConfirmationDialog(project, updates).buildTable()
+        table.rowSorter.toggleSortOrder(UpdateConfirmationDialog.CONFIRM_CURRENT_VERSION_COLUMN)
+        assertTrue(
+            "Eine nicht sortierbare Spalte sollte keine Sortierung auslösen",
+            table.rowSorter.sortKeys.isEmpty()
+        )
+    }
+
     fun testConfirmChangesDialogSyncCheckboxReflectsSetting() {
         val settings = MavenUpSettings.getInstance()
         val original = settings.state.syncMavenAfterUpdate

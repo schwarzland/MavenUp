@@ -33,6 +33,7 @@
 - Trimmed the Vulnerability Details table columns to their content when the dialog opens, let them scale with the dialog size, and enlarged the dialog for better readability.
 - Trimmed the main dependency table and all confirmation-table columns to their content after the table is populated for better readability.
 - Soft-wrapped overlong lines (for example long reference URLs) in the Vulnerability Details detail pane so no horizontal scrolling is needed.
+- Made the **Group Id**, **Artifact Id**, and **Type** columns of the **Confirm Changes** dialog sortable through the same ascending → descending → unsorted cycle and header indicators as the other tables.
 - Restructured the documentation into a slim English README landing page that links to dedicated guides under `docs/` (usage, configuration, privacy, architecture, development, release/CI, licenses); the Gradle proxy configuration is documented under development.
 - Added GitHub Actions status badges (Build and Test, Create Draft Release, Publish Release to Marketplace) to the README.
 

@@ -101,6 +101,9 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
 - **UpdateConfirmationDialog**: eigenständiger `DialogWrapper` (Top-Level in `ui`), der vor
   dem Anwenden die anstehenden Updates in einer schreibgeschützten Tabelle bestätigen lässt und
   die Option **Sync Maven Changes** (vorbelegt aus `MavenUpSettings.syncMavenAfterUpdate`) anbietet.
+  `buildRowSorter()` macht die Spalten Group Id, Artifact Id und Type über `cellTextComparator`
+  sortierbar (Zyklus aufsteigend → absteigend → unsortiert, `installSortableHeaderRenderer`);
+  ab `CONFIRM_CURRENT_VERSION_COLUMN` (Index 3) sind die Versionsspalten nicht sortierbar.
 - **TransitiveVulnerabilitiesView**: eigenständige `JBPanel`-Ansicht (Top-Level in `ui`), die alle
   transitiven, verwundbaren Abhängigkeiten in einer sortierbaren Tabelle (GroupId, ArtifactId, Type, Version,
   Vulnerabilities-Anzahl mit Severity-Färbung, New Version) auflistet. Die **Type**-Spalte übernimmt für Koordinaten, die
