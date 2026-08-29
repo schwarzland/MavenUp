@@ -180,52 +180,79 @@ class RowMatchesFilterTest {
         )
     }
 
+    private fun vulnerabilityRow(direct: Boolean, transitive: Boolean) = FilterRow(
+        "org.a",
+        "lib",
+        "p",
+        "dependency",
+        hasDirectVulnerabilities = direct,
+        hasTransitiveVulnerabilities = transitive
+    )
+
+    private fun matchesVulnerabilityFilter(
+        direct: Boolean,
+        transitive: Boolean,
+        filter: VulnerabilityFilter
+    ): Boolean = rowMatchesFilter(
+        vulnerabilityRow(direct, transitive),
+        FilterCriteria("", "", vulnerabilitiesFilter = filter)
+    )
+
     @Test
-    fun testVulnerabilitiesFilterAllAcceptsBothStates() {
+    fun testFilterRowDerivesCombinedVulnerabilityFlag() {
+        assertFalse(vulnerabilityRow(direct = false, transitive = false).hasVulnerabilities)
+        assertTrue(vulnerabilityRow(direct = true, transitive = false).hasVulnerabilities)
+        assertTrue(vulnerabilityRow(direct = false, transitive = true).hasVulnerabilities)
+        assertTrue(vulnerabilityRow(direct = true, transitive = true).hasVulnerabilities)
+    }
+
+    @Test
+    fun testVulnerabilitiesFilterAllAcceptsEveryState() {
+        assertTrue(matchesVulnerabilityFilter(direct = true, transitive = true, filter = VulnerabilityFilter.ALL))
+        assertTrue(matchesVulnerabilityFilter(direct = true, transitive = false, filter = VulnerabilityFilter.ALL))
+        assertTrue(matchesVulnerabilityFilter(direct = false, transitive = true, filter = VulnerabilityFilter.ALL))
+        assertTrue(matchesVulnerabilityFilter(direct = false, transitive = false, filter = VulnerabilityFilter.ALL))
+    }
+
+    @Test
+    fun testVulnerabilitiesFilterVulnerableAcceptsOwnAndTransitiveFindings() {
+        assertTrue(matchesVulnerabilityFilter(direct = true, transitive = false, filter = VulnerabilityFilter.VULNERABLE))
+        assertTrue(matchesVulnerabilityFilter(direct = false, transitive = true, filter = VulnerabilityFilter.VULNERABLE))
+        assertTrue(matchesVulnerabilityFilter(direct = true, transitive = true, filter = VulnerabilityFilter.VULNERABLE))
+        assertFalse(matchesVulnerabilityFilter(direct = false, transitive = false, filter = VulnerabilityFilter.VULNERABLE))
+    }
+
+    @Test
+    fun testVulnerabilitiesFilterSelfOnlyAcceptsRowsWithOwnFindings() {
+        assertTrue(matchesVulnerabilityFilter(direct = true, transitive = false, filter = VulnerabilityFilter.SELF_VULNERABLE))
+        assertTrue(matchesVulnerabilityFilter(direct = true, transitive = true, filter = VulnerabilityFilter.SELF_VULNERABLE))
+        assertFalse(matchesVulnerabilityFilter(direct = false, transitive = true, filter = VulnerabilityFilter.SELF_VULNERABLE))
+        assertFalse(matchesVulnerabilityFilter(direct = false, transitive = false, filter = VulnerabilityFilter.SELF_VULNERABLE))
+    }
+
+    @Test
+    fun testVulnerabilitiesFilterTransitiveOnlyAcceptsRowsWithTransitiveFindings() {
         assertTrue(
-            rowMatchesFilter(
-                FilterRow("org.a", "lib", "p", "dependency", hasVulnerabilities = true),
-                FilterCriteria("", "", vulnerabilitiesFilter = TriStateFilter.ALL)
-            )
+            matchesVulnerabilityFilter(direct = false, transitive = true, filter = VulnerabilityFilter.TRANSITIVE_VULNERABLE)
         )
         assertTrue(
-            rowMatchesFilter(
-                FilterRow("org.a", "lib", "p", "dependency", hasVulnerabilities = false),
-                FilterCriteria("", "", vulnerabilitiesFilter = TriStateFilter.ALL)
-            )
+            matchesVulnerabilityFilter(direct = true, transitive = true, filter = VulnerabilityFilter.TRANSITIVE_VULNERABLE)
+        )
+        assertFalse(
+            matchesVulnerabilityFilter(direct = true, transitive = false, filter = VulnerabilityFilter.TRANSITIVE_VULNERABLE)
+        )
+        assertFalse(
+            matchesVulnerabilityFilter(direct = false, transitive = false, filter = VulnerabilityFilter.TRANSITIVE_VULNERABLE)
         )
     }
 
     @Test
-    fun testVulnerabilitiesFilterYesOnlyAcceptsRowsWithVulnerabilities() {
+    fun testVulnerabilitiesFilterNotVulnerableOnlyAcceptsRowsWithoutFindings() {
         assertTrue(
-            rowMatchesFilter(
-                FilterRow("org.a", "lib", "p", "dependency", hasVulnerabilities = true),
-                FilterCriteria("", "", vulnerabilitiesFilter = TriStateFilter.YES)
-            )
+            matchesVulnerabilityFilter(direct = false, transitive = false, filter = VulnerabilityFilter.NOT_VULNERABLE)
         )
-        assertFalse(
-            rowMatchesFilter(
-                FilterRow("org.a", "lib", "p", "dependency", hasVulnerabilities = false),
-                FilterCriteria("", "", vulnerabilitiesFilter = TriStateFilter.YES)
-            )
-        )
-    }
-
-    @Test
-    fun testVulnerabilitiesFilterNoOnlyAcceptsRowsWithoutVulnerabilities() {
-        assertFalse(
-            rowMatchesFilter(
-                FilterRow("org.a", "lib", "p", "dependency", hasVulnerabilities = true),
-                FilterCriteria("", "", vulnerabilitiesFilter = TriStateFilter.NO)
-            )
-        )
-        assertTrue(
-            rowMatchesFilter(
-                FilterRow("org.a", "lib", "p", "dependency", hasVulnerabilities = false),
-                FilterCriteria("", "", vulnerabilitiesFilter = TriStateFilter.NO)
-            )
-        )
+        assertFalse(matchesVulnerabilityFilter(direct = true, transitive = false, filter = VulnerabilityFilter.NOT_VULNERABLE))
+        assertFalse(matchesVulnerabilityFilter(direct = false, transitive = true, filter = VulnerabilityFilter.NOT_VULNERABLE))
     }
 
     @Test
@@ -292,7 +319,7 @@ class RowMatchesFilterTest {
             type = "dependency",
             hasChange = true,
             hasUpdate = true,
-            hasVulnerabilities = true
+            hasDirectVulnerabilities = true
         )
 
         assertTrue(
@@ -303,7 +330,7 @@ class RowMatchesFilterTest {
                     typeFilter = "dependency",
                     changesFilter = TriStateFilter.YES,
                     updatesFilter = TriStateFilter.YES,
-                    vulnerabilitiesFilter = TriStateFilter.YES
+                    vulnerabilitiesFilter = VulnerabilityFilter.VULNERABLE
                 )
             )
         )
@@ -317,7 +344,7 @@ class RowMatchesFilterTest {
                     typeFilter = "dependency",
                     changesFilter = TriStateFilter.YES,
                     updatesFilter = TriStateFilter.YES,
-                    vulnerabilitiesFilter = TriStateFilter.YES
+                    vulnerabilitiesFilter = VulnerabilityFilter.VULNERABLE
                 )
             )
         )
@@ -331,7 +358,7 @@ class RowMatchesFilterTest {
                     typeFilter = "plugin",
                     changesFilter = TriStateFilter.YES,
                     updatesFilter = TriStateFilter.YES,
-                    vulnerabilitiesFilter = TriStateFilter.YES
+                    vulnerabilitiesFilter = VulnerabilityFilter.VULNERABLE
                 )
             )
         )
@@ -345,7 +372,7 @@ class RowMatchesFilterTest {
                     typeFilter = "dependency",
                     changesFilter = TriStateFilter.YES,
                     updatesFilter = TriStateFilter.YES,
-                    vulnerabilitiesFilter = TriStateFilter.YES
+                    vulnerabilitiesFilter = VulnerabilityFilter.VULNERABLE
                 )
             )
         )
@@ -359,7 +386,7 @@ class RowMatchesFilterTest {
                     typeFilter = "dependency",
                     changesFilter = TriStateFilter.YES,
                     updatesFilter = TriStateFilter.YES,
-                    vulnerabilitiesFilter = TriStateFilter.YES
+                    vulnerabilitiesFilter = VulnerabilityFilter.VULNERABLE
                 )
             )
         )
@@ -367,13 +394,13 @@ class RowMatchesFilterTest {
         // Vulnerabilities mismatch
         assertFalse(
             rowMatchesFilter(
-                matchingRow.copy(hasVulnerabilities = false),
+                matchingRow.copy(hasDirectVulnerabilities = false),
                 FilterCriteria(
                     searchText = "commons",
                     typeFilter = "dependency",
                     changesFilter = TriStateFilter.YES,
                     updatesFilter = TriStateFilter.YES,
-                    vulnerabilitiesFilter = TriStateFilter.YES
+                    vulnerabilitiesFilter = VulnerabilityFilter.VULNERABLE
                 )
             )
         )
@@ -398,9 +425,15 @@ class RowMatchesFilterTest {
         assertEquals("All", triStateFilterOptionLabel(TriStateFilter.ALL, UPDATES_FILTER_LABELS))
         assertEquals("Update available", triStateFilterOptionLabel(TriStateFilter.YES, UPDATES_FILTER_LABELS))
         assertEquals("Up to date", triStateFilterOptionLabel(TriStateFilter.NO, UPDATES_FILTER_LABELS))
+    }
 
-        assertEquals("All", triStateFilterOptionLabel(TriStateFilter.ALL, VULNERABILITIES_FILTER_LABELS))
-        assertEquals("Vulnerable", triStateFilterOptionLabel(TriStateFilter.YES, VULNERABILITIES_FILTER_LABELS))
-        assertEquals("Not vulnerable", triStateFilterOptionLabel(TriStateFilter.NO, VULNERABILITIES_FILTER_LABELS))
+    @Test
+    fun testVulnerabilityFilterEnumLabels() {
+        assertEquals("All", VulnerabilityFilter.ALL.label)
+        assertEquals("Any vulnerability", VulnerabilityFilter.VULNERABLE.label)
+        assertEquals("Own vulnerability", VulnerabilityFilter.SELF_VULNERABLE.label)
+        assertEquals("Transitive vulnerability", VulnerabilityFilter.TRANSITIVE_VULNERABLE.label)
+        assertEquals("No vulnerability", VulnerabilityFilter.NOT_VULNERABLE.label)
+        assertEquals("Own vulnerability", VulnerabilityFilter.SELF_VULNERABLE.toString())
     }
 }

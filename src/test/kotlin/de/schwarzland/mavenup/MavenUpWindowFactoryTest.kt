@@ -22,6 +22,7 @@ import de.schwarzland.mavenup.ui.vulnerabilitySummary
 import de.schwarzland.mavenup.ui.vulnerabilityCellComparator
 import de.schwarzland.mavenup.ui.VersionUpdateArrowIcon
 import de.schwarzland.mavenup.ui.TriStateFilter
+import de.schwarzland.mavenup.ui.VulnerabilityFilter
 import de.schwarzland.mavenup.ui.sortableHeaderIcon
 import com.intellij.openapi.wm.RegisterToolWindowTask
 import com.intellij.openapi.wm.ToolWindowAnchor
@@ -221,12 +222,34 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         assertEquals(2, cell.allAdvisories.size)
         assertEquals(1, cell.transitiveAdvisoryCount)
+        assertTrue(cell.hasDirectAdvisories)
+        assertTrue(cell.hasTransitiveAdvisories)
         assertEquals("2 (1 transitive, HIGH)", vulnerabilitySummary(cell))
         assertEquals(listOf(directAdvisory), cell.detailFindings()[directCoordinate])
         assertEquals(
             listOf(transitiveAdvisory),
             cell.detailFindings()["$transitiveCoordinate (transitive)"]
         )
+
+        val transitiveOnly = buildVulnerabilityCell(
+            directCoordinate,
+            mapOf(transitiveCoordinate to listOf(transitiveAdvisory)),
+            setOf(transitiveCoordinate)
+        )
+        assertFalse(transitiveOnly.hasDirectAdvisories)
+        assertTrue(transitiveOnly.hasTransitiveAdvisories)
+
+        val directOnly = buildVulnerabilityCell(
+            directCoordinate,
+            mapOf(directCoordinate to listOf(directAdvisory)),
+            setOf(transitiveCoordinate)
+        )
+        assertTrue(directOnly.hasDirectAdvisories)
+        assertFalse(directOnly.hasTransitiveAdvisories)
+
+        val clean = buildVulnerabilityCell(directCoordinate, emptyMap(), emptySet())
+        assertFalse(clean.hasDirectAdvisories)
+        assertFalse(clean.hasTransitiveAdvisories)
     }
 
     fun testShouldBeAvailableOnlyWhenMavenProjectsExist() {
@@ -396,13 +419,13 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         scanPerformedField.setBoolean(toolWindowInstance, true)
         toolWindowInstance.updateVulnerabilitiesFilterState()
-        toolWindowInstance.vulnerabilitiesFilterComboBox.selectedItem = TriStateFilter.YES
+        toolWindowInstance.vulnerabilitiesFilterComboBox.selectedItem = VulnerabilityFilter.VULNERABLE
 
         scanPerformedField.setBoolean(toolWindowInstance, false)
         toolWindowInstance.updateVulnerabilitiesFilterState()
 
         assertFalse(toolWindowInstance.vulnerabilitiesFilterComboBox.isEnabled)
-        assertEquals(TriStateFilter.ALL, toolWindowInstance.vulnerabilitiesFilterComboBox.selectedItem)
+        assertEquals(VulnerabilityFilter.ALL, toolWindowInstance.vulnerabilitiesFilterComboBox.selectedItem)
     }
 
     fun testChangesFilterIsDisabledUntilVersionSelectionDiffers() {
@@ -1332,6 +1355,109 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertTrue(toolWindow.isResetVersionsEnabledForCurrentView())
     }
 
+    /**
+     * Stellt sicher, dass die Empfehlung einer direkten Abhängigkeit aus deren eigenen Warnungen
+     * ermittelt, auf die abrufbaren Versionen abgebildet und über Kontext- und Sammelmenü angeboten wird.
+     */
+    fun testRecommendedVersionIsOfferedForDirectVulnerabilities() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        val key = "com.example:direct"
+        val knownDependencies = toolWindow.javaClass.getDeclaredField("knownDependencies")
+            .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, String>
+        val availableVersions = toolWindow.javaClass.getDeclaredField("availableVersions")
+            .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, List<String>>
+        val selectedVersions = toolWindow.javaClass.getDeclaredField("selectedVersions")
+            .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, String>
+        val advisories = toolWindow.javaClass.getDeclaredField("vulnerabilityAdvisories")
+            .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, List<VulnerabilityAdvisory>>
+
+        knownDependencies[key] = "1.0.0"
+        availableVersions[key] = listOf("2.0.0", "1.2.0", "1.0.0")
+
+        assertFalse("Ohne eigene Warnungen darf keine Empfehlung angeboten werden",
+            toolWindow.hasRecommendedVersionForDependency(key))
+        assertFalse(toolWindow.hasRecommendedVersions())
+        assertFalse(toolWindow.isRecommendedSelectionEnabledForCurrentView())
+
+        advisories["$key:1.0.0"] = listOf(
+            VulnerabilityAdvisory(
+                id = "CVE-2",
+                severity = VulnerabilitySeverity.HIGH,
+                sources = setOf("OSV"),
+                fixedVersions = setOf("1.2.0")
+            )
+        )
+
+        assertEquals("1.2.0", toolWindow.recommendedVersionForDependency(key))
+        assertTrue(toolWindow.hasRecommendedVersionForDependency(key))
+        assertTrue(toolWindow.hasRecommendedVersions())
+        assertTrue(toolWindow.isRecommendedSelectionEnabledForCurrentView())
+
+        toolWindow.selectRecommendedVersionForDependency(key)
+        assertEquals("1.2.0", selectedVersions[key])
+    }
+
+    /**
+     * Stellt sicher, dass rein transitive Warnungen einer Abhängigkeit keine Empfehlung für die
+     * direkte Abhängigkeit selbst auslösen.
+     */
+    fun testRecommendedVersionIsAbsentForOnlyTransitiveVulnerabilities() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        val key = "com.example:direct"
+        val knownDependencies = toolWindow.javaClass.getDeclaredField("knownDependencies")
+            .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, String>
+        val availableVersions = toolWindow.javaClass.getDeclaredField("availableVersions")
+            .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, List<String>>
+        val advisories = toolWindow.javaClass.getDeclaredField("vulnerabilityAdvisories")
+            .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, List<VulnerabilityAdvisory>>
+
+        knownDependencies[key] = "1.0.0"
+        availableVersions[key] = listOf("2.0.0", "1.2.0", "1.0.0")
+        advisories["com.example:transitive:3.0.0"] = listOf(
+            VulnerabilityAdvisory(
+                id = "CVE-3",
+                severity = VulnerabilitySeverity.HIGH,
+                sources = setOf("OSV"),
+                fixedVersions = setOf("3.0.1")
+            )
+        )
+
+        assertEquals("", toolWindow.recommendedVersionForDependency(key))
+        assertFalse(toolWindow.hasRecommendedVersions())
+    }
+
+    /**
+     * Stellt sicher, dass ohne abgerufene Versionsliste keine Empfehlung angeboten wird, da die
+     * Auswahl in der Spalte „New Version" dann nicht übernommen werden kann.
+     */
+    fun testRecommendedVersionRequiresFetchedVersions() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        val key = "com.example:direct"
+        val knownDependencies = toolWindow.javaClass.getDeclaredField("knownDependencies")
+            .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, String>
+        val advisories = toolWindow.javaClass.getDeclaredField("vulnerabilityAdvisories")
+            .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, List<VulnerabilityAdvisory>>
+
+        knownDependencies[key] = "1.0.0"
+        advisories["$key:1.0.0"] = listOf(
+            VulnerabilityAdvisory(
+                id = "CVE-4",
+                severity = VulnerabilitySeverity.HIGH,
+                sources = setOf("OSV"),
+                fixedVersions = setOf("1.2.0")
+            )
+        )
+
+        assertEquals("", toolWindow.recommendedVersionForDependency(key))
+        assertFalse(toolWindow.hasRecommendedVersionForDependency(key))
+    }
+
     fun testTransitiveTabTitleDropsCountWhenFindingsCleared() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         toolWindow.getContent()
@@ -1636,12 +1762,20 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         toolWindow.getContent()
 
         assertEquals(TriStateFilter.ALL, toolWindow.changesFilterComboBox.selectedItem)
-        assertEquals(TriStateFilter.ALL, toolWindow.vulnerabilitiesFilterComboBox.selectedItem)
+        assertEquals(VulnerabilityFilter.ALL, toolWindow.vulnerabilitiesFilterComboBox.selectedItem)
         assertEquals(3, toolWindow.changesFilterComboBox.model.size)
-        assertEquals(3, toolWindow.vulnerabilitiesFilterComboBox.model.size)
+        assertEquals(5, toolWindow.vulnerabilitiesFilterComboBox.model.size)
         assertEquals(TriStateFilter.ALL, toolWindow.changesFilterComboBox.model.getElementAt(0))
         assertEquals(TriStateFilter.YES, toolWindow.changesFilterComboBox.model.getElementAt(1))
         assertEquals(TriStateFilter.NO, toolWindow.changesFilterComboBox.model.getElementAt(2))
+        assertEquals(VulnerabilityFilter.ALL, toolWindow.vulnerabilitiesFilterComboBox.model.getElementAt(0))
+        assertEquals(VulnerabilityFilter.VULNERABLE, toolWindow.vulnerabilitiesFilterComboBox.model.getElementAt(1))
+        assertEquals(VulnerabilityFilter.SELF_VULNERABLE, toolWindow.vulnerabilitiesFilterComboBox.model.getElementAt(2))
+        assertEquals(
+            VulnerabilityFilter.TRANSITIVE_VULNERABLE,
+            toolWindow.vulnerabilitiesFilterComboBox.model.getElementAt(3)
+        )
+        assertEquals(VulnerabilityFilter.NOT_VULNERABLE, toolWindow.vulnerabilitiesFilterComboBox.model.getElementAt(4))
     }
 
     fun testRowFilterWithChangesAndVulnerabilitiesFilters() {
@@ -1690,13 +1824,73 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         // Reset changes filter to ALL, filter vulnerabilities: YES -> only vuln-lib visible
         toolWindow.changesFilterComboBox.selectedItem = TriStateFilter.ALL
-        toolWindow.vulnerabilitiesFilterComboBox.selectedItem = TriStateFilter.YES
+        toolWindow.vulnerabilitiesFilterComboBox.selectedItem = VulnerabilityFilter.VULNERABLE
         toolWindow.applyRowFilter()
         assertEquals(1, table.rowCount)
         assertEquals("vuln-lib", table.getValueAt(0, 1))
 
         // Filter vulnerabilities: NO -> only clean-lib visible
-        toolWindow.vulnerabilitiesFilterComboBox.selectedItem = TriStateFilter.NO
+        toolWindow.vulnerabilitiesFilterComboBox.selectedItem = VulnerabilityFilter.NOT_VULNERABLE
+        toolWindow.applyRowFilter()
+        assertEquals(1, table.rowCount)
+        assertEquals("clean-lib", table.getValueAt(0, 1))
+    }
+
+    fun testRowFilterDistinguishesSelfAndTransitiveVulnerabilities() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val content = toolWindow.getContent()
+        val table = findTable(content)!!
+        val model = table.model as javax.swing.table.DefaultTableModel
+
+        val advisory = VulnerabilityAdvisory(
+            id = "CVE-TEST",
+            severity = VulnerabilitySeverity.HIGH,
+            sources = setOf("OSV")
+        )
+        val selfCell = buildVulnerabilityCell(
+            "com.example:self-lib:1.0.0",
+            mapOf("com.example:self-lib:1.0.0" to listOf(advisory)),
+            emptySet()
+        )
+        val transitiveCell = buildVulnerabilityCell(
+            "com.example:transitive-lib:1.0.0",
+            mapOf("com.example:child:1.0.0" to listOf(advisory)),
+            setOf("com.example:child:1.0.0")
+        )
+        val bothCell = buildVulnerabilityCell(
+            "com.example:both-lib:1.0.0",
+            mapOf(
+                "com.example:both-lib:1.0.0" to listOf(advisory),
+                "com.example:child:1.0.0" to listOf(advisory)
+            ),
+            setOf("com.example:child:1.0.0")
+        )
+        val cleanCell = buildVulnerabilityCell("com.example:clean-lib:1.0.0", emptyMap(), emptySet())
+
+        model.addRow(arrayOf("com.example", "self-lib", "", "dependency", selfCell, "1.0.0", listOf("1.0.0")))
+        model.addRow(
+            arrayOf("com.example", "transitive-lib", "", "dependency", transitiveCell, "1.0.0", listOf("1.0.0"))
+        )
+        model.addRow(arrayOf("com.example", "both-lib", "", "dependency", bothCell, "1.0.0", listOf("1.0.0")))
+        model.addRow(arrayOf("com.example", "clean-lib", "", "dependency", cleanCell, "1.0.0", listOf("1.0.0")))
+
+        toolWindow.vulnerabilitiesFilterComboBox.selectedItem = VulnerabilityFilter.VULNERABLE
+        toolWindow.applyRowFilter()
+        assertEquals(3, table.rowCount)
+
+        toolWindow.vulnerabilitiesFilterComboBox.selectedItem = VulnerabilityFilter.SELF_VULNERABLE
+        toolWindow.applyRowFilter()
+        assertEquals(2, table.rowCount)
+        assertEquals("self-lib", table.getValueAt(0, 1))
+        assertEquals("both-lib", table.getValueAt(1, 1))
+
+        toolWindow.vulnerabilitiesFilterComboBox.selectedItem = VulnerabilityFilter.TRANSITIVE_VULNERABLE
+        toolWindow.applyRowFilter()
+        assertEquals(2, table.rowCount)
+        assertEquals("transitive-lib", table.getValueAt(0, 1))
+        assertEquals("both-lib", table.getValueAt(1, 1))
+
+        toolWindow.vulnerabilitiesFilterComboBox.selectedItem = VulnerabilityFilter.NOT_VULNERABLE
         toolWindow.applyRowFilter()
         assertEquals(1, table.rowCount)
         assertEquals("clean-lib", table.getValueAt(0, 1))
@@ -1740,9 +1934,9 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         toolWindow.changesFilterComboBox.selectedItem = TriStateFilter.ALL
         assertFalse(toolWindow.isResetFiltersEnabled())
 
-        toolWindow.vulnerabilitiesFilterComboBox.selectedItem = TriStateFilter.NO
+        toolWindow.vulnerabilitiesFilterComboBox.selectedItem = VulnerabilityFilter.NOT_VULNERABLE
         assertTrue(toolWindow.isResetFiltersEnabled())
-        toolWindow.vulnerabilitiesFilterComboBox.selectedItem = TriStateFilter.ALL
+        toolWindow.vulnerabilitiesFilterComboBox.selectedItem = VulnerabilityFilter.ALL
         assertFalse(toolWindow.isResetFiltersEnabled())
     }
 
@@ -1780,7 +1974,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         toolWindow.searchTextField.text = "lib-a"
         toolWindow.typeFilterComboBox.selectedItem = "dependency"
         toolWindow.changesFilterComboBox.selectedItem = TriStateFilter.NO
-        toolWindow.vulnerabilitiesFilterComboBox.selectedItem = TriStateFilter.NO
+        toolWindow.vulnerabilitiesFilterComboBox.selectedItem = VulnerabilityFilter.NOT_VULNERABLE
         toolWindow.applyRowFilter()
         assertEquals(1, table.rowCount)
 
@@ -1788,7 +1982,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         assertEquals("", toolWindow.searchTextField.text)
         assertEquals(TriStateFilter.ALL, toolWindow.changesFilterComboBox.selectedItem)
-        assertEquals(TriStateFilter.ALL, toolWindow.vulnerabilitiesFilterComboBox.selectedItem)
+        assertEquals(VulnerabilityFilter.ALL, toolWindow.vulnerabilitiesFilterComboBox.selectedItem)
         assertFalse(toolWindow.isResetFiltersEnabled())
         assertEquals(2, table.rowCount)
     }

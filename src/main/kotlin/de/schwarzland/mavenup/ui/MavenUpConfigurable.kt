@@ -185,6 +185,8 @@ class MavenUpConfigurable internal constructor(
                         .component
                 }
             }
+            // "Pom.xml Changes" enthaelt den Dateinamen pom.xml und ist daher bewusst nicht in Title Case.
+            @Suppress("DialogTitleCapitalization")
             group(MyMessageBundle.message("settings.group.pomChanges")) {
                 row {
                     syncMavenAfterUpdateCheckBox = checkBox(MyMessageBundle.message("settings.syncMavenAfterUpdate"))

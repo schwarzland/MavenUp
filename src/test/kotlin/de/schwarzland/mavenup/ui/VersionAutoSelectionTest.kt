@@ -7,7 +7,7 @@ import org.junit.Test
 
 /**
  * Testet die zustandslosen Auto-Selektions-Helfer [extractLeadingMajorNumber],
- * [latestVersionWithinSameMajor] und [chooseAutoSelectedVersion].
+ * [latestVersionWithinSameMajor], [selectableRecommendedVersion] und [chooseAutoSelectedVersion].
  */
 class VersionAutoSelectionTest {
 
@@ -83,5 +83,32 @@ class VersionAutoSelectionTest {
             "1.0.0",
             chooseAutoSelectedVersion("1.0.0", emptyList(), VersionAutoSelectionMode.LATEST)
         )
+    }
+
+    @Test
+    fun testSelectableRecommendedVersionPrefersExactMatch() {
+        assertEquals(
+            "1.2.0",
+            selectableRecommendedVersion("1.2.0", listOf("2.0.0", "1.2.0", "1.0.0"))
+        )
+    }
+
+    @Test
+    fun testSelectableRecommendedVersionFallsBackToLowestHigherVersion() {
+        assertEquals(
+            "1.3.0",
+            selectableRecommendedVersion("1.2.0", listOf("2.0.0", "1.3.0", "1.1.0"))
+        )
+    }
+
+    @Test
+    fun testSelectableRecommendedVersionReturnsEmptyWhenNoVersionReachesRecommendation() {
+        assertEquals("", selectableRecommendedVersion("3.0.0", listOf("2.0.0", "1.0.0")))
+    }
+
+    @Test
+    fun testSelectableRecommendedVersionReturnsEmptyForMissingInput() {
+        assertEquals("", selectableRecommendedVersion("", listOf("1.0.0")))
+        assertEquals("", selectableRecommendedVersion("1.0.0", emptyList()))
     }
 }

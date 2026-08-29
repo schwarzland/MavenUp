@@ -20,6 +20,10 @@
 - Added an "Open on ..." hyperlink in the detail pane that opens the selected component in the configured Maven repository browser.
 - Added the CVSS vector and the fixed-in versions of the selected finding to the detail pane when available.
 - Added the detailed description, CWE identifiers, publish/last-modified dates, and affected version ranges of the selected finding to the detail pane when available.
+- Added **Own vulnerability** and **Transitive vulnerability** options to the dependency table's **Vulnerabilities** filter so rows can be narrowed to findings in the dependency itself or in its transitive dependencies.
+- Added a **Set Recommended Version** entry to the dependency table's row context menu that selects the recommended fix version for a dependency, plugin, or managed entry affected by security findings of its own.
+- Added support for the toolbar's **Select Recommended Version** action in the dependency table, applying the recommended fix version to every visible entry that has security findings of its own.
+- Added a bold *(recommended)* marker for the recommended fix version in the dependency table's **New Version** dropdown, matching the transitive vulnerabilities view.
 
 ### Changed
 
@@ -45,6 +49,7 @@
 
 ### Fixed
 
+- Fixed a mojibake encoding artifact in a KDoc comment of `RowMatchesFilterTest.kt` (`fÃ¼r` instead of `für`).
 - Fixed differing row heights between the dependency tables by applying the IntelliJ styleguide row height of 24px (scaled) to every plugin table, instead of letting each table derive its height from platform-dependent font metrics and cell renderers.
 - Kept the transitive vulnerabilities view's **New Version** column populated when running "Search for New Versions" by storing the scan-derived transitive versions separately, so the table no longer collapses to a plain list.
 - Aligned the transitive vulnerabilities view sorting with the main table by cycling column sorting through ascending, descending, and unsorted states, and made its **Version** column non-sortable.
