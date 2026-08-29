@@ -149,7 +149,7 @@ class TransitiveVulnerabilitiesViewFilterTest : BasePlatformTestCase() {
         assertEquals("", criteria.typeFilter)
         assertEquals(TriStateFilter.YES, criteria.updatesFilter)
         assertEquals(TriStateFilter.ALL, criteria.changesFilter)
-        assertEquals(TriStateFilter.ALL, criteria.vulnerabilitiesFilter)
+        assertEquals(VulnerabilityFilter.ALL, criteria.vulnerabilitiesFilter)
     }
 
     fun testResetSelectionsVisibleOnlyKeepsFilteredOutSelections() {

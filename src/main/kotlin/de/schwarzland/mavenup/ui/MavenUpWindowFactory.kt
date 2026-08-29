@@ -228,8 +228,11 @@ class MavenUpWindowFactory : ToolWindowFactory {
          */
         internal val updatesFilterComboBox = ComboBox(TriStateFilter.entries.toTypedArray())
 
-        /** Auswahlfeld für den Filter nach Sicherheitslücken (Ja/Nein/Alle). */
-        internal val vulnerabilitiesFilterComboBox = ComboBox(TriStateFilter.entries.toTypedArray())
+        /**
+         * Auswahlfeld für den Filter nach Sicherheitslücken
+         * (Alle, verwundbar, selbst verwundbar, transitiv verwundbar, nicht verwundbar).
+         */
+        internal val vulnerabilitiesFilterComboBox = ComboBox(VulnerabilityFilter.entries.toTypedArray())
 
         /** Anzeigetext der Combobox-Option, die alle Typen zulässt. */
         private val allTypesFilterLabel =
@@ -1034,9 +1037,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
             filterControlsPanel.add(changesFilterComboBox)
 
             filterControlsPanel.add(JLabel(MyMessageBundle.message("toolwindow.MyToolWindow.filter.vulnerabilities.label")))
-            vulnerabilitiesFilterComboBox.model = DefaultComboBoxModel(TriStateFilter.entries.toTypedArray())
-            vulnerabilitiesFilterComboBox.selectedItem = TriStateFilter.ALL
-            vulnerabilitiesFilterComboBox.renderer = triStateFilterRenderer(VULNERABILITIES_FILTER_LABELS)
+            vulnerabilitiesFilterComboBox.model = DefaultComboBoxModel(VulnerabilityFilter.entries.toTypedArray())
+            vulnerabilitiesFilterComboBox.selectedItem = VulnerabilityFilter.ALL
+            vulnerabilitiesFilterComboBox.renderer = vulnerabilityFilterRenderer()
             vulnerabilitiesFilterComboBox.toolTipText =
                 MyMessageBundle.message("toolwindow.MyToolWindow.filter.vulnerabilities.tooltip")
             vulnerabilitiesFilterComboBox.isEnabled = isVulnerabilitiesFilterAvailable()
@@ -1100,7 +1103,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             val updatesActive =
                 (updatesFilterComboBox.selectedItem as? TriStateFilter ?: TriStateFilter.ALL) != TriStateFilter.ALL
             val vulnerabilitiesActive =
-                (vulnerabilitiesFilterComboBox.selectedItem as? TriStateFilter ?: TriStateFilter.ALL) != TriStateFilter.ALL
+                (vulnerabilitiesFilterComboBox.selectedItem as? VulnerabilityFilter ?: VulnerabilityFilter.ALL) != VulnerabilityFilter.ALL
             return searchActive || typeActive || changesActive || updatesActive || vulnerabilitiesActive
         }
 
@@ -1132,7 +1135,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             typeFilterComboBox.selectedItem = allTypesFilterLabel
             changesFilterComboBox.selectedItem = TriStateFilter.ALL
             updatesFilterComboBox.selectedItem = TriStateFilter.ALL
-            vulnerabilitiesFilterComboBox.selectedItem = TriStateFilter.ALL
+            vulnerabilitiesFilterComboBox.selectedItem = VulnerabilityFilter.ALL
             applyRowFilter()
         }
 
@@ -1227,7 +1230,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
             val typeFilter = if (selectedType == allTypesFilterLabel) "" else selectedType
             val changesFilter = changesFilterComboBox.selectedItem as? TriStateFilter ?: TriStateFilter.ALL
             val updatesFilter = updatesFilterComboBox.selectedItem as? TriStateFilter ?: TriStateFilter.ALL
-            val vulnerabilitiesFilter = vulnerabilitiesFilterComboBox.selectedItem as? TriStateFilter ?: TriStateFilter.ALL
+            val vulnerabilitiesFilter =
+                vulnerabilitiesFilterComboBox.selectedItem as? VulnerabilityFilter ?: VulnerabilityFilter.ALL
 
             tableRowSorter.rowFilter = object : RowFilter<DefaultTableModel, Int>() {
                 override fun include(entry: Entry<out DefaultTableModel, out Int>): Boolean {
@@ -1244,7 +1248,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     val hasChange = effectiveVersion != currentVersion && effectiveVersion.isNotEmpty()
                     val newestVersion = availableVersions[key]?.firstOrNull().orEmpty()
                     val hasUpdate = hasNewerVersion(currentVersion, newestVersion)
-                    val hasVulnerabilities = cell != null && cell.allAdvisories.isNotEmpty()
 
                     return rowMatchesFilter(
                         FilterRow(
@@ -1254,7 +1257,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
                             type = type,
                             hasChange = hasChange,
                             hasUpdate = hasUpdate,
-                            hasVulnerabilities = hasVulnerabilities
+                            hasDirectVulnerabilities = cell?.hasDirectAdvisories == true,
+                            hasTransitiveVulnerabilities = cell?.hasTransitiveAdvisories == true
                         ),
                         FilterCriteria(
                             searchText = searchText,
@@ -1355,13 +1359,13 @@ class MavenUpWindowFactory : ToolWindowFactory {
          *
          * Der Filter wird nur aktiviert, wenn eine erfolgreiche Sicherheitsprüfung durchgeführt wurde
          * (siehe [isVulnerabilitiesFilterAvailable]). Ist er nicht verfügbar, wird die Auswahl auf
-         * [TriStateFilter.ALL] zurückgesetzt, damit keine unsichtbare Filterung aktiv bleibt.
+         * [VulnerabilityFilter.ALL] zurückgesetzt, damit keine unsichtbare Filterung aktiv bleibt.
          */
         internal fun updateVulnerabilitiesFilterState() {
             val available = isVulnerabilitiesFilterAvailable()
             vulnerabilitiesFilterComboBox.isEnabled = available
-            if (!available && vulnerabilitiesFilterComboBox.selectedItem != TriStateFilter.ALL) {
-                vulnerabilitiesFilterComboBox.selectedItem = TriStateFilter.ALL
+            if (!available && vulnerabilitiesFilterComboBox.selectedItem != VulnerabilityFilter.ALL) {
+                vulnerabilitiesFilterComboBox.selectedItem = VulnerabilityFilter.ALL
             }
         }
 

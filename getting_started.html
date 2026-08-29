@@ -42,7 +42,9 @@
         available updates, or security findings. You can also right-click a GroupId, ArtifactId, or Property cell and
         choose <strong>Filter by "..."</strong> to filter by that exact value. The updates filter becomes available
         after a successful "Search for New Versions" and then shows only rows with a newer version; the vulnerabilities
-        filter becomes available after a successful "Scan for Vulnerabilities". All filters combine so only matching
+        filter becomes available after a successful "Scan for Vulnerabilities" and lets you separate rows whose own
+        dependency is affected from rows that are only affected through their transitive dependencies. All filters
+        combine so only matching
         rows remain visible. Use the reset button at the end of the filter row to clear all filters at once.</li>
     <li><strong>Sort the table</strong>: Click a column header to cycle through ascending, descending, and the original
         pom.xml order; sortable columns show a header indicator icon (a dimmed double arrow when unsorted, a directional

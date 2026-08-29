@@ -99,12 +99,56 @@ internal val UPDATES_FILTER_LABELS = TriStateFilterLabels(
     "toolwindow.MyToolWindow.filter.updates.option.no"
 )
 
-/** Kontextspezifische Optionstexte des Vulnerabilities-Filters. */
-internal val VULNERABILITIES_FILTER_LABELS = TriStateFilterLabels(
-    "toolwindow.MyToolWindow.filter.vulnerabilities.option.all",
-    "toolwindow.MyToolWindow.filter.vulnerabilities.option.yes",
-    "toolwindow.MyToolWindow.filter.vulnerabilities.option.no"
-)
+/**
+ * Filteroption des Sicherheitslücken-Filters.
+ *
+ * Im Gegensatz zu [TriStateFilter] unterscheidet dieser Filter zusätzlich, ob die Befunde einer
+ * Zeile aus der Abhängigkeit selbst oder aus ihren transitiven Abhängigkeiten stammen.
+ *
+ * @property labelKey Der Schlüssel des lokalisierten Anzeigetextes im Message-Bundle.
+ */
+internal enum class VulnerabilityFilter(val labelKey: String) {
+    /** Alle Zeilen anzeigen (keine Filterung nach Sicherheitslücken). */
+    ALL("toolwindow.MyToolWindow.filter.vulnerabilities.option.all"),
+
+    /** Nur Zeilen mit beliebigen Befunden (eigene oder transitive) anzeigen. */
+    VULNERABLE("toolwindow.MyToolWindow.filter.vulnerabilities.option.vulnerable"),
+
+    /** Nur Zeilen anzeigen, deren Abhängigkeit selbst betroffen ist. */
+    SELF_VULNERABLE("toolwindow.MyToolWindow.filter.vulnerabilities.option.self"),
+
+    /** Nur Zeilen anzeigen, die Befunde in ihren transitiven Abhängigkeiten haben. */
+    TRANSITIVE_VULNERABLE("toolwindow.MyToolWindow.filter.vulnerabilities.option.transitive"),
+
+    /** Nur Zeilen ohne jegliche Befunde anzeigen. */
+    NOT_VULNERABLE("toolwindow.MyToolWindow.filter.vulnerabilities.option.notVulnerable");
+
+    /** Liefert die lokalisierte Bezeichnung der Filteroption. */
+    val label: String
+        get() = MyMessageBundle.message(labelKey)
+
+    override fun toString(): String = label
+}
+
+/**
+ * Erzeugt einen Renderer, der die [VulnerabilityFilter]-Werte einer Filter-Combobox mit ihren
+ * lokalisierten Texten anzeigt.
+ *
+ * @return Ein [ListCellRenderer] für die Sicherheitslücken-Filter-Combobox.
+ */
+internal fun vulnerabilityFilterRenderer(): ListCellRenderer<in VulnerabilityFilter> =
+    object : DefaultListCellRenderer() {
+        override fun getListCellRendererComponent(
+            list: JList<*>?,
+            value: Any?,
+            index: Int,
+            isSelected: Boolean,
+            cellHasFocus: Boolean
+        ): Component {
+            val text = (value as? VulnerabilityFilter)?.label ?: value?.toString()
+            return super.getListCellRendererComponent(list, text, index, isSelected, cellHasFocus)
+        }
+    }
 
 /**
  * Fasst die filterrelevanten Werte einer einzelnen Tabellenzeile zusammen.
@@ -115,7 +159,8 @@ internal val VULNERABILITIES_FILTER_LABELS = TriStateFilterLabels(
  * @property type Der Typ der Zeile.
  * @property hasChange `true`, wenn für die Zeile eine Versionsänderung vorliegt.
  * @property hasUpdate `true`, wenn für die Zeile eine neuere Version verfügbar ist.
- * @property hasVulnerabilities `true`, wenn für die Zeile mindestens eine Sicherheitslücke gemeldet ist.
+ * @property hasDirectVulnerabilities `true`, wenn die Abhängigkeit der Zeile selbst betroffen ist.
+ * @property hasTransitiveVulnerabilities `true`, wenn mindestens eine transitive Abhängigkeit der Zeile betroffen ist.
  */
 internal data class FilterRow(
     val groupId: String,
@@ -124,8 +169,13 @@ internal data class FilterRow(
     val type: String,
     val hasChange: Boolean = false,
     val hasUpdate: Boolean = false,
-    val hasVulnerabilities: Boolean = false
-)
+    val hasDirectVulnerabilities: Boolean = false,
+    val hasTransitiveVulnerabilities: Boolean = false
+) {
+    /** `true`, wenn für die Zeile eigene oder transitive Sicherheitslücken gemeldet sind. */
+    val hasVulnerabilities: Boolean
+        get() = hasDirectVulnerabilities || hasTransitiveVulnerabilities
+}
 
 /**
  * Fasst die aktiven Filterkriterien der Haupttabelle zusammen.
@@ -134,14 +184,14 @@ internal data class FilterRow(
  * @property typeFilter Der ausgewählte Typ oder ein leerer String für "alle Typen".
  * @property changesFilter Die ausgewählte Filteroption für Änderungen (Alle, Ja, Nein).
  * @property updatesFilter Die ausgewählte Filteroption für verfügbare Updates (Alle, Ja, Nein).
- * @property vulnerabilitiesFilter Die ausgewählte Filteroption für Sicherheitslücken (Alle, Ja, Nein).
+ * @property vulnerabilitiesFilter Die ausgewählte Filteroption für Sicherheitslücken.
  */
 internal data class FilterCriteria(
     val searchText: String,
     val typeFilter: String,
     val changesFilter: TriStateFilter = TriStateFilter.ALL,
     val updatesFilter: TriStateFilter = TriStateFilter.ALL,
-    val vulnerabilitiesFilter: TriStateFilter = TriStateFilter.ALL
+    val vulnerabilitiesFilter: VulnerabilityFilter = VulnerabilityFilter.ALL
 )
 
 /**
@@ -150,9 +200,10 @@ internal data class FilterCriteria(
  * Der Textfilter wird case-insensitiv gegen GroupId, ArtifactId und Property geprüft;
  * die Zeile passt, sobald einer dieser Werte den Suchtext enthält. Ein leerer Suchtext
  * lässt alle Zeilen zu. Der Typfilter passt bei leerem Wert auf jeden Typ, sonst nur bei
- * exakter Übereinstimmung des Typs. Der Änderungs-, Updates- und Vulnerabilities-Filter prüfen,
- * ob Änderungen, verfügbare Updates bzw. Sicherheitslücken vorliegen (`YES`), nicht vorliegen (`NO`) oder
- * der Filter inaktiv ist (`ALL`).
+ * exakter Übereinstimmung des Typs. Der Änderungs- und Updates-Filter prüfen,
+ * ob Änderungen bzw. verfügbare Updates vorliegen (`YES`), nicht vorliegen (`NO`) oder
+ * der Filter inaktiv ist (`ALL`). Der Sicherheitslücken-Filter unterscheidet zusätzlich zwischen
+ * beliebigen, eigenen und transitiven Befunden.
  *
  * @param row Die filterrelevanten Werte der zu prüfenden Zeile.
  * @param criteria Die aktuell aktiven Filterkriterien.
@@ -176,9 +227,11 @@ internal fun rowMatchesFilter(row: FilterRow, criteria: FilterCriteria): Boolean
         TriStateFilter.NO -> !row.hasUpdate
     }
     val vulnerabilitiesMatches = when (criteria.vulnerabilitiesFilter) {
-        TriStateFilter.ALL -> true
-        TriStateFilter.YES -> row.hasVulnerabilities
-        TriStateFilter.NO -> !row.hasVulnerabilities
+        VulnerabilityFilter.ALL -> true
+        VulnerabilityFilter.VULNERABLE -> row.hasVulnerabilities
+        VulnerabilityFilter.SELF_VULNERABLE -> row.hasDirectVulnerabilities
+        VulnerabilityFilter.TRANSITIVE_VULNERABLE -> row.hasTransitiveVulnerabilities
+        VulnerabilityFilter.NOT_VULNERABLE -> !row.hasVulnerabilities
     }
     return textMatches && typeMatches && changesMatches && updatesMatches && vulnerabilitiesMatches
 }
