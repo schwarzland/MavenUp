@@ -150,8 +150,8 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   Die Tabelle nutzt – wie die Haupttabelle – einen `TableRowSorter` mit überschriebenem `toggleSortOrder`
   (zyklisch aufsteigend → absteigend → unsortiert); die **Version**- und **New Version**-Spalten sind nicht sortierbar,
   die **Vulnerabilities**-Spalte sortiert über `vulnerabilityCellComparator`. Die Zeilenhöhe wird über
-  `enforcedRowHeight` an die Haupttabelle angeglichen (aus `table.rowHeight`), damit das ComboBox-Panel die
-  Zeilen nicht höher macht.
+  `applyRecommendedRowHeight` (siehe `TableRowHeight.kt`) fest gesetzt, damit das ComboBox-Panel die
+  Zeilen nicht höher macht und alle Tabellen dieselbe Zeilenhöhe haben.
   Ein Rechtsklick öffnet über IntelliJs `ActionSystem` ein Kontextmenü (`showContextMenu`) mit
   **Filter by "..."** (nur beim Rechtsklick auf die Spalten GroupId oder ArtifactId mit nicht-leerem Wert; setzt den
   angeklickten Wert über `filterPanel.filterBy` als alleinigen Textfilter),
@@ -199,6 +199,9 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   - `TableColumnWidths.kt`: `trimColumnWidthsToContent` samt `DEFAULT_COLUMN_WIDTH_PADDING`,
     `DEFAULT_MIN_COLUMN_WIDTH`, `DEFAULT_MAX_COLUMN_WIDTH` (allgemeine Regel für alle Plugin-Tabellen:
     Spaltenbreiten werden nach Inhalt getrimmt und mit der Fenster-/Dialoggröße proportional skaliert).
+  - `TableRowHeight.kt`: `recommendedTableRowHeight`, `applyRecommendedRowHeight` samt
+    `RECOMMENDED_TABLE_ROW_HEIGHT` (allgemeine Regel für alle Plugin-Tabellen: einheitliche, gemäß
+    IntelliJ-Styleguide auf 24 px skalierte Zeilenhöhe statt der plattformabhängigen JBTable-Berechnung).
   - `VersionAutoSelection.kt`: `chooseAutoSelectedVersion`, `latestVersionWithinSameMajor`,
     `extractLeadingMajorNumber` (zustandslose Auto-Selektions-Helfer).
   - `HelpTooltipExtensions.kt`: `HelpTooltip.withWrappingDescription` (versionsunabhängige

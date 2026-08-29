@@ -181,17 +181,6 @@ internal class TransitiveVulnerabilitiesView(
     /** Zuordnung von `groupId:artifactId` zu den verfügbaren Versionen der letzten Versionssuche. */
     private var availableVersions: Map<String, List<String>> = emptyMap()
 
-    /**
-     * Optional erzwungene Zeilenhöhe. Wird gesetzt, damit die Ansicht exakt die Zeilenhöhe der
-     * Haupttabelle übernimmt (JBTable würde sonst aus dem höheren ComboBox-Panel eine größere Höhe
-     * ableiten). Bei jedem [update] erneut angewendet.
-     */
-    internal var enforcedRowHeight: Int? = null
-        set(value) {
-            field = value
-            value?.let { table.rowHeight = it }
-        }
-
     /** Zuordnung von `groupId:artifactId` zur empfohlenen Fix-Version (für die Dropdown-Markierung). */
     private var recommendedByKey: Map<String, String> = emptyMap()
 
@@ -237,6 +226,7 @@ internal class TransitiveVulnerabilitiesView(
     init {
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION)
         table.tableHeader.reorderingAllowed = false
+        applyRecommendedRowHeight(table)
         table.columnModel.getColumn(TRANSITIVE_VULNERABILITIES_COLUMN).cellRenderer = vulnerabilityCellRenderer()
 
         val textComparator = Comparator<Any?> { a, b ->
@@ -710,7 +700,7 @@ internal class TransitiveVulnerabilitiesView(
     private fun finishSelectionChange() {
         if (table.isEditing) table.cellEditor?.cancelCellEditing()
         tableModel.fireTableDataChanged()
-        enforcedRowHeight?.let { table.rowHeight = it }
+        applyRecommendedRowHeight(table)
         onSelectionChanged()
         filterPanel.updateAvailability()
         applyRowFilter()
@@ -985,7 +975,7 @@ internal class TransitiveVulnerabilitiesView(
             )
         }
         trimColumnWidthsToContent(table)
-        enforcedRowHeight?.let { table.rowHeight = it }
+        applyRecommendedRowHeight(table)
         updateEmptyText(rows.isEmpty())
         filterPanel.updateAvailability()
         applyRowFilter()

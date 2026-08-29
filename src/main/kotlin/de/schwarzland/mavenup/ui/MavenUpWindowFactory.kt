@@ -285,6 +285,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             }
             table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION)
             table.tableHeader.reorderingAllowed = false
+            applyRecommendedRowHeight(table)
 
             table.addMouseListener(object : MouseAdapter() {
                 override fun mousePressed(e: MouseEvent) {
@@ -712,8 +713,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
             }
 
             refreshAction(false, true, true)
-
-            transitiveVulnerabilitiesView.enforcedRowHeight = table.rowHeight
 
             add(JBScrollPane(table), BorderLayout.CENTER)
             transitiveContent.add(transitiveTopPanel, BorderLayout.NORTH)

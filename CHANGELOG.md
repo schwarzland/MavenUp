@@ -40,7 +40,7 @@
 
 ### Fixed
 
-- Matched the transitive vulnerabilities view row height to the main table so its rows are no longer taller than the main dependency table.
+- Fixed differing row heights between the dependency tables by applying the IntelliJ styleguide row height of 24px (scaled) to every plugin table, instead of letting each table derive its height from platform-dependent font metrics and cell renderers.
 - Kept the transitive vulnerabilities view's **New Version** column populated when running "Search for New Versions" by storing the scan-derived transitive versions separately, so the table no longer collapses to a plain list.
 - Aligned the transitive vulnerabilities view sorting with the main table by cycling column sorting through ascending, descending, and unsorted states, and made its **Version** column non-sortable.
 - Resolved the parent POM version from Maven properties so property-based `<parent>` versions (for example `${revision}`) are scanned for vulnerabilities and version updates instead of being skipped as an unresolved placeholder.

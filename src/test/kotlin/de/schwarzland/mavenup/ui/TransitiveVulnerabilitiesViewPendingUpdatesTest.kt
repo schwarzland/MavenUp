@@ -151,10 +151,10 @@ class TransitiveVulnerabilitiesViewPendingUpdatesTest : BasePlatformTestCase() {
         assertFalse(view.isVersionResetEnabledForDependency("org.other:missing"))
     }
 
-    fun testEnforcedRowHeightIsAppliedAndSurvivesUpdate() {
+    fun testRecommendedRowHeightIsAppliedAndSurvivesUpdate() {
         val view = TransitiveVulnerabilitiesView(project)
-        view.enforcedRowHeight = 17
-        assertEquals(17, view.table.rowHeight)
+        val expected = recommendedTableRowHeight()
+        assertEquals(expected, view.table.rowHeight)
 
         val coordinate = "org.trans:lib:1.2.0"
         view.update(
@@ -167,6 +167,6 @@ class TransitiveVulnerabilitiesViewPendingUpdatesTest : BasePlatformTestCase() {
             emptyMap(),
             mapOf("org.trans:lib" to listOf("1.2.4", "1.2.0"))
         )
-        assertEquals("Row height stays pinned after populating rows", 17, view.table.rowHeight)
+        assertEquals("Row height stays pinned after populating rows", expected, view.table.rowHeight)
     }
 }

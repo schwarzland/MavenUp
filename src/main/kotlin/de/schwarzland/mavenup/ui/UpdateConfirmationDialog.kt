@@ -106,6 +106,7 @@ class UpdateConfirmationDialog(
             rowSorter = buildRowSorter(tableModel)
             installSortableHeaderRenderer(this)
             trimColumnWidthsToContent(this)
+            applyRecommendedRowHeight(this)
         }
         return table
     }
