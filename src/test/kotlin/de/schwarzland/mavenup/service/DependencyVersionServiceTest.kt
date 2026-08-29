@@ -23,6 +23,32 @@ class DependencyVersionServiceTest : BasePlatformTestCase() {
         }
     }
 
+    fun testFetchAvailableVersionsReturnsListsPerCoordinate() {
+        val service = DependencyVersionService(
+            project,
+            fetchVersions = { groupId, artifactId, _ ->
+                if (artifactId == "known") listOf("1.2.4", "1.2.0") else emptyList()
+            }
+        )
+
+        val result = service.fetchAvailableVersions(
+            mapOf("org.a:known" to "1.2.0", "org.a:empty" to "1.0.0"),
+            EmptyProgressIndicator()
+        )
+
+        assertEquals(listOf("1.2.4", "1.2.0"), result["org.a:known"])
+        assertFalse("Coordinates without versions are omitted", result.containsKey("org.a:empty"))
+    }
+
+    fun testFetchAvailableVersionsStopsWhenCancelled() {
+        val indicator = EmptyProgressIndicator().apply { cancel() }
+        val service = DependencyVersionService(project, fetchVersions = { _, _, _ -> listOf("9.9.9") })
+
+        val result = service.fetchAvailableVersions(mapOf("org.a:lib" to "1.0.0"), indicator)
+
+        assertTrue("No versions fetched when already cancelled", result.isEmpty())
+    }
+
     fun testCheckArtifactUpdateSelectsNewestWhenModeLatest() {
         withAutoSelectionMode(VersionAutoSelectionMode.LATEST) {
             val service = serviceReturning(listOf("2.0.0", "1.5.0", "1.0.0"))

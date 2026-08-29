@@ -29,7 +29,8 @@
         first, and you can disable this from the dialog's "Don't ask again" option or in the settings; when a filter is
         active it instead asks whether to reset all dependencies or only the currently filtered ones.</li>
     <li><strong>Update your project</strong>: Click <strong>Update</strong> to review the planned changes in a confirmation
-        dialog and apply the selected versions to the relevant <code>pom.xml</code> files. The
+        dialog and apply the selected versions to the relevant <code>pom.xml</code> files. Entries listed as
+        <em>transitive -&gt; managed dependency</em> are pinned in <code>dependencyManagement</code> for the first time. The
         <strong>Sync Maven Changes after update</strong> checkbox is enabled by default and triggers the IDE's Maven sync
         immediately after the change.</li>
 </ol>
@@ -45,7 +46,8 @@
         rows remain visible. Use the reset button at the end of the filter row to clear all filters at once.</li>
     <li><strong>Sort the table</strong>: Click a column header to cycle through ascending, descending, and the original
         pom.xml order; sortable columns show a header indicator icon (a dimmed double arrow when unsorted, a directional
-        arrow when sorted), while the Current Version, Vulnerabilities, and New Version columns stay unsorted.</li>
+        arrow when sorted), while the Current Version and New Version columns stay unsorted; the Vulnerabilities
+        column sorts by severity.</li>
     <li><strong>Jump to the source</strong>: Double-click a row (or single-click if configured) to open the matching
         dependency or plugin entry directly in the editor.</li>
     <li><strong>Use the context menu</strong>: Right-click any row to access <strong>Filter by "..."</strong> (shown when
@@ -65,7 +67,7 @@
 <ol>
     <li><strong>Run a vulnerability scan</strong>: Click <strong>Scan for Vulnerabilities</strong> to check the direct
         dependencies and, when enabled, their resolved transitive dependencies. Results are shown in the
-        <strong>Vulnerabilities (Current)</strong> column.</li>
+        <strong>Vulnerabilities</strong> column, shown directly before <strong>Current Version</strong>.</li>
     <li><strong>Inspect the findings</strong>: Select a dependency with findings and click <strong>Vulnerability Details</strong>
         or click the populated vulnerability cell. The dialog opens a split view: the upper table lists the advisories
         (component, source, advisory ID, aliases, and severity) for the direct dependency and related transitive findings,
@@ -76,6 +78,19 @@
         <strong>Severity</strong> column is color-coded by severity, matching the tool window's vulnerability column. Every
         table column is sortable by clicking its header (ascending, descending, or unsorted); the <strong>Severity</strong>
         column leads with the most critical findings and highest CVSS score on the first click.</li>
+    <li><strong>Review transitive vulnerabilities</strong>: Switch to the
+        <strong>Transitive CVEs</strong> tab in the tool window header (next to the <strong>Dependencies</strong> tab) to open a dedicated view
+        listing every transitive dependency with known vulnerabilities, its type, its vulnerability count, and an
+        editable new-version column. The tab title shows how many transitive coordinates are affected; before the first scan the view explains how to fill it. Pick a new version to pin it in <code>dependencyManagement</code>
+        and apply it with <strong>Update</strong>; the recommended fix version is shown in bold with a
+        <em>(recommended)</em> marker in the dropdown. In this view the toolbar's <strong>Select Highest Version</strong>
+        dropdown (including <strong>Select Recommended Version</strong>) and <strong>Reset All to Current Versions</strong>
+        act on the transitive coordinates, and a right-click offers <strong>Filter by "..."</strong> plus the same version
+        actions for a single coordinate. The view has its own filter row with a text filter for GroupId and ArtifactId,
+        an <strong>Updates</strong> and a <strong>Pending</strong> combo box, and a reset button; the bulk version
+        actions apply only to the rows it leaves visible.
+        Click a count to open
+        its details, and switch back to the <strong>Dependencies</strong> tab to return to the main table.</li>
 </ol>
 
 <h3>Adjust the plugin to your workflow</h3>

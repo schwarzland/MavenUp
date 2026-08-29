@@ -42,7 +42,11 @@ import com.intellij.ui.DocumentAdapter
 import com.intellij.ui.SearchTextField
 import com.intellij.ui.components.JBPanel
 import com.intellij.ui.components.JBScrollPane
+import com.intellij.ui.content.Content
 import com.intellij.ui.content.ContentFactory
+import com.intellij.ui.content.ContentManager
+import com.intellij.ui.content.ContentManagerEvent
+import com.intellij.ui.content.ContentManagerListener
 import com.intellij.ui.table.JBTable
 import com.intellij.util.concurrency.AppExecutorUtil
 import com.intellij.util.ui.AbstractTableCellEditor
@@ -66,6 +70,8 @@ import javax.swing.table.TableRowSorter
 private val LOG = Logger.getInstance(MavenUpWindowFactory::class.java)
 
 
+private const val TOOLWINDOW_MY_TOOL_WINDOW_RESET_VERSIONS_CONFIRM_TITLE = "toolwindow.MyToolWindow.resetVersions.confirm.title"
+
 /**
  * -----------------------------------------------------------------------------------------------
  * Factory-Klasse zur Erstellung und Initialisierung des MavenUp Tool Windows in der IntelliJ-IDE.
@@ -84,16 +90,37 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
     /**
      * Erstellt den Inhalt des Tool Windows und fügt ihn dem ContentManager hinzu.
+     *
+     * Beide Ansichten werden als eigenständige [Content]-Instanzen registriert. Die IDE stellt sie
+     * dadurch als Tabs in der Kopfzeile des Tool Windows dar, sodass keine zusätzliche Tab-Zeile im
+     * Inhaltsbereich nötig ist.
      */
     override fun createToolWindowContent(project: Project, toolWindow: ToolWindow) {
         val myToolWindow = MyToolWindow(project)
+        val contentFactory = ContentFactory.getInstance()
 
-        val content = ContentFactory
-            .getInstance()
-            .createContent(myToolWindow.getContent(), null, false)
-        content.setDisposer(myToolWindow)
+        val dependenciesContent = contentFactory.createContent(
+            myToolWindow.getContent(),
+            MyMessageBundle.message("toolwindow.MyToolWindow.tab.dependencies"),
+            false
+        ).apply {
+            isCloseable = false
+            description = MyMessageBundle.message("toolwindow.MyToolWindow.tab.dependencies.tooltip")
+            setDisposer(myToolWindow)
+        }
 
-        toolWindow.contentManager.addContent(content)
+        val transitiveContent = contentFactory.createContent(
+            myToolWindow.getTransitiveContent(),
+            MyMessageBundle.message("toolwindow.MyToolWindow.tab.transitiveView"),
+            false
+        ).apply {
+            isCloseable = false
+            description = MyMessageBundle.message("toolwindow.MyToolWindow.tab.transitiveView.tooltip")
+        }
+
+        toolWindow.contentManager.addContent(dependenciesContent)
+        toolWindow.contentManager.addContent(transitiveContent)
+        myToolWindow.bindTabs(toolWindow.contentManager, dependenciesContent, transitiveContent)
     }
 
     /**
@@ -126,6 +153,35 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private val transitiveDependenciesByDirect = mutableMapOf<String, Set<String>>()
 
         /**
+         * Verfügbare Versionen der verwundbaren transitiven Koordinaten (`groupId:artifactId`), die
+         * beim Vulnerability-Scan ermittelt werden. Bewusst getrennt von [availableVersions], damit die
+         * New-Version-Spalte der transitiven Ansicht bei einem zwischenzeitlichen „Search for New Versions"
+         * (das [availableVersions] leert und neu füllt) nicht geleert wird.
+         */
+        private val transitiveAvailableVersions = mutableMapOf<String, List<String>>()
+
+        /** Alternative Ansicht, die ausschließlich transitive, verwundbare Abhängigkeiten auflistet. */
+        private val transitiveVulnerabilitiesView = TransitiveVulnerabilitiesView(project) { refreshToolbar() }
+
+        /** Wurzelkomponente des Tabs **Transitive CVEs**: Aktionsleiste über der transitiven Ansicht. */
+        private val transitiveContent = JBPanel<JBPanel<*>>(BorderLayout())
+
+        /** Container für die Aktionsleiste des Tabs **Transitive CVEs**. */
+        private val transitiveTopPanel = JBPanel<JBPanel<*>>(BorderLayout())
+
+        /** ContentManager des Tool Windows; erst nach [bindTabs] gesetzt. */
+        private var contentManager: ContentManager? = null
+
+        /** Tab **Dependencies**; erst nach [bindTabs] gesetzt. */
+        private var dependenciesTab: Content? = null
+
+        /** Tab **Transitive CVEs**; erst nach [bindTabs] gesetzt. */
+        private var transitiveTab: Content? = null
+
+        /** `true`, solange der Tab der transitiven Sicherheitslücken-Ansicht ausgewählt ist. */
+        private var showingTransitiveView = false
+
+        /**
          * `true`, sobald mindestens eine erfolgreiche Vulnerability-Prüfung ("Scan for Vulnerabilities")
          * abgeschlossen wurde. Steuert die Aktivierung des Vulnerabilities-Filters.
          */
@@ -146,8 +202,11 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /** Die Tabelle der Abhängigkeiten; wird im Property-Initializer von [content] zugewiesen. */
         private var table: JBTable
 
-        /** Die obere Aktionsleiste des Tool-Windows; wird im Init-Block initialisiert. */
+        /** Die Aktionsleiste des Tabs **Dependencies**; wird in [installToolbars] gesetzt. */
         private var actionToolbar: ActionToolbar? = null
+
+        /** Die Aktionsleiste des Tabs **Transitive CVEs**; wird in [installToolbars] gesetzt. */
+        private var transitiveActionToolbar: ActionToolbar? = null
 
         /** Die Aktionsgruppe der oberen Aktionsleiste; wird im Init-Block befüllt. */
         private val toolbarGroup = DefaultActionGroup()
@@ -176,7 +235,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private val allTypesFilterLabel =
             MyMessageBundle.message("toolwindow.MyToolWindow.filter.type.all")
 
-        /** Container für Aktionsleiste und Filterzeile im Nordbereich. */
+        /** Container für die Aktionsleiste und die Filterzeile des Tabs **Dependencies**. */
         private val topPanel = JBPanel<JBPanel<*>>(BorderLayout())
 
         /** Aktionsleiste am Ende der Filterzeile zum Zurücksetzen aller Filter. */
@@ -196,8 +255,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.artifactId"))
                 addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.property"))
                 addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.type"))
-                addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.currentVersion"))
                 addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.vulnerabilities"))
+                addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.currentVersion"))
                 addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.newVersion"))
             }
 
@@ -226,6 +285,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             }
             table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION)
             table.tableHeader.reorderingAllowed = false
+            applyRecommendedRowHeight(table)
 
             table.addMouseListener(object : MouseAdapter() {
                 override fun mousePressed(e: MouseEvent) {
@@ -346,6 +406,12 @@ class MavenUpWindowFactory : ToolWindowFactory {
             table.putClientProperty("terminateEditOnFocusLost", true)
 
             table.selectionModel.addListSelectionListener { event ->
+                if (!event.valueIsAdjusting) {
+                    refreshToolbar()
+                }
+            }
+
+            transitiveVulnerabilitiesView.table.selectionModel.addListSelectionListener { event ->
                 if (!event.valueIsAdjusting) {
                     refreshToolbar()
                 }
@@ -514,28 +580,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 }
             }
 
-            table.columnModel.getColumn(VULNERABILITIES_COLUMN).cellRenderer =
-                TableCellRenderer { currentTable, value, isSelected, _, _, _ ->
-                    val cell = value as? VulnerabilityCell ?: VulnerabilityCell(emptyMap(), emptySet())
-                    val advisories = cell.allAdvisories
-                    JLabel(vulnerabilitySummary(cell)).apply {
-                        isOpaque = true
-                        border = BorderFactory.createEmptyBorder(0, 6, 0, 6)
-                        if (advisories.isNotEmpty()) {
-                            icon = AllIcons.Ide.Link
-                            horizontalTextPosition = JLabel.TRAILING
-                            toolTipText = MyMessageBundle.message(VULNERABILITY_DETAILS_TITLE)
-                        } else {
-                            toolTipText = null
-                        }
-                        background = if (isSelected) {
-                            currentTable.selectionBackground
-                        } else {
-                            vulnerabilityColor(worstSeverity(advisories), currentTable.background)
-                        }
-                        foreground = if (isSelected) currentTable.selectionForeground else currentTable.foreground
-                    }
-                }
+            table.columnModel.getColumn(VULNERABILITIES_COLUMN).cellRenderer = vulnerabilityCellRenderer()
 
             fun refreshAction(checkUpdates: Boolean, clearData: Boolean, clearVulnerabilities: Boolean) {
                 if (isUpdating) return
@@ -553,6 +598,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     vulnerabilityAdvisories.clear()
                     transitiveCoordinates.clear()
                     transitiveDependenciesByDirect.clear()
+                    transitiveAvailableVersions.clear()
                     vulnerabilityScanPerformed = false
                 }
                 dependencyToProperty.clear()
@@ -580,12 +626,12 @@ class MavenUpWindowFactory : ToolWindowFactory {
                                     row.artifactId,
                                     row.propertyName,
                                     row.type,
-                                    row.currentVersion,
                                     buildVulnerabilityCell(
                                         "${row.key}:${row.currentVersion}",
                                         vulnerabilityAdvisories,
                                         transitiveDependenciesByDirect["${row.key}:${row.currentVersion}"].orEmpty()
                                     ),
+                                    row.currentVersion,
                                     availableVersions[row.key].orEmpty()
                                 )
                             )
@@ -594,6 +640,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         updateTypeFilterOptions()
                         updateUpdatesFilterState()
                         updateVulnerabilitiesFilterState()
+                        updateTransitiveVulnerabilitiesView()
                         trimColumnWidthsToContent(table)
 
                         if (checkUpdates) {
@@ -609,7 +656,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
 
             val updateAction = {
-                if (!isUpdating && selectedVersions.isNotEmpty()) {
+                if (!isUpdating && (selectedVersions.isNotEmpty() || transitiveVulnerabilitiesView.hasPendingUpdates())) {
                     val updates = collectSelectedUpdates()
 
                     if (updates.isNotEmpty()) {
@@ -637,6 +684,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                                     ApplicationManager.getApplication().invokeLater {
                                         selectedVersions.clear()
                                         availableVersions.clear()
+                                        transitiveVulnerabilitiesView.resetSelections()
                                         refreshAction(false, true, true)
 
                                         for (row in 0 until tableModel.rowCount) {
@@ -667,6 +715,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
             refreshAction(false, true, true)
 
             add(JBScrollPane(table), BorderLayout.CENTER)
+            transitiveContent.add(transitiveTopPanel, BorderLayout.NORTH)
+            transitiveContent.add(transitiveVulnerabilitiesView, BorderLayout.CENTER)
 
             fun toolbarAction(
                 messageKey: String,
@@ -736,7 +786,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     val showText = isToolbarTextEnabled()
                     val shortLabel = MyMessageBundle.message("toolwindow.MyToolWindow.versionActions.group.button.short")
                     val tooltip = MyMessageBundle.message("toolwindow.MyToolWindow.versionActions.group.tooltip")
-                    e.presentation.isEnabled = isBulkVersionSelectionEnabled()
+                    e.presentation.isEnabled = isBulkVersionSelectionEnabledForCurrentView() ||
+                        isRecommendedSelectionEnabledForCurrentView()
                     // Identischer Tooltip in beiden Modi über CUSTOM_HELP_TOOLTIP (siehe toolbarAction);
                     // der lange Tooltip wird stets als umbrechende Beschreibung gezeigt.
                     e.presentation.text = shortLabel
@@ -750,25 +801,37 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.selectHighestMajor.button",
                     AllIcons.Actions.Play_last,
-                    { isBulkVersionSelectionEnabled() },
+                    { isBulkVersionSelectionEnabledForCurrentView() },
                     descriptionProvider = {
                         bulkSelectionActionDescription(
                             MyMessageBundle.message("toolwindow.MyToolWindow.selectHighestMajor.button")
                         )
                     },
                     isMenuItem = true
-                ) { selectHighestMajorVersionForAll() })
+                ) {
+                    if (showingTransitiveView) transitiveVulnerabilitiesView.selectHighestMajorVersionForAll()
+                    else selectHighestMajorVersionForAll()
+                })
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.selectHighestMinor.button",
                     AllIcons.Actions.Play_forward,
-                    { isBulkVersionSelectionEnabled() },
+                    { isBulkVersionSelectionEnabledForCurrentView() },
                     descriptionProvider = {
                         bulkSelectionActionDescription(
                             MyMessageBundle.message("toolwindow.MyToolWindow.selectHighestMinor.button")
                         )
                     },
                     isMenuItem = true
-                ) { selectHighestMinorVersionForAll() })
+                ) {
+                    if (showingTransitiveView) transitiveVulnerabilitiesView.selectHighestMinorVersionForAll()
+                    else selectHighestMinorVersionForAll()
+                })
+                add(toolbarAction(
+                    "toolwindow.MyToolWindow.selectRecommended.button",
+                    AllIcons.Actions.Checked,
+                    { isRecommendedSelectionEnabledForCurrentView() },
+                    isMenuItem = true
+                ) { transitiveVulnerabilitiesView.selectRecommendedVersionForAll() })
             }
 
             toolbarGroup.apply {
@@ -780,8 +843,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.checkUpdates.button",
                     AllIcons.Actions.Find,
-                    { !isUpdating },
-                    shortLabelKey = "toolwindow.MyToolWindow.checkUpdates.button.short"
+                    { isCheckUpdatesEnabled() },
+                    shortLabelKey = "toolwindow.MyToolWindow.checkUpdates.button.short",
+                    descriptionProvider = { currentCheckUpdatesDescription() }
                 ) { refreshAction(true, true, false) })
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.checkVulnerabilities.button",
@@ -800,12 +864,15 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.resetVersions.button",
                     AllIcons.Actions.Undo,
-                    { isResetVersionsEnabled() },
+                    { isResetVersionsEnabledForCurrentView() },
                     shortLabelKey = "toolwindow.MyToolWindow.resetVersions.button.short",
                     descriptionProvider = {
                         MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.tooltip")
                     }
-                ) { confirmAndResetAllVersionsToCurrent() })
+                ) {
+                    if (showingTransitiveView) confirmAndResetTransitiveSelections()
+                    else confirmAndResetAllVersionsToCurrent()
+                })
                 addSeparator()
                 add(openInRepositoryAction)
                 add(toolbarAction(
@@ -821,12 +888,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     { true }
                 ) { openSettings() })
             }
-            val toolbar = ActionManager.getInstance()
-                .createActionToolbar("MavenUpToolWindow", toolbarGroup, true)
-            toolbar.targetComponent = table
-            actionToolbar = toolbar
-
-            topPanel.add(toolbar.component, BorderLayout.NORTH)
+            installToolbars()
             topPanel.add(buildFilterPanel(), BorderLayout.SOUTH)
             add(topPanel, BorderLayout.NORTH)
 
@@ -854,11 +916,68 @@ class MavenUpWindowFactory : ToolWindowFactory {
         override fun dispose() = Unit
 
         /**
-         * Fordert die obere Aktionsleiste auf, den Aktivierungszustand und die Beschriftungen
+         * Verbindet die Komponente mit den Tabs des Tool Windows.
+         *
+         * Registriert einen [ContentManagerListener], der einen Tab-Wechsel in [showingTransitiveView]
+         * überträgt, und setzt den Titel des transitiven Tabs initial.
+         *
+         * @param manager ContentManager des Tool Windows.
+         * @param dependencies Tab mit der Hauptabhängigkeitstabelle.
+         * @param transitive Tab mit der transitiven Sicherheitslücken-Ansicht.
+         */
+        internal fun bindTabs(manager: ContentManager, dependencies: Content, transitive: Content) {
+            contentManager = manager
+            dependenciesTab = dependencies
+            transitiveTab = transitive
+            manager.addContentManagerListener(object : ContentManagerListener {
+                override fun selectionChanged(event: ContentManagerEvent) = applySelectedTab()
+            })
+            updateTransitiveTabTitle()
+            applySelectedTab()
+        }
+
+        /**
+         * Erzeugt eine Aktionsleiste über der gemeinsamen [toolbarGroup] für die angegebene Zielkomponente.
+         *
+         * Beide Tabs benötigen eine eigene Instanz, da eine Swing-Komponente nur einen Container haben kann.
+         *
+         * @param target Komponente, gegen die die Aktionen ihren Kontext auflösen.
+         * @return Die neu erzeugte Aktionsleiste.
+         */
+        private fun createToolbar(target: JComponent): ActionToolbar =
+            ActionManager.getInstance()
+                .createActionToolbar("MavenUpToolWindow", toolbarGroup, true)
+                .also { it.targetComponent = target }
+
+        /**
+         * Erzeugt die Aktionsleisten beider Tabs und hängt sie in ihre Container ein.
+         *
+         * Bereits vorhandene Aktionsleisten werden zuvor entfernt, damit ein geänderter Text-/Icon-Modus
+         * wirksam wird. Muss auf dem Event Dispatch Thread laufen.
+         */
+        private fun installToolbars() {
+            actionToolbar?.let { topPanel.remove(it.component) }
+            val dependenciesBar = createToolbar(content)
+            actionToolbar = dependenciesBar
+            topPanel.add(dependenciesBar.component, BorderLayout.NORTH)
+            topPanel.revalidate()
+            topPanel.repaint()
+
+            transitiveActionToolbar?.let { transitiveTopPanel.remove(it.component) }
+            val transitiveBar = createToolbar(transitiveVulnerabilitiesView)
+            transitiveActionToolbar = transitiveBar
+            transitiveTopPanel.add(transitiveBar.component, BorderLayout.NORTH)
+            transitiveTopPanel.revalidate()
+            transitiveTopPanel.repaint()
+        }
+
+        /**
+         * Fordert die Aktionsleisten beider Tabs auf, den Aktivierungszustand und die Beschriftungen
          * ihrer Aktionen neu zu berechnen.
          */
         private fun refreshToolbar() {
             actionToolbar?.updateActionsAsync()
+            transitiveActionToolbar?.updateActionsAsync()
         }
 
         /**
@@ -878,28 +997,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * @return Die direkt in der Aktionsleiste registrierten Aktionen in ihrer Reihenfolge.
          */
         internal fun topToolbarActions(): Array<AnAction> = toolbarGroup.childActionsOrStubs
-
-        /**
-         * Erzeugt einen Renderer, der die [TriStateFilter]-Werte einer Filter-Combobox mit
-         * kontextspezifischen, selbsterklärenden Texten anzeigt.
-         *
-         * @param labels Die Message-Bundle-Schlüssel der Optionstexte des jeweiligen Filters.
-         * @return Ein [ListCellRenderer] für die Filter-Combobox.
-         */
-        private fun triStateFilterRenderer(labels: TriStateFilterLabels): ListCellRenderer<in TriStateFilter> =
-            object : DefaultListCellRenderer() {
-                override fun getListCellRendererComponent(
-                    list: JList<*>?,
-                    value: Any?,
-                    index: Int,
-                    isSelected: Boolean,
-                    cellHasFocus: Boolean
-                ): Component {
-                    val text = (value as? TriStateFilter)?.let { triStateFilterOptionLabel(it, labels) }
-                        ?: value?.toString()
-                    return super.getListCellRendererComponent(list, text, index, isSelected, cellHasFocus)
-                }
-            }
 
         /**
          * Erstellt die Filterzeile mit Typ-, Updates-, Änderungs- und Vulnerabilities-Combobox sowie Textfeld unterhalb der Aktionsleiste.
@@ -1040,29 +1137,81 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
-         * Installiert einen Kopfzeilen-Renderer, der die Sortierbarkeit der Spalten sichtbar macht.
+         * Prüft, ob nach dem letzten Scan mindestens eine transitive, verwundbare Abhängigkeit vorliegt.
          *
-         * Sortierbare Spalten erhalten ein rechtsbündiges Icon: einen gedämpften Doppelpfeil im
-         * unsortierten Zustand sowie einen Auf-/Ab-Pfeil bei aktiver Sortierung. Nicht sortierbare
-         * Spalten bleiben ohne Icon. Der ursprüngliche Renderer wird für das Look-and-Feel-konforme
-         * Aussehen der Kopfzeile weiterverwendet.
-         *
-         * @param table Die Tabelle, deren Kopfzeile den Sortier-Indikator anzeigen soll.
+         * @return `true`, wenn eine transitive Koordinate mindestens eine Sicherheitswarnung besitzt.
          */
-        private fun installSortableHeaderRenderer(table: JBTable) {
-            val originalRenderer = table.tableHeader.defaultRenderer
-            table.tableHeader.defaultRenderer = TableCellRenderer { tbl, value, isSelected, hasFocus, row, column ->
-                val component = originalRenderer.getTableCellRendererComponent(tbl, value, isSelected, hasFocus, row, column)
-                if (component is JLabel) {
-                    val modelColumn = tbl.convertColumnIndexToModel(column)
-                    val sorter = tbl.rowSorter
-                    val sortable = sorter is TableRowSorter<*> && sorter.isSortable(modelColumn)
-                    val sortOrder = sorter?.sortKeys?.firstOrNull { it.column == modelColumn }?.sortOrder
-                    component.icon = sortableHeaderIcon(sortable, sortOrder)
-                    component.horizontalTextPosition = SwingConstants.LEADING
-                }
-                component
+        internal fun hasTransitiveVulnerabilities(): Boolean = transitiveVulnerabilityCount() > 0
+
+        /**
+         * Zählt die transitiven Koordinaten, für die mindestens eine Sicherheitswarnung vorliegt.
+         *
+         * @return Anzahl der verwundbaren transitiven Abhängigkeiten.
+         */
+        internal fun transitiveVulnerabilityCount(): Int =
+            transitiveCoordinates.count { vulnerabilityAdvisories[it]?.isNotEmpty() == true }
+
+        /**
+         * Wählt den Tab der Hauptabhängigkeitstabelle oder den der transitiven Sicherheitslücken-Ansicht.
+         *
+         * Sind die Tabs noch nicht über [bindTabs] verbunden (z.B. in Tests ohne Tool Window), wird nur
+         * der interne Zustand geführt.
+         *
+         * @param visible `true`, um den transitiven Tab zu wählen, `false` für die Hauptabhängigkeitstabelle.
+         */
+        internal fun setTransitiveViewVisible(visible: Boolean) {
+            val manager = contentManager
+            val target = if (visible) transitiveTab else dependenciesTab
+            if (manager != null && target != null) {
+                manager.setSelectedContent(target)
+                applySelectedTab()
+                return
             }
+            if (showingTransitiveView == visible) return
+            showingTransitiveView = visible
+            refreshToolbar()
+        }
+
+        /**
+         * Übernimmt den aktuell ausgewählten Tab in den internen Zustand und aktualisiert die
+         * Aktionsleisten, damit die Toolbar-Aktionen auf die sichtbare Tabelle wirken.
+         */
+        private fun applySelectedTab() {
+            val transitive = transitiveTab ?: return
+            val visible = contentManager?.selectedContent === transitive
+            if (showingTransitiveView == visible) return
+            showingTransitiveView = visible
+            refreshToolbar()
+        }
+
+        /**
+         * Schreibt die Anzahl der verwundbaren transitiven Koordinaten in den Titel des transitiven Tabs.
+         *
+         * Der Tab bleibt bewusst stets auswählbar; ohne Funde erklärt der Empty State der Tabelle, wie
+         * Ergebnisse erzeugt werden.
+         */
+        private fun updateTransitiveTabTitle() {
+            val count = transitiveVulnerabilityCount()
+            transitiveTab?.displayName = if (count > 0) {
+                MyMessageBundle.message("toolwindow.MyToolWindow.tab.transitiveView.withCount", count)
+            } else {
+                MyMessageBundle.message("toolwindow.MyToolWindow.tab.transitiveView")
+            }
+        }
+
+        /**
+         * Aktualisiert die transitive Sicherheitslücken-Ansicht mit den aktuellen Scan-Ergebnissen
+         * und schreibt die Anzahl der Funde in den Tab-Titel.
+         */
+        internal fun updateTransitiveVulnerabilitiesView() {
+            transitiveVulnerabilitiesView.update(
+                vulnerabilityAdvisories,
+                transitiveCoordinates,
+                knownTypes,
+                availableVersions + transitiveAvailableVersions
+            )
+            updateTransitiveTabTitle()
+            refreshToolbar()
         }
 
         /**
@@ -1236,20 +1385,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
-         * Baut die obere Aktionsleiste neu auf, damit ein geänderter Text-/Icon-Modus wirksam wird.
-         * Ersetzt die bestehende Aktionsleiste im Nordbereich durch eine neu erstellte Instanz.
+         * Baut die Aktionsleisten beider Tabs neu auf, damit ein geänderter Text-/Icon-Modus wirksam wird.
          * Muss auf dem Event Dispatch Thread laufen.
          */
-        private fun rebuildToolbar() {
-            actionToolbar?.let { topPanel.remove(it.component) }
-            val toolbar = ActionManager.getInstance()
-                .createActionToolbar("MavenUpToolWindow", toolbarGroup, true)
-            toolbar.targetComponent = table
-            actionToolbar = toolbar
-            topPanel.add(toolbar.component, BorderLayout.NORTH)
-            topPanel.revalidate()
-            topPanel.repaint()
-        }
+        private fun rebuildToolbar() = installToolbars()
 
         /**
          * Wendet die Auto-Selektionsstrategie nur dann erneut an, wenn sich ihr Wert geändert hat.
@@ -1490,7 +1629,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 }
                 val confirmed = MessageDialogBuilder
                     .yesNo(
-                        MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.confirm.title"),
+                        MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_RESET_VERSIONS_CONFIRM_TITLE),
                         MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.confirm.message")
                     )
                     .icon(Messages.getWarningIcon())
@@ -1509,24 +1648,34 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * der Benutzer ab, bleibt die aktuelle Auswahl unverändert.
          */
         private fun confirmAndResetWithActiveFilter() {
+            when (askResetScopeWithActiveFilter()) {
+                0 -> resetAllVersionsToCurrent()
+                1 -> resetVisibleVersionsToCurrent()
+                else -> return
+            }
+        }
+
+        /**
+         * Zeigt den Auswahldialog für den Geltungsbereich eines Zurücksetzens bei aktivem Filter an.
+         *
+         * Der Dialog bietet drei Optionen: „Alle Abhängigkeiten", „Nur gefilterte" und „Abbrechen".
+         *
+         * @return `0` für alle, `1` für nur die gefilterten Abhängigkeiten, ein anderer Wert bei Abbruch.
+         */
+        private fun askResetScopeWithActiveFilter(): Int {
             val options = arrayOf(
                 MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.filtered.option.all"),
                 MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.filtered.option.filtered"),
                 MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.filtered.option.cancel")
             )
-            val choice = Messages.showDialog(
+            return Messages.showDialog(
                 project,
                 MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.filtered.message"),
-                MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.confirm.title"),
+                MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_RESET_VERSIONS_CONFIRM_TITLE),
                 options,
                 0,
                 Messages.getWarningIcon()
             )
-            when (choice) {
-                0 -> resetAllVersionsToCurrent()
-                1 -> resetVisibleVersionsToCurrent()
-                else -> return
-            }
         }
 
         /**
@@ -1582,9 +1731,13 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /**
          * Prüft, ob der aktive Zeilenfilter aktuell Einträge ausblendet.
          *
+         * Berücksichtigt die jeweils sichtbare Ansicht: in der transitiven Ansicht deren eigenen Filter,
+         * sonst den Filter der Haupttabelle.
+         *
          * @return `true`, wenn weniger Zeilen sichtbar sind als das Tabellenmodell enthält.
          */
         internal fun isRowFilterHidingEntries(): Boolean {
+            if (showingTransitiveView) return transitiveVulnerabilitiesView.isRowFilterHidingEntries()
             val model = table.model as? DefaultTableModel ?: return false
             return table.rowCount < model.rowCount
         }
@@ -1618,6 +1771,113 @@ class MavenUpWindowFactory : ToolWindowFactory {
          */
         internal fun isResetVersionsEnabled(): Boolean =
             !isUpdating && hasSelectedUpdates()
+
+        /**
+         * Prüft, ob die Suche nach neuen Versionen ausführbar ist.
+         *
+         * Die Aktion wirkt ausschließlich auf die Haupttabelle: Sie verwirft deren offene Versionsauswahlen
+         * und lädt Versionen nur für direkte Abhängigkeiten. In der transitiven Sicherheitslücken-Ansicht
+         * hätte sie daher keine sichtbare Wirkung, würde aber unbemerkt Auswahlen der Haupttabelle löschen.
+         * Deshalb ist sie dort deaktiviert.
+         *
+         * @return `true`, wenn gerade kein Update läuft und die Haupttabelle sichtbar ist.
+         */
+        internal fun isCheckUpdatesEnabled(): Boolean = !isUpdating && !showingTransitiveView
+
+        /**
+         * Liefert den Tooltip der Aktion **Search for New Versions** passend zur aktiven Ansicht.
+         *
+         * In der transitiven Sicherheitslücken-Ansicht wird erklärt, warum die Aktion dort deaktiviert ist.
+         *
+         * @return Der anzuzeigende Tooltip-Text.
+         */
+        internal fun currentCheckUpdatesDescription(): String =
+            if (showingTransitiveView) {
+                MyMessageBundle.message("toolwindow.MyToolWindow.checkUpdates.tooltip.transitiveView")
+            } else {
+                MyMessageBundle.message("toolwindow.MyToolWindow.checkUpdates.button")
+            }
+
+        /**
+         * Prüft, ob die Sammelauswahl der höchsten Versionen für die aktuell sichtbare Ansicht ausführbar ist.
+         *
+         * In der transitiven Sicherheitslücken-Ansicht wirkt sie auf deren Zeilen, ansonsten auf die Haupttabelle.
+         *
+         * @return `true`, wenn die Sammelauswahl für die aktive Ansicht ausgeführt werden kann.
+         */
+        internal fun isBulkVersionSelectionEnabledForCurrentView(): Boolean =
+            if (showingTransitiveView) {
+                !isUpdating && transitiveVulnerabilitiesView.isBulkVersionSelectionEnabled()
+            } else {
+                isBulkVersionSelectionEnabled()
+            }
+
+        /**
+         * Prüft, ob die Auswahl der empfohlenen Fix-Version für die aktuell sichtbare Ansicht ausführbar ist.
+         *
+         * Empfohlene Fix-Versionen existieren ausschließlich in der transitiven Sicherheitslücken-Ansicht.
+         *
+         * @return `true`, wenn die transitive Ansicht sichtbar ist und mindestens eine empfohlene Fix-Version vorliegt.
+         */
+        internal fun isRecommendedSelectionEnabledForCurrentView(): Boolean =
+            !isUpdating && showingTransitiveView && transitiveVulnerabilitiesView.hasRecommendedVersions()
+
+        /**
+         * Prüft, ob das Zurücksetzen der Versionsauswahlen für die aktuell sichtbare Ansicht ausführbar ist.
+         *
+         * In der transitiven Sicherheitslücken-Ansicht wirkt es auf deren Auswahlen, ansonsten auf die Haupttabelle.
+         *
+         * @return `true`, wenn das Zurücksetzen für die aktive Ansicht ausgeführt werden kann.
+         */
+        internal fun isResetVersionsEnabledForCurrentView(): Boolean =
+            if (showingTransitiveView) {
+                !isUpdating && transitiveVulnerabilitiesView.hasPendingUpdates()
+            } else {
+                isResetVersionsEnabled()
+            }
+
+        /**
+         * Setzt die Versionsauswahlen der transitiven Sicherheitslücken-Ansicht zurück und zeigt bei
+         * aktivierter Einstellung zuvor einen Bestätigungsdialog an.
+         *
+         * Ist in der transitiven Ansicht ein Filter aktiv, wird stattdessen abgefragt, ob alle oder nur die
+         * gefilterten (sichtbaren) Koordinaten zurückgesetzt werden sollen.
+         *
+         * Ist [MavenUpSettings.State.confirmVersionReset] aktiv, wird ein Ja/Nein-Dialog angezeigt; über die
+         * Option „Don't ask again" kann der Benutzer die Bestätigung dauerhaft deaktivieren. Bricht der
+         * Benutzer ab, bleibt die aktuelle Auswahl unverändert.
+         */
+        internal fun confirmAndResetTransitiveSelections() {
+            if (!transitiveVulnerabilitiesView.hasPendingUpdates()) return
+            if (transitiveVulnerabilitiesView.filterPanel.isResetFiltersEnabled()) {
+                when (askResetScopeWithActiveFilter()) {
+                    0 -> transitiveVulnerabilitiesView.resetSelections()
+                    1 -> transitiveVulnerabilitiesView.resetVisibleSelections()
+                    else -> return
+                }
+                return
+            }
+            val settings = MavenUpSettings.getInstance()
+            if (settings.state.confirmVersionReset) {
+                val doNotAsk = object : DoNotAskOption.Adapter() {
+                    override fun rememberChoice(isSelected: Boolean, exitCode: Int) {
+                        if (isSelected && exitCode == Messages.YES) {
+                            settings.state.confirmVersionReset = false
+                        }
+                    }
+                }
+                val confirmed = MessageDialogBuilder
+                    .yesNo(
+                        MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_RESET_VERSIONS_CONFIRM_TITLE),
+                        MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.confirm.message")
+                    )
+                    .icon(Messages.getWarningIcon())
+                    .doNotAsk(doNotAsk)
+                    .ask(project)
+                if (!confirmed) return
+            }
+            transitiveVulnerabilitiesView.resetSelections()
+        }
 
         /**
          * Synchronisiert die Version-Auswahl über alle Einträge, die dieselbe Maven-Property verwenden.
@@ -1685,7 +1945,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             return knownDependencies.any { (key, currentVersion) ->
                 val newVersion = selectedVersions[key]
                 newVersion != null && newVersion != currentVersion
-            }
+            } || transitiveVulnerabilitiesView.hasPendingUpdates()
         }
 
         /**
@@ -1706,20 +1966,27 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /**
          * Prüft, ob für die aktuell selektierte Zeile die Repository-Browser-Aktion verfügbar ist.
          *
+         * Wirkt je nach aktiver Ansicht auf die Haupttabelle oder die transitive Sicherheitslücken-Ansicht.
+         *
          * @return `true`, wenn eine Zeile selektiert ist.
          */
         internal fun isOpenInRepositoryEnabled(): Boolean =
-            table.selectedRow >= 0
+            if (showingTransitiveView) transitiveVulnerabilitiesView.hasSelectedRow()
+            else table.selectedRow >= 0
 
         /**
          * Prüft, ob für die aktuell selektierte Zeile Vulnerability-Details angezeigt werden können.
          *
+         * Wirkt je nach aktiver Ansicht auf die Haupttabelle oder die transitive Sicherheitslücken-Ansicht.
+         *
          * @return `true`, wenn die selektierte Zeile mindestens eine Sicherheitswarnung besitzt.
          */
         internal fun isVulnerabilityDetailsEnabled(): Boolean {
+            if (isUpdating) return false
+            if (showingTransitiveView) return transitiveVulnerabilitiesView.selectedRowHasVulnerabilities()
             val row = table.selectedRow
             val cell = if (row >= 0) table.getValueAt(row, VULNERABILITIES_COLUMN) as? VulnerabilityCell else null
-            return !isUpdating && cell?.allAdvisories?.isNotEmpty() == true
+            return cell?.allAdvisories?.isNotEmpty() == true
         }
 
         /**
@@ -1737,8 +2004,14 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
         /**
          * Öffnet die aktuell selektierte Abhängigkeit im konfigurierten Repository-Browser.
+         *
+         * Wirkt je nach aktiver Ansicht auf die Haupttabelle oder die transitive Sicherheitslücken-Ansicht.
          */
         internal fun openInMavenRepositoryForSelectedRow() {
+            if (showingTransitiveView) {
+                transitiveVulnerabilitiesView.openSelectedInRepository()
+                return
+            }
             val row = table.selectedRow
             if (row < 0) return
             val groupId = table.getValueAt(row, GROUP_ID_COLUMN)?.toString().orEmpty()
@@ -1749,8 +2022,14 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
         /**
          * Öffnet den Vulnerability-Details-Dialog für die aktuell selektierte Abhängigkeit.
+         *
+         * Wirkt je nach aktiver Ansicht auf die Haupttabelle oder die transitive Sicherheitslücken-Ansicht.
          */
         internal fun openVulnerabilityDetailsForSelectedRow() {
+            if (showingTransitiveView) {
+                transitiveVulnerabilitiesView.openSelectedVulnerabilityDetails()
+                return
+            }
             val row = table.selectedRow
             if (row < 0) return
             val cell = table.getValueAt(row, VULNERABILITIES_COLUMN) as? VulnerabilityCell
@@ -1768,9 +2047,12 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
         /**
          * Sammelt alle in der UI ausgewählten Updates, für die eine neue Version gewählt wurde.
+         *
+         * Enthält sowohl die Auswahlen der Haupttabelle als auch die in der transitiven Ansicht
+         * gepinnten Versionen (als verwaltete Abhängigkeiten).
          */
         internal fun collectSelectedUpdates(): List<DependencyUpdate> {
-            return selectedVersions.mapNotNull { (key, newVersion) ->
+            val mainUpdates = selectedVersions.mapNotNull { (key, newVersion) ->
                 val currentVersion = knownDependencies[key] ?: return@mapNotNull null
                 val type = knownTypes[key] ?: return@mapNotNull null
                 if (newVersion == currentVersion) return@mapNotNull null
@@ -1783,6 +2065,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     newVersion
                 )
             }
+            return mainUpdates + transitiveVulnerabilitiesView.collectPendingUpdates()
         }
 
         /**
@@ -1834,13 +2117,46 @@ class MavenUpWindowFactory : ToolWindowFactory {
                             "Results for ${results.size} entries, $vulnerableEntries entries with known vulnerabilities."
                     )
 
+                    val transitiveVersions = fetchVulnerableTransitiveVersions(scanTargets, results, indicator)
+
                     ApplicationManager.getApplication().invokeLater {
+                        transitiveAvailableVersions.clear()
+                        transitiveAvailableVersions.putAll(transitiveVersions)
                         applyVulnerabilityResults(results, scanTargets)
                         ossIndexScan.errorMessage?.let(::showOssIndexError)
                         onFinished()
                     }
                 }
             })
+        }
+
+        /**
+         * Ermittelt für die verwundbaren transitiven Koordinaten des Scans die verfügbaren Versionen.
+         *
+         * Beschränkt die (netzwerklastige) Versionsabfrage auf transitive Koordinaten mit mindestens
+         * einer Sicherheitswarnung, sodass die New-Version-Spalte der transitiven Ansicht bereits nach
+         * dem Scan – ohne separate Versionssuche – auswählbare Versionen anbietet.
+         *
+         * @param scanTargets Die Scan-Ziele mit allen transitiven Koordinaten.
+         * @param results Die zusammengeführten Scan-Ergebnisse je Koordinate.
+         * @param indicator Der Fortschrittsindikator der laufenden Hintergrundaufgabe.
+         * @return Zuordnung von `groupId:artifactId` zu den verfügbaren Versionen.
+         */
+        private fun fetchVulnerableTransitiveVersions(
+            scanTargets: VulnerabilityScanTargets,
+            results: Map<String, List<VulnerabilityAdvisory>>,
+            indicator: ProgressIndicator
+        ): Map<String, List<String>> {
+            val coordinates = scanTargets.transitiveCoordinates
+                .filter { results[it]?.isNotEmpty() == true }
+                .mapNotNull { coordinate ->
+                    val parts = coordinate.split(":")
+                    if (parts.size < 3) null
+                    else "${parts[0]}:${parts[1]}" to parts.drop(2).joinToString(":")
+                }
+                .toMap()
+            if (coordinates.isEmpty()) return emptyMap()
+            return dependencyVersionService.fetchAvailableVersions(coordinates, indicator)
         }
 
         /**
@@ -1857,6 +2173,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             transitiveDependenciesByDirect.clear()
             transitiveDependenciesByDirect.putAll(scanTargets.transitiveDependenciesByDirect)
             vulnerabilityScanPerformed = true
+            updateTransitiveVulnerabilitiesView()
         }
 
         /**
@@ -1906,9 +2223,14 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
-         * Liefert die UI-Komponente des Tool Windows zurück.
+         * Liefert die UI-Komponente des Tabs **Dependencies**.
          */
         fun getContent(): JBPanel<JBPanel<*>> = content
+
+        /**
+         * Liefert die UI-Komponente des Tabs **Transitive CVEs**.
+         */
+        fun getTransitiveContent(): JBPanel<JBPanel<*>> = transitiveContent
 
         /**
          * Öffnet die Plugin-Einstellungen.

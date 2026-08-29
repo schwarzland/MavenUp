@@ -32,7 +32,12 @@ internal const val OSS_INDEX_ACCOUNT_URL = "https://ossindex.sonatype.org"
  * Sie implementiert das [Configurable]-Interface von IntelliJ und ermöglicht es dem Benutzer:
  * - UI-Verhalten anzupassen (z. B. Sprung bei Einzelklick).
  * - Filter für instabile Versionen zu konfigurieren.
+ * - Das Schreibverhalten beim Anwenden von Updates auf die `pom.xml` zu steuern (z. B. Maven-Sync,
+ *   erklärender Kommentar bei Schwachstellen-Fixes).
  * - Sicherheitsprüfungen (OSS Index) zu aktivieren und Zugangsdaten zu verwalten.
+ *
+ * Die Einstellungen sind in der UI in die Gruppen **Appearance**, **Versions and Updates**,
+ * **Pom.xml Changes** und **Vulnerability Check** gegliedert.
  *
  * Die Klasse wird benötigt, um die Plugin-Einstellungen in den IDE-Einstellungen anzuzeigen
  * und Änderungen an [MavenUpSettings] sowie [OssIndexCredentialStore] zu persistieren.
@@ -55,6 +60,7 @@ class MavenUpConfigurable internal constructor(
     private var hiddenVersionQualifiersLabel: JLabel? = null
     private var hiddenVersionQualifiersField: JTextField? = null
     private var checkTransitiveDependenciesCheckBox: JBCheckBox? = null
+    private var addVulnerabilityFixCommentCheckBox: JBCheckBox? = null
     private var ossIndexEnabledCheckBox: JBCheckBox? = null
     private var ossIndexTokenLabel: JLabel? = null
     private var ossIndexTokenField: JPasswordField? = null
@@ -178,6 +184,8 @@ class MavenUpConfigurable internal constructor(
                         }
                         .component
                 }
+            }
+            group(MyMessageBundle.message("settings.group.pomChanges")) {
                 row {
                     syncMavenAfterUpdateCheckBox = checkBox(MyMessageBundle.message("settings.syncMavenAfterUpdate"))
                         .applyToComponent {
@@ -185,6 +193,15 @@ class MavenUpConfigurable internal constructor(
                             toolTipText = MyMessageBundle.message("settings.syncMavenAfterUpdate.tooltip")
                         }
                         .component
+                }
+                row {
+                    addVulnerabilityFixCommentCheckBox =
+                        checkBox(MyMessageBundle.message("settings.addVulnerabilityFixComment"))
+                            .applyToComponent {
+                                isSelected = settings.state.addVulnerabilityFixComment
+                                toolTipText = MyMessageBundle.message("settings.addVulnerabilityFixComment.tooltip")
+                            }
+                            .component
                 }
             }
             group(MyMessageBundle.message("settings.group.vulnerability")) {
@@ -242,21 +259,31 @@ class MavenUpConfigurable internal constructor(
      * Prüft, ob der Benutzer Änderungen an den Einstellungen vorgenommen hat, die noch nicht gespeichert wurden.
      */
     override fun isModified(): Boolean {
-        val settings = MavenUpSettings.getInstance()
-        return jumpOnSingleClickCheckBox?.isSelected != settings.state.jumpOnSingleClick ||
-                repositoryBrowserComboBox?.selectedItem != settings.state.repositoryBrowser ||
-                toolbarShowTextCheckBox?.isSelected != settings.state.toolbarShowText ||
-                syncMavenAfterUpdateCheckBox?.isSelected != settings.state.syncMavenAfterUpdate ||
-                stopAfterCentralSuccessCheckBox?.isSelected != settings.state.stopAfterCentralSuccess ||
-                versionAutoSelectionModeComboBox?.selectedItem != settings.state.versionAutoSelectionMode ||
-                offerAllVersionsCheckBox?.isSelected != settings.state.offerAllVersions ||
-                confirmVersionResetCheckBox?.isSelected != settings.state.confirmVersionReset ||
-                hideUnstableVersionsCheckBox?.isSelected != settings.state.hideUnstableVersions ||
-                hiddenVersionQualifiersField?.text != settings.state.hiddenVersionQualifiers ||
-                checkTransitiveDependenciesCheckBox?.isSelected != settings.state.checkTransitiveDependencies ||
-                ossIndexEnabledCheckBox?.isSelected != settings.state.ossIndexEnabled ||
-                credentialsLoaded && currentToken() != storedToken
+        val state = MavenUpSettings.getInstance().state
+        val comparisons: List<Pair<Any?, Any?>> = listOf(
+            jumpOnSingleClickCheckBox?.isSelected to state.jumpOnSingleClick,
+            repositoryBrowserComboBox?.selectedItem to state.repositoryBrowser,
+            toolbarShowTextCheckBox?.isSelected to state.toolbarShowText,
+            syncMavenAfterUpdateCheckBox?.isSelected to state.syncMavenAfterUpdate,
+            stopAfterCentralSuccessCheckBox?.isSelected to state.stopAfterCentralSuccess,
+            versionAutoSelectionModeComboBox?.selectedItem to state.versionAutoSelectionMode,
+            offerAllVersionsCheckBox?.isSelected to state.offerAllVersions,
+            confirmVersionResetCheckBox?.isSelected to state.confirmVersionReset,
+            hideUnstableVersionsCheckBox?.isSelected to state.hideUnstableVersions,
+            hiddenVersionQualifiersField?.text to state.hiddenVersionQualifiers,
+            checkTransitiveDependenciesCheckBox?.isSelected to state.checkTransitiveDependencies,
+            addVulnerabilityFixCommentCheckBox?.isSelected to state.addVulnerabilityFixComment,
+            ossIndexEnabledCheckBox?.isSelected to state.ossIndexEnabled
+        )
+        return comparisons.any { (uiValue, storedValue) -> uiValue != storedValue } || isTokenModified()
     }
+
+    /**
+     * Prüft, ob das eingegebene OSS-Index-Token vom gespeicherten Token abweicht.
+     * Liefert nur dann `true`, wenn die Zugangsdaten bereits geladen wurden.
+     * @return `true`, wenn das Token geändert wurde.
+     */
+    private fun isTokenModified(): Boolean = credentialsLoaded && currentToken() != storedToken
 
     /**
      * Speichert die vom Benutzer vorgenommenen Änderungen in [MavenUpSettings] und [OssIndexCredentialStore].
@@ -286,6 +313,7 @@ class MavenUpConfigurable internal constructor(
         settings.state.hideUnstableVersions = hideUnstableVersionsCheckBox?.isSelected ?: false
         settings.state.hiddenVersionQualifiers = hiddenVersionQualifiersField?.text?.trim().orEmpty()
         settings.state.checkTransitiveDependencies = checkTransitiveDependenciesCheckBox?.isSelected ?: true
+        settings.state.addVulnerabilityFixComment = addVulnerabilityFixCommentCheckBox?.isSelected ?: true
         settings.state.ossIndexEnabled = ossIndexEnabled
         if (credentialsLoaded) {
             storedToken = ossIndexToken
@@ -311,6 +339,7 @@ class MavenUpConfigurable internal constructor(
         hideUnstableVersionsCheckBox?.isSelected = settings.state.hideUnstableVersions
         hiddenVersionQualifiersField?.text = settings.state.hiddenVersionQualifiers
         checkTransitiveDependenciesCheckBox?.isSelected = settings.state.checkTransitiveDependencies
+        addVulnerabilityFixCommentCheckBox?.isSelected = settings.state.addVulnerabilityFixComment
         ossIndexEnabledCheckBox?.isSelected = settings.state.ossIndexEnabled
         credentialsLoaded = false
         storedToken = ""
@@ -339,6 +368,7 @@ class MavenUpConfigurable internal constructor(
         hiddenVersionQualifiersLabel = null
         hiddenVersionQualifiersField = null
         checkTransitiveDependenciesCheckBox = null
+        addVulnerabilityFixCommentCheckBox = null
         ossIndexEnabledCheckBox = null
         ossIndexTokenLabel = null
         ossIndexTokenField = null

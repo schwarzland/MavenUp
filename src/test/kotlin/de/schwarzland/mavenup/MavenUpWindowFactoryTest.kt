@@ -11,6 +11,7 @@ import de.schwarzland.mavenup.service.VersionAutoSelectionMode
 import de.schwarzland.mavenup.ui.buildMavenRepositoryUrl
 import de.schwarzland.mavenup.ui.GROUP_ID_COLUMN
 import de.schwarzland.mavenup.ui.MavenUpWindowFactory
+import de.schwarzland.mavenup.ui.TransitiveVulnerabilitiesView
 import de.schwarzland.mavenup.ui.UpdateConfirmationDialog
 import de.schwarzland.mavenup.service.RefreshSnapshotCollector
 import de.schwarzland.mavenup.ui.MyMessageBundle
@@ -29,10 +30,35 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.openapi.application.ReadAction
 import com.intellij.util.concurrency.AppExecutorUtil
 import com.intellij.ui.table.JBTable
+import com.intellij.ui.content.Content
+import com.intellij.ui.content.ContentFactory
+import com.intellij.ui.content.ContentManager
 import java.awt.Container
 import java.util.concurrent.TimeUnit
 
 class MavenUpWindowFactoryTest : BasePlatformTestCase() {
+
+    /**
+     * Registriert ein Test-Tool-Window, baut den Plugin-Inhalt hinein und führt [block] mit dessen
+     * [ContentManager] aus. Das Tool Window wird anschließend wieder abgemeldet.
+     */
+    @Suppress("OverrideOnly", "DEPRECATION")
+    private fun withToolWindowContents(block: (ContentManager) -> Unit) {
+        val manager = ToolWindowManager.getInstance(project)
+        val toolWindow = manager.registerToolWindow(
+            RegisterToolWindowTask(
+                id = "TestWindow",
+                anchor = ToolWindowAnchor.BOTTOM,
+                canCloseContent = true
+            )
+        )
+        try {
+            MavenUpWindowFactory().createToolWindowContent(project, toolWindow)
+            block(toolWindow.contentManager)
+        } finally {
+            manager.unregisterToolWindow("TestWindow")
+        }
+    }
 
     fun testVulnerabilityCheckAvailabilityDuringRefreshAndUpdateCheck() {
         assertTrue(canCheckVulnerabilities(isRefreshing = false, isUpdating = false))
@@ -45,10 +71,10 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val table = findTable(MavenUpWindowFactory().MyToolWindow(project).getContent())
 
         assertNotNull(table)
-        assertEquals("Current Version", table!!.model.getColumnName(4))
-        assertEquals("Vulnerabilities (Current)", table.model.getColumnName(5))
+        assertEquals("Vulnerabilities", table!!.model.getColumnName(4))
+        assertEquals("Current Version", table.model.getColumnName(5))
         assertEquals("New Version", table.model.getColumnName(6))
-        assertFalse(table.model.isCellEditable(0, 5))
+        assertFalse(table.model.isCellEditable(0, 4))
         assertTrue(table.model.isCellEditable(0, 6))
     }
 
@@ -57,15 +83,15 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertNotNull(table)
 
         val model = table!!.model as javax.swing.table.DefaultTableModel
-        model.addRow(arrayOf<Any?>("org.b", "b-lib", null, "dependency", "1.0.0", null, emptyList<String>()))
-        model.addRow(arrayOf<Any?>("org.a", "a-lib", null, "dependency", "2.0.0", null, emptyList<String>()))
+        model.addRow(arrayOf<Any?>("org.b", "b-lib", null, "dependency", null, "1.0.0", emptyList<String>()))
+        model.addRow(arrayOf<Any?>("org.a", "a-lib", null, "dependency", null, "2.0.0", emptyList<String>()))
 
         @Suppress("UNCHECKED_CAST")
         val sorter = table.rowSorter as javax.swing.table.TableRowSorter<javax.swing.table.DefaultTableModel>
 
         // Current-Version- und New-Version-Spalte sind nicht sortierbar; die Vulnerabilities-Spalte ist sortierbar.
-        assertFalse(sorter.isSortable(4))
-        assertTrue(sorter.isSortable(5))
+        assertTrue(sorter.isSortable(4))
+        assertFalse(sorter.isSortable(5))
         assertFalse(sorter.isSortable(6))
         assertTrue(sorter.isSortable(0))
 
@@ -123,18 +149,18 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertNotNull(table)
 
         val model = table!!.model as javax.swing.table.DefaultTableModel
-        model.addRow(arrayOf<Any?>("org.x", "x-lib", null, "dependency", "1.9.0", null, emptyList<String>()))
-        model.addRow(arrayOf<Any?>("org.y", "y-lib", null, "dependency", "1.10.0", null, emptyList<String>()))
+        model.addRow(arrayOf<Any?>("org.x", "x-lib", null, "dependency", null, "1.9.0", emptyList<String>()))
+        model.addRow(arrayOf<Any?>("org.y", "y-lib", null, "dependency", null, "1.10.0", emptyList<String>()))
 
         @Suppress("UNCHECKED_CAST")
         val sorter = table.rowSorter as javax.swing.table.TableRowSorter<javax.swing.table.DefaultTableModel>
-        assertFalse(sorter.isSortable(4))
+        assertFalse(sorter.isSortable(5))
 
         // Ein Klick auf die Kopfzeile ändert die Reihenfolge nicht.
-        sorter.toggleSortOrder(4)
+        sorter.toggleSortOrder(5)
         assertTrue(sorter.sortKeys.isEmpty())
-        assertEquals("1.9.0", table.getValueAt(0, 4))
-        assertEquals("1.10.0", table.getValueAt(1, 4))
+        assertEquals("1.9.0", table.getValueAt(0, 5))
+        assertEquals("1.10.0", table.getValueAt(1, 5))
     }
 
     fun testToolWindowIconResourceIsAvailable() {
@@ -210,22 +236,9 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertFalse("ToolWindow sollte ohne Maven-Projekte nicht verfügbar sein", factory.shouldBeAvailable(project))
     }
 
-    @Suppress("OverrideOnly", "DEPRECATION")
     fun testToolWindowContentCreation() {
-        val factory = MavenUpWindowFactory()
-        val toolWindow = ToolWindowManager.getInstance(project).registerToolWindow(
-            RegisterToolWindowTask(
-                id = "TestWindow",
-                anchor = ToolWindowAnchor.BOTTOM,
-                canCloseContent = true
-            )
-        )
-
-        try {
-            factory.createToolWindowContent(project, toolWindow)
-            assertTrue("Content sollte zum ToolWindow hinzugefügt worden sein", toolWindow.contentManager.contentCount > 0)
-        } finally {
-            ToolWindowManager.getInstance(project).unregisterToolWindow("TestWindow")
+        withToolWindowContents { contentManager ->
+            assertTrue("Content sollte zum ToolWindow hinzugefügt worden sein", contentManager.contentCount > 0)
         }
     }
 
@@ -545,7 +558,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         // wodurch datumsbasierte Versionen (Major 2023/2025) vor der aktuellen 24.0 stehen.
         val versions = listOf("2025-1234", "2023-1234", "24.0")
         model.addRow(
-            arrayOf("com.example", "jump-lib", "", "dependency", "24.0", null, versions)
+            arrayOf("com.example", "jump-lib", "", "dependency", null, "24.0", versions)
         )
 
         val renderer = table.columnModel.getColumn(6).cellRenderer
@@ -584,7 +597,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         val model = table!!.model as javax.swing.table.DefaultTableModel
         model.addRow(
-            arrayOf("com.example", "my-lib", "", "dependency", "1.0.0", null, listOf("1.1.0", "1.0.0"))
+            arrayOf("com.example", "my-lib", "", "dependency", null, "1.0.0", listOf("1.1.0", "1.0.0"))
         )
 
         // Bearbeitung der Spalte "New Version" starten
@@ -632,6 +645,102 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
             "Die Confirm-Changes-Tabelle sollte kein Umordnen der Spalten erlauben",
             table.tableHeader.reorderingAllowed
         )
+    }
+
+    fun testConfirmChangesDialogFirstThreeColumnsAreSortable() {
+        val updates = listOf(
+            DependencyUpdate("com.example", "demo-lib", "dependency", "1.0.0", "1.1.0")
+        )
+        val table = UpdateConfirmationDialog(project, updates).buildTable()
+        val sorter = table.rowSorter as javax.swing.table.TableRowSorter<*>
+        for (column in 0 until UpdateConfirmationDialog.CONFIRM_CURRENT_VERSION_COLUMN) {
+            assertTrue("Spalte $column sollte sortierbar sein", sorter.isSortable(column))
+        }
+        for (column in UpdateConfirmationDialog.CONFIRM_CURRENT_VERSION_COLUMN until table.columnCount) {
+            assertFalse("Versionsspalte $column sollte nicht sortierbar sein", sorter.isSortable(column))
+        }
+    }
+
+    fun testConfirmChangesDialogSortsTextColumnsCaseInsensitively() {
+        val updates = listOf(
+            DependencyUpdate("org.zulu", "zeta-lib", "dependency", "1.0.0", "1.1.0"),
+            DependencyUpdate("com.Alpha", "alpha-lib", "dependency", "2.0.0", "2.1.0")
+        )
+        val table = UpdateConfirmationDialog(project, updates).buildTable()
+        table.rowSorter.toggleSortOrder(0)
+        assertEquals(
+            "Nach aufsteigender Sortierung sollte com.Alpha zuerst stehen",
+            "com.Alpha",
+            table.getValueAt(0, 0)
+        )
+        table.rowSorter.toggleSortOrder(0)
+        assertEquals(
+            "Nach absteigender Sortierung sollte org.zulu zuerst stehen",
+            "org.zulu",
+            table.getValueAt(0, 0)
+        )
+    }
+
+    fun testConfirmChangesDialogSortCycleReturnsToOriginalOrder() {
+        val updates = listOf(
+            DependencyUpdate("org.zulu", "zeta-lib", "dependency", "1.0.0", "1.1.0"),
+            DependencyUpdate("com.alpha", "alpha-lib", "dependency", "2.0.0", "2.1.0")
+        )
+        val table = UpdateConfirmationDialog(project, updates).buildTable()
+        repeat(3) { table.rowSorter.toggleSortOrder(0) }
+        assertTrue(
+            "Der dritte Klick sollte die Sortierung aufheben",
+            table.rowSorter.sortKeys.isEmpty()
+        )
+        assertEquals(
+            "Ohne Sortierung sollte die ursprüngliche Reihenfolge gelten",
+            "org.zulu",
+            table.getValueAt(0, 0)
+        )
+    }
+
+    fun testConfirmChangesDialogIgnoresToggleOnNonSortableColumn() {
+        val updates = listOf(
+            DependencyUpdate("com.example", "demo-lib", "dependency", "1.0.0", "1.1.0")
+        )
+        val table = UpdateConfirmationDialog(project, updates).buildTable()
+        table.rowSorter.toggleSortOrder(UpdateConfirmationDialog.CONFIRM_CURRENT_VERSION_COLUMN)
+        assertTrue(
+            "Eine nicht sortierbare Spalte sollte keine Sortierung auslösen",
+            table.rowSorter.sortKeys.isEmpty()
+        )
+    }
+
+    fun testConfirmChangesDialogMarksTransitiveUpdates() {
+        val transitiveUpdate = DependencyUpdate(
+            "com.example",
+            "trans-lib",
+            "managed dependency",
+            "1.0.0",
+            "1.1.0",
+            transitive = true
+        )
+        val directUpdate = DependencyUpdate("com.example", "demo-lib", "dependency", "1.0.0", "1.1.0")
+        val dialog = UpdateConfirmationDialog(project, listOf(transitiveUpdate, directUpdate))
+
+        assertEquals(
+            "Transitive Updates sollten den Zieltyp mit Herkunft anzeigen",
+            "transitive -> managed dependency",
+            dialog.typeLabel(transitiveUpdate)
+        )
+        assertEquals(
+            "Direkte Updates sollten unveraendert ihren Typ anzeigen",
+            "dependency",
+            dialog.typeLabel(directUpdate)
+        )
+
+        val table = dialog.buildTable()
+        assertEquals(
+            "Die Typ-Spalte sollte den transitiven Hinweis enthalten",
+            "transitive -> managed dependency",
+            table.getValueAt(0, 2)
+        )
+        assertEquals("dependency", table.getValueAt(1, 2))
     }
 
     fun testConfirmChangesDialogSyncCheckboxReflectsSetting() {
@@ -684,7 +793,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         // Eine Zeile hinzufügen und selektieren
         (table!!.model as? javax.swing.table.DefaultTableModel)?.addRow(
-            arrayOf("com.example", "my-lib", "", "dependency", "1.0.0", null, emptyList<String>())
+            arrayOf("com.example", "my-lib", "", "dependency", null, "1.0.0", emptyList<String>())
         )
         table.setRowSelectionInterval(0, 0)
 
@@ -733,8 +842,8 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
             .firstOrNull { it.isPopup }
         assertNotNull("Die \"Select Highest\"-Aktionen sollten in einem Aufklappmenü gebündelt sein", group)
         assertEquals(
-            "Das Untermenü sollte genau die beiden \"Select Highest\"-Aktionen enthalten",
-            2,
+            "Das Untermenü sollte die beiden \"Select Highest\"-Aktionen und die empfohlene Version enthalten",
+            3,
             group!!.childrenCount
         )
         assertSame(
@@ -810,6 +919,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertEquals("Open", MyMessageBundle.message("toolwindow.MyToolWindow.openInRepository.button.short"))
         assertEquals("Details", MyMessageBundle.message("toolwindow.MyToolWindow.vulnerabilityDetails.button.short"))
         assertEquals("Reset", MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.button.short"))
+        assertEquals("Transitive CVEs", MyMessageBundle.message("toolwindow.MyToolWindow.tab.transitiveView"))
     }
 
     fun testResetActionLabelAndTooltipConveyFilterAwareScope() {
@@ -920,13 +1030,329 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
             emptySet()
         )
         (table!!.model as? javax.swing.table.DefaultTableModel)?.addRow(
-            arrayOf("com.example", "my-lib", "", "dependency", "1.0.0", cell, emptyList<String>())
+            arrayOf("com.example", "my-lib", "", "dependency", cell, "1.0.0", emptyList<String>())
         )
         table.setRowSelectionInterval(0, 0)
 
         assertTrue(
             "Vulnerability-Details-Aktion sollte bei Zeile mit Befunden aktiviert sein",
             toolWindow.isVulnerabilityDetailsEnabled()
+        )
+    }
+
+    /**
+     * Baut ein Tool Window mit manuell erzeugten Tabs auf, verbindet es über `bindTabs` mit einer
+     * [MavenUpWindowFactory.MyToolWindow] und führt [block] darauf aus.
+     */
+    @Suppress("OverrideOnly", "DEPRECATION")
+    private fun withBoundToolWindow(
+        block: (MavenUpWindowFactory.MyToolWindow, ContentManager, Content, Content) -> Unit
+    ) {
+        val manager = ToolWindowManager.getInstance(project)
+        val toolWindow = manager.registerToolWindow(
+            RegisterToolWindowTask(
+                id = "TestWindow",
+                anchor = ToolWindowAnchor.BOTTOM,
+                canCloseContent = true
+            )
+        )
+        try {
+            val window = MavenUpWindowFactory().MyToolWindow(project)
+            val contentFactory = ContentFactory.getInstance()
+            val dependenciesTab = contentFactory.createContent(window.getContent(), "Dependencies", false)
+            val transitiveTab = contentFactory.createContent(window.getTransitiveContent(), "Transitive CVEs", false)
+            toolWindow.contentManager.addContent(dependenciesTab)
+            toolWindow.contentManager.addContent(transitiveTab)
+            window.bindTabs(toolWindow.contentManager, dependenciesTab, transitiveTab)
+            block(window, toolWindow.contentManager, dependenciesTab, transitiveTab)
+        } finally {
+            manager.unregisterToolWindow("TestWindow")
+        }
+    }
+
+    /**
+     * Trägt eine verwundbare transitive Koordinate in den internen Zustand des Tool Windows ein.
+     */
+    private fun addTransitiveFinding(
+        toolWindow: MavenUpWindowFactory.MyToolWindow,
+        coordinate: String = "com.example:transitive:2.0.0"
+    ) {
+        val coords = toolWindow.javaClass.getDeclaredField("transitiveCoordinates")
+            .apply { isAccessible = true }.get(toolWindow) as MutableSet<String>
+        val advisories = toolWindow.javaClass.getDeclaredField("vulnerabilityAdvisories")
+            .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, List<VulnerabilityAdvisory>>
+        coords.add(coordinate)
+        advisories[coordinate] = listOf(
+            VulnerabilityAdvisory(id = "CVE-1", severity = VulnerabilitySeverity.HIGH, sources = setOf("OSV"))
+        )
+    }
+
+    fun testToolWindowRegistersDependenciesAndTransitiveTabs() {
+        withToolWindowContents { contentManager ->
+            assertEquals("Das Tool Window muss zwei Tabs anbieten", 2, contentManager.contentCount)
+            assertEquals("Dependencies", contentManager.getContent(0)?.displayName)
+            assertEquals("Transitive CVEs", contentManager.getContent(1)?.displayName)
+            assertFalse(
+                "Der Dependencies-Tab darf nicht schließbar sein",
+                contentManager.getContent(0)!!.isCloseable
+            )
+            assertFalse(
+                "Der Transitive-CVEs-Tab darf nicht schließbar sein",
+                contentManager.getContent(1)!!.isCloseable
+            )
+        }
+    }
+
+    fun testTransitiveTabTitleShowsFindingCountAndSelectionIsTracked() {
+        withBoundToolWindow { toolWindow, contentManager, dependenciesTab, transitiveTab ->
+            val showingField = toolWindow.javaClass.getDeclaredField("showingTransitiveView")
+                .apply { isAccessible = true }
+
+            assertEquals(
+                "Ohne Funde trägt der Tab den Titel ohne Zähler",
+                "Transitive CVEs",
+                transitiveTab.displayName
+            )
+
+            addTransitiveFinding(toolWindow)
+            toolWindow.updateTransitiveVulnerabilitiesView()
+            assertEquals("Transitive CVEs (1)", transitiveTab.displayName)
+
+            toolWindow.setTransitiveViewVisible(true)
+            assertSame(transitiveTab, contentManager.selectedContent)
+            assertTrue("Der Tab-Wechsel muss im Zustand ankommen", showingField.getBoolean(toolWindow))
+
+            toolWindow.setTransitiveViewVisible(false)
+            assertSame(dependenciesTab, contentManager.selectedContent)
+            assertFalse("Der Rückwechsel muss im Zustand ankommen", showingField.getBoolean(toolWindow))
+        }
+    }
+
+    fun testTransitiveTabStaysSelectableWithoutFindings() {
+        withBoundToolWindow { toolWindow, contentManager, _, transitiveTab ->
+            toolWindow.setTransitiveViewVisible(true)
+
+            assertSame(
+                "Der Tab bleibt gemäß UI-Guidelines auch ohne Funde auswählbar",
+                transitiveTab,
+                contentManager.selectedContent
+            )
+        }
+    }
+
+    fun testTransitiveTabKeepsSelectionWhenFindingsAreCleared() {
+        withBoundToolWindow { toolWindow, contentManager, _, transitiveTab ->
+            val coords = toolWindow.javaClass.getDeclaredField("transitiveCoordinates")
+                .apply { isAccessible = true }.get(toolWindow) as MutableSet<String>
+            val advisories = toolWindow.javaClass.getDeclaredField("vulnerabilityAdvisories")
+                .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, List<VulnerabilityAdvisory>>
+
+            addTransitiveFinding(toolWindow)
+            toolWindow.updateTransitiveVulnerabilitiesView()
+            toolWindow.setTransitiveViewVisible(true)
+
+            coords.clear()
+            advisories.clear()
+            toolWindow.updateTransitiveVulnerabilitiesView()
+
+            assertSame(
+                "Der Tab wird nicht mehr automatisch gewechselt",
+                transitiveTab,
+                contentManager.selectedContent
+            )
+            assertEquals("Transitive CVEs", transitiveTab.displayName)
+        }
+    }
+
+    fun testTransitiveViewShowsEmptyStateInsteadOfDisabledTab() {
+        val view = TransitiveVulnerabilitiesView(project) {}
+
+        assertTrue(
+            "Ohne Funde muss der Empty State auf den Scan hinweisen",
+            view.table.emptyText.text.contains("Scan for Vulnerabilities")
+        )
+
+        val coordinate = "com.example:transitive:2.0.0"
+        view.update(
+            mapOf(
+                coordinate to listOf(
+                    VulnerabilityAdvisory(id = "CVE-1", severity = VulnerabilitySeverity.HIGH, sources = setOf("OSV"))
+                )
+            ),
+            setOf(coordinate)
+        )
+
+        assertEquals(
+            "Mit Funden erklärt der Empty State nur noch einen leeren Filter",
+            "No transitive dependency matches the current filter.",
+            view.table.emptyText.text
+        )
+    }
+
+    fun testCheckUpdatesIsDisabledWhileTransitiveViewIsShown() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        assertTrue(
+            "In der Haupttabelle muss die Versionssuche verfügbar sein",
+            toolWindow.isCheckUpdatesEnabled()
+        )
+        assertEquals(
+            "Search for New Versions",
+            toolWindow.currentCheckUpdatesDescription()
+        )
+
+        val coordinate = "com.example:transitive:2.0.0"
+        val coords = toolWindow.javaClass.getDeclaredField("transitiveCoordinates")
+            .apply { isAccessible = true }
+            .get(toolWindow)
+        @Suppress("UNCHECKED_CAST")
+        (coords as MutableSet<String>).add(coordinate)
+        val advisories = toolWindow.javaClass.getDeclaredField("vulnerabilityAdvisories")
+            .apply { isAccessible = true }
+            .get(toolWindow)
+        @Suppress("UNCHECKED_CAST")
+        (advisories as MutableMap<String, List<VulnerabilityAdvisory>>)[coordinate] = listOf(
+            VulnerabilityAdvisory(
+                id = "CVE-TRANSITIVE",
+                severity = VulnerabilitySeverity.HIGH,
+                sources = setOf("OSV")
+            )
+        )
+        toolWindow.updateTransitiveVulnerabilitiesView()
+        toolWindow.setTransitiveViewVisible(true)
+
+        assertFalse(
+            "In der transitiven Ansicht darf die Versionssuche nicht ausführbar sein",
+            toolWindow.isCheckUpdatesEnabled()
+        )
+        assertTrue(
+            "Der Tooltip muss erklären, warum die Aktion dort deaktiviert ist",
+            toolWindow.currentCheckUpdatesDescription().contains("main dependency table")
+        )
+
+        toolWindow.setTransitiveViewVisible(false)
+        assertTrue(
+            "Nach dem Zurückschalten muss die Versionssuche wieder verfügbar sein",
+            toolWindow.isCheckUpdatesEnabled()
+        )
+    }
+
+    fun testTransitiveVulnerabilitiesAbsentWithoutScan() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        assertFalse(
+            "Ohne Scan-Ergebnisse sollten keine transitiven Sicherheitslücken vorliegen",
+            toolWindow.hasTransitiveVulnerabilities()
+        )
+    }
+
+    fun testTransitiveViewVisibilityWorksWithoutBoundTabs() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        addTransitiveFinding(toolWindow)
+        toolWindow.updateTransitiveVulnerabilitiesView()
+
+        assertTrue(toolWindow.hasTransitiveVulnerabilities())
+
+        val showingField = toolWindow.javaClass.getDeclaredField("showingTransitiveView")
+            .apply { isAccessible = true }
+
+        toolWindow.setTransitiveViewVisible(true)
+        assertTrue("Die transitive Ansicht sollte aktiv sein", showingField.getBoolean(toolWindow))
+
+        toolWindow.setTransitiveViewVisible(false)
+        assertFalse("Die Ansicht sollte zurück zur Haupttabelle wechseln", showingField.getBoolean(toolWindow))
+    }
+
+    fun testToolbarActionsTargetTransitiveViewWhenActive() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        val coordinate = "com.example:transitive:2.0.0"
+        val coords = toolWindow.javaClass.getDeclaredField("transitiveCoordinates")
+            .apply { isAccessible = true }.get(toolWindow) as MutableSet<String>
+        val advisories = toolWindow.javaClass.getDeclaredField("vulnerabilityAdvisories")
+            .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, List<VulnerabilityAdvisory>>
+        coords.add(coordinate)
+        advisories[coordinate] = listOf(
+            VulnerabilityAdvisory(id = "CVE-1", severity = VulnerabilitySeverity.HIGH, sources = setOf("OSV"))
+        )
+        toolWindow.updateTransitiveVulnerabilitiesView()
+        toolWindow.setTransitiveViewVisible(true)
+
+        // Without a selection in the transitive view the actions are disabled.
+        assertFalse(toolWindow.isOpenInRepositoryEnabled())
+        assertFalse(toolWindow.isVulnerabilityDetailsEnabled())
+
+        val view = toolWindow.javaClass.getDeclaredField("transitiveVulnerabilitiesView")
+            .apply { isAccessible = true }.get(toolWindow) as TransitiveVulnerabilitiesView
+        view.table.setRowSelectionInterval(0, 0)
+
+        // With a vulnerable transitive row selected both actions become available.
+        assertTrue(toolWindow.isOpenInRepositoryEnabled())
+        assertTrue(toolWindow.isVulnerabilityDetailsEnabled())
+    }
+
+    fun testBulkAndResetActionsTargetTransitiveViewWhenActive() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        val coordinate = "com.example:transitive:2.0.0"
+        val coords = toolWindow.javaClass.getDeclaredField("transitiveCoordinates")
+            .apply { isAccessible = true }.get(toolWindow) as MutableSet<String>
+        val advisories = toolWindow.javaClass.getDeclaredField("vulnerabilityAdvisories")
+            .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, List<VulnerabilityAdvisory>>
+        @Suppress("UNCHECKED_CAST")
+        val transitiveVersions = toolWindow.javaClass.getDeclaredField("transitiveAvailableVersions")
+            .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, List<String>>
+        coords.add(coordinate)
+        advisories[coordinate] = listOf(
+            VulnerabilityAdvisory(
+                id = "CVE-1",
+                severity = VulnerabilitySeverity.HIGH,
+                sources = setOf("OSV"),
+                fixedVersions = setOf("2.0.4")
+            )
+        )
+        transitiveVersions["com.example:transitive"] = listOf("2.0.4", "2.0.0")
+        toolWindow.updateTransitiveVulnerabilitiesView()
+        toolWindow.setTransitiveViewVisible(true)
+
+        assertTrue(toolWindow.isBulkVersionSelectionEnabledForCurrentView())
+        assertTrue(toolWindow.isRecommendedSelectionEnabledForCurrentView())
+        assertFalse(toolWindow.isResetVersionsEnabledForCurrentView())
+
+        val view = toolWindow.javaClass.getDeclaredField("transitiveVulnerabilitiesView")
+            .apply { isAccessible = true }.get(toolWindow) as TransitiveVulnerabilitiesView
+        view.selectRecommendedVersionForAll()
+        assertEquals("2.0.4", view.selectedVersions["com.example:transitive"])
+        assertTrue(toolWindow.isResetVersionsEnabledForCurrentView())
+    }
+
+    fun testTransitiveTabTitleDropsCountWhenFindingsCleared() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        val coords = toolWindow.javaClass.getDeclaredField("transitiveCoordinates")
+            .apply { isAccessible = true }.get(toolWindow) as MutableSet<String>
+        val advisories = toolWindow.javaClass.getDeclaredField("vulnerabilityAdvisories")
+            .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, List<VulnerabilityAdvisory>>
+
+        addTransitiveFinding(toolWindow)
+        toolWindow.updateTransitiveVulnerabilitiesView()
+        assertEquals(1, toolWindow.transitiveVulnerabilityCount())
+
+        coords.clear()
+        advisories.clear()
+        toolWindow.updateTransitiveVulnerabilitiesView()
+
+        assertEquals(
+            "Ohne verbleibende Funde darf der Zähler nicht mehr gemeldet werden",
+            0,
+            toolWindow.transitiveVulnerabilityCount()
         )
     }
 
@@ -1233,9 +1659,9 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val cleanCell = buildVulnerabilityCell("com.example:clean-lib:1.0.0", emptyMap(), emptySet())
 
         // Row 0: has changes, has vulnerabilities
-        model.addRow(arrayOf("com.example", "vuln-lib", "", "dependency", "1.0.0", vulnCell, listOf("2.0.0", "1.0.0")))
+        model.addRow(arrayOf("com.example", "vuln-lib", "", "dependency", vulnCell, "1.0.0", listOf("2.0.0", "1.0.0")))
         // Row 1: no changes, no vulnerabilities
-        model.addRow(arrayOf("com.example", "clean-lib", "", "dependency", "1.0.0", cleanCell, listOf("1.0.0")))
+        model.addRow(arrayOf("com.example", "clean-lib", "", "dependency", cleanCell, "1.0.0", listOf("1.0.0")))
 
         val fields = toolWindow.javaClass
         @Suppress("UNCHECKED_CAST")
@@ -1326,8 +1752,8 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val table = findTable(content)!!
         val model = table.model as javax.swing.table.DefaultTableModel
 
-        model.addRow(arrayOf("com.example", "lib-a", "", "dependency", "1.0.0", null, listOf("1.0.0")))
-        model.addRow(arrayOf("org.other", "lib-b", "", "dependency", "1.0.0", null, listOf("1.0.0")))
+        model.addRow(arrayOf("com.example", "lib-a", "", "dependency", null, "1.0.0", listOf("1.0.0")))
+        model.addRow(arrayOf("org.other", "lib-b", "", "dependency", null, "1.0.0", listOf("1.0.0")))
 
         toolWindow.searchTextField.text = "org.other"
         toolWindow.applyRowFilter()
@@ -1347,8 +1773,8 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val table = findTable(content)!!
         val model = table.model as javax.swing.table.DefaultTableModel
 
-        model.addRow(arrayOf("com.example", "lib-a", "", "dependency", "1.0.0", null, listOf("1.0.0")))
-        model.addRow(arrayOf("com.example", "lib-b", "", "plugin", "1.0.0", null, listOf("1.0.0")))
+        model.addRow(arrayOf("com.example", "lib-a", "", "dependency", null, "1.0.0", listOf("1.0.0")))
+        model.addRow(arrayOf("com.example", "lib-b", "", "plugin", null, "1.0.0", listOf("1.0.0")))
 
         toolWindow.updateTypeFilterOptions()
         toolWindow.searchTextField.text = "lib-a"
@@ -1396,7 +1822,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val key = "com.example:major-all"
         availableVersions[key] = listOf("3.1.0", "3.0.0", "2.9.9", "2.5.0")
         knownDependencies[key] = "2.5.0"
-        model.addRow(arrayOf("com.example", "major-all", "", "dependency", "2.5.0", null, availableVersions[key]))
+        model.addRow(arrayOf("com.example", "major-all", "", "dependency", null, "2.5.0", availableVersions[key]))
         toolWindow.applyRowFilter()
 
         toolWindow.selectHighestMajorVersionForAll()
@@ -1413,7 +1839,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val key = "com.example:minor-all"
         availableVersions[key] = listOf("3.1.0", "3.0.0", "2.9.9", "2.5.0")
         knownDependencies[key] = "2.5.0"
-        model.addRow(arrayOf("com.example", "minor-all", "", "dependency", "2.5.0", null, availableVersions[key]))
+        model.addRow(arrayOf("com.example", "minor-all", "", "dependency", null, "2.5.0", availableVersions[key]))
         toolWindow.applyRowFilter()
 
         toolWindow.selectHighestMinorVersionForAll()
@@ -1430,7 +1856,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val key = "com.example:minor-none"
         availableVersions[key] = listOf("3.2.0", "3.1.0")
         knownDependencies[key] = "2.8.0"
-        model.addRow(arrayOf("com.example", "minor-none", "", "dependency", "2.8.0", null, availableVersions[key]))
+        model.addRow(arrayOf("com.example", "minor-none", "", "dependency", null, "2.8.0", availableVersions[key]))
         toolWindow.applyRowFilter()
 
         toolWindow.selectHighestMinorVersionForAll()
@@ -1453,8 +1879,8 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         availableVersions[other] = listOf("9.0.0", "8.0.0")
         knownDependencies[key] = "2.5.0"
         knownDependencies[other] = "8.0.0"
-        model.addRow(arrayOf("com.example", "major-row", "", "dependency", "2.5.0", null, availableVersions[key]))
-        model.addRow(arrayOf("com.example", "other-row", "", "dependency", "8.0.0", null, availableVersions[other]))
+        model.addRow(arrayOf("com.example", "major-row", "", "dependency", null, "2.5.0", availableVersions[key]))
+        model.addRow(arrayOf("com.example", "other-row", "", "dependency", null, "8.0.0", availableVersions[other]))
         toolWindow.applyRowFilter()
 
         toolWindow.selectHighestMajorVersionForDependency(key)
@@ -1475,7 +1901,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val key = "com.example:minor-row"
         availableVersions[key] = listOf("3.1.0", "3.0.0", "2.9.9", "2.5.0")
         knownDependencies[key] = "2.5.0"
-        model.addRow(arrayOf("com.example", "minor-row", "", "dependency", "2.5.0", null, availableVersions[key]))
+        model.addRow(arrayOf("com.example", "minor-row", "", "dependency", null, "2.5.0", availableVersions[key]))
         toolWindow.applyRowFilter()
 
         toolWindow.selectHighestMinorVersionForDependency(key)
@@ -1492,7 +1918,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val key = "com.example:minor-row-none"
         availableVersions[key] = listOf("3.2.0", "3.1.0")
         knownDependencies[key] = "2.8.0"
-        model.addRow(arrayOf("com.example", "minor-row-none", "", "dependency", "2.8.0", null, availableVersions[key]))
+        model.addRow(arrayOf("com.example", "minor-row-none", "", "dependency", null, "2.8.0", availableVersions[key]))
         toolWindow.applyRowFilter()
 
         toolWindow.selectHighestMinorVersionForDependency(key)
@@ -1511,7 +1937,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         val key = "com.example:no-versions"
         knownDependencies[key] = "1.0.0"
-        model.addRow(arrayOf("com.example", "no-versions", "", "dependency", "1.0.0", null, emptyList<String>()))
+        model.addRow(arrayOf("com.example", "no-versions", "", "dependency", null, "1.0.0", emptyList<String>()))
         toolWindow.applyRowFilter()
 
         assertFalse(
@@ -1554,8 +1980,8 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         knownDependencies[other] = "8.0.0"
         selectedVersions[key] = "3.1.0"
         selectedVersions[other] = "9.0.0"
-        model.addRow(arrayOf("com.example", "reset-row", "", "dependency", "2.5.0", null, availableVersions[key]))
-        model.addRow(arrayOf("com.example", "reset-other", "", "dependency", "8.0.0", null, availableVersions[other]))
+        model.addRow(arrayOf("com.example", "reset-row", "", "dependency", null, "2.5.0", availableVersions[key]))
+        model.addRow(arrayOf("com.example", "reset-other", "", "dependency", null, "8.0.0", availableVersions[other]))
         toolWindow.applyRowFilter()
 
         assertTrue(toolWindow.isVersionResetEnabledForDependency(key))
@@ -1630,8 +2056,8 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         availableVersions[hiddenKey] = listOf("2.0.0", "1.0.0")
         knownDependencies[visibleKey] = "1.0.0"
         knownDependencies[hiddenKey] = "1.0.0"
-        model.addRow(arrayOf("com.example", "visible-lib", "", "dependency", "1.0.0", null, availableVersions[visibleKey]))
-        model.addRow(arrayOf("com.example", "hidden-lib", "", "plugin", "1.0.0", null, availableVersions[hiddenKey]))
+        model.addRow(arrayOf("com.example", "visible-lib", "", "dependency", null, "1.0.0", availableVersions[visibleKey]))
+        model.addRow(arrayOf("com.example", "hidden-lib", "", "plugin", null, "1.0.0", availableVersions[hiddenKey]))
 
         // Nur Zeilen vom Typ "dependency" sichtbar lassen.
         toolWindow.updateTypeFilterOptions()
@@ -1662,8 +2088,8 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         knownDependencies[hiddenKey] = "1.0.0"
         selectedVersions[visibleKey] = "2.0.0"
         selectedVersions[hiddenKey] = "2.0.0"
-        model.addRow(arrayOf("com.example", "reset-visible", "", "dependency", "1.0.0", null, availableVersions[visibleKey]))
-        model.addRow(arrayOf("com.example", "reset-hidden", "", "plugin", "1.0.0", null, availableVersions[hiddenKey]))
+        model.addRow(arrayOf("com.example", "reset-visible", "", "dependency", null, "1.0.0", availableVersions[visibleKey]))
+        model.addRow(arrayOf("com.example", "reset-hidden", "", "plugin", null, "1.0.0", availableVersions[hiddenKey]))
 
         toolWindow.updateTypeFilterOptions()
         toolWindow.typeFilterComboBox.selectedItem = "dependency"
@@ -1692,8 +2118,8 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         knownDependencies[hiddenKey] = "1.0.0"
         selectedVersions[visibleKey] = "2.0.0"
         selectedVersions[hiddenKey] = "2.0.0"
-        model.addRow(arrayOf("com.example", "reset-visible", "", "dependency", "1.0.0", null, availableVersions[visibleKey]))
-        model.addRow(arrayOf("com.example", "reset-hidden", "", "plugin", "1.0.0", null, availableVersions[hiddenKey]))
+        model.addRow(arrayOf("com.example", "reset-visible", "", "dependency", null, "1.0.0", availableVersions[visibleKey]))
+        model.addRow(arrayOf("com.example", "reset-hidden", "", "plugin", null, "1.0.0", availableVersions[hiddenKey]))
 
         toolWindow.updateTypeFilterOptions()
         toolWindow.typeFilterComboBox.selectedItem = "dependency"
@@ -1717,8 +2143,8 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val content = toolWindow.getContent()
         val model = findTable(content)!!.model as javax.swing.table.DefaultTableModel
 
-        model.addRow(arrayOf("com.example", "lib-a", "", "dependency", "1.0.0", null, listOf("1.0.0")))
-        model.addRow(arrayOf("com.example", "lib-b", "", "plugin", "1.0.0", null, listOf("1.0.0")))
+        model.addRow(arrayOf("com.example", "lib-a", "", "dependency", null, "1.0.0", listOf("1.0.0")))
+        model.addRow(arrayOf("com.example", "lib-b", "", "plugin", null, "1.0.0", listOf("1.0.0")))
 
         toolWindow.applyRowFilter()
         assertFalse(toolWindow.isRowFilterHidingEntries())

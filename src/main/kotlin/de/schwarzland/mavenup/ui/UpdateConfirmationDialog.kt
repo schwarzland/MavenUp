@@ -13,7 +13,9 @@ import javax.swing.JCheckBox
 import javax.swing.JComponent
 import javax.swing.JLabel
 import javax.swing.ListSelectionModel
+import javax.swing.SortOrder
 import javax.swing.table.DefaultTableModel
+import javax.swing.table.TableRowSorter
 
 /**
  * Dialog zur Bestätigung der ausgewählten Updates. Zeigt eine Tabelle mit den
@@ -47,7 +49,7 @@ class UpdateConfirmationDialog(
      */
     override fun createCenterPanel(): JComponent {
         val panel = JBPanel<JBPanel<*>>(BorderLayout())
-        panel.preferredSize = java.awt.Dimension(600, 450)
+        panel.preferredSize = java.awt.Dimension(900, 500)
 
         val topPanel = JBPanel<JBPanel<*>>(BorderLayout())
         topPanel.add(
@@ -69,6 +71,8 @@ class UpdateConfirmationDialog(
 
     /**
      * Erstellt die schreibgeschützte Update-Übersichtstabelle mit Einzelselektion.
+     * Die Spalten "Group Id", "Artifact Id" und "Type" sind wie in den übrigen Plugin-Tabellen
+     * sortierbar; die beiden Versionsspalten bleiben in der Reihenfolge der Auswahl.
      *
      * @return Die konfigurierte, nicht editierbare Tabelle mit allen anstehenden Updates.
      */
@@ -88,16 +92,76 @@ class UpdateConfirmationDialog(
                 arrayOf(
                     update.groupId,
                     update.artifactId,
-                    update.type,
+                    typeLabel(update),
                     update.oldVersion,
                     update.newVersion
                 )
             )
         }
 
-        val table = JBTable(tableModel)
-        table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION)
-        table.tableHeader.reorderingAllowed = false
+        val table = JBTable(tableModel).apply {
+            autoResizeMode = JBTable.AUTO_RESIZE_SUBSEQUENT_COLUMNS
+            setSelectionMode(ListSelectionModel.SINGLE_SELECTION)
+            tableHeader.reorderingAllowed = false
+            rowSorter = buildRowSorter(tableModel)
+            installSortableHeaderRenderer(this)
+            trimColumnWidthsToContent(this)
+            applyRecommendedRowHeight(this)
+        }
         return table
+    }
+
+    /**
+     * Ermittelt den in der Spalte "Type" anzuzeigenden Text eines Updates.
+     *
+     * Updates aus bislang ausschließlich transitiv aufgelösten Abhängigkeiten werden als
+     * `transitive -> <Zieltyp>` gekennzeichnet, damit erkennbar ist, dass die Abhängigkeit durch das
+     * Update erstmals in der `pom.xml` (im `dependencyManagement`) gepinnt wird.
+     *
+     * @param update Das anzuzeigende Update.
+     * @return Der Anzeigetext für die Typ-Spalte.
+     */
+    internal fun typeLabel(update: DependencyUpdate): String =
+        if (update.transitive) {
+            MyMessageBundle.message("toolwindow.MyToolWindow.update.confirm.type.transitive", update.type)
+        } else {
+            update.type
+        }
+
+    /**
+     * Erstellt den [TableRowSorter] für die Bestätigungstabelle. Die Textspalten "Group Id",
+     * "Artifact Id" und "Type" werden alphabetisch ohne Beachtung der Groß-/Kleinschreibung
+     * sortiert und durchlaufen bei Klick den Zyklus aufsteigend → absteigend → unsortiert.
+     * Die Versionsspalten sind – wie im Hauptfenster – nicht sortierbar.
+     *
+     * @param model Das Tabellenmodell, auf dem sortiert wird.
+     * @return Der konfigurierte Sorter.
+     */
+    internal fun buildRowSorter(model: DefaultTableModel): TableRowSorter<DefaultTableModel> {
+        val sorter = object : TableRowSorter<DefaultTableModel>(model) {
+            override fun toggleSortOrder(column: Int) {
+                if (!isSortable(column)) return
+                val current = sortKeys.firstOrNull { it.column == column }?.sortOrder
+                val next = when (current) {
+                    SortOrder.ASCENDING -> SortOrder.DESCENDING
+                    SortOrder.DESCENDING -> SortOrder.UNSORTED
+                    else -> SortOrder.ASCENDING
+                }
+                sortKeys = if (next == SortOrder.UNSORTED) emptyList() else listOf(SortKey(column, next))
+            }
+        }
+        for (columnIndex in 0 until model.columnCount) {
+            val sortable = columnIndex < CONFIRM_CURRENT_VERSION_COLUMN
+            sorter.setSortable(columnIndex, sortable)
+            if (sortable) {
+                sorter.setComparator(columnIndex, cellTextComparator)
+            }
+        }
+        return sorter
+    }
+
+    companion object {
+        /** Spaltenindex der Spalte mit der aktuellen Version; ab hier wird nicht mehr sortiert. */
+        internal const val CONFIRM_CURRENT_VERSION_COLUMN = 3
     }
 }

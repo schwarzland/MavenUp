@@ -12,6 +12,8 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiManager
+import com.intellij.psi.XmlElementFactory
+import com.intellij.psi.codeStyle.CodeStyleManager
 import com.intellij.psi.xml.XmlFile
 import com.intellij.psi.xml.XmlTag
 import org.jetbrains.idea.maven.project.MavenProject
@@ -53,8 +55,14 @@ internal class PomUpdateService(private val project: Project) {
                     PARENT_TYPE -> {
                         updateParent(documentElement, update, propertiesTag)
                     }
-                    "dependency", managedDependencyType -> {
+                    "dependency" -> {
                         updateDependencies(documentElement, update, propertiesTag)
+                    }
+                    managedDependencyType -> {
+                        val updated = updateDependencies(documentElement, update, propertiesTag)
+                        if (!updated) {
+                            addManagedDependency(documentElement, update)
+                        }
                     }
                     "plugin", MANAGED_PLUGIN -> {
                         updatePlugins(documentElement, update, propertiesTag)
@@ -94,24 +102,83 @@ internal class PomUpdateService(private val project: Project) {
      * @param documentElement Das Root-Tag der `pom.xml`.
      * @param update Das anzuwendende Update.
      * @param propertiesTag Das `<properties>`-Tag für Property-basierte Versionsupdates.
+     * @return `true`, wenn mindestens ein passender Eintrag gefunden und aktualisiert wurde.
      */
     private fun updateDependencies(
         documentElement: XmlTag,
         update: DependencyUpdate,
         propertiesTag: XmlTag?
-    ) {
+    ): Boolean {
         val dependenciesTag = documentElement.findFirstSubTag("dependencies")
         val dependencyManagementTag = documentElement.findFirstSubTag("dependencyManagement")
         val dmDependenciesTag = dependencyManagementTag?.findFirstSubTag("dependencies")
 
+        var updated = false
         // Search in <dependencies>
         dependenciesTag?.findSubTags("dependency")?.forEach { depTag ->
-            updateIfMatch(depTag, update, propertiesTag)
+            updated = updateIfMatch(depTag, update, propertiesTag) || updated
         }
         // Search in <dependencyManagement><dependencies>
         dmDependenciesTag?.findSubTags("dependency")?.forEach { depTag ->
-            updateIfMatch(depTag, update, propertiesTag)
+            updated = updateIfMatch(depTag, update, propertiesTag) || updated
         }
+        return updated
+    }
+
+    /**
+     * Fügt eine neue verwaltete Abhängigkeit in `<dependencyManagement><dependencies>` hinzu und pinnt
+     * damit die Version einer bisher nicht in der `pom.xml` deklarierten (transitiven) Abhängigkeit.
+     *
+     * Fehlende Container-Tags (`<dependencyManagement>`, `<dependencies>`) werden bei Bedarf erzeugt.
+     * Die Abhängigkeit wird samt optional vorangestelltem Kommentar aus Text erzeugt (Kommentar auf
+     * eigener Zeile direkt hinter dem öffnenden `<dependency>`) und anschließend neu formatiert, damit
+     * die Einrückung zur Datei passt. Ob der Kommentar eingefügt wird, richtet sich nach der Einstellung
+     * [MavenUpSettings.State.addVulnerabilityFixComment].
+     *
+     * @param documentElement Das Root-Tag der `pom.xml`.
+     * @param update Das anzuwendende Update mit der zu pinnenden Zielversion.
+     */
+    internal fun addManagedDependency(documentElement: XmlTag, update: DependencyUpdate) {
+        val dependencyManagementTag = documentElement.findFirstSubTag("dependencyManagement")
+            ?: documentElement.addSubTag(
+                documentElement.createChildTag("dependencyManagement", null, "", false), false
+            )
+        val dependenciesTag = dependencyManagementTag.findFirstSubTag("dependencies")
+            ?: dependencyManagementTag.addSubTag(
+                dependencyManagementTag.createChildTag("dependencies", null, "", false), false
+            )
+        val dependencyXml = buildString {
+            append("<dependency>\n")
+            if (MavenUpSettings.getInstance().state.addVulnerabilityFixComment) {
+                append("<!-- ").append(managedDependencyCommentText(update.fixedVulnerabilities)).append(" -->\n")
+            }
+            append("<groupId>").append(update.groupId).append("</groupId>\n")
+            append("<artifactId>").append(update.artifactId).append("</artifactId>\n")
+            append("<version>").append(update.newVersion).append("</version>\n")
+            append("</dependency>")
+        }
+        val dependencyTag = XmlElementFactory.getInstance(project).createTagFromText(dependencyXml)
+        val added = dependenciesTag.addSubTag(dependencyTag, false)
+        CodeStyleManager.getInstance(project).reformat(added)
+    }
+
+    /**
+     * Baut den Kommentartext für eine neu angelegte verwaltete Abhängigkeit.
+     *
+     * Listet knapp die IDs der behobenen Sicherheitswarnungen auf und weist darauf hin, dass die
+     * Änderung durch MavenUp erfolgt ist. Doppelte Bindestriche werden entschärft, da sie in
+     * XML-Kommentaren unzulässig sind.
+     *
+     * @param fixedVulnerabilities Die IDs der behobenen Sicherheitswarnungen.
+     * @return Der (entschärfte) Kommentartext ohne die umschließenden Kommentar-Marker.
+     */
+    private fun managedDependencyCommentText(fixedVulnerabilities: List<String>): String {
+        val text = if (fixedVulnerabilities.isNotEmpty()) {
+            MyMessageBundle.message("pom.comment.managedDependency", fixedVulnerabilities.joinToString(", "))
+        } else {
+            MyMessageBundle.message("pom.comment.managedDependencyNoIds")
+        }
+        return text.replace("--", "- -")
     }
 
     /**
@@ -169,17 +236,21 @@ internal class PomUpdateService(private val project: Project) {
      * @param tag Das zu prüfende `dependency`- oder `plugin`-Tag.
      * @param update Das anzuwendende Update.
      * @param propertiesTag Das `<properties>`-Tag für Property-basierte Versionsupdates.
+     * @return `true`, wenn das Tag übereinstimmte und aktualisiert wurde.
      */
     private fun updateIfMatch(
         tag: XmlTag,
         update: DependencyUpdate,
         propertiesTag: XmlTag?
-    ) {
+    ): Boolean {
         val g = tag.findFirstSubTag("groupId")?.value?.text
         val a = tag.findFirstSubTag("artifactId")?.value?.text
 
-        if (g == update.groupId && a == update.artifactId) {
+        return if (g == update.groupId && a == update.artifactId) {
             updateXmlTagVersion(tag, update.newVersion, propertiesTag)
+            true
+        } else {
+            false
         }
     }
 

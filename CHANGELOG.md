@@ -6,6 +6,16 @@
 
 ### Added
 
+- Added two tool window tabs in the tool window header — **Dependencies** and **Transitive CVEs** — that switch between the main dependency table and a dedicated view listing all transitive dependencies with known vulnerabilities and their vulnerability count; the **Transitive CVEs** tab shows the number of affected coordinates in its title, stays selectable at all times, and explains in its own empty state how to produce results when no findings exist.
+- Added a **Type** column to the transitive vulnerabilities view that shows the same type as the main table (e.g. *managed dependency*) when the coordinate is declared in the pom.xml, or *transitive* otherwise.
+- Added a right-click context menu to the transitive vulnerabilities view with **Open on [Browser]** and **Show Vulnerability Details**, mirroring the main table's context menu.
+- Added a filter row to the transitive vulnerabilities view that matches the main window's filter row in look and behavior, with a text filter for GroupId and ArtifactId, an **Updates** and a **Pending** combo box, and a reset button; filtering by type and vulnerabilities is omitted.
+- Added a **Filter by "..."** entry to the transitive vulnerabilities view context menu that applies the clicked GroupId or ArtifactId as the sole text filter.
+- Added **Set Highest Major Version**, **Set Highest Minor Version**, **Set Recommended Version**, and **Reset to Current Version** entries to the transitive vulnerabilities view context menu for the right-clicked coordinate.
+- Added a **Select Recommended Version** entry to the toolbar's **Select Highest Version** dropdown that selects the recommended fix version for every transitive coordinate while the transitive vulnerabilities view is shown.
+- Added an editable **New Version** column to the transitive vulnerabilities view; available versions for vulnerable transitive dependencies are fetched automatically after a vulnerability scan, and selecting a version pins it in `<dependencyManagement>` (creating the entry if needed) and applies it through the shared **Update** action. The recommended fix version (lowest known version that resolves all vulnerabilities of the coordinate) is highlighted in the version dropdown in bold with a *(recommended)* marker.
+- Added an explanatory XML comment as the first line inside each newly pinned transitive `<dependencyManagement>` entry that lists the fixed vulnerability IDs and notes the change was made by MavenUp.
+- Added an "Insert explanatory comment when pinning a dependency to fix a vulnerability" setting to make that XML comment optional (default: on), placed in a new **Pom.xml Changes** settings group alongside the relocated "Sync Maven changes after update" setting.
 - Added a master-detail split view to the Vulnerability Details dialog whose lower detail pane shows the selected finding's affected component, summary, and references as clickable hyperlinks.
 - Added an "Open on ..." hyperlink in the detail pane that opens the selected component in the configured Maven repository browser.
 - Added the CVSS vector and the fixed-in versions of the selected finding to the detail pane when available.
@@ -13,18 +23,34 @@
 
 ### Changed
 
+- Moved the **Vulnerabilities** column in front of the **Current Version** column in both the dependency table and the transitive vulnerabilities view, so **Current Version** and **New Version** sit next to each other for direct comparison.
+- Renamed the transitive vulnerabilities view's **Version** column to **Current Version** and shortened the main table's **Vulnerabilities (Current)** header to **Vulnerabilities**, so both tables use identical column names.
+- Made the **Open on [Browser]** and **Vulnerability Details** toolbar actions operate on the selected row of whichever view is active, so they target the transitive vulnerabilities view while it is shown.
+- Disabled the **Search for New Versions** toolbar action while the transitive vulnerabilities view is shown, because it only affects the main dependency table and silently discarded its pending version selections; its tooltip now explains the restriction.
+- Moved the main table's filter row into the **Dependencies** tab so each tab carries its own filter row.
+- Made the **Select Highest Version** dropdown and the **Reset All to Current Versions** toolbar action operate on the transitive vulnerabilities view while it is shown.
+- Limited the bulk version selection in the transitive vulnerabilities view to the rows visible under its filter, and made the reset action ask whether to reset all transitive coordinates or only the filtered ones while a filter is active.
 - Replaced the Summary and References columns in the Vulnerability Details dialog with the detail pane, and removed the separate references list dialog.
 - Moved the "Open in ..." toolbar action of the Vulnerability Details dialog into the detail pane as a hyperlink and removed the dialog toolbar.
 - Aligned the documentation with the actual UI label of the repository context menu entry, which is **Open on [Browser]** (e.g. *Open on MVN Repository*) rather than *Open in Maven Repository*.
+- Moved the "Sync Maven changes after update" setting out of **Versions and Updates** into the new **Pom.xml Changes** settings group.
 - Trimmed the Vulnerability Details table columns to their content when the dialog opens, let them scale with the dialog size, and enlarged the dialog for better readability.
-- Trimmed the main dependency table columns to their content after the table is populated for better readability.
+- Trimmed the main dependency table and all confirmation-table columns to their content after the table is populated for better readability.
 - Soft-wrapped overlong lines (for example long reference URLs) in the Vulnerability Details detail pane so no horizontal scrolling is needed.
+- Made the **Group Id**, **Artifact Id**, and **Type** columns of the **Confirm Changes** dialog sortable through the same ascending → descending → unsorted cycle and header indicators as the other tables.
+- Marked updates that originate from a purely transitive dependency in the **Type** column of the **Confirm Changes** dialog as `transitive -> managed dependency`, so it is obvious that the dependency is pinned in `<dependencyManagement>` for the first time.
 - Restructured the documentation into a slim English README landing page that links to dedicated guides under `docs/` (usage, configuration, privacy, architecture, development, release/CI, licenses); the Gradle proxy configuration is documented under development.
 - Added GitHub Actions status badges (Build and Test, Create Draft Release, Publish Release to Marketplace) to the README.
+- Simplified the settings change detection by comparing UI and stored values through a value list instead of a long boolean chain, keeping the detekt cyclomatic complexity within its threshold.
 
 ### Fixed
 
+- Fixed differing row heights between the dependency tables by applying the IntelliJ styleguide row height of 24px (scaled) to every plugin table, instead of letting each table derive its height from platform-dependent font metrics and cell renderers.
+- Kept the transitive vulnerabilities view's **New Version** column populated when running "Search for New Versions" by storing the scan-derived transitive versions separately, so the table no longer collapses to a plain list.
+- Aligned the transitive vulnerabilities view sorting with the main table by cycling column sorting through ascending, descending, and unsorted states, and made its **Version** column non-sortable.
 - Resolved the parent POM version from Maven properties so property-based `<parent>` versions (for example `${revision}`) are scanned for vulnerabilities and version updates instead of being skipped as an unresolved placeholder.
+- Recommended a fix version that resolves every known vulnerability of a transitive coordinate, so a version that still lies within an affected range (for example an incomplete fix superseded by a later patch) or that leaves another advisory unresolved is no longer suggested.
+- Limited the affected version ranges and fixed versions of an advisory to the artifact actually in use, so advisories covering several Maven artifacts no longer mix fix versions of unrelated artifacts into the recommendation.
 
 ## 2.5.0
 
