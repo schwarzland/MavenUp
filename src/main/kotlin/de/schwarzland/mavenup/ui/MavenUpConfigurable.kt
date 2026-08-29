@@ -32,7 +32,12 @@ internal const val OSS_INDEX_ACCOUNT_URL = "https://ossindex.sonatype.org"
  * Sie implementiert das [Configurable]-Interface von IntelliJ und ermöglicht es dem Benutzer:
  * - UI-Verhalten anzupassen (z. B. Sprung bei Einzelklick).
  * - Filter für instabile Versionen zu konfigurieren.
+ * - Das Schreibverhalten beim Anwenden von Updates auf die `pom.xml` zu steuern (z. B. Maven-Sync,
+ *   erklärender Kommentar bei Schwachstellen-Fixes).
  * - Sicherheitsprüfungen (OSS Index) zu aktivieren und Zugangsdaten zu verwalten.
+ *
+ * Die Einstellungen sind in der UI in die Gruppen **Appearance**, **Versions and Updates**,
+ * **Pom.xml Changes** und **Vulnerability Check** gegliedert.
  *
  * Die Klasse wird benötigt, um die Plugin-Einstellungen in den IDE-Einstellungen anzuzeigen
  * und Änderungen an [MavenUpSettings] sowie [OssIndexCredentialStore] zu persistieren.
@@ -179,6 +184,8 @@ class MavenUpConfigurable internal constructor(
                         }
                         .component
                 }
+            }
+            group(MyMessageBundle.message("settings.group.pomChanges")) {
                 row {
                     syncMavenAfterUpdateCheckBox = checkBox(MyMessageBundle.message("settings.syncMavenAfterUpdate"))
                         .applyToComponent {
@@ -186,6 +193,15 @@ class MavenUpConfigurable internal constructor(
                             toolTipText = MyMessageBundle.message("settings.syncMavenAfterUpdate.tooltip")
                         }
                         .component
+                }
+                row {
+                    addVulnerabilityFixCommentCheckBox =
+                        checkBox(MyMessageBundle.message("settings.addVulnerabilityFixComment"))
+                            .applyToComponent {
+                                isSelected = settings.state.addVulnerabilityFixComment
+                                toolTipText = MyMessageBundle.message("settings.addVulnerabilityFixComment.tooltip")
+                            }
+                            .component
                 }
             }
             group(MyMessageBundle.message("settings.group.vulnerability")) {
@@ -195,15 +211,6 @@ class MavenUpConfigurable internal constructor(
                             .applyToComponent {
                                 isSelected = settings.state.checkTransitiveDependencies
                                 toolTipText = MyMessageBundle.message("settings.checkTransitiveDependencies.tooltip")
-                            }
-                            .component
-                }
-                row {
-                    addVulnerabilityFixCommentCheckBox =
-                        checkBox(MyMessageBundle.message("settings.addVulnerabilityFixComment"))
-                            .applyToComponent {
-                                isSelected = settings.state.addVulnerabilityFixComment
-                                toolTipText = MyMessageBundle.message("settings.addVulnerabilityFixComment.tooltip")
                             }
                             .component
                 }

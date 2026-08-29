@@ -225,12 +225,17 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   Repository-Browser-Optionen (`MVN_REPOSITORY`, `SONATYPE_CENTRAL`) und erzeugt die jeweilige
   Versions-URL für groupId/artifactId/version.
 - **MavenUpConfigurable**: Settings-UI unter `Settings > Tools > MavenUp`.
-  Die Optionen sind in drei Gruppen (`group`) gegliedert: **Appearance**, **Versions & Updates** und **Vulnerability Check**.
+  Die Optionen sind in vier Gruppen (`group`) gegliedert: **Appearance**, **Versions & Updates**,
+  **Pom.xml Changes** und **Vulnerability Check**.
   Bietet u.a. die Checkbox für Text-Buttons in der Aktionsleiste (`toolbarShowText`) und veröffentlicht
   beim Speichern den `MAVEN_UP_SETTINGS_TOPIC`.
   Die Gruppe **Versions & Updates** enthält zusätzlich die Option `stopAfterCentralSuccess` zur Steuerung,
   ob nach erfolgreicher Maven-Central-Abfrage weitere private Repositories abgefragt werden, sowie die
   Combobox `versionAutoSelectionMode` mit drei Zuständen für die Auto-Auswahl bei Update-Prüfungen.
+  Die Gruppe **Pom.xml Changes** bündelt Einstellungen zum Schreibverhalten beim Anwenden von Updates:
+  `syncMavenAfterUpdate` (automatischer Maven-Sync nach dem Schreiben der `pom.xml`) und
+  `addVulnerabilityFixComment` (optionaler erklärender XML-Kommentar beim Anlegen eines gepinnten
+  `dependencyManagement`-Eintrags zur Schwachstellenbehebung, siehe `PomUpdateService.addManagedDependency`).
   Die OSS-Index-Sektion kennzeichnet das Token bei Aktivierung als Pflichtfeld und
   verlinkt auf die Sonatype-Kontoeinstellungen zur Token-Erzeugung. Das Token wird außerhalb des EDT
   aus dem Password Safe geladen und für `isModified()` im UI-Modell gecacht.

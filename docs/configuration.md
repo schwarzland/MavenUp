@@ -2,7 +2,7 @@
 
 ## Settings
 
-Under `Settings > Tools > MavenUp`, the following options can be configured. The settings are stored globally at the application level and therefore apply to all projects. For better clarity, they are grouped into three thematic sections with headings: **Appearance**, **Versions & Updates**, and **Vulnerability Check**.
+Under `Settings > Tools > MavenUp`, the following options can be configured. The settings are stored globally at the application level and therefore apply to all projects. For better clarity, they are grouped into four thematic sections with headings: **Appearance**, **Versions & Updates**, **Pom.xml Changes**, and **Vulnerability Check**.
 
 ### Appearance
 
@@ -18,10 +18,13 @@ Under `Settings > Tools > MavenUp`, the following options can be configured. The
 - **Hide unstable versions**: Hides unstable versions (e.g. RC/Beta) from the selectable update versions.
 - **Hidden version qualifiers (comma-separated)**: List of the types to hide, e.g. `rc,beta,milestone` (as an indented sub-item in the IntelliJ settings style; label and field are only active when the filter is enabled; the field adapts to the dialog width so longer lists remain readable).
 - **Stop after a successful Maven Central lookup**: Determines whether no further private repositories are queried after a successful Maven Central lookup (default: on). When the option is disabled, private repositories continue to be queried even after a successful Central lookup in order to find private-only versions.
+
+### Pom.xml Changes
+
 - **Sync Maven changes after update**: Determines whether the IDE's Maven sync is triggered automatically after writing the `pom.xml` (default: on). This setting is synchronized with the identically named checkbox in the **Confirm Changes** confirmation dialog; the last choice made there is saved.
+- **Insert explanatory comment when pinning a dependency to fix a vulnerability**: Determines whether newly pinned `dependencyManagement` entries created from vulnerability fixes get an explanatory XML comment listing the fixed vulnerability IDs (default: on). When disabled, the entry is written without a comment.
 
 ### Vulnerability Check
 
 - **Include resolved transitive dependencies**: By default, includes the resolved Maven dependency tree in the vulnerability check.
-- **Insert explanatory comment when pinning a dependency to fix a vulnerability**: Determines whether newly pinned `dependencyManagement` entries created from vulnerability fixes get an explanatory XML comment listing the fixed vulnerability IDs (default: on). When disabled, the entry is written without a comment.
 - **Use Sonatype OSS Index as an additional source**: Enables the optional second data source. Sonatype authenticates requests exclusively via the API token; therefore only the token is required and is shown as a mandatory field when the option is enabled. The token is stored exclusively in the IntelliJ Password Safe, loaded off the Event Dispatch Thread, and not written to `mavenup_settings.xml`. If the token is missing for an already saved configuration, the OSS Index query is skipped; OSV.dev is still queried. If the token is invalid or expired, a qualified error message is shown. A link opens the Sonatype account settings for creating or copying a token.

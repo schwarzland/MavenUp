@@ -15,7 +15,7 @@
 - Added a **Select Recommended Version** entry to the toolbar's **Select Highest Version** dropdown that selects the recommended fix version for every transitive coordinate while the transitive vulnerabilities view is shown.
 - Added an editable **New Version** column to the transitive vulnerabilities view; available versions for vulnerable transitive dependencies are fetched automatically after a vulnerability scan, and selecting a version pins it in `<dependencyManagement>` (creating the entry if needed) and applies it through the shared **Update** action. The recommended fix version (lowest known version that resolves all vulnerabilities of the coordinate) is highlighted in the version dropdown in bold with a *(recommended)* marker.
 - Added an explanatory XML comment as the first line inside each newly pinned transitive `<dependencyManagement>` entry that lists the fixed vulnerability IDs and notes the change was made by MavenUp.
-- Added an "Insert explanatory comment when pinning a dependency to fix a vulnerability" setting to make that XML comment optional (default: on).
+- Added an "Insert explanatory comment when pinning a dependency to fix a vulnerability" setting to make that XML comment optional (default: on), placed in a new **Pom.xml Changes** settings group alongside the relocated "Sync Maven changes after update" setting.
 - Added a master-detail split view to the Vulnerability Details dialog whose lower detail pane shows the selected finding's affected component, summary, and references as clickable hyperlinks.
 - Added an "Open on ..." hyperlink in the detail pane that opens the selected component in the configured Maven repository browser.
 - Added the CVSS vector and the fixed-in versions of the selected finding to the detail pane when available.
@@ -33,6 +33,7 @@
 - Replaced the Summary and References columns in the Vulnerability Details dialog with the detail pane, and removed the separate references list dialog.
 - Moved the "Open in ..." toolbar action of the Vulnerability Details dialog into the detail pane as a hyperlink and removed the dialog toolbar.
 - Aligned the documentation with the actual UI label of the repository context menu entry, which is **Open on [Browser]** (e.g. *Open on MVN Repository*) rather than *Open in Maven Repository*.
+- Moved the "Sync Maven changes after update" setting out of **Versions and Updates** into the new **Pom.xml Changes** settings group.
 - Trimmed the Vulnerability Details table columns to their content when the dialog opens, let them scale with the dialog size, and enlarged the dialog for better readability.
 - Trimmed the main dependency table and all confirmation-table columns to their content after the table is populated for better readability.
 - Soft-wrapped overlong lines (for example long reference URLs) in the Vulnerability Details detail pane so no horizontal scrolling is needed.
