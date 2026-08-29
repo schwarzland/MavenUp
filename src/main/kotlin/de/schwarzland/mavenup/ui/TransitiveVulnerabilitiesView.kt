@@ -19,7 +19,6 @@ import de.schwarzland.mavenup.service.MavenUpSettings
 import org.apache.maven.artifact.versioning.ComparableVersion
 import java.awt.BorderLayout
 import java.awt.Component
-import java.awt.Font
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import javax.swing.JLabel
@@ -397,35 +396,14 @@ internal class TransitiveVulnerabilitiesView(
     }
 
     /**
-     * Setzt den Dropdown-Renderer der ComboBox: das Anzeigefeld übernimmt Farbe/Font der Box; die
-     * aktuelle Version wird in der aufgeklappten Liste mit „(current)"-Marker und Fettschrift, die
-     * empfohlene Fix-Version mit „(recommended)"-Marker und Fettschrift hervorgehoben.
+     * Setzt den gemeinsamen Dropdown-Renderer der ComboBox (siehe [applyVersionDropdownRenderer]).
      *
      * @param box Die zu konfigurierende ComboBox.
      * @param currentVersion Die aktuell aufgelöste Version der Koordinate.
      * @param recommendedVersion Die empfohlene Fix-Version (oder leer, wenn keine vorliegt).
      */
     private fun applyDropdownRenderer(box: ComboBox<String>, currentVersion: String, recommendedVersion: String) {
-        box.setRenderer { _, itemValue, index, _, _ ->
-            JLabel(itemValue ?: "").apply {
-                when {
-                    index == -1 -> {
-                        foreground = box.foreground
-                        font = box.font
-                    }
-                    itemValue != null && itemValue == currentVersion -> {
-                        text = versionDropdownItemText(itemValue, currentVersion)
-                        font = font.deriveFont(Font.BOLD)
-                    }
-                    itemValue != null && recommendedVersion.isNotEmpty() && itemValue == recommendedVersion -> {
-                        text = MyMessageBundle.message(
-                            "toolwindow.TransitiveVulnerabilities.version.recommendedMarker", itemValue
-                        )
-                        font = font.deriveFont(Font.BOLD)
-                    }
-                }
-            }
-        }
+        applyVersionDropdownRenderer(box, currentVersion, recommendedVersion)
     }
 
     /**

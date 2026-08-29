@@ -81,6 +81,9 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   Version ausgewählt ist; andernfalls verwendet es die Standardfarbe. Glyph und Farbe richten sich
   immer nach der **ausgewählten** Version im Dropdown.
   Bei einer ausstehenden Änderung (ausgewählte ≠ aktuelle Version) wird der Dropdown-Text fett dargestellt.
+  In der aufgeklappten Liste markiert der gemeinsame Renderer `applyVersionDropdownRenderer()` die aktuelle Version
+  mit „(current)" und die über `recommendedVersionForDependency()` ermittelte Fix-Version mit „(recommended)",
+  jeweils fett – identisch zur `TransitiveVulnerabilitiesView`.
   `createVersionPanel()` baut das JPanel mit Status-Glyph und ComboBox zusammen.
   Farben verwenden `JBColor`-Doppelwerte für Light-/Dark-Mode-Kompatibilität.
   Die Sammelaktionen setzen die **New Version**-Auswahl gemeinsam:
@@ -125,7 +128,7 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   über `recommendedByKey` im New-Version-Dropdown fett mit „(recommended)"-Marker hervorgehoben (analog zum
   „(current)"-Marker; keine eigene Spalte).
   Die editierbare **New Version**-Spalte spiegelt die New-Version-Spalte der Haupttabelle (Renderer/Editor via
-  `buildVersionPanel`/`applyDropdownRenderer`, `createVersionPanel`); die Auswahl liegt in `selectedVersions`
+  `buildVersionPanel`/`applyDropdownRenderer` (delegiert an `applyVersionDropdownRenderer`), `createVersionPanel`); die Auswahl liegt in `selectedVersions`
   (nur bewusst gewählte Werte, Standard = aktuelle Version) und wird über den `onSelectionChanged`-Callback an
   `refreshToolbar` gemeldet. `collectPendingUpdates`/`hasPendingUpdates` erzeugen daraus `DependencyUpdate`s vom
   Typ „managed dependency" (inkl. `fixedVulnerabilities` aus `advisoryIdsByKey` für den pom-Kommentar und
@@ -188,6 +191,9 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   - `MavenUpTableConstants.kt`: Spalten-Indizes und Message-Key-/Typ-Konstanten.
   - `VersionStatusUi.kt`: `VersionUpdateArrowIcon`, `isVersionUpToDate`, `hasNewerVersion`,
     `versionStatusText`/`versionStatusColor`/`versionStatusTooltip`, `versionDropdownItemText`,
+    `isHighlightedVersionDropdownItem`, `applyVersionDropdownRenderer` (gemeinsamer Dropdown-Renderer
+    beider Tabellen: markiert die aktuelle Version mit „(current)" und die empfohlene Fix-Version mit
+    „(recommended)" jeweils fett, während das Anzeigefeld Farbe/Font der ComboBox behält),
     `createVersionPanel` samt Status-Glyphen und `JBColor`-Werten.
   - `DependencyFilterModel.kt`: `TriStateFilter`, `TriStateFilterLabels`,
     `triStateFilterOptionLabel`, `triStateFilterRenderer` (geteilter Combobox-Renderer von Haupttabelle

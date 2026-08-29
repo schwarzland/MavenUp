@@ -1,5 +1,6 @@
 package de.schwarzland.mavenup.ui
 
+import com.intellij.openapi.ui.ComboBox
 import com.intellij.ui.scale.JBUIScale
 import java.awt.BorderLayout
 import java.awt.Color
@@ -125,19 +126,77 @@ internal fun versionStatusColor(upToDate: Boolean): Color =
  *
  * Entspricht [value] der aktuell verwendeten Version [currentVersion], wird der Eintrag mit
  * einem lokalisierten Marker („(current)") versehen, damit die aktuelle Version – insbesondere
- * bei aktivierter Option „alle Versionen anzeigen" – in der Liste hervorsticht. Andernfalls wird
- * der unveränderte Versionswert zurückgegeben.
+ * bei aktivierter Option „alle Versionen anzeigen" – in der Liste hervorsticht. Entspricht [value]
+ * der empfohlenen Fix-Version [recommendedVersion], erhält der Eintrag den Marker „(recommended)".
+ * Der „(current)"-Marker hat Vorrang, falls beide Versionen übereinstimmen. Andernfalls wird der
+ * unveränderte Versionswert zurückgegeben.
  *
  * @param value Der Versionswert des Dropdown-Eintrags.
  * @param currentVersion Die aktuell verwendete Version der Abhängigkeit.
+ * @param recommendedVersion Die empfohlene Fix-Version oder ein leerer String, wenn keine vorliegt.
  * @return Der ggf. mit Marker versehene Anzeigetext.
  */
-internal fun versionDropdownItemText(value: String, currentVersion: String): String =
-    if (currentVersion.isNotEmpty() && value == currentVersion) {
+internal fun versionDropdownItemText(
+    value: String,
+    currentVersion: String,
+    recommendedVersion: String = ""
+): String = when {
+    currentVersion.isNotEmpty() && value == currentVersion ->
         MyMessageBundle.message("toolwindow.MyToolWindow.version.currentMarker", value)
-    } else {
-        value
+    recommendedVersion.isNotEmpty() && value == recommendedVersion ->
+        MyMessageBundle.message("toolwindow.MyToolWindow.version.recommendedMarker", value)
+    else -> value
+}
+
+/**
+ * Prüft, ob ein Eintrag der Versions-Dropdown-Liste hervorgehoben (fett) dargestellt wird.
+ *
+ * Hervorgehoben werden die aktuell verwendete Version und die empfohlene Fix-Version.
+ *
+ * @param value Der Versionswert des Dropdown-Eintrags.
+ * @param currentVersion Die aktuell verwendete Version der Abhängigkeit.
+ * @param recommendedVersion Die empfohlene Fix-Version oder ein leerer String, wenn keine vorliegt.
+ * @return `true`, wenn der Eintrag hervorgehoben werden soll.
+ */
+internal fun isHighlightedVersionDropdownItem(
+    value: String,
+    currentVersion: String,
+    recommendedVersion: String = ""
+): Boolean = (currentVersion.isNotEmpty() && value == currentVersion) ||
+    (recommendedVersion.isNotEmpty() && value == recommendedVersion)
+
+/**
+ * Setzt den einheitlichen Dropdown-Renderer der Versions-ComboBox.
+ *
+ * Das Anzeigefeld (Index `-1`) übernimmt Farbe und Font der ComboBox, damit die Statusfarbe einer
+ * ausstehenden Änderung erhalten bleibt. In der aufgeklappten Liste werden die aktuelle Version und
+ * die empfohlene Fix-Version über [versionDropdownItemText] mit Marker versehen und fett dargestellt.
+ * Der Renderer wird von der Haupttabelle und der Ansicht der transitiven Sicherheitslücken gemeinsam
+ * genutzt, damit beide Listen identisch aussehen.
+ *
+ * @param box Die zu konfigurierende ComboBox.
+ * @param currentVersion Die aktuell verwendete Version der Abhängigkeit.
+ * @param recommendedVersion Die empfohlene Fix-Version oder ein leerer String, wenn keine vorliegt.
+ */
+internal fun applyVersionDropdownRenderer(
+    box: ComboBox<String>,
+    currentVersion: String,
+    recommendedVersion: String
+) {
+    box.setRenderer { _, itemValue, index, _, _ ->
+        JLabel(itemValue ?: "").apply {
+            if (index == -1) {
+                foreground = box.foreground
+                font = box.font
+            } else if (itemValue != null) {
+                text = versionDropdownItemText(itemValue, currentVersion, recommendedVersion)
+                if (isHighlightedVersionDropdownItem(itemValue, currentVersion, recommendedVersion)) {
+                    font = font.deriveFont(Font.BOLD)
+                }
+            }
+        }
     }
+}
 
 /**
  * Erzeugt den lokalisierten Tooltip-Text für die Versionszelle.

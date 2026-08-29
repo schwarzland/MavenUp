@@ -23,6 +23,7 @@
 - Added **Own vulnerability** and **Transitive vulnerability** options to the dependency table's **Vulnerabilities** filter so rows can be narrowed to findings in the dependency itself or in its transitive dependencies.
 - Added a **Set Recommended Version** entry to the dependency table's row context menu that selects the recommended fix version for a dependency, plugin, or managed entry affected by security findings of its own.
 - Added support for the toolbar's **Select Recommended Version** action in the dependency table, applying the recommended fix version to every visible entry that has security findings of its own.
+- Added a bold *(recommended)* marker for the recommended fix version in the dependency table's **New Version** dropdown, matching the transitive vulnerabilities view.
 
 ### Changed
 

@@ -4,7 +4,8 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
 
 /**
  * Testet die zustandslosen Versionsstatus-Helfer [isVersionUpToDate], [versionStatusText],
- * [versionStatusColor], [versionStatusTooltip], [versionDropdownItemText] und [createVersionPanel].
+ * [versionStatusColor], [versionStatusTooltip], [versionDropdownItemText],
+ * [isHighlightedVersionDropdownItem], [applyVersionDropdownRenderer] und [createVersionPanel].
  */
 class VersionStatusUiTest : BasePlatformTestCase() {
 
@@ -80,6 +81,55 @@ class VersionStatusUiTest : BasePlatformTestCase() {
 
     fun testVersionDropdownItemTextWithBlankCurrentVersionLeavesValueUnchanged() {
         assertEquals("1.0.0", versionDropdownItemText("1.0.0", ""))
+    }
+
+    fun testVersionDropdownItemTextMarksRecommendedVersion() {
+        val text = versionDropdownItemText("1.2.0", "1.0.0", "1.2.0")
+        assertTrue("Empfohlene Version sollte den Versionswert enthalten", text.contains("1.2.0"))
+        assertTrue("Empfohlene Version sollte als recommended markiert sein", text.contains("recommended"))
+    }
+
+    fun testVersionDropdownItemTextPrefersCurrentMarkerOverRecommendedMarker() {
+        val text = versionDropdownItemText("1.0.0", "1.0.0", "1.0.0")
+        assertTrue("Der current-Marker sollte Vorrang haben", text.contains("current"))
+        assertFalse(text.contains("recommended"))
+    }
+
+    fun testIsHighlightedVersionDropdownItemCoversCurrentAndRecommendedVersion() {
+        assertTrue(isHighlightedVersionDropdownItem("1.0.0", "1.0.0", "1.2.0"))
+        assertTrue(isHighlightedVersionDropdownItem("1.2.0", "1.0.0", "1.2.0"))
+        assertFalse(isHighlightedVersionDropdownItem("2.0.0", "1.0.0", "1.2.0"))
+        assertFalse(isHighlightedVersionDropdownItem("1.2.0", "1.0.0", ""))
+    }
+
+    fun testApplyVersionDropdownRendererMarksListEntriesButNotTheDisplayField() {
+        val combo = com.intellij.openapi.ui.ComboBox(arrayOf("2.0.0", "1.2.0", "1.0.0"))
+        applyVersionDropdownRenderer(combo, "1.0.0", "1.2.0")
+        val renderer = combo.renderer
+        val list = javax.swing.JList<String>()
+
+        val recommended = renderer.getListCellRendererComponent(list, "1.2.0", 1, false, false)
+                as javax.swing.JLabel
+        assertTrue(recommended.text.contains("recommended"))
+        assertTrue(recommended.font.isBold)
+
+        val current = renderer.getListCellRendererComponent(list, "1.0.0", 2, false, false)
+                as javax.swing.JLabel
+        assertTrue(current.text.contains("current"))
+        assertTrue(current.font.isBold)
+
+        val plain = renderer.getListCellRendererComponent(list, "2.0.0", 0, false, false)
+                as javax.swing.JLabel
+        assertEquals("2.0.0", plain.text)
+        assertEquals(
+            "Nicht markierte Einträge behalten den Standard-Font",
+            javax.swing.JLabel().font.style,
+            plain.font.style
+        )
+
+        val displayField = renderer.getListCellRendererComponent(list, "1.2.0", -1, false, false)
+                as javax.swing.JLabel
+        assertEquals("Das Anzeigefeld darf keinen Marker zeigen", "1.2.0", displayField.text)
     }
 
     fun testCreateVersionPanelContainsStatusLabelAndComboBox() {

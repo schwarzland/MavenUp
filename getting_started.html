@@ -20,7 +20,8 @@
     <li><strong>Choose the version to apply</strong>: In the <strong>New Version</strong> column, select the version you
         want to use. When multiple entries share the same Maven property such as <code>${spring.version}</code>, MavenUp
         keeps the selection in sync automatically. The dropdown text is bold when a pending change is selected, and the
-        tooltip explains the current status.</li>
+        tooltip explains the current status. In the open list the current version is marked <em>(current)</em> and, for
+        entries affected by a vulnerability, the recommended fix version is marked <em>(recommended)</em>.</li>
     <li><strong>Select versions in bulk</strong>: Open the <strong>Select Highest Version</strong> dropdown in the top action toolbar to apply a version to many dependencies at
         once — <strong>Select Highest Major Version</strong> picks the highest available version and <strong>Select Highest
         Minor Version</strong> stays within each dependency's current major line. After a vulnerability scan,

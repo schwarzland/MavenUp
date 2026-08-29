@@ -538,19 +538,13 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         combo.foreground = versionStatusColor(upToDate)
                     }
 
-                    // Custom-Renderer, der Farbe und Font nur im Anzeigefeld übernimmt (nicht im Dropdown)
-                    // und die aktuelle Version in der Dropdown-Liste hervorhebt.
-                    combo.setRenderer { _, value, index, _, _ ->
-                        JLabel(value ?: "").apply {
-                            if (index == -1) {
-                                foreground = combo.foreground
-                                font = combo.font
-                            } else if (value != null && value == currentVersion) {
-                                text = versionDropdownItemText(value, currentVersion)
-                                font = font.deriveFont(Font.BOLD)
-                            }
-                        }
-                    }
+                    // Gemeinsamer Dropdown-Renderer: Farbe und Font werden nur im Anzeigefeld übernommen
+                    // (nicht im Dropdown); aktuelle und empfohlene Version werden in der Liste markiert.
+                    applyVersionDropdownRenderer(
+                        combo,
+                        currentVersion,
+                        recommendedVersionForDependency(currentKey.orEmpty())
+                    )
 
                     combo.addActionListener {
                         val selected = combo.selectedItem as? String
