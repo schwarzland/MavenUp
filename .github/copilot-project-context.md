@@ -209,7 +209,8 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
 - **MavenUpSettings**: `PersistentStateComponent` auf Anwendungsebene (`Service.Level.APP`), global für alle Projekte gespeichert in `mavenup_settings.xml`
   (`jumpOnSingleClick`, `versionAutoSelectionMode` mit `DISABLED`, `LATEST`, `LATEST_MINOR`, `hideUnstableVersions`, `hiddenVersionQualifiers`,
   `ossIndexEnabled`, `checkTransitiveDependencies`, `repositoryBrowser`, `toolbarShowText`,
-  `syncMavenAfterUpdate`, `stopAfterCentralSuccess`, `offerAllVersions`, `confirmVersionReset`; Legacy-Migrationsfelder: `selectLatestVersion`, `selectLatestMinorVersion`).
+  `syncMavenAfterUpdate`, `stopAfterCentralSuccess`, `offerAllVersions`, `confirmVersionReset`,
+  `addVulnerabilityFixComment`; Legacy-Migrationsfelder: `selectLatestVersion`, `selectLatestMinorVersion`).
   Für die OSS-Index-Abfrage ist nur das Token erforderlich; Sonatype wertet bei der HTTP-Basic-Authentifizierung
   nur das Token aus, weshalb ein fester Platzhalter-Benutzername verwendet wird.
   Das Token liegt ausschließlich im IntelliJ Password Safe; fehlt es, wird
@@ -269,8 +270,9 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   `pom.xml` an (`applyUpdateToPom`, `updateXmlTagVersion`, Parent/Dependencies/Plugins) und
   speichert die Dateien vor dem Maven-Sync (`persistPomChanges`). Für „managed dependency"-Updates
   ohne vorhandenen Eintrag legt `addManagedDependency` einen neuen `<dependencyManagement>`-Eintrag an
-  (Container werden bei Bedarf erzeugt) und stellt der Abhängigkeit über `managedDependencyCommentText`
-  einen XML-Kommentar mit den behobenen Vulnerability-IDs und MavenUp-Hinweis als erste Zeile voran
+  (Container werden bei Bedarf erzeugt) und stellt der Abhängigkeit optional (Einstellung
+  `addVulnerabilityFixComment`, Standard: an) über `managedDependencyCommentText` einen XML-Kommentar
+  mit den behobenen Vulnerability-IDs und MavenUp-Hinweis als erste Zeile voran
   (Erzeugung aus Text via `createTagFromText` + `reformat`); genutzt für das Pinnen transitiver Abhängigkeiten.
 - **VulnerabilityScanService**: ermittelt direkte/transitive Scan-Ziele aus dem Maven-Modell
   (`collectVulnerabilityScanTargets`, `collectResolvedDependencyRelations`) und kapselt die

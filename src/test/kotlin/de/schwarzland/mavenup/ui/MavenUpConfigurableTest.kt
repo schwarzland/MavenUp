@@ -309,6 +309,29 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
         assertTrue(MavenUpSettings.State().confirmVersionReset)
     }
 
+    fun testAddVulnerabilityFixCommentDefaultIsTrue() {
+        assertTrue(MavenUpSettings.State().addVulnerabilityFixComment)
+    }
+
+    fun testAddVulnerabilityFixCommentSelectionIsPersistedOnApply() {
+        val settings = MavenUpSettings.getInstance()
+        settings.state.addVulnerabilityFixComment = true
+
+        val configurable = MavenUpConfigurable(project)
+        configurable.createComponent()
+        configurable.reset()
+        assertFalse(configurable.isModified)
+
+        val checkBox = configurable.field<com.intellij.ui.components.JBCheckBox>("addVulnerabilityFixCommentCheckBox")
+        checkBox.isSelected = false
+        assertTrue("Änderung der Checkbox sollte isModified() true machen", configurable.isModified)
+
+        configurable.apply()
+        assertFalse(settings.state.addVulnerabilityFixComment)
+
+        settings.state.addVulnerabilityFixComment = true
+    }
+
     fun testConfirmVersionResetSelectionIsPersistedOnApply() {
         val settings = MavenUpSettings.getInstance()
         settings.state.confirmVersionReset = true

@@ -130,9 +130,10 @@ internal class PomUpdateService(private val project: Project) {
      * damit die Version einer bisher nicht in der `pom.xml` deklarierten (transitiven) Abhängigkeit.
      *
      * Fehlende Container-Tags (`<dependencyManagement>`, `<dependencies>`) werden bei Bedarf erzeugt.
-     * Die Abhängigkeit wird samt vorangestelltem Kommentar aus Text erzeugt (Kommentar auf eigener Zeile
-     * direkt hinter dem öffnenden `<dependency>`) und anschließend neu formatiert, damit die Einrückung
-     * zur Datei passt.
+     * Die Abhängigkeit wird samt optional vorangestelltem Kommentar aus Text erzeugt (Kommentar auf
+     * eigener Zeile direkt hinter dem öffnenden `<dependency>`) und anschließend neu formatiert, damit
+     * die Einrückung zur Datei passt. Ob der Kommentar eingefügt wird, richtet sich nach der Einstellung
+     * [MavenUpSettings.State.addVulnerabilityFixComment].
      *
      * @param documentElement Das Root-Tag der `pom.xml`.
      * @param update Das anzuwendende Update mit der zu pinnenden Zielversion.
@@ -148,7 +149,9 @@ internal class PomUpdateService(private val project: Project) {
             )
         val dependencyXml = buildString {
             append("<dependency>\n")
-            append("<!-- ").append(managedDependencyCommentText(update.fixedVulnerabilities)).append(" -->\n")
+            if (MavenUpSettings.getInstance().state.addVulnerabilityFixComment) {
+                append("<!-- ").append(managedDependencyCommentText(update.fixedVulnerabilities)).append(" -->\n")
+            }
             append("<groupId>").append(update.groupId).append("</groupId>\n")
             append("<artifactId>").append(update.artifactId).append("</artifactId>\n")
             append("<version>").append(update.newVersion).append("</version>\n")

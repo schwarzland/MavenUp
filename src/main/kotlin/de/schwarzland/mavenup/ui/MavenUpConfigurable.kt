@@ -55,6 +55,7 @@ class MavenUpConfigurable internal constructor(
     private var hiddenVersionQualifiersLabel: JLabel? = null
     private var hiddenVersionQualifiersField: JTextField? = null
     private var checkTransitiveDependenciesCheckBox: JBCheckBox? = null
+    private var addVulnerabilityFixCommentCheckBox: JBCheckBox? = null
     private var ossIndexEnabledCheckBox: JBCheckBox? = null
     private var ossIndexTokenLabel: JLabel? = null
     private var ossIndexTokenField: JPasswordField? = null
@@ -198,6 +199,15 @@ class MavenUpConfigurable internal constructor(
                             .component
                 }
                 row {
+                    addVulnerabilityFixCommentCheckBox =
+                        checkBox(MyMessageBundle.message("settings.addVulnerabilityFixComment"))
+                            .applyToComponent {
+                                isSelected = settings.state.addVulnerabilityFixComment
+                                toolTipText = MyMessageBundle.message("settings.addVulnerabilityFixComment.tooltip")
+                            }
+                            .component
+                }
+                row {
                     ossIndexEnabledCheckBox = checkBox(MyMessageBundle.message("settings.ossIndex.enabled"))
                         .applyToComponent {
                             isSelected = settings.state.ossIndexEnabled
@@ -254,6 +264,7 @@ class MavenUpConfigurable internal constructor(
                 hideUnstableVersionsCheckBox?.isSelected != settings.state.hideUnstableVersions ||
                 hiddenVersionQualifiersField?.text != settings.state.hiddenVersionQualifiers ||
                 checkTransitiveDependenciesCheckBox?.isSelected != settings.state.checkTransitiveDependencies ||
+                addVulnerabilityFixCommentCheckBox?.isSelected != settings.state.addVulnerabilityFixComment ||
                 ossIndexEnabledCheckBox?.isSelected != settings.state.ossIndexEnabled ||
                 credentialsLoaded && currentToken() != storedToken
     }
@@ -286,6 +297,7 @@ class MavenUpConfigurable internal constructor(
         settings.state.hideUnstableVersions = hideUnstableVersionsCheckBox?.isSelected ?: false
         settings.state.hiddenVersionQualifiers = hiddenVersionQualifiersField?.text?.trim().orEmpty()
         settings.state.checkTransitiveDependencies = checkTransitiveDependenciesCheckBox?.isSelected ?: true
+        settings.state.addVulnerabilityFixComment = addVulnerabilityFixCommentCheckBox?.isSelected ?: true
         settings.state.ossIndexEnabled = ossIndexEnabled
         if (credentialsLoaded) {
             storedToken = ossIndexToken
@@ -311,6 +323,7 @@ class MavenUpConfigurable internal constructor(
         hideUnstableVersionsCheckBox?.isSelected = settings.state.hideUnstableVersions
         hiddenVersionQualifiersField?.text = settings.state.hiddenVersionQualifiers
         checkTransitiveDependenciesCheckBox?.isSelected = settings.state.checkTransitiveDependencies
+        addVulnerabilityFixCommentCheckBox?.isSelected = settings.state.addVulnerabilityFixComment
         ossIndexEnabledCheckBox?.isSelected = settings.state.ossIndexEnabled
         credentialsLoaded = false
         storedToken = ""
@@ -339,6 +352,7 @@ class MavenUpConfigurable internal constructor(
         hiddenVersionQualifiersLabel = null
         hiddenVersionQualifiersField = null
         checkTransitiveDependenciesCheckBox = null
+        addVulnerabilityFixCommentCheckBox = null
         ossIndexEnabledCheckBox = null
         ossIndexTokenLabel = null
         ossIndexTokenField = null

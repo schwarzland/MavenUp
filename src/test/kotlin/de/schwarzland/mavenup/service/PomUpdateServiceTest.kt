@@ -130,6 +130,46 @@ class PomUpdateServiceTest : BasePlatformTestCase() {
         )
     }
 
+    fun testAddManagedDependencyOmitsCommentWhenSettingDisabled() {
+        val settings = MavenUpSettings.getInstance()
+        val previousValue = settings.state.addVulnerabilityFixComment
+        settings.state.addVulnerabilityFixComment = false
+        try {
+            val pomContent = """
+                <project>
+                    <dependencies>
+                        <dependency>
+                            <groupId>com.example</groupId>
+                            <artifactId>direct</artifactId>
+                            <version>1.0.0</version>
+                        </dependency>
+                    </dependencies>
+                </project>
+            """.trimIndent()
+
+            val psiFile = myFixture.configureByText("pom.xml", pomContent) as XmlFile
+            val rootTag = psiFile.document?.rootTag!!
+            val pomUpdateService = PomUpdateService(project)
+
+            WriteCommandAction.runWriteCommandAction(project) {
+                pomUpdateService.addManagedDependency(
+                    rootTag,
+                    DependencyUpdate("org.trans", "lib", "managed dependency", "1.2.3", "1.2.4", listOf("CVE-1"))
+                )
+            }
+
+            val managed = rootTag.findFirstSubTag("dependencyManagement")
+                ?.findFirstSubTag("dependencies")
+                ?.findSubTags("dependency")
+                ?.find { it.findFirstSubTag("artifactId")?.value?.text == "lib" }
+            assertNotNull("New managed dependency should still be created", managed)
+            val comment = PsiTreeUtil.findChildOfType(managed, XmlComment::class.java)
+            assertNull("No comment should be added when the setting is disabled", comment)
+        } finally {
+            settings.state.addVulnerabilityFixComment = previousValue
+        }
+    }
+
     fun testAddManagedDependencyReusesExistingContainer() {
         val pomContent = """
             <project>
