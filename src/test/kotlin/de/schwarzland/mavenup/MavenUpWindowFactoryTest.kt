@@ -42,6 +42,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
      * Registriert ein Test-Tool-Window, baut den Plugin-Inhalt hinein und führt [block] mit dessen
      * [ContentManager] aus. Das Tool Window wird anschließend wieder abgemeldet.
      */
+    @Suppress("OverrideOnly", "DEPRECATION")
     private fun withToolWindowContents(block: (ContentManager) -> Unit) {
         val manager = ToolWindowManager.getInstance(project)
         val toolWindow = manager.registerToolWindow(
@@ -235,22 +236,9 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertFalse("ToolWindow sollte ohne Maven-Projekte nicht verfügbar sein", factory.shouldBeAvailable(project))
     }
 
-    @Suppress("OverrideOnly", "DEPRECATION")
     fun testToolWindowContentCreation() {
-        val factory = MavenUpWindowFactory()
-        val toolWindow = ToolWindowManager.getInstance(project).registerToolWindow(
-            RegisterToolWindowTask(
-                id = "TestWindow",
-                anchor = ToolWindowAnchor.BOTTOM,
-                canCloseContent = true
-            )
-        )
-
-        try {
-            factory.createToolWindowContent(project, toolWindow)
-            assertTrue("Content sollte zum ToolWindow hinzugefügt worden sein", toolWindow.contentManager.contentCount > 0)
-        } finally {
-            ToolWindowManager.getInstance(project).unregisterToolWindow("TestWindow")
+        withToolWindowContents { contentManager ->
+            assertTrue("Content sollte zum ToolWindow hinzugefügt worden sein", contentManager.contentCount > 0)
         }
     }
 
@@ -960,6 +948,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
      * Baut ein Tool Window mit manuell erzeugten Tabs auf, verbindet es über `bindTabs` mit einer
      * [MavenUpWindowFactory.MyToolWindow] und führt [block] darauf aus.
      */
+    @Suppress("OverrideOnly", "DEPRECATION")
     private fun withBoundToolWindow(
         block: (MavenUpWindowFactory.MyToolWindow, ContentManager, Content, Content) -> Unit
     ) {
