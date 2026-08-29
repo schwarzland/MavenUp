@@ -33,11 +33,11 @@ internal const val NEW_VERSION_COLUMN = 6
 /** Message-Bundle-Schlüssel für den Titel des Sicherheitslücken-Detaildialogs. */
 internal const val VULNERABILITY_DETAILS_TITLE = "vulnerability.details.title"
 
-/** CardLayout-Name der Hauptabhängigkeitstabelle im Zentrum des Tool-Windows. */
-internal const val CARD_MAIN_TABLE = "mainTable"
+/** Index des Tabs mit der Hauptabhängigkeitstabelle im Zentrum des Tool-Windows. */
+internal const val TAB_INDEX_MAIN_TABLE = 0
 
-/** CardLayout-Name der Ansicht der transitiven, verwundbaren Abhängigkeiten. */
-internal const val CARD_TRANSITIVE_VIEW = "transitiveVulnerabilities"
+/** Index des Tabs mit den transitiven, verwundbaren Abhängigkeiten. */
+internal const val TAB_INDEX_TRANSITIVE_VIEW = 1
 
 /** Message-Bundle-Schlüssel für den Kontextmenü-Eintrag zum Öffnen im Maven-Repository-Browser. */
 internal const val TOOLWINDOW_MY_TOOL_WINDOW_CONTEXT_MENU_OPEN_IN_MVN_REPOSITORY = "toolwindow.MyToolWindow.contextMenu.openInMvnRepository"

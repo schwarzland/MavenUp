@@ -6,7 +6,7 @@
 
 ### Added
 
-- Added a toolbar toggle that switches between the main dependency table and a dedicated view listing all transitive dependencies with known vulnerabilities and their vulnerability count; pressing it again returns to the main table.
+- Added two tabs in the tool window — **Dependencies** and **Transitive CVEs** — that switch between the main dependency table and a dedicated view listing all transitive dependencies with known vulnerabilities and their vulnerability count; the **Transitive CVEs** tab shows the number of affected coordinates in its title and stays disabled until a scan finds transitive vulnerabilities.
 - Added a **Type** column to the transitive vulnerabilities view that shows the same type as the main table (e.g. *managed dependency*) when the coordinate is declared in the pom.xml, or *transitive* otherwise.
 - Added a right-click context menu to the transitive vulnerabilities view with **Open on [Browser]** and **Show Vulnerability Details**, mirroring the main table's context menu.
 - Added a filter row to the transitive vulnerabilities view that matches the main window's filter row in look and behavior, with a text filter for GroupId and ArtifactId, an **Updates** and a **Pending** combo box, and a reset button; filtering by type and vulnerabilities is omitted.
@@ -23,9 +23,8 @@
 ### Changed
 
 - Made the **Open on [Browser]** and **Vulnerability Details** toolbar actions operate on the selected row of whichever view is active, so they target the transitive vulnerabilities view while it is shown.
-- Renamed the short toolbar label of the transitive vulnerabilities toggle from *Transitive* to *Transitive CVEs* and replaced its generic tree icon with the dependency analyzer icon.
 - Disabled the **Search for New Versions** toolbar action while the transitive vulnerabilities view is shown, because it only affects the main dependency table and silently discarded its pending version selections; its tooltip now explains the restriction.
-- Moved the transitive vulnerabilities toggle into its own separated toolbar segment ahead of the selection-dependent actions, because it determines which table those actions operate on and is not itself selection-dependent.
+- Moved the main table's filter row into the **Dependencies** tab so each tab carries its own filter row.
 - Made the **Select Highest Version** dropdown and the **Reset All to Current Versions** toolbar action operate on the transitive vulnerabilities view while it is shown.
 - Limited the bulk version selection in the transitive vulnerabilities view to the rows visible under its filter, and made the reset action ask whether to reset all transitive coordinates or only the filtered ones while a filter is active.
 - Replaced the Summary and References columns in the Vulnerability Details dialog with the detail pane, and removed the separate references list dialog.

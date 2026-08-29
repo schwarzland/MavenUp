@@ -23,6 +23,8 @@ import de.schwarzland.mavenup.ui.vulnerabilityCellComparator
 import de.schwarzland.mavenup.ui.VersionUpdateArrowIcon
 import de.schwarzland.mavenup.ui.TriStateFilter
 import de.schwarzland.mavenup.ui.sortableHeaderIcon
+import de.schwarzland.mavenup.ui.TAB_INDEX_MAIN_TABLE
+import de.schwarzland.mavenup.ui.TAB_INDEX_TRANSITIVE_VIEW
 import com.intellij.openapi.wm.RegisterToolWindowTask
 import com.intellij.openapi.wm.ToolWindowAnchor
 import com.intellij.openapi.wm.ToolWindowManager
@@ -30,10 +32,18 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.openapi.application.ReadAction
 import com.intellij.util.concurrency.AppExecutorUtil
 import com.intellij.ui.table.JBTable
+import com.intellij.ui.components.JBTabbedPane
 import java.awt.Container
 import java.util.concurrent.TimeUnit
 
 class MavenUpWindowFactoryTest : BasePlatformTestCase() {
+
+    /**
+     * Liefert die Tab-Leiste des Tool-Windows, die Haupttabelle und transitive Ansicht trennt.
+     */
+    private fun viewTabsOf(toolWindow: MavenUpWindowFactory.MyToolWindow): JBTabbedPane =
+        toolWindow.javaClass.getDeclaredField("viewTabs")
+            .apply { isAccessible = true }.get(toolWindow) as JBTabbedPane
 
     fun testVulnerabilityCheckAvailabilityDuringRefreshAndUpdateCheck() {
         assertTrue(canCheckVulnerabilities(isRefreshing = false, isUpdating = false))
@@ -811,7 +821,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertEquals("Open", MyMessageBundle.message("toolwindow.MyToolWindow.openInRepository.button.short"))
         assertEquals("Details", MyMessageBundle.message("toolwindow.MyToolWindow.vulnerabilityDetails.button.short"))
         assertEquals("Reset", MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.button.short"))
-        assertEquals("Transitive CVEs", MyMessageBundle.message("toolwindow.MyToolWindow.transitiveView.button.short"))
+        assertEquals("Transitive CVEs", MyMessageBundle.message("toolwindow.MyToolWindow.tab.transitiveView"))
     }
 
     fun testResetActionLabelAndTooltipConveyFilterAwareScope() {
@@ -932,7 +942,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         )
     }
 
-    fun testTransitiveViewToggleActionSwitchesBothWays() {
+    fun testTransitiveViewTabSwitchesBothWays() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         toolWindow.getContent()
 
@@ -945,73 +955,67 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         advisories[coordinate] = listOf(
             VulnerabilityAdvisory(id = "CVE-1", severity = VulnerabilitySeverity.HIGH, sources = setOf("OSV"))
         )
+        toolWindow.updateTransitiveVulnerabilitiesView()
 
-        val toggle = toolWindow.topToolbarActions()
-            .filterIsInstance<com.intellij.openapi.actionSystem.ToggleAction>()
-            .first()
+        val tabs = viewTabsOf(toolWindow)
         val showingField = toolWindow.javaClass.getDeclaredField("showingTransitiveView")
             .apply { isAccessible = true }
 
-        val enterEvent = com.intellij.testFramework.TestActionEvent.createTestEvent(toggle)
-        toggle.actionPerformed(enterEvent)
-        assertTrue("Erster Klick sollte in die transitive Ansicht wechseln", showingField.getBoolean(toolWindow))
+        tabs.selectedIndex = TAB_INDEX_TRANSITIVE_VIEW
+        assertTrue("Die Tab-Auswahl sollte in die transitive Ansicht wechseln", showingField.getBoolean(toolWindow))
 
-        val leaveEvent = com.intellij.testFramework.TestActionEvent.createTestEvent(toggle)
-        toggle.actionPerformed(leaveEvent)
-        assertFalse("Zweiter Klick sollte zurück zur Haupttabelle wechseln", showingField.getBoolean(toolWindow))
+        tabs.selectedIndex = TAB_INDEX_MAIN_TABLE
+        assertFalse("Die Tab-Auswahl sollte zurück zur Haupttabelle wechseln", showingField.getBoolean(toolWindow))
     }
 
-    fun testTransitiveViewToggleActionIsPresentInToolbar() {
+    fun testViewTabsOfferDependenciesAndTransitiveView() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         toolWindow.getContent()
 
-        val hasToggle = toolWindow.topToolbarActions()
-            .filterIsInstance<com.intellij.openapi.actionSystem.ToggleAction>()
-            .isNotEmpty()
-        assertTrue("Die Toolbar sollte eine Umschalt-Aktion für die transitive Ansicht enthalten", hasToggle)
+        val tabs = viewTabsOf(toolWindow)
+        assertEquals("Es müssen genau zwei Ansichts-Tabs existieren", 2, tabs.tabCount)
+        assertEquals("Dependencies", tabs.getTitleAt(TAB_INDEX_MAIN_TABLE))
+        assertEquals("Transitive CVEs", tabs.getTitleAt(TAB_INDEX_TRANSITIVE_VIEW))
     }
 
-    fun testTransitiveViewToggleUsesDependencyAnalyzerIconAndShortLabel() {
+    fun testTransitiveViewTabIsDisabledWithoutFindingsAndShowsCount() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         toolWindow.getContent()
 
-        val toggle = toolWindow.topToolbarActions()
-            .filterIsInstance<com.intellij.openapi.actionSystem.ToggleAction>()
-            .first()
-        val event = com.intellij.testFramework.TestActionEvent.createTestEvent(toggle)
-        toggle.update(event)
-
-        assertEquals(
-            "Die Umschalt-Aktion sollte das Dependency-Analyzer-Icon verwenden",
-            com.intellij.icons.AllIcons.Actions.DependencyAnalyzer,
-            event.presentation.icon
+        val tabs = viewTabsOf(toolWindow)
+        assertFalse(
+            "Ohne transitive Funde muss der Tab deaktiviert sein",
+            tabs.isEnabledAt(TAB_INDEX_TRANSITIVE_VIEW)
         )
-        assertEquals("Transitive CVEs", event.presentation.text)
+
+        val coords = toolWindow.javaClass.getDeclaredField("transitiveCoordinates")
+            .apply { isAccessible = true }.get(toolWindow) as MutableSet<String>
+        val advisories = toolWindow.javaClass.getDeclaredField("vulnerabilityAdvisories")
+            .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, List<VulnerabilityAdvisory>>
+        coords.add("com.example:transitive:2.0.0")
+        advisories["com.example:transitive:2.0.0"] = listOf(
+            VulnerabilityAdvisory(id = "CVE-1", severity = VulnerabilitySeverity.HIGH, sources = setOf("OSV"))
+        )
+        toolWindow.updateTransitiveVulnerabilitiesView()
+
+        assertTrue(
+            "Mit transitiven Funden muss der Tab aktivierbar sein",
+            tabs.isEnabledAt(TAB_INDEX_TRANSITIVE_VIEW)
+        )
+        assertEquals("Transitive CVEs (1)", tabs.getTitleAt(TAB_INDEX_TRANSITIVE_VIEW))
     }
 
-    fun testTransitiveViewToggleFormsItsOwnToolbarSegmentBeforeSelectionActions() {
+    fun testTransitiveViewIsNotSelectableWithoutFindings() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         toolWindow.getContent()
 
-        val actions = toolWindow.topToolbarActions()
-        val toggleIndex = actions.indexOfFirst { it is com.intellij.openapi.actionSystem.ToggleAction }
-        assertTrue("Die Umschalt-Aktion muss in der Toolbar enthalten sein", toggleIndex >= 0)
+        toolWindow.setTransitiveViewVisible(true)
 
-        assertTrue(
-            "Vor der Umschalt-Aktion muss ein Trenner stehen",
-            actions[toggleIndex - 1] is com.intellij.openapi.actionSystem.Separator
-        )
-        assertTrue(
-            "Nach der Umschalt-Aktion muss ein Trenner stehen",
-            actions[toggleIndex + 1] is com.intellij.openapi.actionSystem.Separator
-        )
-
-        val detailsLabel = MyMessageBundle.message("toolwindow.MyToolWindow.vulnerabilityDetails.button")
-        val detailsIndex = actions.indexOfFirst { it.templatePresentation.text == detailsLabel }
-        assertTrue("Die Vulnerability-Details-Aktion muss in der Toolbar enthalten sein", detailsIndex >= 0)
-        assertTrue(
-            "Der Ansichtsumschalter muss vor den selektionsabhängigen Aktionen stehen",
-            toggleIndex < detailsIndex
+        val showingField = toolWindow.javaClass.getDeclaredField("showingTransitiveView")
+            .apply { isAccessible = true }
+        assertFalse(
+            "Ohne transitive Funde darf nicht in die transitive Ansicht gewechselt werden",
+            showingField.getBoolean(toolWindow)
         )
     }
 
@@ -1074,7 +1078,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         )
     }
 
-    fun testTransitiveViewTogglesVisibilityAndFilterPanel() {
+    fun testTransitiveViewTabHostsItsOwnFilterRow() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         toolWindow.getContent()
 
@@ -1087,21 +1091,21 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         advisories[coordinate] = listOf(
             VulnerabilityAdvisory(id = "CVE-1", severity = VulnerabilitySeverity.HIGH, sources = setOf("OSV"))
         )
+        toolWindow.updateTransitiveVulnerabilitiesView()
 
         assertTrue(toolWindow.hasTransitiveVulnerabilities())
 
-        val filterPanel = toolWindow.javaClass.getDeclaredField("filterPanel")
-            .apply { isAccessible = true }.get(toolWindow) as javax.swing.JComponent
+        val tabs = viewTabsOf(toolWindow)
         val showingField = toolWindow.javaClass.getDeclaredField("showingTransitiveView")
             .apply { isAccessible = true }
 
         toolWindow.setTransitiveViewVisible(true)
         assertTrue("Die transitive Ansicht sollte aktiv sein", showingField.getBoolean(toolWindow))
-        assertFalse("Die Filterzeile sollte in der transitiven Ansicht ausgeblendet sein", filterPanel.isVisible)
+        assertEquals(TAB_INDEX_TRANSITIVE_VIEW, tabs.selectedIndex)
 
         toolWindow.setTransitiveViewVisible(false)
         assertFalse("Die Ansicht sollte zurück zur Haupttabelle wechseln", showingField.getBoolean(toolWindow))
-        assertTrue("Die Filterzeile sollte in der Haupttabelle wieder sichtbar sein", filterPanel.isVisible)
+        assertEquals(TAB_INDEX_MAIN_TABLE, tabs.selectedIndex)
     }
 
     fun testToolbarActionsTargetTransitiveViewWhenActive() {
@@ -1185,6 +1189,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val showingField = toolWindow.javaClass.getDeclaredField("showingTransitiveView")
             .apply { isAccessible = true }
 
+        toolWindow.updateTransitiveVulnerabilitiesView()
         toolWindow.setTransitiveViewVisible(true)
         assertTrue(showingField.getBoolean(toolWindow))
 
@@ -1195,6 +1200,10 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertFalse(
             "Ohne verbleibende Funde sollte automatisch zur Haupttabelle zurückgeschaltet werden",
             showingField.getBoolean(toolWindow)
+        )
+        assertFalse(
+            "Der transitive Tab muss ohne Funde wieder deaktiviert sein",
+            viewTabsOf(toolWindow).isEnabledAt(TAB_INDEX_TRANSITIVE_VIEW)
         )
     }
 

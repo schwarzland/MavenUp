@@ -19,7 +19,6 @@ import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.actionSystem.Separator
-import com.intellij.openapi.actionSystem.ToggleAction
 import com.intellij.openapi.actionSystem.ex.ActionUtil
 import com.intellij.openapi.actionSystem.impl.ActionButton
 import com.intellij.ide.HelpTooltip
@@ -52,7 +51,7 @@ import org.jetbrains.idea.maven.project.MavenImportListener
 import org.jetbrains.idea.maven.project.MavenProject
 import org.jetbrains.idea.maven.project.MavenProjectsManager
 import java.awt.BorderLayout
-import java.awt.CardLayout
+import com.intellij.ui.components.JBTabbedPane
 import java.awt.Component
 import java.awt.FlowLayout
 import java.awt.Font
@@ -140,16 +139,17 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /** Alternative Ansicht, die ausschließlich transitive, verwundbare Abhängigkeiten auflistet. */
         private val transitiveVulnerabilitiesView = TransitiveVulnerabilitiesView(project) { refreshToolbar() }
 
-        /** Layout, das zwischen Hauptabhängigkeitstabelle und transitiver Sicherheitslücken-Ansicht umschaltet. */
-        private val centerCardLayout = CardLayout()
+        /**
+         * Tab-Leiste im Zentrum des Tool-Windows, die die Hauptabhängigkeitstabelle
+         * ([TAB_INDEX_MAIN_TABLE]) und die transitive Sicherheitslücken-Ansicht
+         * ([TAB_INDEX_TRANSITIVE_VIEW]) als gleichrangige Sichten anbietet.
+         */
+        private val viewTabs = JBTabbedPane()
 
-        /** Container im Zentrum des Tool-Windows, der beide Ansichten als Karten hält. */
-        private val centerPanel = JBPanel<JBPanel<*>>(centerCardLayout)
+        /** Tab-Inhalt der Hauptabhängigkeitstabelle: Filterzeile über der Tabelle. */
+        private val mainTablePanel = JBPanel<JBPanel<*>>(BorderLayout())
 
-        /** Filterzeile unterhalb der Aktionsleiste; wird in der transitiven Ansicht ausgeblendet. */
-        private var filterPanel: JComponent? = null
-
-        /** `true`, solange die transitive Sicherheitslücken-Ansicht aktiv ist. */
+        /** `true`, solange der Tab der transitiven Sicherheitslücken-Ansicht ausgewählt ist. */
         private var showingTransitiveView = false
 
         /**
@@ -203,7 +203,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private val allTypesFilterLabel =
             MyMessageBundle.message("toolwindow.MyToolWindow.filter.type.all")
 
-        /** Container für Aktionsleiste und Filterzeile im Nordbereich. */
+        /** Container für die Aktionsleiste im Nordbereich. */
         private val topPanel = JBPanel<JBPanel<*>>(BorderLayout())
 
         /** Aktionsleiste am Ende der Filterzeile zum Zurücksetzen aller Filter. */
@@ -683,9 +683,22 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
             transitiveVulnerabilitiesView.enforcedRowHeight = table.rowHeight
 
-            centerPanel.add(JBScrollPane(table), CARD_MAIN_TABLE)
-            centerPanel.add(transitiveVulnerabilitiesView, CARD_TRANSITIVE_VIEW)
-            add(centerPanel, BorderLayout.CENTER)
+            mainTablePanel.add(JBScrollPane(table), BorderLayout.CENTER)
+            viewTabs.addTab(
+                MyMessageBundle.message("toolwindow.MyToolWindow.tab.dependencies"),
+                null,
+                mainTablePanel,
+                MyMessageBundle.message("toolwindow.MyToolWindow.tab.dependencies.tooltip")
+            )
+            viewTabs.addTab(
+                MyMessageBundle.message("toolwindow.MyToolWindow.tab.transitiveView"),
+                null,
+                transitiveVulnerabilitiesView,
+                MyMessageBundle.message("toolwindow.MyToolWindow.tab.transitiveView.tooltip")
+            )
+            viewTabs.setEnabledAt(TAB_INDEX_TRANSITIVE_VIEW, false)
+            viewTabs.addChangeListener { syncSelectedViewTab() }
+            add(viewTabs, BorderLayout.CENTER)
 
             fun toolbarAction(
                 messageKey: String,
@@ -741,25 +754,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 }
 
                 override fun actionPerformed(e: AnActionEvent) = openInMavenRepositoryForSelectedRow()
-            }
-
-            val toggleTransitiveViewAction = object : ToggleAction() {
-                override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
-                override fun isSelected(e: AnActionEvent): Boolean = showingTransitiveView
-                override fun setSelected(e: AnActionEvent, state: Boolean) = setTransitiveViewVisible(state)
-                override fun update(e: AnActionEvent) {
-                    super.update(e)
-                    val showText = isToolbarTextEnabled()
-                    val shortLabel = MyMessageBundle.message("toolwindow.MyToolWindow.transitiveView.button.short")
-                    val tooltip = MyMessageBundle.message("toolwindow.MyToolWindow.transitiveView.tooltip")
-                    e.presentation.isEnabled = showingTransitiveView || hasTransitiveVulnerabilities()
-                    // Identischer Tooltip in beiden Modi über CUSTOM_HELP_TOOLTIP (siehe toolbarAction).
-                    e.presentation.text = shortLabel
-                    e.presentation.description = tooltip
-                    e.presentation.putClientProperty(ActionButton.CUSTOM_HELP_TOOLTIP, HelpTooltip().withWrappingDescription(tooltip))
-                    e.presentation.icon = AllIcons.Actions.DependencyAnalyzer
-                    e.presentation.putClientProperty(ActionUtil.SHOW_TEXT_IN_TOOLBAR, showText)
-                }
             }
 
             // Die beiden "Select Highest"-Aktionen werden in einem aufklappbaren Untermenü gebündelt,
@@ -862,11 +856,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     else confirmAndResetAllVersionsToCurrent()
                 })
                 addSeparator()
-                // Der Ansichtsumschalter bildet ein eigenes Segment vor den selektionsabhängigen
-                // Aktionen: Er legt fest, auf welche Tabelle diese wirken, und ist selbst nicht
-                // selektionsabhängig, sondern hängt am Scan-Ergebnis.
-                add(toggleTransitiveViewAction)
-                addSeparator()
                 add(openInRepositoryAction)
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.vulnerabilityDetails.button",
@@ -883,13 +872,11 @@ class MavenUpWindowFactory : ToolWindowFactory {
             }
             val toolbar = ActionManager.getInstance()
                 .createActionToolbar("MavenUpToolWindow", toolbarGroup, true)
-            toolbar.targetComponent = centerPanel
+            toolbar.targetComponent = viewTabs
             actionToolbar = toolbar
 
             topPanel.add(toolbar.component, BorderLayout.NORTH)
-            val builtFilterPanel = buildFilterPanel()
-            filterPanel = builtFilterPanel
-            topPanel.add(builtFilterPanel, BorderLayout.SOUTH)
+            mainTablePanel.add(buildFilterPanel(), BorderLayout.NORTH)
             add(topPanel, BorderLayout.NORTH)
 
             project.messageBus.connect(this@MyToolWindow).subscribe(MavenImportListener.TOPIC, object : MavenImportListener {
@@ -1084,30 +1071,47 @@ class MavenUpWindowFactory : ToolWindowFactory {
          *
          * @return `true`, wenn eine transitive Koordinate mindestens eine Sicherheitswarnung besitzt.
          */
-        internal fun hasTransitiveVulnerabilities(): Boolean =
-            transitiveCoordinates.any { vulnerabilityAdvisories[it]?.isNotEmpty() == true }
+        internal fun hasTransitiveVulnerabilities(): Boolean = transitiveVulnerabilityCount() > 0
 
         /**
-         * Schaltet zwischen der Hauptabhängigkeitstabelle und der transitiven Sicherheitslücken-Ansicht um.
+         * Zählt die transitiven Koordinaten, für die mindestens eine Sicherheitswarnung vorliegt.
          *
-         * In der transitiven Ansicht wird die Filterzeile der Haupttabelle ausgeblendet; die transitive
-         * Ansicht bringt eine eigene Filterzeile mit.
+         * @return Anzahl der verwundbaren transitiven Abhängigkeiten.
+         */
+        internal fun transitiveVulnerabilityCount(): Int =
+            transitiveCoordinates.count { vulnerabilityAdvisories[it]?.isNotEmpty() == true }
+
+        /**
+         * Wählt den Tab der Hauptabhängigkeitstabelle oder den der transitiven Sicherheitslücken-Ansicht.
          *
-         * @param visible `true`, um die transitive Ansicht anzuzeigen, `false` für die Hauptabhängigkeitstabelle.
+         * Ist der transitive Tab mangels Funden deaktiviert, bleibt der Aufruf wirkungslos.
+         *
+         * @param visible `true`, um den transitiven Tab zu wählen, `false` für die Hauptabhängigkeitstabelle.
          */
         internal fun setTransitiveViewVisible(visible: Boolean) {
+            val targetIndex = if (visible) TAB_INDEX_TRANSITIVE_VIEW else TAB_INDEX_MAIN_TABLE
+            if (!viewTabs.isEnabledAt(targetIndex)) return
+            viewTabs.selectedIndex = targetIndex
+            syncSelectedViewTab()
+        }
+
+        /**
+         * Übernimmt den aktuell gewählten Tab in den internen Zustand und aktualisiert die Aktionsleiste,
+         * damit die Toolbar-Aktionen auf die sichtbare Tabelle wirken.
+         */
+        private fun syncSelectedViewTab() {
+            val visible = viewTabs.selectedIndex == TAB_INDEX_TRANSITIVE_VIEW
             if (showingTransitiveView == visible) return
             showingTransitiveView = visible
-            centerCardLayout.show(centerPanel, if (visible) CARD_TRANSITIVE_VIEW else CARD_MAIN_TABLE)
-            filterPanel?.isVisible = !visible
             refreshToolbar()
         }
 
         /**
          * Aktualisiert die transitive Sicherheitslücken-Ansicht mit den aktuellen Scan-Ergebnissen.
          *
-         * Fehlen nach dem Scan transitive Funde, während die Ansicht aktiv ist, wird automatisch auf die
-         * Hauptabhängigkeitstabelle zurückgeschaltet.
+         * Der zugehörige Tab wird nur aktiviert, wenn transitive Funde vorliegen, und trägt deren Anzahl
+         * im Titel. Fehlen nach dem Scan transitive Funde, während der Tab aktiv ist, wird automatisch auf
+         * die Hauptabhängigkeitstabelle zurückgeschaltet.
          */
         internal fun updateTransitiveVulnerabilitiesView() {
             transitiveVulnerabilitiesView.update(
@@ -1116,9 +1120,20 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 knownTypes,
                 availableVersions + transitiveAvailableVersions
             )
-            if (showingTransitiveView && !hasTransitiveVulnerabilities()) {
-                setTransitiveViewVisible(false)
+            val count = transitiveVulnerabilityCount()
+            viewTabs.setTitleAt(
+                TAB_INDEX_TRANSITIVE_VIEW,
+                if (count > 0) {
+                    MyMessageBundle.message("toolwindow.MyToolWindow.tab.transitiveView.withCount", count)
+                } else {
+                    MyMessageBundle.message("toolwindow.MyToolWindow.tab.transitiveView")
+                }
+            )
+            if (count == 0 && showingTransitiveView) {
+                viewTabs.selectedIndex = TAB_INDEX_MAIN_TABLE
+                syncSelectedViewTab()
             }
+            viewTabs.setEnabledAt(TAB_INDEX_TRANSITIVE_VIEW, count > 0)
             refreshToolbar()
         }
 
@@ -1301,7 +1316,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             actionToolbar?.let { topPanel.remove(it.component) }
             val toolbar = ActionManager.getInstance()
                 .createActionToolbar("MavenUpToolWindow", toolbarGroup, true)
-            toolbar.targetComponent = centerPanel
+            toolbar.targetComponent = viewTabs
             actionToolbar = toolbar
             topPanel.add(toolbar.component, BorderLayout.NORTH)
             topPanel.revalidate()
