@@ -4,8 +4,8 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
 
 /**
  * Testet die zustandslosen Versionsstatus-Helfer [isVersionUpToDate], [versionStatusText],
- * [versionStatusColor], [versionStatusTooltip], [versionDropdownItemText],
- * [isHighlightedVersionDropdownItem], [applyVersionDropdownRenderer] und [createVersionPanel].
+ * [versionStatusColor], [versionStatusTooltip], [versionDropdownItemText], [versionDropdownItemDisplay],
+ * [applyVersionDropdownRenderer] und [createVersionPanel].
  */
 class VersionStatusUiTest : BasePlatformTestCase() {
 
@@ -95,11 +95,11 @@ class VersionStatusUiTest : BasePlatformTestCase() {
         assertFalse(text.contains("recommended"))
     }
 
-    fun testIsHighlightedVersionDropdownItemCoversCurrentAndRecommendedVersion() {
-        assertTrue(isHighlightedVersionDropdownItem("1.0.0", "1.0.0", "1.2.0"))
-        assertTrue(isHighlightedVersionDropdownItem("1.2.0", "1.0.0", "1.2.0"))
-        assertFalse(isHighlightedVersionDropdownItem("2.0.0", "1.0.0", "1.2.0"))
-        assertFalse(isHighlightedVersionDropdownItem("1.2.0", "1.0.0", ""))
+    fun testVersionDropdownItemDisplayCoversCurrentAndRecommendedVersion() {
+        assertEquals(true, versionDropdownItemDisplay("1.0.0", "1.0.0", "1.2.0").second)
+        assertEquals(true, versionDropdownItemDisplay("1.2.0", "1.0.0", "1.2.0").second)
+        assertEquals(false, versionDropdownItemDisplay("2.0.0", "1.0.0", "1.2.0").second)
+        assertEquals(false, versionDropdownItemDisplay("1.2.0", "1.0.0", "").second)
     }
 
     fun testApplyVersionDropdownRendererMarksListEntriesButNotTheDisplayField() {

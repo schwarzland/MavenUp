@@ -190,8 +190,9 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   `MyToolWindow`-Abhängigkeit):
   - `MavenUpTableConstants.kt`: Spalten-Indizes und Message-Key-/Typ-Konstanten.
   - `VersionStatusUi.kt`: `VersionUpdateArrowIcon`, `isVersionUpToDate`, `hasNewerVersion`,
-    `versionStatusText`/`versionStatusColor`/`versionStatusTooltip`, `versionDropdownItemText`,
-    `isHighlightedVersionDropdownItem`, `applyVersionDropdownRenderer` (gemeinsamer Dropdown-Renderer
+    `versionStatusText`/`versionStatusColor`/`versionStatusTooltip`, `versionDropdownItemDisplay`
+    (liefert Anzeigetext und Fettschrift-Status in einem Durchgang), `versionDropdownItemText`
+    (Textvariante darauf aufbauend), `applyVersionDropdownRenderer` (gemeinsamer Dropdown-Renderer
     beider Tabellen: markiert die aktuelle Version mit „(current)" und die empfohlene Fix-Version mit
     „(recommended)" jeweils fett, während das Anzeigefeld Farbe/Font der ComboBox behält),
     `createVersionPanel` samt Status-Glyphen und `JBColor`-Werten.

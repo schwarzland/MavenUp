@@ -6,7 +6,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Testet die reine Filterlogik [rowMatchesFilter] und die Filteroptionen [TriStateFilter] fÃ¼r die Haupttabelle.
+ * Testet die reine Filterlogik [rowMatchesFilter] und die Filteroptionen [TriStateFilter] für die Haupttabelle.
  */
 class RowMatchesFilterTest {
 

@@ -122,14 +122,40 @@ internal fun versionStatusColor(upToDate: Boolean): Color =
     if (upToDate) VERSION_UP_TO_DATE_COLOR else VERSION_UPDATE_AVAILABLE_COLOR
 
 /**
- * Ermittelt den Anzeigetext für einen Eintrag der Versions-Dropdown-Liste.
+ * Ermittelt Anzeigetext und Fettschrift-Status für einen Eintrag der Versions-Dropdown-Liste in
+ * einem Durchgang, damit der Vergleich mit der aktuellen und der empfohlenen Version nicht doppelt
+ * ausgewertet wird.
  *
  * Entspricht [value] der aktuell verwendeten Version [currentVersion], wird der Eintrag mit
  * einem lokalisierten Marker („(current)") versehen, damit die aktuelle Version – insbesondere
  * bei aktivierter Option „alle Versionen anzeigen" – in der Liste hervorsticht. Entspricht [value]
  * der empfohlenen Fix-Version [recommendedVersion], erhält der Eintrag den Marker „(recommended)".
- * Der „(current)"-Marker hat Vorrang, falls beide Versionen übereinstimmen. Andernfalls wird der
- * unveränderte Versionswert zurückgegeben.
+ * Der „(current)"-Marker hat Vorrang, falls beide Versionen übereinstimmen. In beiden Fällen wird
+ * der Eintrag hervorgehoben (fett); andernfalls wird der unveränderte Versionswert ohne Hervorhebung
+ * zurückgegeben.
+ *
+ * @param value Der Versionswert des Dropdown-Eintrags.
+ * @param currentVersion Die aktuell verwendete Version der Abhängigkeit.
+ * @param recommendedVersion Die empfohlene Fix-Version oder ein leerer String, wenn keine vorliegt.
+ * @return Der ggf. mit Marker versehene Anzeigetext und ob der Eintrag hervorgehoben werden soll.
+ */
+internal fun versionDropdownItemDisplay(
+    value: String,
+    currentVersion: String,
+    recommendedVersion: String = ""
+): Pair<String, Boolean> = when {
+    currentVersion.isNotEmpty() && value == currentVersion ->
+        MyMessageBundle.message("toolwindow.MyToolWindow.version.currentMarker", value) to true
+    recommendedVersion.isNotEmpty() && value == recommendedVersion ->
+        MyMessageBundle.message("toolwindow.MyToolWindow.version.recommendedMarker", value) to true
+    else -> value to false
+}
+
+/**
+ * Ermittelt den Anzeigetext für einen Eintrag der Versions-Dropdown-Liste.
+ *
+ * Reine Textvariante von [versionDropdownItemDisplay] ohne den Hervorhebungs-Status; wird von
+ * Aufrufern verwendet, die nur den Text benötigen.
  *
  * @param value Der Versionswert des Dropdown-Eintrags.
  * @param currentVersion Die aktuell verwendete Version der Abhängigkeit.
@@ -140,37 +166,14 @@ internal fun versionDropdownItemText(
     value: String,
     currentVersion: String,
     recommendedVersion: String = ""
-): String = when {
-    currentVersion.isNotEmpty() && value == currentVersion ->
-        MyMessageBundle.message("toolwindow.MyToolWindow.version.currentMarker", value)
-    recommendedVersion.isNotEmpty() && value == recommendedVersion ->
-        MyMessageBundle.message("toolwindow.MyToolWindow.version.recommendedMarker", value)
-    else -> value
-}
-
-/**
- * Prüft, ob ein Eintrag der Versions-Dropdown-Liste hervorgehoben (fett) dargestellt wird.
- *
- * Hervorgehoben werden die aktuell verwendete Version und die empfohlene Fix-Version.
- *
- * @param value Der Versionswert des Dropdown-Eintrags.
- * @param currentVersion Die aktuell verwendete Version der Abhängigkeit.
- * @param recommendedVersion Die empfohlene Fix-Version oder ein leerer String, wenn keine vorliegt.
- * @return `true`, wenn der Eintrag hervorgehoben werden soll.
- */
-internal fun isHighlightedVersionDropdownItem(
-    value: String,
-    currentVersion: String,
-    recommendedVersion: String = ""
-): Boolean = (currentVersion.isNotEmpty() && value == currentVersion) ||
-    (recommendedVersion.isNotEmpty() && value == recommendedVersion)
+): String = versionDropdownItemDisplay(value, currentVersion, recommendedVersion).first
 
 /**
  * Setzt den einheitlichen Dropdown-Renderer der Versions-ComboBox.
  *
  * Das Anzeigefeld (Index `-1`) übernimmt Farbe und Font der ComboBox, damit die Statusfarbe einer
  * ausstehenden Änderung erhalten bleibt. In der aufgeklappten Liste werden die aktuelle Version und
- * die empfohlene Fix-Version über [versionDropdownItemText] mit Marker versehen und fett dargestellt.
+ * die empfohlene Fix-Version über [versionDropdownItemDisplay] mit Marker versehen und fett dargestellt.
  * Der Renderer wird von der Haupttabelle und der Ansicht der transitiven Sicherheitslücken gemeinsam
  * genutzt, damit beide Listen identisch aussehen.
  *
@@ -189,8 +192,9 @@ internal fun applyVersionDropdownRenderer(
                 foreground = box.foreground
                 font = box.font
             } else if (itemValue != null) {
-                text = versionDropdownItemText(itemValue, currentVersion, recommendedVersion)
-                if (isHighlightedVersionDropdownItem(itemValue, currentVersion, recommendedVersion)) {
+                val (displayText, highlighted) = versionDropdownItemDisplay(itemValue, currentVersion, recommendedVersion)
+                text = displayText
+                if (highlighted) {
                     font = font.deriveFont(Font.BOLD)
                 }
             }
