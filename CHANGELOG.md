@@ -24,7 +24,7 @@
 - Added a **Set Recommended Version** entry to the dependency table's row context menu that selects the recommended fix version for a dependency, plugin, or managed entry affected by security findings of its own.
 - Added support for the toolbar's **Select Recommended Version** action in the dependency table, applying the recommended fix version to every visible entry that has security findings of its own.
 - Added a bold *(recommended)* marker for the recommended fix version in the dependency table's **New Version** dropdown, matching the transitive vulnerabilities view.
-- Added a `(transitive, also declared directly)` marker in the Vulnerability Details dialog for components that are pulled in transitively while also being declared in a `pom.xml`, making clear that they have their own row in the main table.
+- Added an **Origin** column directly after **Component** in the Vulnerability Details dialog that classifies each finding as `direct`, `transitive`, or `transitive, also declared directly`; the component name is no longer extended with a marker suffix.
 - Added a "Search for new versions automatically when the project data is loaded" setting (default: on) that runs **Refresh and Search for New Versions** automatically when the tool window loads its project data and after every finished Maven import or resync.
 
 ### Changed

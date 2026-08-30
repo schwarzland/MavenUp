@@ -16,6 +16,7 @@ import de.schwarzland.mavenup.ui.UpdateConfirmationDialog
 import de.schwarzland.mavenup.service.RefreshSnapshotCollector
 import de.schwarzland.mavenup.ui.MyMessageBundle
 import de.schwarzland.mavenup.ui.RefreshSnapshot
+import de.schwarzland.mavenup.ui.VulnerabilityOrigin
 import de.schwarzland.mavenup.ui.buildVulnerabilityCell
 import de.schwarzland.mavenup.ui.canCheckVulnerabilities
 import de.schwarzland.mavenup.ui.vulnerabilitySummary
@@ -228,8 +229,10 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertEquals(listOf(directAdvisory), cell.detailFindings()[directCoordinate])
         assertEquals(
             listOf(transitiveAdvisory),
-            cell.detailFindings()["$transitiveCoordinate (transitive)"]
+            cell.detailFindings()[transitiveCoordinate]
         )
+        assertEquals(VulnerabilityOrigin.DIRECT, cell.detailOrigins()[directCoordinate])
+        assertEquals(VulnerabilityOrigin.TRANSITIVE, cell.detailOrigins()[transitiveCoordinate])
 
         val transitiveOnly = buildVulnerabilityCell(
             directCoordinate,
@@ -252,7 +255,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertFalse(clean.hasTransitiveAdvisories)
     }
 
-    fun testTransitiveCoordinateDeclaredInPomIsMarkedInDetailFindings() {
+    fun testTransitiveCoordinateDeclaredInPomIsMarkedInDetailOrigins() {
         val directCoordinate = "com.example:direct:1.0.0"
         val transitiveCoordinate = "com.example:transitive:2.0.0"
         val advisory = VulnerabilityAdvisory(
@@ -268,9 +271,14 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
             setOf(transitiveCoordinate)
         )
         assertEquals(
-            "Eine zugleich direkt deklarierte transitive Koordinate muss zusätzlich markiert werden",
+            "Der Komponentenname darf kein Markierungs-Suffix tragen",
             listOf(advisory),
-            declared.detailFindings()["$transitiveCoordinate (transitive, also declared directly)"]
+            declared.detailFindings()[transitiveCoordinate]
+        )
+        assertEquals(
+            "Eine zugleich direkt deklarierte transitive Koordinate muss gesondert eingeordnet werden",
+            VulnerabilityOrigin.TRANSITIVE_DECLARED,
+            declared.detailOrigins()[transitiveCoordinate]
         )
 
         val onlyTransitive = buildVulnerabilityCell(
@@ -280,9 +288,9 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
             setOf(directCoordinate)
         )
         assertEquals(
-            "Eine rein transitive Koordinate behält das einfache Suffix",
-            listOf(advisory),
-            onlyTransitive.detailFindings()["$transitiveCoordinate (transitive)"]
+            "Eine rein transitive Koordinate bleibt als transitiv eingeordnet",
+            VulnerabilityOrigin.TRANSITIVE,
+            onlyTransitive.detailOrigins()[transitiveCoordinate]
         )
     }
 

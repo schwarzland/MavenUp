@@ -311,7 +311,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
                             VulnerabilityDetailDialog(
                                 project,
                                 cell.detailFindings(),
-                                "$coordinate - ${MyMessageBundle.message(VULNERABILITY_DETAILS_TITLE)}"
+                                "$coordinate - ${MyMessageBundle.message(VULNERABILITY_DETAILS_TITLE)}",
+                                cell.detailOrigins()
                             ).show()
                         }
                         return
@@ -400,7 +401,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         VulnerabilityDetailDialog(
                             project,
                             cell.detailFindings(),
-                            "$coordinate - ${MyMessageBundle.message(VULNERABILITY_DETAILS_TITLE)}"
+                            "$coordinate - ${MyMessageBundle.message(VULNERABILITY_DETAILS_TITLE)}",
+                            cell.detailOrigins()
                         ).show()
                     }
                     ActionManager.getInstance().createActionPopupMenu(
@@ -2135,7 +2137,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 VulnerabilityDetailDialog(
                     project,
                     findings,
-                    "$groupId:$artifactId - ${MyMessageBundle.message(VULNERABILITY_DETAILS_TITLE)}"
+                    "$groupId:$artifactId - ${MyMessageBundle.message(VULNERABILITY_DETAILS_TITLE)}",
+                    cell?.detailOrigins().orEmpty()
                 ).show()
             }
         }
