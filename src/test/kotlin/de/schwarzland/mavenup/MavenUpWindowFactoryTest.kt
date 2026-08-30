@@ -252,6 +252,40 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertFalse(clean.hasTransitiveAdvisories)
     }
 
+    fun testTransitiveCoordinateDeclaredInPomIsMarkedInDetailFindings() {
+        val directCoordinate = "com.example:direct:1.0.0"
+        val transitiveCoordinate = "com.example:transitive:2.0.0"
+        val advisory = VulnerabilityAdvisory(
+            id = "CVE-TRANSITIVE",
+            severity = VulnerabilitySeverity.HIGH,
+            sources = setOf("OSV")
+        )
+
+        val declared = buildVulnerabilityCell(
+            directCoordinate,
+            mapOf(transitiveCoordinate to listOf(advisory)),
+            setOf(transitiveCoordinate),
+            setOf(transitiveCoordinate)
+        )
+        assertEquals(
+            "Eine zugleich direkt deklarierte transitive Koordinate muss zusätzlich markiert werden",
+            listOf(advisory),
+            declared.detailFindings()["$transitiveCoordinate (transitive, also declared directly)"]
+        )
+
+        val onlyTransitive = buildVulnerabilityCell(
+            directCoordinate,
+            mapOf(transitiveCoordinate to listOf(advisory)),
+            setOf(transitiveCoordinate),
+            setOf(directCoordinate)
+        )
+        assertEquals(
+            "Eine rein transitive Koordinate behält das einfache Suffix",
+            listOf(advisory),
+            onlyTransitive.detailFindings()["$transitiveCoordinate (transitive)"]
+        )
+    }
+
     fun testShouldBeAvailableOnlyWhenMavenProjectsExist() {
         val factory = MavenUpWindowFactory()
 

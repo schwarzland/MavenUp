@@ -201,7 +201,9 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
     und transitiver Filterzeile), die `*_FILTER_LABELS`, `VulnerabilityFilter` samt
     `vulnerabilityFilterRenderer`, `FilterRow`, `FilterCriteria`,
     `rowMatchesFilter`.
-  - `VulnerabilityCellModel.kt`: `VulnerabilityCell`, `buildVulnerabilityCell`,
+  - `VulnerabilityCellModel.kt`: `VulnerabilityCell` (inkl. `declaredCoordinates` für die Markierung
+    zugleich direkt deklarierter transitiver Koordinaten), `buildVulnerabilityCell`,
+    `TRANSITIVE_SUFFIX`, `TRANSITIVE_AND_DECLARED_SUFFIX`,
     `vulnerabilitySummary`, `worstSeverity`, `canCheckVulnerabilities`, `vulnerabilityColor`,
     `vulnerabilityCellRenderer` (geteilter Zell-Renderer von Haupttabelle und transitiver Ansicht),
     `VulnerabilityScanTargets`, `artifactNodeCoordinate`, `coordinateString`.

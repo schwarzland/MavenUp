@@ -625,6 +625,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         }
 
                         dependencyToProperty.putAll(snapshot.dependencyProperties)
+                        val declaredCoordinates = snapshot.rows
+                            .filter { it.currentVersion.isNotEmpty() }
+                            .mapTo(linkedSetOf()) { "${it.key}:${it.currentVersion}" }
                         snapshot.rows.forEach { row ->
                             knownDependencies[row.key] = row.currentVersion
                             knownTypes[row.key] = row.type
@@ -637,7 +640,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
                                     buildVulnerabilityCell(
                                         "${row.key}:${row.currentVersion}",
                                         vulnerabilityAdvisories,
-                                        transitiveDependenciesByDirect["${row.key}:${row.currentVersion}"].orEmpty()
+                                        transitiveDependenciesByDirect["${row.key}:${row.currentVersion}"].orEmpty(),
+                                        declaredCoordinates
                                     ),
                                     row.currentVersion,
                                     availableVersions[row.key].orEmpty()
