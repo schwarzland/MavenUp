@@ -13,13 +13,15 @@
     <!-- Description of the plugin displayed on the Plugin Page and IDE Plugin Manager.
          Guidelines: https://plugins.jetbrains.com/docs/marketplace/best-practices-for-listing.html#plugin-description -->
     <description><![CDATA[
-        <p><b>Simplify Maven dependency and plugin management with a clear overview and one-click updates.</b></p>
+        <p><b>Find and fix vulnerable Maven dependencies — and keep every dependency, plugin, and parent POM up to date from one tool window.</b></p>
         
         <p><b>Core Features:</b></p>
         <ul>
+            <li><b>Vulnerability Scanning:</b> Check your dependencies, plugins, and resolved transitive components for known vulnerabilities via OSV.dev and Sonatype OSS Index, with severity, CVSS score, and affected versions shown right in the table.</li>
+            <li><b>One-Click Vulnerability Fixes:</b> Apply the recommended fix version — the lowest release that resolves every known finding of a component — for a single entry or for all affected entries at once, and pin vulnerable transitive dependencies in <code>dependencyManagement</code> without editing the <code>pom.xml</code> by hand.</li>
+            <li><b>Traceable Security Updates:</b> Every pinned fix is documented in the <code>pom.xml</code> with an explanatory comment listing the resolved advisories, most severe first — text, identifier type, and length are fully configurable.</li>
+            <li><b>Find & Update Versions:</b> Discover newer versions in Maven Central and private repositories — automatically after each project load and Maven resync — then apply a configurable auto-selection strategy (disabled, highest version, or latest minor in the current major line), bulk-select the highest major, highest minor, recommended fix, or current version for all dependencies at once, or set those versions—or reset to the current version—for a single dependency straight from its row context menu.</li>
             <li><b>Complete Dependency Overview:</b> Displays all dependencies, plugins, and parent POM across Maven modules in an organized table.</li>
-            <li><b>Find & Update Versions:</b> Discover newer versions in Maven Central and private repositories — automatically after each project load and Maven resync — then apply a configurable auto-selection strategy (disabled, highest version, or latest minor in the current major line), bulk-select the highest major, highest minor, recommended fix, or current version for all dependencies at once, or set the highest major or minor version, the recommended fix version for a vulnerable entry—or reset to the current version—for a single dependency straight from its row context menu.</li>
-            <li><b>Security Scanning:</b> Check dependencies and transitive components for known vulnerabilities via OSV.dev and Sonatype OSS Index.</li>
             <li><b>Smart Navigation:</b> Jump directly to <code>pom.xml</code> definitions or open artifacts in Maven Repository browsers with a single click.</li>
         </ul>
         
@@ -31,7 +33,7 @@
             <li><b>Repository Browser Options:</b> Choose between MVN Repository and Sonatype Central for artifact links.</li>
             <li><b>Private Repository Support:</b> Access authenticated repositories from <code>settings.xml</code> with fallback to standard Maven user settings.</li>
             <li><b>Detailed Security Reports:</b> View advisories in a master-detail split view with severity, CVSS scores and vector, CWE identifiers, publish/last-modified dates, summaries, detailed descriptions, affected version ranges, fixed-in versions, references, and a link to open the affected component in the configured repository browser, with the severity column color-coded to match the tool window.</li>
-            <li><b>Transitive Vulnerabilities View:</b> A dedicated <i>Transitive CVEs</i> tool window tab lists all transitive dependencies with known vulnerabilities, including type, vulnerability count, and an editable new-version column that highlights the recommended fix in the dropdown and pins a chosen version in dependencyManagement together with a configurable explanatory comment (its text, the listed identifiers, and their maximum count); narrow the list with its own filter row, select the highest major, highest minor, or recommended fix version—for all visible coordinates via the toolbar or a single one via its row context menu—and reset selections.</li>
+            <li><b>Transitive Vulnerabilities View:</b> A dedicated <i>Transitive CVEs</i> tool window tab lists all transitive dependencies with known vulnerabilities, including type, vulnerability count, and an editable new-version column that highlights the recommended fix in the dropdown; narrow the list with its own filter row, select the highest major, highest minor, or recommended fix version—for all visible coordinates via the toolbar or a single one via its row context menu—and reset selections.</li>
             <li><b>Secure Token Storage:</b> API tokens are stored safely in IntelliJ Password Safe.</li>
             <li><b>Global Settings:</b> Configure behavior, filters, and integrations under <b>Settings | Tools | MavenUp</b> to apply across all projects.</li>
             <li><b>Responsive UI & Restart-Free:</b> Background processing and dynamic loading ensure smooth operation and updates without IDE restart.</li>

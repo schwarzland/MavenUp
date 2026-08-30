@@ -29,6 +29,7 @@
 
 ### Changed
 
+- Reworked the plugin description's lead sentence and Core Features to highlight finding and fixing vulnerable dependencies, with dedicated entries for vulnerability scanning, one-click fixes, and traceable security updates.
 - Moved the **Vulnerabilities** column in front of the **Current Version** column in both the dependency table and the transitive vulnerabilities view, so **Current Version** and **New Version** sit next to each other for direct comparison.
 - Renamed the transitive vulnerabilities view's **Version** column to **Current Version** and shortened the main table's **Vulnerabilities (Current)** header to **Vulnerabilities**, so both tables use identical column names.
 - Made the **Open on [Browser]** and **Vulnerability Details** toolbar actions operate on the selected row of whichever view is active, so they target the transitive vulnerabilities view while it is shown.
