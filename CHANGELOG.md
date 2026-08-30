@@ -2,7 +2,7 @@
 
 # MavenUp Changelog
 
-## [Unreleased]
+## 3.0.0
 
 ### Added
 
@@ -29,6 +29,7 @@
 
 ### Changed
 
+- Reworked the plugin description's lead sentence and Core Features to highlight finding and fixing vulnerable dependencies, with dedicated entries for vulnerability scanning, one-click fixes, traceable security updates, the origin classification of findings, and the safe update workflow.
 - Moved the **Vulnerabilities** column in front of the **Current Version** column in both the dependency table and the transitive vulnerabilities view, so **Current Version** and **New Version** sit next to each other for direct comparison.
 - Renamed the transitive vulnerabilities view's **Version** column to **Current Version** and shortened the main table's **Vulnerabilities (Current)** header to **Vulnerabilities**, so both tables use identical column names.
 - Made the **Open on [Browser]** and **Vulnerability Details** toolbar actions operate on the selected row of whichever view is active, so they target the transitive vulnerabilities view while it is shown.
@@ -37,6 +38,8 @@
 - Made the **Select Highest Version** dropdown and the **Reset All to Current Versions** toolbar action operate on the transitive vulnerabilities view while it is shown.
 - Limited the bulk version selection in the transitive vulnerabilities view to the rows visible under its filter, and made the reset action ask whether to reset all transitive coordinates or only the filtered ones while a filter is active.
 - Replaced the Summary and References columns in the Vulnerability Details dialog with the detail pane, and removed the separate references list dialog.
+- Read the CVSS vector, the detailed description, and the CWE identifiers from Sonatype OSS Index findings as well, so OSS Index results carry the same level of detail as OSV findings.
+- Kept the detailed description, CWE identifiers, publish/last-modified dates, affected version ranges, and fixed-in versions when merging findings of several sources, and adopted the CVSS vector belonging to the highest CVSS score.
 - Moved the "Open in ..." toolbar action of the Vulnerability Details dialog into the detail pane as a hyperlink and removed the dialog toolbar.
 - Aligned the documentation with the actual UI label of the repository context menu entry, which is **Open on [Browser]** (e.g. *Open on MVN Repository*) rather than *Open in Maven Repository*.
 - Moved the "Sync Maven changes after update" setting out of **Versions and Updates** into the new **Pom.xml Changes** settings group.
