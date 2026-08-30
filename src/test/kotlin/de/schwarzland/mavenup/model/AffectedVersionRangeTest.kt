@@ -35,6 +35,37 @@ class AffectedVersionRangeTest {
     }
 
     @Test
+    fun testParseRangeWithInclusiveUpperBound() {
+        val range = parseAffectedVersionRange(">= 8.5.0, <= 8.5.100")
+
+        assertEquals(version("8.5.0"), range?.introduced)
+        assertNull(range?.fixed)
+        assertEquals(version("8.5.100"), range?.lastAffected)
+    }
+
+    @Test
+    fun testContainsRespectsInclusiveUpperBound() {
+        val range = AffectedVersionRange(version("8.5.0"), null, version("8.5.100"))
+
+        assertTrue(range.contains(version("8.5.100")))
+        assertFalse(range.contains(version("8.5.101")))
+        assertFalse(range.contains(version("8.4.0")))
+    }
+
+    @Test
+    fun testIsFixedInRespectsLastAffectedUpperBound() {
+        val advisory = VulnerabilityAdvisory(
+            id = "CVE-1",
+            sources = setOf("TEST"),
+            affectedRanges = setOf(">= 4.0.0, <= 4.4.9", ">= 4.5.0, < 4.5.12", ">= 5.0.0, < 5.0.6"),
+            fixedVersions = setOf("4.5.12", "5.0.6")
+        )
+
+        assertFalse(advisory.isFixedIn(version("4.5.11")))
+        assertTrue(advisory.isFixedIn(version("4.5.12")))
+    }
+
+    @Test
     fun testParseRangeReturnsNullForUnknownFormat() {
         assertNull(parseAffectedVersionRange("all versions"))
         assertNull(parseAffectedVersionRange(""))

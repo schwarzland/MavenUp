@@ -49,6 +49,35 @@ enum class VersionAutoSelectionMode(val messageKey: String) {
 }
 
 /**
+ * Beschreibt, welche Kennungen der behobenen Sicherheitswarnungen in den erklärenden XML-Kommentar
+ * eines neu angelegten, gepinnten `dependencyManagement`-Eintrags geschrieben werden.
+ *
+ * @property messageKey Schlüssel für den lokalisierten Anzeigetext in den Einstellungen.
+ */
+enum class VulnerabilityCommentMode(val messageKey: String) {
+    /** Es wird kein Kommentar eingefügt. */
+    NONE("settings.vulnerabilityCommentMode.none"),
+
+    /** Es wird nur der konfigurierte Präfixtext ohne Kennungen eingefügt. */
+    TEXT_ONLY("settings.vulnerabilityCommentMode.textOnly"),
+
+    /** Es werden nur die primären Advisory-IDs (z. B. `GHSA-…`) aufgelistet. */
+    ADVISORY_IDS("settings.vulnerabilityCommentMode.advisoryIds"),
+
+    /** Es werden nur die Aliase (z. B. `CVE-…`) aufgelistet; ohne Alias dient die primäre ID als Ersatz. */
+    ALIASES("settings.vulnerabilityCommentMode.aliases"),
+
+    /** Es werden alle bekannten Kennungen (primäre IDs und Aliase) aufgelistet. */
+    ALL_IDS("settings.vulnerabilityCommentMode.allIds")
+}
+
+/** Standardpräfix des erklärenden XML-Kommentars vor den aufgelisteten Kennungen. */
+const val DEFAULT_VULNERABILITY_COMMENT_PREFIX = "Pinned by MavenUp to fix:"
+
+/** Standardanzahl der höchstens aufgelisteten Kennungen; `0` bedeutet „unbegrenzt". */
+const val DEFAULT_VULNERABILITY_COMMENT_MAX_IDS = 3
+
+/**
  * Diese Klasse verwaltet die persistenten Einstellungen für das MavenUp-Plugin global auf Anwendungsebene.
  *
  * Sie nutzt das IntelliJ-Framework zur Speicherung des Zustands in der Datei `mavenup_settings.xml`.
@@ -75,7 +104,10 @@ class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
      * @property offerAllVersions Bestimmt, ob in der Versionsauswahl alle verfügbaren Versionen (inklusive älterer) angeboten werden, statt nur Versionen `>=` der aktuellen Version.
      * @property confirmVersionReset Bestimmt, ob vor dem Zurücksetzen aller Versionsauswahlen ein Bestätigungsdialog angezeigt wird.
      * @property autoSearchVersions Bestimmt, ob nach dem automatischen Neuladen der Projektdaten (Tool-Window-Start, Maven-Import/Resync) unmittelbar online nach neuen Versionen gesucht wird.
-     * @property addVulnerabilityFixComment Bestimmt, ob beim Anlegen eines gepinnten `dependencyManagement`-Eintrags zur Behebung einer Schwachstelle ein erklärender XML-Kommentar eingefügt wird.
+     * @property addVulnerabilityFixComment Legacy-Flag früherer Plugin-Versionen; wird ausschließlich zur Migration auf [vulnerabilityCommentMode] gelesen und daraus fortgeschrieben.
+     * @property vulnerabilityCommentMode Bestimmt, welche Kennungen der behobenen Sicherheitswarnungen beim Anlegen eines gepinnten `dependencyManagement`-Eintrags als erklärender XML-Kommentar eingefügt werden.
+     * @property vulnerabilityCommentPrefix Der Text, der im erklärenden XML-Kommentar vor den Kennungen steht.
+     * @property vulnerabilityCommentMaxIds Die Höchstzahl der aufgelisteten Kennungen; darüber hinausgehende Kennungen werden durch einen „and more"-Hinweis ersetzt. `0` bedeutet „unbegrenzt".
      */
     data class State(
         var jumpOnSingleClick: Boolean = false,
@@ -93,7 +125,10 @@ class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
         var offerAllVersions: Boolean = false,
         var confirmVersionReset: Boolean = true,
         var autoSearchVersions: Boolean = true,
-        var addVulnerabilityFixComment: Boolean = true
+        var addVulnerabilityFixComment: Boolean = true,
+        var vulnerabilityCommentMode: VulnerabilityCommentMode = VulnerabilityCommentMode.ADVISORY_IDS,
+        var vulnerabilityCommentPrefix: String = DEFAULT_VULNERABILITY_COMMENT_PREFIX,
+        var vulnerabilityCommentMaxIds: Int = DEFAULT_VULNERABILITY_COMMENT_MAX_IDS
     ) {
         /**
          * Normalisiert den geladenen Zustand und migriert Legacy-Bool-Flags auf [versionAutoSelectionMode].
@@ -116,6 +151,23 @@ class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
             selectLatestMinorVersion = versionAutoSelectionMode == VersionAutoSelectionMode.LATEST_MINOR
             return this
         }
+
+        /**
+         * Migriert das Legacy-Flag [addVulnerabilityFixComment] auf [vulnerabilityCommentMode].
+         *
+         * Wurde in einer älteren Plugin-Version der Kommentar abgeschaltet, steht [vulnerabilityCommentMode]
+         * noch auf dem Standardwert; in diesem Fall wird der Modus auf [VulnerabilityCommentMode.NONE] gesetzt.
+         * Anschließend wird das Legacy-Flag konsistent aus dem Modus fortgeschrieben.
+         *
+         * @return Der migrierte Zustand (dieselbe Instanz).
+         */
+        fun migrateLegacyVulnerabilityComment(): State {
+            if (vulnerabilityCommentMode == VulnerabilityCommentMode.ADVISORY_IDS && !addVulnerabilityFixComment) {
+                vulnerabilityCommentMode = VulnerabilityCommentMode.NONE
+            }
+            addVulnerabilityFixComment = vulnerabilityCommentMode != VulnerabilityCommentMode.NONE
+            return this
+        }
     }
 
     private var myState = State()
@@ -129,7 +181,7 @@ class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
      * Lädt einen gespeicherten Zustand in die Komponente. Wird vom IntelliJ-Framework aufgerufen.
      */
     override fun loadState(state: State) {
-        myState = state.migrateLegacyAutoSelection()
+        myState = state.migrateLegacyAutoSelection().migrateLegacyVulnerabilityComment()
     }
 
     companion object {

@@ -18,6 +18,12 @@ import com.intellij.psi.xml.XmlFile
 import com.intellij.psi.xml.XmlTag
 import org.jetbrains.idea.maven.project.MavenProject
 
+/** Erkennt zusammenhängende Whitespace-Folgen (inklusive Zeilenumbrüchen) in Kommentartexten. */
+private val WHITESPACE_REGEX = Regex("\\s+")
+
+/** Erkennt Folgen von zwei oder mehr Bindestrichen, die in XML-Kommentaren unzulässig sind. */
+private val HYPHEN_SEQUENCE_REGEX = Regex("-{2,}")
+
 /**
  * Wendet ausgewählte Versions-Updates auf die `pom.xml`-Dateien eines Projekts an und speichert
  * die Änderungen bei Bedarf auf die Festplatte.
@@ -132,8 +138,8 @@ internal class PomUpdateService(private val project: Project) {
      * Fehlende Container-Tags (`<dependencyManagement>`, `<dependencies>`) werden bei Bedarf erzeugt.
      * Die Abhängigkeit wird samt optional vorangestelltem Kommentar aus Text erzeugt (Kommentar auf
      * eigener Zeile direkt hinter dem öffnenden `<dependency>`) und anschließend neu formatiert, damit
-     * die Einrückung zur Datei passt. Ob der Kommentar eingefügt wird, richtet sich nach der Einstellung
-     * [MavenUpSettings.State.addVulnerabilityFixComment].
+     * die Einrückung zur Datei passt. Ob und mit welchen Kennungen der Kommentar eingefügt wird, richtet
+     * sich nach der Einstellung [MavenUpSettings.State.vulnerabilityCommentMode].
      *
      * @param documentElement Das Root-Tag der `pom.xml`.
      * @param update Das anzuwendende Update mit der zu pinnenden Zielversion.
@@ -147,10 +153,21 @@ internal class PomUpdateService(private val project: Project) {
             ?: dependencyManagementTag.addSubTag(
                 dependencyManagementTag.createChildTag("dependencies", null, "", false), false
             )
+        val settingsState = MavenUpSettings.getInstance().state
+        val commentMode = settingsState.vulnerabilityCommentMode
         val dependencyXml = buildString {
             append("<dependency>\n")
-            if (MavenUpSettings.getInstance().state.addVulnerabilityFixComment) {
-                append("<!-- ").append(managedDependencyCommentText(update.fixedVulnerabilities)).append(" -->\n")
+            if (commentMode != VulnerabilityCommentMode.NONE) {
+                append("<!-- ")
+                    .append(
+                        managedDependencyCommentText(
+                            update,
+                            commentMode,
+                            settingsState.vulnerabilityCommentPrefix,
+                            settingsState.vulnerabilityCommentMaxIds
+                        )
+                    )
+                    .append(" -->\n")
             }
             append("<groupId>").append(update.groupId).append("</groupId>\n")
             append("<artifactId>").append(update.artifactId).append("</artifactId>\n")
@@ -165,20 +182,72 @@ internal class PomUpdateService(private val project: Project) {
     /**
      * Baut den Kommentartext für eine neu angelegte verwaltete Abhängigkeit.
      *
-     * Listet knapp die IDs der behobenen Sicherheitswarnungen auf und weist darauf hin, dass die
-     * Änderung durch MavenUp erfolgt ist. Doppelte Bindestriche werden entschärft, da sie in
-     * XML-Kommentaren unzulässig sind.
+     * Stellt dem Text den konfigurierten [prefix] voran und listet je nach [mode] die primären
+     * Advisory-IDs, deren Aliase (z. B. `CVE-…`) oder alle bekannten Kennungen der behobenen
+     * Sicherheitswarnungen auf. Überschreitet die Anzahl der Kennungen [maxIds], werden nur die ersten
+     * [maxIds] Kennungen geschrieben und die übrigen durch einen „and more"-Hinweis ersetzt; `0` hebt
+     * die Begrenzung auf. Werden keine Kennungen geschrieben, entfällt ein abschließender Doppelpunkt
+     * des Präfixes; ist auch das Präfix leer, wird ein generischer Hinweistext verwendet. Der Text wird
+     * abschließend über [sanitizeCommentText] für XML-Kommentare entschärft.
      *
-     * @param fixedVulnerabilities Die IDs der behobenen Sicherheitswarnungen.
+     * @param update Das anzuwendende Update mit den Kennungen der behobenen Sicherheitswarnungen.
+     * @param mode Der konfigurierte Kommentarmodus; [VulnerabilityCommentMode.NONE] und
+     * [VulnerabilityCommentMode.TEXT_ONLY] listen keine Kennungen auf.
+     * @param prefix Der konfigurierte Präfixtext vor den Kennungen.
+     * @param maxIds Die Höchstzahl der aufgelisteten Kennungen; `0` bedeutet „unbegrenzt".
      * @return Der (entschärfte) Kommentartext ohne die umschließenden Kommentar-Marker.
      */
-    private fun managedDependencyCommentText(fixedVulnerabilities: List<String>): String {
-        val text = if (fixedVulnerabilities.isNotEmpty()) {
-            MyMessageBundle.message("pom.comment.managedDependency", fixedVulnerabilities.joinToString(", "))
-        } else {
-            MyMessageBundle.message("pom.comment.managedDependencyNoIds")
+    internal fun managedDependencyCommentText(
+        update: DependencyUpdate,
+        mode: VulnerabilityCommentMode,
+        prefix: String,
+        maxIds: Int
+    ): String {
+        val ids = when (mode) {
+            VulnerabilityCommentMode.NONE, VulnerabilityCommentMode.TEXT_ONLY -> emptyList()
+            VulnerabilityCommentMode.ADVISORY_IDS -> update.fixedVulnerabilities
+            VulnerabilityCommentMode.ALIASES -> update.fixedVulnerabilityAliases
+            VulnerabilityCommentMode.ALL_IDS ->
+                (update.fixedVulnerabilities + update.fixedVulnerabilityAliases).distinct()
         }
-        return text.replace("--", "- -")
+        val trimmedPrefix = prefix.trim()
+        val text = if (ids.isEmpty()) {
+            trimmedPrefix.trimEnd(':').trim().ifEmpty {
+                MyMessageBundle.message("pom.comment.managedDependencyNoIds")
+            }
+        } else {
+            listOf(trimmedPrefix, joinVulnerabilityIds(ids, maxIds))
+                .filter { it.isNotEmpty() }
+                .joinToString(" ")
+        }
+        return sanitizeCommentText(text)
+    }
+
+    /**
+     * Entschärft einen Kommentartext, damit er in einem XML-Kommentar zulässig bleibt.
+     *
+     * Normalisiert Zeilenumbrüche und Mehrfach-Leerzeichen zu einfachen Leerzeichen und trennt Folgen von
+     * zwei oder mehr Bindestrichen (z. B. `--` oder ein einleitendes `-->`) durch Leerzeichen auf, da `--`
+     * innerhalb von XML-Kommentaren nicht vorkommen darf und den Kommentar sonst vorzeitig beenden würde.
+     *
+     * @param text Der zu entschärfende Kommentartext.
+     * @return Der entschärfte, einzeilige Kommentartext.
+     */
+    private fun sanitizeCommentText(text: String): String {
+        val singleLine = WHITESPACE_REGEX.replace(text, " ").trim()
+        return HYPHEN_SEQUENCE_REGEX.replace(singleLine) { match -> match.value.toCharArray().joinToString(" ") }
+    }
+
+    /**
+     * Verkettet die Kennungen der behobenen Sicherheitswarnungen unter Beachtung der Höchstzahl.
+     *
+     * @param ids Die zu schreibenden Kennungen; darf nicht leer sein.
+     * @param maxIds Die Höchstzahl der aufgelisteten Kennungen; Werte `<= 0` heben die Begrenzung auf.
+     * @return Die kommaseparierte Liste, bei Überschreitung gefolgt von einem „and more"-Hinweis.
+     */
+    private fun joinVulnerabilityIds(ids: List<String>, maxIds: Int): String {
+        if (maxIds <= 0 || ids.size <= maxIds) return ids.joinToString(", ")
+        return ids.take(maxIds).joinToString(", ") + " " + MyMessageBundle.message("pom.comment.andMore")
     }
 
     /**

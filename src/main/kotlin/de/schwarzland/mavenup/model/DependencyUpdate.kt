@@ -14,6 +14,9 @@ package de.schwarzland.mavenup.model
  * @property transitive `true`, wenn das Update aus einer bislang nur transitiv aufgelösten Abhängigkeit
  * entsteht, die durch das Update erstmals in der `pom.xml` gepinnt wird. Rein informativ für die
  * Anzeige (siehe Bestätigungsdialog); die Schreiblogik richtet sich weiterhin ausschließlich nach [type].
+ * @property fixedVulnerabilityAliases Aliase (z. B. `CVE-…`) der durch dieses Update behobenen
+ * Sicherheitswarnungen; enthält je Warnung deren Aliase oder – falls keine vorhanden sind – ersatzweise
+ * deren primäre ID.
  */
 data class DependencyUpdate(
     val groupId: String,
@@ -22,5 +25,6 @@ data class DependencyUpdate(
     val oldVersion: String,
     val newVersion: String,
     val fixedVulnerabilities: List<String> = emptyList(),
-    val transitive: Boolean = false
+    val transitive: Boolean = false,
+    val fixedVulnerabilityAliases: List<String> = emptyList()
 )

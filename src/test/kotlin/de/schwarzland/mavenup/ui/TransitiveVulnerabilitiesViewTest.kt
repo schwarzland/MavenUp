@@ -156,7 +156,7 @@ class TransitiveVulnerabilitiesViewTest {
     }
 
     @Test
-    fun testRecommendedFixVersionFallsBackToHighestFixWhenNoVersionResolvesAll() {
+    fun testRecommendedFixVersionFallsBackToVersionFixingMostAdvisories() {
         val advisories = listOf(
             VulnerabilityAdvisory(
                 id = "CVE-1",
@@ -167,6 +167,28 @@ class TransitiveVulnerabilitiesViewTest {
             VulnerabilityAdvisory(id = "CVE-2", sources = setOf("TEST"), fixedVersions = setOf("1.3.0"))
         )
         assertEquals("1.3.0", recommendedFixVersion(advisories, "1.2.0"))
+    }
+
+    @Test
+    fun testRecommendedFixVersionPrefersLowestFixWhenNoVersionResolvesAll() {
+        val advisory = VulnerabilityAdvisory(
+            id = "CVE-1",
+            sources = setOf("TEST"),
+            affectedRanges = setOf(">= 4.0.0", ">= 4.4.0", ">= 4.5.0, < 4.5.12", ">= 5.0.0, < 5.0.6"),
+            fixedVersions = setOf("4.5.12", "5.0.6")
+        )
+        assertEquals("4.5.12", recommendedFixVersion(listOf(advisory, advisory.copy(id = "CVE-2")), "4.5.11"))
+    }
+
+    @Test
+    fun testRecommendedFixVersionStaysInCurrentMajorWithLastAffectedRanges() {
+        val advisory = VulnerabilityAdvisory(
+            id = "CVE-1",
+            sources = setOf("TEST"),
+            affectedRanges = setOf(">= 4.0.0, <= 4.4.9", ">= 4.5.0, < 4.5.12", ">= 5.0.0, < 5.0.6"),
+            fixedVersions = setOf("4.5.12", "5.0.6")
+        )
+        assertEquals("4.5.12", recommendedFixVersion(listOf(advisory), "4.5.11"))
     }
 
     @Test

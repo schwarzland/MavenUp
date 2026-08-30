@@ -15,7 +15,7 @@
 - Added a **Select Recommended Version** entry to the toolbar's **Select Highest Version** dropdown that selects the recommended fix version for every transitive coordinate while the transitive vulnerabilities view is shown.
 - Added an editable **New Version** column to the transitive vulnerabilities view; available versions for vulnerable transitive dependencies are fetched automatically after a vulnerability scan, and selecting a version pins it in `<dependencyManagement>` (creating the entry if needed) and applies it through the shared **Update** action. The recommended fix version (lowest known version that resolves all vulnerabilities of the coordinate) is highlighted in the version dropdown in bold with a *(recommended)* marker.
 - Added an explanatory XML comment as the first line inside each newly pinned transitive `<dependencyManagement>` entry that lists the fixed vulnerability IDs and notes the change was made by MavenUp.
-- Added an "Insert explanatory comment when pinning a dependency to fix a vulnerability" setting to make that XML comment optional (default: on), placed in a new **Pom.xml Changes** settings group alongside the relocated "Sync Maven changes after update" setting.
+- Added an "Explanatory comment when pinning a dependency to fix a vulnerability" setting that selects which identifiers the XML comment lists — no comment, comment text only, advisory IDs (e.g. GHSA, default), aliases (e.g. CVE), or all identifiers — together with a configurable comment text (default: `Pinned by MavenUp to fix:`) and a maximum number of listed identifiers (default: 3, `0` for no limit) that replaces the remaining ones with `and more`, placed in a new **Pom.xml Changes** settings group alongside the relocated "Sync Maven changes after update" setting.
 - Added a master-detail split view to the Vulnerability Details dialog whose lower detail pane shows the selected finding's affected component, summary, and references as clickable hyperlinks.
 - Added an "Open on ..." hyperlink in the detail pane that opens the selected component in the configured Maven repository browser.
 - Added the CVSS vector and the fixed-in versions of the selected finding to the detail pane when available.
@@ -53,12 +53,16 @@
 ### Fixed
 
 - Fixed a mojibake encoding artifact in a KDoc comment of `RowMatchesFilterTest.kt` (`fÃ¼r` instead of `für`).
+- Ordered the identifiers in the pom.xml vulnerability comment by severity, most severe first, so a truncated list keeps the most critical findings.
+- Prevented a custom vulnerability comment text from breaking the pom.xml by collapsing line breaks into single spaces and splitting hyphen sequences such as `--` and `-->`, which would otherwise terminate the XML comment.
 - Fixed differing row heights between the dependency tables by applying the IntelliJ styleguide row height of 24px (scaled) to every plugin table, instead of letting each table derive its height from platform-dependent font metrics and cell renderers.
 - Kept the transitive vulnerabilities view's **New Version** column populated when running "Search for New Versions" by storing the scan-derived transitive versions separately, so the table no longer collapses to a plain list.
 - Aligned the transitive vulnerabilities view sorting with the main table by cycling column sorting through ascending, descending, and unsorted states, and made its **Version** column non-sortable.
 - Resolved the parent POM version from Maven properties so property-based `<parent>` versions (for example `${revision}`) are scanned for vulnerabilities and version updates instead of being skipped as an unresolved placeholder.
 - Recommended a fix version that resolves every known vulnerability of a transitive coordinate, so a version that still lies within an affected range (for example an incomplete fix superseded by a later patch) or that leaves another advisory unresolved is no longer suggested.
 - Limited the affected version ranges and fixed versions of an advisory to the artifact actually in use, so advisories covering several Maven artifacts no longer mix fix versions of unrelated artifacts into the recommendation.
+- Interpreted the OSV `last_affected` event as an inclusive upper bound (`>= x, <= y`) instead of treating such a range as unbounded, so a patch release of the current major line is recommended again rather than a needless jump to the next major version.
+- Fell back to the fix version that resolves the most advisories — the lowest one when several are equal — instead of always the highest one when no version resolves every advisory of a coordinate.
 
 ## 2.5.0
 

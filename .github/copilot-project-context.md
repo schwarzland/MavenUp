@@ -124,14 +124,17 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   Funktion `recommendedFixVersion` aus den Advisories abgeleitet: Aus allen Fixed-Versionen oberhalb der aktuellen
   Version wird die niedrigste gewählt, in der laut `isFixedIn` **alle** Advisories der Koordinate behoben sind
   (betroffene Versionsbereiche schlagen dabei die reinen Fixed-Versionen, siehe **AffectedVersionRange**); lässt sich
-  keine solche Version bestimmen, dient die höchste bekannte Fix-Version als bestmögliche Empfehlung. Sie wird
+  keine solche Version bestimmen, dient die Fix-Version mit den meisten behobenen Advisories – bei Gleichstand die
+  niedrigste – als bestmögliche Empfehlung, damit kein unnötiger Major-Sprung vorgeschlagen wird. Sie wird
   über `recommendedByKey` im New-Version-Dropdown fett mit „(recommended)"-Marker hervorgehoben (analog zum
   „(current)"-Marker; keine eigene Spalte).
   Die editierbare **New Version**-Spalte spiegelt die New-Version-Spalte der Haupttabelle (Renderer/Editor via
   `buildVersionPanel`/`applyDropdownRenderer` (delegiert an `applyVersionDropdownRenderer`), `createVersionPanel`); die Auswahl liegt in `selectedVersions`
   (nur bewusst gewählte Werte, Standard = aktuelle Version) und wird über den `onSelectionChanged`-Callback an
   `refreshToolbar` gemeldet. `collectPendingUpdates`/`hasPendingUpdates` erzeugen daraus `DependencyUpdate`s vom
-  Typ „managed dependency" (inkl. `fixedVulnerabilities` aus `advisoryIdsByKey` für den pom-Kommentar und
+  Typ „managed dependency" (inkl. `fixedVulnerabilities` und `fixedVulnerabilityAliases`, die über
+  `commentAdvisories`/`advisoriesBySeverity` aus `advisoriesByKey` absteigend nach Schweregrad für den
+  pom-Kommentar sortiert werden – die Zeilensortierung der Tabelle bleibt davon unberührt – und
   `transitive = true` für Koordinaten aus `transitiveOnlyKeys`, also solche, die nicht in der `pom.xml` deklariert sind);
   die verfügbaren Versionen stammen aus der Vereinigung von `availableVersions`
   (normale Versionssuche) und der persistenten `transitiveAvailableVersions`-Map, die nach einem
@@ -227,7 +230,9 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   (`jumpOnSingleClick`, `versionAutoSelectionMode` mit `DISABLED`, `LATEST`, `LATEST_MINOR`, `hideUnstableVersions`, `hiddenVersionQualifiers`,
   `ossIndexEnabled`, `checkTransitiveDependencies`, `repositoryBrowser`, `toolbarShowText`,
   `syncMavenAfterUpdate`, `stopAfterCentralSuccess`, `offerAllVersions`, `confirmVersionReset`,
-  `autoSearchVersions`, `addVulnerabilityFixComment`; Legacy-Migrationsfelder: `selectLatestVersion`, `selectLatestMinorVersion`).
+  `autoSearchVersions`, `vulnerabilityCommentMode` mit `NONE`, `TEXT_ONLY`, `ADVISORY_IDS`, `ALIASES`, `ALL_IDS`,
+  `vulnerabilityCommentPrefix`, `vulnerabilityCommentMaxIds`;
+  Legacy-Migrationsfelder: `selectLatestVersion`, `selectLatestMinorVersion`, `addVulnerabilityFixComment`).
   Für die OSS-Index-Abfrage ist nur das Token erforderlich; Sonatype wertet bei der HTTP-Basic-Authentifizierung
   nur das Token aus, weshalb ein fester Platzhalter-Benutzername verwendet wird.
   Das Token liegt ausschließlich im IntelliJ Password Safe; fehlt es, wird
@@ -250,9 +255,11 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   ob nach erfolgreicher Maven-Central-Abfrage weitere private Repositories abgefragt werden, sowie die
   Combobox `versionAutoSelectionMode` mit drei Zuständen für die Auto-Auswahl bei Update-Prüfungen.
   Die Gruppe **Pom.xml Changes** bündelt Einstellungen zum Schreibverhalten beim Anwenden von Updates:
-  `syncMavenAfterUpdate` (automatischer Maven-Sync nach dem Schreiben der `pom.xml`) und
-  `addVulnerabilityFixComment` (optionaler erklärender XML-Kommentar beim Anlegen eines gepinnten
-  `dependencyManagement`-Eintrags zur Schwachstellenbehebung, siehe `PomUpdateService.addManagedDependency`).
+  `syncMavenAfterUpdate` (automatischer Maven-Sync nach dem Schreiben der `pom.xml`), die Combobox
+  `vulnerabilityCommentMode` (Auswahl der Kennungen im erklärenden XML-Kommentar beim Anlegen eines gepinnten
+  `dependencyManagement`-Eintrags zur Schwachstellenbehebung, siehe `PomUpdateService.addManagedDependency`)
+  sowie die eingerückten Felder `vulnerabilityCommentPrefix` (Kommentartext) und `vulnerabilityCommentMaxIds`
+  (Spinner `0..99`), die über `updateVulnerabilityCommentControlsEnabled` je nach Modus aktiviert werden.
   Die OSS-Index-Sektion kennzeichnet das Token bei Aktivierung als Pflichtfeld und
   verlinkt auf die Sonatype-Kontoeinstellungen zur Token-Erzeugung. Das Token wird außerhalb des EDT
   aus dem Password Safe geladen und für `isModified()` im UI-Modell gecacht.
@@ -280,9 +287,10 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   quellenübergreifende Deduplizierung anhand von IDs/Aliasen; CVSS-Vektoren werden über
   `us.springett:cvss-calculator` normalisiert, bei nicht unterstützten CVSS-Versionen wird auf
   den Schweregrad der Quelle zurückgefallen.
-- **AffectedVersionRange**: parst die lesbaren Bereichsbeschreibungen (`>= x, < y`, `< y`, `>= x`) einer
-  Warnung zurück in vergleichbare Grenzen (`parseAffectedVersionRange`/`parseAffectedVersionRanges`) und
-  beantwortet über `VulnerabilityAdvisory.isFixedIn`, ob eine Version noch betroffen ist; ohne
+- **AffectedVersionRange**: parst die lesbaren Bereichsbeschreibungen (`>= x, < y`, `>= x, <= y`, `< y`, `<= y`,
+  `>= x`) einer Warnung zurück in vergleichbare Grenzen (`parseAffectedVersionRange`/`parseAffectedVersionRanges`)
+  und beantwortet über `VulnerabilityAdvisory.isFixedIn`, ob eine Version noch betroffen ist; `<=` entsteht aus
+  dem OSV-Event `last_affected` und begrenzt den Bereich einschließend, ohne
   Bereichsangaben dienen ersatzweise die Fixed-Versionen als Kriterium. Grundlage der Empfehlungslogik
   in `recommendedFixVersion`.
 - **RefreshSnapshotCollector**: liest über PSI die deklarierten Dependencies, Plugins und
@@ -292,9 +300,12 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   `pom.xml` an (`applyUpdateToPom`, `updateXmlTagVersion`, Parent/Dependencies/Plugins) und
   speichert die Dateien vor dem Maven-Sync (`persistPomChanges`). Für „managed dependency"-Updates
   ohne vorhandenen Eintrag legt `addManagedDependency` einen neuen `<dependencyManagement>`-Eintrag an
-  (Container werden bei Bedarf erzeugt) und stellt der Abhängigkeit optional (Einstellung
-  `addVulnerabilityFixComment`, Standard: an) über `managedDependencyCommentText` einen XML-Kommentar
-  mit den behobenen Vulnerability-IDs und MavenUp-Hinweis als erste Zeile voran
+  (Container werden bei Bedarf erzeugt) und stellt der Abhängigkeit je nach Einstellung
+  `vulnerabilityCommentMode` (Standard: `ADVISORY_IDS`) über `managedDependencyCommentText` einen XML-Kommentar
+  aus `vulnerabilityCommentPrefix` und den behobenen Vulnerability-Kennungen (IDs, Aliase oder beides) als erste
+  Zeile voran; `joinVulnerabilityIds` begrenzt die Liste auf `vulnerabilityCommentMaxIds` (0 = unbegrenzt) und
+  ersetzt die übrigen Kennungen durch „and more"; `sanitizeCommentText` normalisiert Whitespace und trennt
+  Bindestrich-Folgen (`--`, `-->`) auf, damit der XML-Kommentar nicht vorzeitig endet
   (Erzeugung aus Text via `createTagFromText` + `reformat`); genutzt für das Pinnen transitiver Abhängigkeiten.
 - **VulnerabilityScanService**: ermittelt direkte/transitive Scan-Ziele aus dem Maven-Modell
   (`collectVulnerabilityScanTargets`, `collectResolvedDependencyRelations`) und kapselt die

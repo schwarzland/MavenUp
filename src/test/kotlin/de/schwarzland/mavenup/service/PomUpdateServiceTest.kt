@@ -130,10 +130,10 @@ class PomUpdateServiceTest : BasePlatformTestCase() {
         )
     }
 
-    fun testAddManagedDependencyOmitsCommentWhenSettingDisabled() {
+    fun testAddManagedDependencyOmitsCommentWhenModeIsNone() {
         val settings = MavenUpSettings.getInstance()
-        val previousValue = settings.state.addVulnerabilityFixComment
-        settings.state.addVulnerabilityFixComment = false
+        val previousValue = settings.state.vulnerabilityCommentMode
+        settings.state.vulnerabilityCommentMode = VulnerabilityCommentMode.NONE
         try {
             val pomContent = """
                 <project>
@@ -164,10 +164,228 @@ class PomUpdateServiceTest : BasePlatformTestCase() {
                 ?.find { it.findFirstSubTag("artifactId")?.value?.text == "lib" }
             assertNotNull("New managed dependency should still be created", managed)
             val comment = PsiTreeUtil.findChildOfType(managed, XmlComment::class.java)
-            assertNull("No comment should be added when the setting is disabled", comment)
+            assertNull("No comment should be added when the mode is NONE", comment)
         } finally {
-            settings.state.addVulnerabilityFixComment = previousValue
+            settings.state.vulnerabilityCommentMode = previousValue
         }
+    }
+
+    fun testAddManagedDependencyCommentListsOnlyAliasesInAliasMode() {
+        val commentText = commentTextForMode(VulnerabilityCommentMode.ALIASES)
+        assertNotNull("A comment should be added in ALIASES mode", commentText)
+        assertTrue("Comment lists the alias CVE-1", commentText!!.contains("CVE-1"))
+        assertFalse("Comment omits the advisory id in ALIASES mode", commentText.contains("GHSA-2"))
+    }
+
+    fun testAddManagedDependencyCommentListsOnlyAdvisoryIdsInAdvisoryIdMode() {
+        val commentText = commentTextForMode(VulnerabilityCommentMode.ADVISORY_IDS)
+        assertNotNull("A comment should be added in ADVISORY_IDS mode", commentText)
+        assertTrue("Comment lists the advisory id GHSA-2", commentText!!.contains("GHSA-2"))
+        assertFalse("Comment omits aliases in ADVISORY_IDS mode", commentText.contains("CVE-1"))
+    }
+
+    fun testAddManagedDependencyCommentListsAllIdentifiersInAllIdsMode() {
+        val commentText = commentTextForMode(VulnerabilityCommentMode.ALL_IDS)
+        assertNotNull("A comment should be added in ALL_IDS mode", commentText)
+        assertTrue("Comment lists the advisory id GHSA-2", commentText!!.contains("GHSA-2"))
+        assertTrue("Comment lists the alias CVE-1", commentText.contains("CVE-1"))
+    }
+
+    fun testAddManagedDependencyCommentFallsBackWhenNoAliasesAreKnown() {        val settings = MavenUpSettings.getInstance()
+        val previousValue = settings.state.vulnerabilityCommentMode
+        settings.state.vulnerabilityCommentMode = VulnerabilityCommentMode.ALIASES
+        try {
+            val commentText = addManagedDependencyAndReadComment(
+                DependencyUpdate("org.trans", "lib", "managed dependency", "1.2.3", "1.2.4", listOf("GHSA-2"))
+            )
+            assertNotNull("A generic comment should be added when no aliases are known", commentText)
+            assertTrue("Comment mentions MavenUp", commentText!!.contains("MavenUp"))
+            assertFalse("Comment does not list any advisory id", commentText.contains("GHSA-2"))
+        } finally {
+            settings.state.vulnerabilityCommentMode = previousValue
+        }
+    }
+
+    fun testManagedDependencyCommentTextUsesConfiguredPrefix() {
+        val service = PomUpdateService(project)
+        val text = service.managedDependencyCommentText(
+            updateWithIds(listOf("GHSA-1")),
+            VulnerabilityCommentMode.ADVISORY_IDS,
+            "Fixes:",
+            0
+        )
+        assertEquals("Fixes: GHSA-1", text)
+    }
+
+    fun testManagedDependencyCommentTextInTextOnlyModeDropsTrailingColon() {
+        val service = PomUpdateService(project)
+        val text = service.managedDependencyCommentText(
+            updateWithIds(listOf("GHSA-1")),
+            VulnerabilityCommentMode.TEXT_ONLY,
+            DEFAULT_VULNERABILITY_COMMENT_PREFIX,
+            3
+        )
+        assertEquals("Pinned by MavenUp to fix", text)
+    }
+
+    fun testManagedDependencyCommentTextFallsBackWhenPrefixIsBlank() {
+        val service = PomUpdateService(project)
+        val text = service.managedDependencyCommentText(
+            updateWithIds(emptyList()),
+            VulnerabilityCommentMode.ADVISORY_IDS,
+            "   ",
+            3
+        )
+        assertEquals("Added by MavenUp", text)
+    }
+
+    fun testManagedDependencyCommentTextTruncatesIdsBeyondMaximum() {
+        val service = PomUpdateService(project)
+        val text = service.managedDependencyCommentText(
+            updateWithIds(listOf("GHSA-1", "GHSA-2", "GHSA-3", "GHSA-4")),
+            VulnerabilityCommentMode.ADVISORY_IDS,
+            "Fixes:",
+            2
+        )
+        assertEquals("Fixes: GHSA-1, GHSA-2 and more", text)
+    }
+
+    fun testManagedDependencyCommentTextListsAllIdsWhenMaximumIsZero() {
+        val service = PomUpdateService(project)
+        val text = service.managedDependencyCommentText(
+            updateWithIds(listOf("GHSA-1", "GHSA-2", "GHSA-3", "GHSA-4")),
+            VulnerabilityCommentMode.ADVISORY_IDS,
+            "Fixes:",
+            0
+        )
+        assertEquals("Fixes: GHSA-1, GHSA-2, GHSA-3, GHSA-4", text)
+    }
+
+    fun testManagedDependencyCommentTextKeepsAllIdsAtTheMaximum() {
+        val service = PomUpdateService(project)
+        val text = service.managedDependencyCommentText(
+            updateWithIds(listOf("GHSA-1", "GHSA-2")),
+            VulnerabilityCommentMode.ADVISORY_IDS,
+            "Fixes:",
+            2
+        )
+        assertEquals("Fixes: GHSA-1, GHSA-2", text)
+    }
+
+    fun testManagedDependencyCommentTextEscapesDoubleHyphens() {
+        val service = PomUpdateService(project)
+        val text = service.managedDependencyCommentText(
+            updateWithIds(listOf("GHSA-1")),
+            VulnerabilityCommentMode.ADVISORY_IDS,
+            "Fix -- now:",
+            0
+        )
+        assertEquals("Fix - - now: GHSA-1", text)
+    }
+
+    fun testManagedDependencyCommentTextEscapesCommentTerminator() {
+        val service = PomUpdateService(project)
+        val text = service.managedDependencyCommentText(
+            updateWithIds(listOf("GHSA-1")),
+            VulnerabilityCommentMode.ADVISORY_IDS,
+            "--> injected <!--",
+            0
+        )
+        assertFalse("Der Kommentar darf keine Bindestrich-Folge enthalten", text.contains("--"))
+        assertEquals("- -> injected <!- - GHSA-1", text)
+    }
+
+    fun testManagedDependencyCommentTextEscapesLongHyphenRuns() {
+        val service = PomUpdateService(project)
+        val text = service.managedDependencyCommentText(
+            updateWithIds(listOf("GHSA-1")),
+            VulnerabilityCommentMode.ADVISORY_IDS,
+            "----:",
+            0
+        )
+        assertFalse("Auch lange Bindestrich-Folgen werden vollständig aufgetrennt", text.contains("--"))
+        assertEquals("- - - -: GHSA-1", text)
+    }
+
+    fun testManagedDependencyCommentTextNormalizesLineBreaks() {
+        val service = PomUpdateService(project)
+        val text = service.managedDependencyCommentText(
+            updateWithIds(listOf("GHSA-1")),
+            VulnerabilityCommentMode.ADVISORY_IDS,
+            "Fixed\nby\tMavenUp:",
+            0
+        )
+        assertEquals("Fixed by MavenUp: GHSA-1", text)
+    }
+
+    /**
+     * Erzeugt ein Pin-Update mit den angegebenen Advisory-IDs.
+     *
+     * @param ids Die IDs der behobenen Sicherheitswarnungen.
+     * @return Das Update für den Kommentar-Test.
+     */
+    private fun updateWithIds(ids: List<String>): DependencyUpdate =
+        DependencyUpdate("org.trans", "lib", "managed dependency", "1.2.3", "1.2.4", ids)
+
+    /**
+     * Legt eine verwaltete Abhängigkeit mit IDs und Aliasen im angegebenen Modus an.
+     *
+     * @param mode Der zu prüfende Kommentarmodus.
+     * @return Der Text des erzeugten XML-Kommentars oder `null`, wenn keiner erzeugt wurde.
+     */
+    private fun commentTextForMode(mode: VulnerabilityCommentMode): String? {
+        val settings = MavenUpSettings.getInstance()
+        val previousValue = settings.state.vulnerabilityCommentMode
+        settings.state.vulnerabilityCommentMode = mode
+        return try {
+            addManagedDependencyAndReadComment(
+                DependencyUpdate(
+                    "org.trans",
+                    "lib",
+                    "managed dependency",
+                    "1.2.3",
+                    "1.2.4",
+                    listOf("GHSA-2"),
+                    fixedVulnerabilityAliases = listOf("CVE-1")
+                )
+            )
+        } finally {
+            settings.state.vulnerabilityCommentMode = previousValue
+        }
+    }
+
+    /**
+     * Schreibt das übergebene Update als verwaltete Abhängigkeit in eine minimale `pom.xml`.
+     *
+     * @param update Das zu schreibende Update.
+     * @return Der Text des erzeugten XML-Kommentars oder `null`, wenn keiner erzeugt wurde.
+     */
+    private fun addManagedDependencyAndReadComment(update: DependencyUpdate): String? {
+        val pomContent = """
+            <project>
+                <dependencies>
+                    <dependency>
+                        <groupId>com.example</groupId>
+                        <artifactId>direct</artifactId>
+                        <version>1.0.0</version>
+                    </dependency>
+                </dependencies>
+            </project>
+        """.trimIndent()
+
+        val psiFile = myFixture.configureByText("pom.xml", pomContent) as XmlFile
+        val rootTag = psiFile.document?.rootTag!!
+        val pomUpdateService = PomUpdateService(project)
+
+        WriteCommandAction.runWriteCommandAction(project) {
+            pomUpdateService.addManagedDependency(rootTag, update)
+        }
+
+        val managed = rootTag.findFirstSubTag("dependencyManagement")
+            ?.findFirstSubTag("dependencies")
+            ?.findSubTags("dependency")
+            ?.find { it.findFirstSubTag("artifactId")?.value?.text == "lib" }
+        return PsiTreeUtil.findChildOfType(managed, XmlComment::class.java)?.text
     }
 
     fun testAddManagedDependencyReusesExistingContainer() {
