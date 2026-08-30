@@ -129,6 +129,22 @@ class MavenUpConfigurable internal constructor(
             }
             group(MyMessageBundle.message("settings.group.versions")) {
                 row {
+                    autoSearchVersionsCheckBox = checkBox(MyMessageBundle.message("settings.autoSearchVersions"))
+                        .applyToComponent {
+                            isSelected = settings.state.autoSearchVersions
+                            toolTipText = MyMessageBundle.message("settings.autoSearchVersions.tooltip")
+                        }
+                        .component
+                }
+                row {
+                    stopAfterCentralSuccessCheckBox = checkBox(MyMessageBundle.message("settings.stopAfterCentralSuccess"))
+                        .applyToComponent {
+                            isSelected = settings.state.stopAfterCentralSuccess
+                            toolTipText = MyMessageBundle.message("settings.stopAfterCentralSuccess.tooltip")
+                        }
+                        .component
+                }
+                row {
                     label(MyMessageBundle.message("settings.versionAutoSelectionMode"))
                     versionAutoSelectionModeComboBox = comboBox(VersionAutoSelectionMode.entries)
                         .applyToComponent {
@@ -176,22 +192,6 @@ class MavenUpConfigurable internal constructor(
                             }
                             .component
                     }
-                }
-                row {
-                    autoSearchVersionsCheckBox = checkBox(MyMessageBundle.message("settings.autoSearchVersions"))
-                        .applyToComponent {
-                            isSelected = settings.state.autoSearchVersions
-                            toolTipText = MyMessageBundle.message("settings.autoSearchVersions.tooltip")
-                        }
-                        .component
-                }
-                row {
-                    stopAfterCentralSuccessCheckBox = checkBox(MyMessageBundle.message("settings.stopAfterCentralSuccess"))
-                        .applyToComponent {
-                            isSelected = settings.state.stopAfterCentralSuccess
-                            toolTipText = MyMessageBundle.message("settings.stopAfterCentralSuccess.tooltip")
-                        }
-                        .component
                 }
             }
             // "Pom.xml Changes" enthaelt den Dateinamen pom.xml und ist daher bewusst nicht in Title Case.

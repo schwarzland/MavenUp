@@ -40,6 +40,7 @@
 - Moved the "Open in ..." toolbar action of the Vulnerability Details dialog into the detail pane as a hyperlink and removed the dialog toolbar.
 - Aligned the documentation with the actual UI label of the repository context menu entry, which is **Open on [Browser]** (e.g. *Open on MVN Repository*) rather than *Open in Maven Repository*.
 - Moved the "Sync Maven changes after update" setting out of **Versions and Updates** into the new **Pom.xml Changes** settings group.
+- Reordered the **Versions and Updates** settings group to follow the actual workflow, placing the search options ("Search for new versions automatically when the project data is loaded" and "Stop after a successful Maven Central lookup") above the version selection and filter options.
 - Trimmed the Vulnerability Details table columns to their content when the dialog opens, let them scale with the dialog size, and enlarged the dialog for better readability.
 - Trimmed the main dependency table and all confirmation-table columns to their content after the table is populated for better readability.
 - Soft-wrapped overlong lines (for example long reference URLs) in the Vulnerability Details detail pane so no horizontal scrolling is needed.
