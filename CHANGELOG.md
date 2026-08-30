@@ -24,13 +24,15 @@
 - Added a **Set Recommended Version** entry to the dependency table's row context menu that selects the recommended fix version for a dependency, plugin, or managed entry affected by security findings of its own.
 - Added support for the toolbar's **Select Recommended Version** action in the dependency table, applying the recommended fix version to every visible entry that has security findings of its own.
 - Added a bold *(recommended)* marker for the recommended fix version in the dependency table's **New Version** dropdown, matching the transitive vulnerabilities view.
+- Added an **Origin** column directly after **Component** in the Vulnerability Details dialog that classifies each finding as `direct`, `transitive`, or `transitive, also declared directly`; the component name is no longer extended with a marker suffix.
+- Added a "Search for new versions automatically when the project data is loaded" setting (default: on) that runs **Refresh and Search for New Versions** automatically when the tool window loads its project data and after every finished Maven import or resync.
 
 ### Changed
 
 - Moved the **Vulnerabilities** column in front of the **Current Version** column in both the dependency table and the transitive vulnerabilities view, so **Current Version** and **New Version** sit next to each other for direct comparison.
 - Renamed the transitive vulnerabilities view's **Version** column to **Current Version** and shortened the main table's **Vulnerabilities (Current)** header to **Vulnerabilities**, so both tables use identical column names.
 - Made the **Open on [Browser]** and **Vulnerability Details** toolbar actions operate on the selected row of whichever view is active, so they target the transitive vulnerabilities view while it is shown.
-- Disabled the **Search for New Versions** toolbar action while the transitive vulnerabilities view is shown, because it only affects the main dependency table and silently discarded its pending version selections; its tooltip now explains the restriction.
+- Merged the **Refresh** and **Search for New Versions** toolbar actions into a single **Refresh and Search for New Versions** action that reloads the `pom.xml` data, discards previous version selections and vulnerability results, and searches for new versions in one step; it stays available in both tool window tabs.
 - Moved the main table's filter row into the **Dependencies** tab so each tab carries its own filter row.
 - Made the **Select Highest Version** dropdown and the **Reset All to Current Versions** toolbar action operate on the transitive vulnerabilities view while it is shown.
 - Limited the bulk version selection in the transitive vulnerabilities view to the rows visible under its filter, and made the reset action ask whether to reset all transitive coordinates or only the filtered ones while a filter is active.
@@ -38,6 +40,7 @@
 - Moved the "Open in ..." toolbar action of the Vulnerability Details dialog into the detail pane as a hyperlink and removed the dialog toolbar.
 - Aligned the documentation with the actual UI label of the repository context menu entry, which is **Open on [Browser]** (e.g. *Open on MVN Repository*) rather than *Open in Maven Repository*.
 - Moved the "Sync Maven changes after update" setting out of **Versions and Updates** into the new **Pom.xml Changes** settings group.
+- Reordered the **Versions and Updates** settings group to follow the actual workflow, placing the search options ("Search for new versions automatically when the project data is loaded" and "Stop after a successful Maven Central lookup") above the version selection and filter options.
 - Trimmed the Vulnerability Details table columns to their content when the dialog opens, let them scale with the dialog size, and enlarged the dialog for better readability.
 - Trimmed the main dependency table and all confirmation-table columns to their content after the table is populated for better readability.
 - Soft-wrapped overlong lines (for example long reference URLs) in the Vulnerability Details detail pane so no horizontal scrolling is needed.

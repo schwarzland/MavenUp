@@ -987,10 +987,20 @@ internal class TransitiveVulnerabilitiesView(
         if (cell.allAdvisories.isEmpty()) return
         val coordinate = listOf(TRANSITIVE_GROUP_ID_COLUMN, TRANSITIVE_ARTIFACT_ID_COLUMN, TRANSITIVE_VERSION_COLUMN)
             .joinToString(":") { tableModel.getValueAt(modelRow, it).toString() }
+        val key = listOf(TRANSITIVE_GROUP_ID_COLUMN, TRANSITIVE_ARTIFACT_ID_COLUMN)
+            .joinToString(":") { tableModel.getValueAt(modelRow, it).toString() }
+        // Die Ansicht listet ausschließlich transitiv eingebundene Komponenten; ist die Koordinate
+        // zusätzlich in einer pom.xml deklariert, wird das in der Origin-Spalte kenntlich gemacht.
+        val origin = if (key in transitiveOnlyKeys) {
+            VulnerabilityOrigin.TRANSITIVE
+        } else {
+            VulnerabilityOrigin.TRANSITIVE_DECLARED
+        }
         VulnerabilityDetailDialog(
             project,
             cell.detailFindings(),
-            "$coordinate - ${MyMessageBundle.message(VULNERABILITY_DETAILS_TITLE)}"
+            "$coordinate - ${MyMessageBundle.message(VULNERABILITY_DETAILS_TITLE)}",
+            mapOf(coordinate to origin)
         ).show()
     }
 }

@@ -10,12 +10,12 @@
         dependencies, plugins, and parent POM entries. You can also view entries from <code>dependencyManagement</code>
         and <code>pluginManagement</code>, and the parent section is listed as a dependency with type <strong>parent</strong>.
     </li>
-    <li><strong>Refresh if needed</strong>: Use <strong>Refresh</strong> to reload the current project state and clear any
-        previously selected update values. This is useful after editing a <code>pom.xml</code> or after a Maven import.
-    </li>
-    <li><strong>Check for newer versions</strong>: Click <strong>Search for New Versions</strong> to query Maven repositories
-        and compare the current version of each item with the newest available version. A green checkmark ("✓") means the item
-        already matches the latest known version; an upwards arrow ("↑") shows that a newer release is available.
+    <li><strong>Refresh and check for newer versions</strong>: MavenUp runs this automatically when the tool window loads
+        your project data and after every finished Maven import or resync, so the <strong>New Version</strong> column is
+        filled without further interaction. You can also click <strong>Refresh and Search for New Versions</strong> at any
+        time to reload the current project state, discard previously selected update values and vulnerability results, and
+        query Maven repositories again. A green checkmark ("✓") means the item already matches the latest known version; an
+        upwards arrow ("↑") shows that a newer release is available. The automatic search can be turned off in the settings.
     </li>
     <li><strong>Choose the version to apply</strong>: In the <strong>New Version</strong> column, select the version you
         want to use. When multiple entries share the same Maven property such as <code>${spring.version}</code>, MavenUp
@@ -44,7 +44,7 @@
         ArtifactId or Property, and use the combo boxes to filter by dependency type, pending version changes,
         available updates, or security findings. You can also right-click a GroupId, ArtifactId, or Property cell and
         choose <strong>Filter by "..."</strong> to filter by that exact value. The updates filter becomes available
-        after a successful "Search for New Versions" and then shows only rows with a newer version; the vulnerabilities
+        after a successful "Refresh and Search for New Versions" and then shows only rows with a newer version; the vulnerabilities
         filter becomes available after a successful "Scan for Vulnerabilities" and lets you separate rows whose own
         dependency is affected from rows that are only affected through their transitive dependencies. All filters
         combine so only matching
@@ -60,7 +60,7 @@
         <strong>Navigate to pom.xml</strong>,
         <strong>Open on [Browser]</strong>, <strong>Set Highest Major Version</strong> and
         <strong>Set Highest Minor Version</strong> for just that dependency (available once its versions have been
-        retrieved via "Search for New Versions"), <strong>Set Recommended Version</strong> to jump to the fix version
+        retrieved via "Refresh and Search for New Versions"), <strong>Set Recommended Version</strong> to jump to the fix version
         recommended for that dependency's own security findings, <strong>Reset to Current Version</strong> to discard that
         dependency's selection, and <strong>Show Vulnerability Details</strong> (disabled when the dependency has no
         findings). All entries stay visible and only toggle their enabled state.</li>

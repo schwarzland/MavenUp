@@ -16,6 +16,7 @@ import de.schwarzland.mavenup.ui.UpdateConfirmationDialog
 import de.schwarzland.mavenup.service.RefreshSnapshotCollector
 import de.schwarzland.mavenup.ui.MyMessageBundle
 import de.schwarzland.mavenup.ui.RefreshSnapshot
+import de.schwarzland.mavenup.ui.VulnerabilityOrigin
 import de.schwarzland.mavenup.ui.buildVulnerabilityCell
 import de.schwarzland.mavenup.ui.canCheckVulnerabilities
 import de.schwarzland.mavenup.ui.vulnerabilitySummary
@@ -228,8 +229,10 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertEquals(listOf(directAdvisory), cell.detailFindings()[directCoordinate])
         assertEquals(
             listOf(transitiveAdvisory),
-            cell.detailFindings()["$transitiveCoordinate (transitive)"]
+            cell.detailFindings()[transitiveCoordinate]
         )
+        assertEquals(VulnerabilityOrigin.DIRECT, cell.detailOrigins()[directCoordinate])
+        assertEquals(VulnerabilityOrigin.TRANSITIVE, cell.detailOrigins()[transitiveCoordinate])
 
         val transitiveOnly = buildVulnerabilityCell(
             directCoordinate,
@@ -250,6 +253,45 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val clean = buildVulnerabilityCell(directCoordinate, emptyMap(), emptySet())
         assertFalse(clean.hasDirectAdvisories)
         assertFalse(clean.hasTransitiveAdvisories)
+    }
+
+    fun testTransitiveCoordinateDeclaredInPomIsMarkedInDetailOrigins() {
+        val directCoordinate = "com.example:direct:1.0.0"
+        val transitiveCoordinate = "com.example:transitive:2.0.0"
+        val advisory = VulnerabilityAdvisory(
+            id = "CVE-TRANSITIVE",
+            severity = VulnerabilitySeverity.HIGH,
+            sources = setOf("OSV")
+        )
+
+        val declared = buildVulnerabilityCell(
+            directCoordinate,
+            mapOf(transitiveCoordinate to listOf(advisory)),
+            setOf(transitiveCoordinate),
+            setOf(transitiveCoordinate)
+        )
+        assertEquals(
+            "Der Komponentenname darf kein Markierungs-Suffix tragen",
+            listOf(advisory),
+            declared.detailFindings()[transitiveCoordinate]
+        )
+        assertEquals(
+            "Eine zugleich direkt deklarierte transitive Koordinate muss gesondert eingeordnet werden",
+            VulnerabilityOrigin.TRANSITIVE_DECLARED,
+            declared.detailOrigins()[transitiveCoordinate]
+        )
+
+        val onlyTransitive = buildVulnerabilityCell(
+            directCoordinate,
+            mapOf(transitiveCoordinate to listOf(advisory)),
+            setOf(transitiveCoordinate),
+            setOf(directCoordinate)
+        )
+        assertEquals(
+            "Eine rein transitive Koordinate bleibt als transitiv eingeordnet",
+            VulnerabilityOrigin.TRANSITIVE,
+            onlyTransitive.detailOrigins()[transitiveCoordinate]
+        )
     }
 
     fun testShouldBeAvailableOnlyWhenMavenProjectsExist() {
@@ -936,7 +978,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
     }
 
     fun testShortToolbarLabelsResolveToShortenedText() {
-        assertEquals("Search Versions", MyMessageBundle.message("toolwindow.MyToolWindow.checkUpdates.button.short"))
+        assertEquals("Refresh", MyMessageBundle.message("toolwindow.MyToolWindow.refresh.button.short"))
         assertEquals("Scan", MyMessageBundle.message("toolwindow.MyToolWindow.checkVulnerabilities.button.short"))
         assertEquals("Update", MyMessageBundle.message("toolwindow.MyToolWindow.update.button.short"))
         assertEquals("Open", MyMessageBundle.message("toolwindow.MyToolWindow.openInRepository.button.short"))
@@ -1212,17 +1254,17 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         )
     }
 
-    fun testCheckUpdatesIsDisabledWhileTransitiveViewIsShown() {
+    fun testRefreshStaysAvailableWhileTransitiveViewIsShown() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         toolWindow.getContent()
 
         assertTrue(
-            "In der Haupttabelle muss die Versionssuche verfügbar sein",
-            toolWindow.isCheckUpdatesEnabled()
+            "In der Haupttabelle muss die kombinierte Aktualisierung verfügbar sein",
+            toolWindow.isRefreshEnabled()
         )
         assertEquals(
-            "Search for New Versions",
-            toolWindow.currentCheckUpdatesDescription()
+            "Refresh and Search for New Versions",
+            MyMessageBundle.message("toolwindow.MyToolWindow.refresh.button")
         )
 
         val coordinate = "com.example:transitive:2.0.0"
@@ -1245,19 +1287,50 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         toolWindow.updateTransitiveVulnerabilitiesView()
         toolWindow.setTransitiveViewVisible(true)
 
-        assertFalse(
-            "In der transitiven Ansicht darf die Versionssuche nicht ausführbar sein",
-            toolWindow.isCheckUpdatesEnabled()
-        )
         assertTrue(
-            "Der Tooltip muss erklären, warum die Aktion dort deaktiviert ist",
-            toolWindow.currentCheckUpdatesDescription().contains("main dependency table")
+            "Auch in der transitiven Ansicht muss die kombinierte Aktualisierung ausführbar sein",
+            toolWindow.isRefreshEnabled()
         )
 
         toolWindow.setTransitiveViewVisible(false)
         assertTrue(
-            "Nach dem Zurückschalten muss die Versionssuche wieder verfügbar sein",
-            toolWindow.isCheckUpdatesEnabled()
+            "Nach dem Zurückschalten muss die kombinierte Aktualisierung verfügbar bleiben",
+            toolWindow.isRefreshEnabled()
+        )
+    }
+
+    fun testAutoVersionSearchFollowsSetting() {
+        val settings = MavenUpSettings.getInstance()
+        val previous = settings.state.autoSearchVersions
+        try {
+            val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+            toolWindow.getContent()
+
+            settings.state.autoSearchVersions = true
+            assertTrue(
+                "Bei aktivierter Einstellung muss die automatische Versionssuche greifen",
+                toolWindow.isAutoVersionSearchEnabled()
+            )
+
+            settings.state.autoSearchVersions = false
+            assertFalse(
+                "Bei deaktivierter Einstellung darf nicht automatisch gesucht werden",
+                toolWindow.isAutoVersionSearchEnabled()
+            )
+        } finally {
+            settings.state.autoSearchVersions = previous
+        }
+    }
+
+    fun testRefreshTooltipDescribesCombinedBehaviour() {
+        val tooltip = MyMessageBundle.message("toolwindow.MyToolWindow.refresh.tooltip")
+        assertTrue(
+            "Der Tooltip muss das Neuladen der pom.xml-Dateien benennen",
+            tooltip.contains("pom.xml")
+        )
+        assertTrue(
+            "Der Tooltip muss die anschließende Versionssuche benennen",
+            tooltip.contains("new versions")
         )
     }
 

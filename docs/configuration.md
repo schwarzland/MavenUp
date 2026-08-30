@@ -13,11 +13,12 @@ Under `Settings > Tools > MavenUp`, the following options can be configured. The
 
 ### Versions and Updates
 
+- **Search for new versions automatically when the project data is loaded**: Determines whether the online version search runs automatically after the tool window loads the project data and after every finished Maven import or resync (default: on). When disabled, versions are only fetched when you trigger **Refresh and Search for New Versions** yourself. The automatic search only happens while the MavenUp tool window is open, so no network requests are made otherwise.
+- **Stop after a successful Maven Central lookup**: Determines whether no further private repositories are queried after a successful Maven Central lookup (default: on). When the option is disabled, private repositories continue to be queried even after a successful Central lookup in order to find private-only versions.
 - **Automatically select version after checking for updates**: Sets the pre-selection strategy for **New Version** as a combo box with three states: **Keep current version (no auto-selection)**, **Select highest available version**, or **Select latest minor version in current major line**. The change is applied to the open tool window immediately with **Apply** or **OK**, without a renewed update check; other settings do not change the current selection.
 - **Offer all versions (including older than the current one)**: Offers versions older than the currently used one in the version drop-downs as well, enabling downgrades (default: off). When the option is disabled, only versions `>=` the current version are offered.
 - **Hide unstable versions**: Hides unstable versions (e.g. RC/Beta) from the selectable update versions.
 - **Hidden version qualifiers (comma-separated)**: List of the types to hide, e.g. `rc,beta,milestone` (as an indented sub-item in the IntelliJ settings style; label and field are only active when the filter is enabled; the field adapts to the dialog width so longer lists remain readable).
-- **Stop after a successful Maven Central lookup**: Determines whether no further private repositories are queried after a successful Maven Central lookup (default: on). When the option is disabled, private repositories continue to be queried even after a successful Central lookup in order to find private-only versions.
 
 ### Pom.xml Changes
 
