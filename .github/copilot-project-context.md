@@ -132,7 +132,8 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   `buildVersionPanel`/`applyDropdownRenderer` (delegiert an `applyVersionDropdownRenderer`), `createVersionPanel`); die Auswahl liegt in `selectedVersions`
   (nur bewusst gewählte Werte, Standard = aktuelle Version) und wird über den `onSelectionChanged`-Callback an
   `refreshToolbar` gemeldet. `collectPendingUpdates`/`hasPendingUpdates` erzeugen daraus `DependencyUpdate`s vom
-  Typ „managed dependency" (inkl. `fixedVulnerabilities` aus `advisoryIdsByKey` für den pom-Kommentar und
+  Typ „managed dependency" (inkl. `fixedVulnerabilities` aus `advisoryIdsByKey` und `fixedVulnerabilityAliases`
+  aus `advisoryAliasesByKey` für den pom-Kommentar und
   `transitive = true` für Koordinaten aus `transitiveOnlyKeys`, also solche, die nicht in der `pom.xml` deklariert sind);
   die verfügbaren Versionen stammen aus der Vereinigung von `availableVersions`
   (normale Versionssuche) und der persistenten `transitiveAvailableVersions`-Map, die nach einem
@@ -228,7 +229,8 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   (`jumpOnSingleClick`, `versionAutoSelectionMode` mit `DISABLED`, `LATEST`, `LATEST_MINOR`, `hideUnstableVersions`, `hiddenVersionQualifiers`,
   `ossIndexEnabled`, `checkTransitiveDependencies`, `repositoryBrowser`, `toolbarShowText`,
   `syncMavenAfterUpdate`, `stopAfterCentralSuccess`, `offerAllVersions`, `confirmVersionReset`,
-  `autoSearchVersions`, `addVulnerabilityFixComment`; Legacy-Migrationsfelder: `selectLatestVersion`, `selectLatestMinorVersion`).
+  `autoSearchVersions`, `vulnerabilityCommentMode` mit `NONE`, `ADVISORY_IDS`, `ALIASES`, `ALL_IDS`;
+  Legacy-Migrationsfelder: `selectLatestVersion`, `selectLatestMinorVersion`, `addVulnerabilityFixComment`).
   Für die OSS-Index-Abfrage ist nur das Token erforderlich; Sonatype wertet bei der HTTP-Basic-Authentifizierung
   nur das Token aus, weshalb ein fester Platzhalter-Benutzername verwendet wird.
   Das Token liegt ausschließlich im IntelliJ Password Safe; fehlt es, wird
@@ -251,8 +253,8 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   ob nach erfolgreicher Maven-Central-Abfrage weitere private Repositories abgefragt werden, sowie die
   Combobox `versionAutoSelectionMode` mit drei Zuständen für die Auto-Auswahl bei Update-Prüfungen.
   Die Gruppe **Pom.xml Changes** bündelt Einstellungen zum Schreibverhalten beim Anwenden von Updates:
-  `syncMavenAfterUpdate` (automatischer Maven-Sync nach dem Schreiben der `pom.xml`) und
-  `addVulnerabilityFixComment` (optionaler erklärender XML-Kommentar beim Anlegen eines gepinnten
+  `syncMavenAfterUpdate` (automatischer Maven-Sync nach dem Schreiben der `pom.xml`) und die Combobox
+  `vulnerabilityCommentMode` (Auswahl der Kennungen im erklärenden XML-Kommentar beim Anlegen eines gepinnten
   `dependencyManagement`-Eintrags zur Schwachstellenbehebung, siehe `PomUpdateService.addManagedDependency`).
   Die OSS-Index-Sektion kennzeichnet das Token bei Aktivierung als Pflichtfeld und
   verlinkt auf die Sonatype-Kontoeinstellungen zur Token-Erzeugung. Das Token wird außerhalb des EDT
@@ -294,9 +296,9 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   `pom.xml` an (`applyUpdateToPom`, `updateXmlTagVersion`, Parent/Dependencies/Plugins) und
   speichert die Dateien vor dem Maven-Sync (`persistPomChanges`). Für „managed dependency"-Updates
   ohne vorhandenen Eintrag legt `addManagedDependency` einen neuen `<dependencyManagement>`-Eintrag an
-  (Container werden bei Bedarf erzeugt) und stellt der Abhängigkeit optional (Einstellung
-  `addVulnerabilityFixComment`, Standard: an) über `managedDependencyCommentText` einen XML-Kommentar
-  mit den behobenen Vulnerability-IDs und MavenUp-Hinweis als erste Zeile voran
+  (Container werden bei Bedarf erzeugt) und stellt der Abhängigkeit je nach Einstellung
+  `vulnerabilityCommentMode` (Standard: `ADVISORY_IDS`) über `managedDependencyCommentText` einen XML-Kommentar
+  mit den behobenen Vulnerability-Kennungen (IDs, Aliase oder beides) und MavenUp-Hinweis als erste Zeile voran
   (Erzeugung aus Text via `createTagFromText` + `reformat`); genutzt für das Pinnen transitiver Abhängigkeiten.
 - **VulnerabilityScanService**: ermittelt direkte/transitive Scan-Ziele aus dem Maven-Modell
   (`collectVulnerabilityScanTargets`, `collectResolvedDependencyRelations`) und kapselt die

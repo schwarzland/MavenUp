@@ -189,6 +189,12 @@ internal class TransitiveVulnerabilitiesView(
     private var advisoryIdsByKey: Map<String, List<String>> = emptyMap()
 
     /**
+     * Zuordnung von `groupId:artifactId` zu den Aliasen der Sicherheitswarnungen der Koordinate.
+     * Warnungen ohne Alias steuern ersatzweise ihre primäre ID bei.
+     */
+    private var advisoryAliasesByKey: Map<String, List<String>> = emptyMap()
+
+    /**
      * Schlüssel (`groupId:artifactId`) der Koordinaten, die ausschließlich transitiv aufgelöst und
      * nicht in der `pom.xml` deklariert sind. Kennzeichnet die daraus erzeugten Updates als transitiv.
      */
@@ -465,7 +471,8 @@ internal class TransitiveVulnerabilitiesView(
                 currentVersion,
                 newVersion,
                 advisoryIdsByKey[key].orEmpty(),
-                transitive = key in transitiveOnlyKeys
+                transitive = key in transitiveOnlyKeys,
+                fixedVulnerabilityAliases = advisoryAliasesByKey[key].orEmpty()
             )
         }
     }
@@ -938,6 +945,11 @@ internal class TransitiveVulnerabilitiesView(
             .associate { "${it.groupId}:${it.artifactId}" to it.recommendedVersion }
         advisoryIdsByKey = rows.associate { row ->
             "${row.groupId}:${row.artifactId}" to row.cell.allAdvisories.map { it.id }.distinct()
+        }
+        advisoryAliasesByKey = rows.associate { row ->
+            "${row.groupId}:${row.artifactId}" to row.cell.allAdvisories
+                .flatMap { advisory -> advisory.aliases.ifEmpty { setOf(advisory.id) } }
+                .distinct()
         }
         selectedVersions.keys.retainAll(rows.map { "${it.groupId}:${it.artifactId}" }.toSet())
         tableModel.setRowCount(0)

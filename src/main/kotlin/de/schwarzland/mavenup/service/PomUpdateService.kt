@@ -132,8 +132,8 @@ internal class PomUpdateService(private val project: Project) {
      * Fehlende Container-Tags (`<dependencyManagement>`, `<dependencies>`) werden bei Bedarf erzeugt.
      * Die Abhängigkeit wird samt optional vorangestelltem Kommentar aus Text erzeugt (Kommentar auf
      * eigener Zeile direkt hinter dem öffnenden `<dependency>`) und anschließend neu formatiert, damit
-     * die Einrückung zur Datei passt. Ob der Kommentar eingefügt wird, richtet sich nach der Einstellung
-     * [MavenUpSettings.State.addVulnerabilityFixComment].
+     * die Einrückung zur Datei passt. Ob und mit welchen Kennungen der Kommentar eingefügt wird, richtet
+     * sich nach der Einstellung [MavenUpSettings.State.vulnerabilityCommentMode].
      *
      * @param documentElement Das Root-Tag der `pom.xml`.
      * @param update Das anzuwendende Update mit der zu pinnenden Zielversion.
@@ -147,10 +147,11 @@ internal class PomUpdateService(private val project: Project) {
             ?: dependencyManagementTag.addSubTag(
                 dependencyManagementTag.createChildTag("dependencies", null, "", false), false
             )
+        val commentMode = MavenUpSettings.getInstance().state.vulnerabilityCommentMode
         val dependencyXml = buildString {
             append("<dependency>\n")
-            if (MavenUpSettings.getInstance().state.addVulnerabilityFixComment) {
-                append("<!-- ").append(managedDependencyCommentText(update.fixedVulnerabilities)).append(" -->\n")
+            if (commentMode != VulnerabilityCommentMode.NONE) {
+                append("<!-- ").append(managedDependencyCommentText(update, commentMode)).append(" -->\n")
             }
             append("<groupId>").append(update.groupId).append("</groupId>\n")
             append("<artifactId>").append(update.artifactId).append("</artifactId>\n")
@@ -165,16 +166,25 @@ internal class PomUpdateService(private val project: Project) {
     /**
      * Baut den Kommentartext für eine neu angelegte verwaltete Abhängigkeit.
      *
-     * Listet knapp die IDs der behobenen Sicherheitswarnungen auf und weist darauf hin, dass die
-     * Änderung durch MavenUp erfolgt ist. Doppelte Bindestriche werden entschärft, da sie in
-     * XML-Kommentaren unzulässig sind.
+     * Listet je nach [mode] die primären Advisory-IDs, deren Aliase (z. B. `CVE-…`) oder alle bekannten
+     * Kennungen der behobenen Sicherheitswarnungen auf und weist darauf hin, dass die Änderung durch
+     * MavenUp erfolgt ist. Sind keine Kennungen bekannt, wird ein generischer Hinweistext verwendet.
+     * Doppelte Bindestriche werden entschärft, da sie in XML-Kommentaren unzulässig sind.
      *
-     * @param fixedVulnerabilities Die IDs der behobenen Sicherheitswarnungen.
+     * @param update Das anzuwendende Update mit den Kennungen der behobenen Sicherheitswarnungen.
+     * @param mode Der konfigurierte Kommentarmodus; [VulnerabilityCommentMode.NONE] liefert den generischen Text.
      * @return Der (entschärfte) Kommentartext ohne die umschließenden Kommentar-Marker.
      */
-    private fun managedDependencyCommentText(fixedVulnerabilities: List<String>): String {
-        val text = if (fixedVulnerabilities.isNotEmpty()) {
-            MyMessageBundle.message("pom.comment.managedDependency", fixedVulnerabilities.joinToString(", "))
+    private fun managedDependencyCommentText(update: DependencyUpdate, mode: VulnerabilityCommentMode): String {
+        val ids = when (mode) {
+            VulnerabilityCommentMode.NONE -> emptyList()
+            VulnerabilityCommentMode.ADVISORY_IDS -> update.fixedVulnerabilities
+            VulnerabilityCommentMode.ALIASES -> update.fixedVulnerabilityAliases
+            VulnerabilityCommentMode.ALL_IDS ->
+                (update.fixedVulnerabilities + update.fixedVulnerabilityAliases).distinct()
+        }
+        val text = if (ids.isNotEmpty()) {
+            MyMessageBundle.message("pom.comment.managedDependency", ids.joinToString(", "))
         } else {
             MyMessageBundle.message("pom.comment.managedDependencyNoIds")
         }

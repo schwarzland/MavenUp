@@ -23,7 +23,7 @@ Under `Settings > Tools > MavenUp`, the following options can be configured. The
 ### Pom.xml Changes
 
 - **Sync Maven changes after update**: Determines whether the IDE's Maven sync is triggered automatically after writing the `pom.xml` (default: on). This setting is synchronized with the identically named checkbox in the **Confirm Changes** confirmation dialog; the last choice made there is saved.
-- **Insert explanatory comment when pinning a dependency to fix a vulnerability**: Determines whether newly pinned `dependencyManagement` entries created from vulnerability fixes get an explanatory XML comment listing the fixed vulnerability IDs (default: on). When disabled, the entry is written without a comment.
+- **Explanatory comment when pinning a dependency to fix a vulnerability**: Combo box that controls the explanatory XML comment written into newly pinned `dependencyManagement` entries created from vulnerability fixes, with four states: **No comment**, **Comment with advisory IDs (e.g. GHSA)** (default), **Comment with aliases (e.g. CVE)**, and **Comment with all identifiers (GHSA and CVE)**. When no identifier is available for the selected state, a generic comment noting the change was made by MavenUp is written instead.
 
 ### Vulnerability Check
 

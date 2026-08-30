@@ -6,6 +6,7 @@ import de.schwarzland.mavenup.service.MAVEN_UP_SETTINGS_TOPIC
 import de.schwarzland.mavenup.service.OssIndexCredentialService
 import de.schwarzland.mavenup.service.OssIndexCredentialStore
 import de.schwarzland.mavenup.service.VersionAutoSelectionMode
+import de.schwarzland.mavenup.service.VulnerabilityCommentMode
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.diagnostic.Logger
@@ -61,7 +62,7 @@ class MavenUpConfigurable internal constructor(
     private var hiddenVersionQualifiersLabel: JLabel? = null
     private var hiddenVersionQualifiersField: JTextField? = null
     private var checkTransitiveDependenciesCheckBox: JBCheckBox? = null
-    private var addVulnerabilityFixCommentCheckBox: JBCheckBox? = null
+    private var vulnerabilityCommentModeComboBox: ComboBox<VulnerabilityCommentMode>? = null
     private var ossIndexEnabledCheckBox: JBCheckBox? = null
     private var ossIndexTokenLabel: JLabel? = null
     private var ossIndexTokenField: JPasswordField? = null
@@ -206,13 +207,24 @@ class MavenUpConfigurable internal constructor(
                         .component
                 }
                 row {
-                    addVulnerabilityFixCommentCheckBox =
-                        checkBox(MyMessageBundle.message("settings.addVulnerabilityFixComment"))
-                            .applyToComponent {
-                                isSelected = settings.state.addVulnerabilityFixComment
-                                toolTipText = MyMessageBundle.message("settings.addVulnerabilityFixComment.tooltip")
+                    label(MyMessageBundle.message("settings.vulnerabilityCommentMode"))
+                    vulnerabilityCommentModeComboBox = comboBox(VulnerabilityCommentMode.entries)
+                        .applyToComponent {
+                            selectedItem = settings.state.vulnerabilityCommentMode
+                            toolTipText = MyMessageBundle.message("settings.vulnerabilityCommentMode.tooltip")
+                            renderer = object : SimpleListCellRenderer<VulnerabilityCommentMode>() {
+                                override fun customize(
+                                    list: javax.swing.JList<out VulnerabilityCommentMode>,
+                                    value: VulnerabilityCommentMode?,
+                                    index: Int,
+                                    selected: Boolean,
+                                    hasFocus: Boolean
+                                ) {
+                                    text = if (value == null) "" else MyMessageBundle.message(value.messageKey)
+                                }
                             }
-                            .component
+                        }
+                        .component
                 }
             }
             group(MyMessageBundle.message("settings.group.vulnerability")) {
@@ -284,7 +296,7 @@ class MavenUpConfigurable internal constructor(
             hideUnstableVersionsCheckBox?.isSelected to state.hideUnstableVersions,
             hiddenVersionQualifiersField?.text to state.hiddenVersionQualifiers,
             checkTransitiveDependenciesCheckBox?.isSelected to state.checkTransitiveDependencies,
-            addVulnerabilityFixCommentCheckBox?.isSelected to state.addVulnerabilityFixComment,
+            vulnerabilityCommentModeComboBox?.selectedItem to state.vulnerabilityCommentMode,
             ossIndexEnabledCheckBox?.isSelected to state.ossIndexEnabled
         )
         return comparisons.any { (uiValue, storedValue) -> uiValue != storedValue } || isTokenModified()
@@ -326,7 +338,11 @@ class MavenUpConfigurable internal constructor(
         settings.state.hideUnstableVersions = hideUnstableVersionsCheckBox?.isSelected ?: false
         settings.state.hiddenVersionQualifiers = hiddenVersionQualifiersField?.text?.trim().orEmpty()
         settings.state.checkTransitiveDependencies = checkTransitiveDependenciesCheckBox?.isSelected ?: true
-        settings.state.addVulnerabilityFixComment = addVulnerabilityFixCommentCheckBox?.isSelected ?: true
+        settings.state.vulnerabilityCommentMode =
+            vulnerabilityCommentModeComboBox?.selectedItem as? VulnerabilityCommentMode
+                ?: VulnerabilityCommentMode.ADVISORY_IDS
+        settings.state.addVulnerabilityFixComment =
+            settings.state.vulnerabilityCommentMode != VulnerabilityCommentMode.NONE
         settings.state.ossIndexEnabled = ossIndexEnabled
         if (credentialsLoaded) {
             storedToken = ossIndexToken
@@ -353,7 +369,7 @@ class MavenUpConfigurable internal constructor(
         hideUnstableVersionsCheckBox?.isSelected = settings.state.hideUnstableVersions
         hiddenVersionQualifiersField?.text = settings.state.hiddenVersionQualifiers
         checkTransitiveDependenciesCheckBox?.isSelected = settings.state.checkTransitiveDependencies
-        addVulnerabilityFixCommentCheckBox?.isSelected = settings.state.addVulnerabilityFixComment
+        vulnerabilityCommentModeComboBox?.selectedItem = settings.state.vulnerabilityCommentMode
         ossIndexEnabledCheckBox?.isSelected = settings.state.ossIndexEnabled
         credentialsLoaded = false
         storedToken = ""
@@ -383,7 +399,7 @@ class MavenUpConfigurable internal constructor(
         hiddenVersionQualifiersLabel = null
         hiddenVersionQualifiersField = null
         checkTransitiveDependenciesCheckBox = null
-        addVulnerabilityFixCommentCheckBox = null
+        vulnerabilityCommentModeComboBox = null
         ossIndexEnabledCheckBox = null
         ossIndexTokenLabel = null
         ossIndexTokenField = null

@@ -4,6 +4,7 @@ import de.schwarzland.mavenup.service.MavenRepositoryBrowser
 import de.schwarzland.mavenup.service.MavenUpSettings
 import de.schwarzland.mavenup.service.OssIndexCredentialStore
 import de.schwarzland.mavenup.service.VersionAutoSelectionMode
+import de.schwarzland.mavenup.service.VulnerabilityCommentMode
 import com.intellij.credentialStore.Credentials
 import com.intellij.openapi.options.ConfigurationException
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
@@ -335,27 +336,55 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
         assertTrue(MavenUpSettings.State().confirmVersionReset)
     }
 
-    fun testAddVulnerabilityFixCommentDefaultIsTrue() {
-        assertTrue(MavenUpSettings.State().addVulnerabilityFixComment)
+    fun testVulnerabilityCommentModeDefaultIsAdvisoryIds() {
+        assertEquals(VulnerabilityCommentMode.ADVISORY_IDS, MavenUpSettings.State().vulnerabilityCommentMode)
     }
 
-    fun testAddVulnerabilityFixCommentSelectionIsPersistedOnApply() {
+    fun testVulnerabilityCommentModeSelectionIsPersistedOnApply() {
         val settings = MavenUpSettings.getInstance()
-        settings.state.addVulnerabilityFixComment = true
+        settings.state.vulnerabilityCommentMode = VulnerabilityCommentMode.ADVISORY_IDS
 
         val configurable = MavenUpConfigurable(project)
         configurable.createComponent()
         configurable.reset()
         assertFalse(configurable.isModified)
 
-        val checkBox = configurable.field<com.intellij.ui.components.JBCheckBox>("addVulnerabilityFixCommentCheckBox")
-        checkBox.isSelected = false
-        assertTrue("Änderung der Checkbox sollte isModified() true machen", configurable.isModified)
+        val comboBox = configurable
+            .field<com.intellij.openapi.ui.ComboBox<VulnerabilityCommentMode>>("vulnerabilityCommentModeComboBox")
+        comboBox.selectedItem = VulnerabilityCommentMode.ALIASES
+        assertTrue("Änderung der Combobox sollte isModified() true machen", configurable.isModified)
 
         configurable.apply()
-        assertFalse(settings.state.addVulnerabilityFixComment)
+        assertEquals(VulnerabilityCommentMode.ALIASES, settings.state.vulnerabilityCommentMode)
+        assertTrue("Legacy-Flag bleibt konsistent gesetzt", settings.state.addVulnerabilityFixComment)
 
-        settings.state.addVulnerabilityFixComment = true
+        settings.state.vulnerabilityCommentMode = VulnerabilityCommentMode.ADVISORY_IDS
+    }
+
+    fun testVulnerabilityCommentModeNoneClearsLegacyFlagOnApply() {
+        val settings = MavenUpSettings.getInstance()
+        settings.state.vulnerabilityCommentMode = VulnerabilityCommentMode.ADVISORY_IDS
+
+        val configurable = MavenUpConfigurable(project)
+        configurable.createComponent()
+        configurable.reset()
+
+        val comboBox = configurable
+            .field<com.intellij.openapi.ui.ComboBox<VulnerabilityCommentMode>>("vulnerabilityCommentModeComboBox")
+        comboBox.selectedItem = VulnerabilityCommentMode.NONE
+        configurable.apply()
+
+        assertEquals(VulnerabilityCommentMode.NONE, settings.state.vulnerabilityCommentMode)
+        assertFalse("Legacy-Flag wird abgeschaltet", settings.state.addVulnerabilityFixComment)
+
+        settings.state.vulnerabilityCommentMode = VulnerabilityCommentMode.ADVISORY_IDS
+    }
+
+    fun testLegacyDisabledVulnerabilityCommentIsMigratedToNone() {
+        val settings = MavenUpSettings.getInstance()
+        settings.loadState(MavenUpSettings.State(addVulnerabilityFixComment = false))
+
+        assertEquals(VulnerabilityCommentMode.NONE, settings.state.vulnerabilityCommentMode)
     }
 
     fun testConfirmVersionResetSelectionIsPersistedOnApply() {
