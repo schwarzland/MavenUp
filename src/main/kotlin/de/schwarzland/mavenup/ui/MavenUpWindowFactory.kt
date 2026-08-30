@@ -720,7 +720,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 }
             }
 
-            refreshAction(false, true, true)
+            refreshAction(isAutoVersionSearchEnabled(), true, true)
 
             add(JBScrollPane(table), BorderLayout.CENTER)
             transitiveContent.add(transitiveTopPanel, BorderLayout.NORTH)
@@ -913,7 +913,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     ApplicationManager.getApplication().invokeLater {
                         availableVersions.clear()
                         selectedVersions.clear()
-                        refreshAction(false, true, true)
+                        refreshAction(isAutoVersionSearchEnabled(), true, true)
                     }
                 }
             })
@@ -1859,6 +1859,19 @@ class MavenUpWindowFactory : ToolWindowFactory {
          */
         internal fun isResetVersionsEnabled(): Boolean =
             !isUpdating && hasSelectedUpdates()
+
+        /**
+         * Prüft, ob nach einem automatischen Neuladen der Projektdaten sofort online nach neuen
+         * Versionen gesucht werden soll.
+         *
+         * Die automatischen Auslöser sind der Aufbau des Tool-Window-Inhalts (erstes Öffnen nach dem
+         * Projektstart) und jeder abgeschlossene Maven-Import bzw. -Resync. Ohne geöffnetes Tool Window
+         * existiert dieser Inhalt nicht, sodass ohne Zutun des Anwenders keine Netzwerkabfragen erfolgen.
+         *
+         * @return `true`, wenn die Einstellung [MavenUpSettings.State.autoSearchVersions] aktiv ist.
+         */
+        internal fun isAutoVersionSearchEnabled(): Boolean =
+            MavenUpSettings.getInstance().state.autoSearchVersions
 
         /**
          * Prüft, ob die kombinierte Aktualisierung samt Versionssuche ausführbar ist.

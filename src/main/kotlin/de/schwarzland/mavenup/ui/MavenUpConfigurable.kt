@@ -53,6 +53,7 @@ class MavenUpConfigurable internal constructor(
     private var toolbarShowTextCheckBox: JBCheckBox? = null
     private var syncMavenAfterUpdateCheckBox: JBCheckBox? = null
     private var stopAfterCentralSuccessCheckBox: JBCheckBox? = null
+    private var autoSearchVersionsCheckBox: JBCheckBox? = null
     private var versionAutoSelectionModeComboBox: ComboBox<VersionAutoSelectionMode>? = null
     private var offerAllVersionsCheckBox: JBCheckBox? = null
     private var confirmVersionResetCheckBox: JBCheckBox? = null
@@ -177,6 +178,14 @@ class MavenUpConfigurable internal constructor(
                     }
                 }
                 row {
+                    autoSearchVersionsCheckBox = checkBox(MyMessageBundle.message("settings.autoSearchVersions"))
+                        .applyToComponent {
+                            isSelected = settings.state.autoSearchVersions
+                            toolTipText = MyMessageBundle.message("settings.autoSearchVersions.tooltip")
+                        }
+                        .component
+                }
+                row {
                     stopAfterCentralSuccessCheckBox = checkBox(MyMessageBundle.message("settings.stopAfterCentralSuccess"))
                         .applyToComponent {
                             isSelected = settings.state.stopAfterCentralSuccess
@@ -268,6 +277,7 @@ class MavenUpConfigurable internal constructor(
             toolbarShowTextCheckBox?.isSelected to state.toolbarShowText,
             syncMavenAfterUpdateCheckBox?.isSelected to state.syncMavenAfterUpdate,
             stopAfterCentralSuccessCheckBox?.isSelected to state.stopAfterCentralSuccess,
+            autoSearchVersionsCheckBox?.isSelected to state.autoSearchVersions,
             versionAutoSelectionModeComboBox?.selectedItem to state.versionAutoSelectionMode,
             offerAllVersionsCheckBox?.isSelected to state.offerAllVersions,
             confirmVersionResetCheckBox?.isSelected to state.confirmVersionReset,
@@ -305,6 +315,7 @@ class MavenUpConfigurable internal constructor(
         settings.state.toolbarShowText = toolbarShowTextCheckBox?.isSelected ?: false
         settings.state.syncMavenAfterUpdate = syncMavenAfterUpdateCheckBox?.isSelected ?: true
         settings.state.stopAfterCentralSuccess = stopAfterCentralSuccessCheckBox?.isSelected ?: true
+        settings.state.autoSearchVersions = autoSearchVersionsCheckBox?.isSelected ?: true
         settings.state.versionAutoSelectionMode =
             versionAutoSelectionModeComboBox?.selectedItem as? VersionAutoSelectionMode
                 ?: VersionAutoSelectionMode.DISABLED
@@ -335,6 +346,7 @@ class MavenUpConfigurable internal constructor(
         toolbarShowTextCheckBox?.isSelected = settings.state.toolbarShowText
         syncMavenAfterUpdateCheckBox?.isSelected = settings.state.syncMavenAfterUpdate
         stopAfterCentralSuccessCheckBox?.isSelected = settings.state.stopAfterCentralSuccess
+        autoSearchVersionsCheckBox?.isSelected = settings.state.autoSearchVersions
         versionAutoSelectionModeComboBox?.selectedItem = settings.state.versionAutoSelectionMode
         offerAllVersionsCheckBox?.isSelected = settings.state.offerAllVersions
         confirmVersionResetCheckBox?.isSelected = settings.state.confirmVersionReset
@@ -363,6 +375,7 @@ class MavenUpConfigurable internal constructor(
         toolbarShowTextCheckBox = null
         syncMavenAfterUpdateCheckBox = null
         stopAfterCentralSuccessCheckBox = null
+        autoSearchVersionsCheckBox = null
         versionAutoSelectionModeComboBox = null
         offerAllVersionsCheckBox = null
         confirmVersionResetCheckBox = null

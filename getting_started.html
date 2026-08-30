@@ -10,11 +10,12 @@
         dependencies, plugins, and parent POM entries. You can also view entries from <code>dependencyManagement</code>
         and <code>pluginManagement</code>, and the parent section is listed as a dependency with type <strong>parent</strong>.
     </li>
-    <li><strong>Refresh and check for newer versions</strong>: Click <strong>Refresh and Search for New Versions</strong> to
-        reload the current project state, discard previously selected update values and vulnerability results, and query
-        Maven repositories for the newest available version of each item. Use it after editing a <code>pom.xml</code> or
-        after a Maven import. A green checkmark ("✓") means the item already matches the latest known version; an upwards
-        arrow ("↑") shows that a newer release is available.
+    <li><strong>Refresh and check for newer versions</strong>: MavenUp runs this automatically when the tool window loads
+        your project data and after every finished Maven import or resync, so the <strong>New Version</strong> column is
+        filled without further interaction. You can also click <strong>Refresh and Search for New Versions</strong> at any
+        time to reload the current project state, discard previously selected update values and vulnerability results, and
+        query Maven repositories again. A green checkmark ("✓") means the item already matches the latest known version; an
+        upwards arrow ("↑") shows that a newer release is available. The automatic search can be turned off in the settings.
     </li>
     <li><strong>Choose the version to apply</strong>: In the <strong>New Version</strong> column, select the version you
         want to use. When multiple entries share the same Maven property such as <code>${spring.version}</code>, MavenUp

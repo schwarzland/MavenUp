@@ -1257,6 +1257,29 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         )
     }
 
+    fun testAutoVersionSearchFollowsSetting() {
+        val settings = MavenUpSettings.getInstance()
+        val previous = settings.state.autoSearchVersions
+        try {
+            val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+            toolWindow.getContent()
+
+            settings.state.autoSearchVersions = true
+            assertTrue(
+                "Bei aktivierter Einstellung muss die automatische Versionssuche greifen",
+                toolWindow.isAutoVersionSearchEnabled()
+            )
+
+            settings.state.autoSearchVersions = false
+            assertFalse(
+                "Bei deaktivierter Einstellung darf nicht automatisch gesucht werden",
+                toolWindow.isAutoVersionSearchEnabled()
+            )
+        } finally {
+            settings.state.autoSearchVersions = previous
+        }
+    }
+
     fun testRefreshTooltipDescribesCombinedBehaviour() {
         val tooltip = MyMessageBundle.message("toolwindow.MyToolWindow.refresh.tooltip")
         assertTrue(

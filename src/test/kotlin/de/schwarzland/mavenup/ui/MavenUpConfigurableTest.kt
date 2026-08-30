@@ -301,6 +301,32 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
         settings.state.stopAfterCentralSuccess = true
     }
 
+    fun testAutoSearchVersionsDefaultIsTrue() {
+        assertTrue(MavenUpSettings.State().autoSearchVersions)
+    }
+
+    fun testAutoSearchVersionsSelectionIsPersistedOnApply() {
+        val settings = MavenUpSettings.getInstance()
+        settings.state.autoSearchVersions = true
+
+        val configurable = MavenUpConfigurable(project)
+        configurable.createComponent()
+        configurable.reset()
+        assertFalse(configurable.isModified)
+
+        val checkBox = configurable.field<com.intellij.ui.components.JBCheckBox>("autoSearchVersionsCheckBox")
+        checkBox.isSelected = false
+        assertTrue("Änderung der Checkbox sollte isModified() true machen", configurable.isModified)
+
+        configurable.apply()
+        assertFalse(settings.state.autoSearchVersions)
+
+        configurable.reset()
+        assertFalse("Nach reset() muss die Checkbox den gespeicherten Wert zeigen", checkBox.isSelected)
+
+        settings.state.autoSearchVersions = true
+    }
+
     fun testOfferAllVersionsDefaultIsFalse() {
         assertFalse(MavenUpSettings.State().offerAllVersions)
     }
