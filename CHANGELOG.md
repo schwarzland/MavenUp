@@ -59,6 +59,8 @@
 - Resolved the parent POM version from Maven properties so property-based `<parent>` versions (for example `${revision}`) are scanned for vulnerabilities and version updates instead of being skipped as an unresolved placeholder.
 - Recommended a fix version that resolves every known vulnerability of a transitive coordinate, so a version that still lies within an affected range (for example an incomplete fix superseded by a later patch) or that leaves another advisory unresolved is no longer suggested.
 - Limited the affected version ranges and fixed versions of an advisory to the artifact actually in use, so advisories covering several Maven artifacts no longer mix fix versions of unrelated artifacts into the recommendation.
+- Interpreted the OSV `last_affected` event as an inclusive upper bound (`>= x, <= y`) instead of treating such a range as unbounded, so a patch release of the current major line is recommended again rather than a needless jump to the next major version.
+- Fell back to the fix version that resolves the most advisories — the lowest one when several are equal — instead of always the highest one when no version resolves every advisory of a coordinate.
 
 ## 2.5.0
 

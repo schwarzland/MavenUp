@@ -4,7 +4,7 @@ The plugin is clearly divided into three layers.
 
 ## Data model (`de.schwarzland.mavenup.model`)
 - Contains lean DTOs for the UI/service data exchange, e.g. `DependencyUpdate` and `VulnerabilityAdvisory`.
-- `AffectedVersionRange` parses the human-readable affected version ranges of an advisory back into comparable bounds and decides via `isFixedIn` whether a version is still affected — the basis for the recommended fix version.
+- `AffectedVersionRange` parses the human-readable affected version ranges of an advisory back into comparable bounds — exclusive (`< y`, from OSV `fixed`) as well as inclusive (`<= y`, from OSV `last_affected`) upper bounds — and decides via `isFixedIn` whether a version is still affected — the basis for the recommended fix version.
 
 ## Service (`de.schwarzland.mavenup.service`)
 - `MavenUpStartupActivity`: makes the tool window available on project startup as soon as Maven projects already exist.

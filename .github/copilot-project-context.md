@@ -124,7 +124,8 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   Funktion `recommendedFixVersion` aus den Advisories abgeleitet: Aus allen Fixed-Versionen oberhalb der aktuellen
   Version wird die niedrigste gewählt, in der laut `isFixedIn` **alle** Advisories der Koordinate behoben sind
   (betroffene Versionsbereiche schlagen dabei die reinen Fixed-Versionen, siehe **AffectedVersionRange**); lässt sich
-  keine solche Version bestimmen, dient die höchste bekannte Fix-Version als bestmögliche Empfehlung. Sie wird
+  keine solche Version bestimmen, dient die Fix-Version mit den meisten behobenen Advisories – bei Gleichstand die
+  niedrigste – als bestmögliche Empfehlung, damit kein unnötiger Major-Sprung vorgeschlagen wird. Sie wird
   über `recommendedByKey` im New-Version-Dropdown fett mit „(recommended)"-Marker hervorgehoben (analog zum
   „(current)"-Marker; keine eigene Spalte).
   Die editierbare **New Version**-Spalte spiegelt die New-Version-Spalte der Haupttabelle (Renderer/Editor via
@@ -280,9 +281,10 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   quellenübergreifende Deduplizierung anhand von IDs/Aliasen; CVSS-Vektoren werden über
   `us.springett:cvss-calculator` normalisiert, bei nicht unterstützten CVSS-Versionen wird auf
   den Schweregrad der Quelle zurückgefallen.
-- **AffectedVersionRange**: parst die lesbaren Bereichsbeschreibungen (`>= x, < y`, `< y`, `>= x`) einer
-  Warnung zurück in vergleichbare Grenzen (`parseAffectedVersionRange`/`parseAffectedVersionRanges`) und
-  beantwortet über `VulnerabilityAdvisory.isFixedIn`, ob eine Version noch betroffen ist; ohne
+- **AffectedVersionRange**: parst die lesbaren Bereichsbeschreibungen (`>= x, < y`, `>= x, <= y`, `< y`, `<= y`,
+  `>= x`) einer Warnung zurück in vergleichbare Grenzen (`parseAffectedVersionRange`/`parseAffectedVersionRanges`)
+  und beantwortet über `VulnerabilityAdvisory.isFixedIn`, ob eine Version noch betroffen ist; `<=` entsteht aus
+  dem OSV-Event `last_affected` und begrenzt den Bereich einschließend, ohne
   Bereichsangaben dienen ersatzweise die Fixed-Versionen als Kriterium. Grundlage der Empfehlungslogik
   in `recommendedFixVersion`.
 - **RefreshSnapshotCollector**: liest über PSI die deklarierten Dependencies, Plugins und

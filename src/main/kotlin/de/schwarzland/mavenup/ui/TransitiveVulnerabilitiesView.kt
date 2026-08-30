@@ -75,8 +75,9 @@ internal data class TransitiveVulnerabilityRow(
  * Koordinate behoben sind (siehe [isFixedIn]). Dadurch wird weder eine Version empfohlen, die eine
  * weitere Warnung offen lässt, noch eine Version, die laut den betroffenen Versionsbereichen selbst
  * noch verwundbar ist (z. B. bei unvollständigen Fixes mit aufeinanderfolgenden Bereichen).
- * Lässt sich keine vollständig behebende Version bestimmen, wird die höchste bekannte Fix-Version als
- * bestmögliche Anhebung empfohlen. Versionen werden über [ComparableVersion] verglichen.
+ * Lässt sich keine vollständig behebende Version bestimmen, wird die Version mit den meisten
+ * behobenen Warnungen empfohlen; bei Gleichstand die niedrigste davon, damit kein unnötiger Sprung
+ * in eine höhere Major-Linie vorgeschlagen wird. Versionen werden über [ComparableVersion] verglichen.
  *
  * @param advisories Die Sicherheitswarnungen der Koordinate.
  * @param currentVersion Die aktuell aufgelöste Version der transitiven Abhängigkeit.
@@ -94,7 +95,8 @@ internal fun recommendedFixVersion(advisories: List<VulnerabilityAdvisory>, curr
         .toList()
     if (candidates.isEmpty()) return ""
     val fullyFixing = candidates.firstOrNull { (_, parsed) -> advisories.all { it.isFixedIn(parsed) } }
-    return (fullyFixing ?: candidates.last()).first
+    if (fullyFixing != null) return fullyFixing.first
+    return candidates.maxByOrNull { (_, parsed) -> advisories.count { it.isFixedIn(parsed) } }?.first.orEmpty()
 }
 
 /**
