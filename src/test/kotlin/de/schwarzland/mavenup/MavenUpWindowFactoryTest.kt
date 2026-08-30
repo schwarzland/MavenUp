@@ -936,7 +936,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
     }
 
     fun testShortToolbarLabelsResolveToShortenedText() {
-        assertEquals("Search Versions", MyMessageBundle.message("toolwindow.MyToolWindow.checkUpdates.button.short"))
+        assertEquals("Refresh", MyMessageBundle.message("toolwindow.MyToolWindow.refresh.button.short"))
         assertEquals("Scan", MyMessageBundle.message("toolwindow.MyToolWindow.checkVulnerabilities.button.short"))
         assertEquals("Update", MyMessageBundle.message("toolwindow.MyToolWindow.update.button.short"))
         assertEquals("Open", MyMessageBundle.message("toolwindow.MyToolWindow.openInRepository.button.short"))
@@ -1212,17 +1212,17 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         )
     }
 
-    fun testCheckUpdatesIsDisabledWhileTransitiveViewIsShown() {
+    fun testRefreshStaysAvailableWhileTransitiveViewIsShown() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         toolWindow.getContent()
 
         assertTrue(
-            "In der Haupttabelle muss die Versionssuche verfügbar sein",
-            toolWindow.isCheckUpdatesEnabled()
+            "In der Haupttabelle muss die kombinierte Aktualisierung verfügbar sein",
+            toolWindow.isRefreshEnabled()
         )
         assertEquals(
-            "Search for New Versions",
-            toolWindow.currentCheckUpdatesDescription()
+            "Refresh and Search for New Versions",
+            MyMessageBundle.message("toolwindow.MyToolWindow.refresh.button")
         )
 
         val coordinate = "com.example:transitive:2.0.0"
@@ -1245,19 +1245,27 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         toolWindow.updateTransitiveVulnerabilitiesView()
         toolWindow.setTransitiveViewVisible(true)
 
-        assertFalse(
-            "In der transitiven Ansicht darf die Versionssuche nicht ausführbar sein",
-            toolWindow.isCheckUpdatesEnabled()
-        )
         assertTrue(
-            "Der Tooltip muss erklären, warum die Aktion dort deaktiviert ist",
-            toolWindow.currentCheckUpdatesDescription().contains("main dependency table")
+            "Auch in der transitiven Ansicht muss die kombinierte Aktualisierung ausführbar sein",
+            toolWindow.isRefreshEnabled()
         )
 
         toolWindow.setTransitiveViewVisible(false)
         assertTrue(
-            "Nach dem Zurückschalten muss die Versionssuche wieder verfügbar sein",
-            toolWindow.isCheckUpdatesEnabled()
+            "Nach dem Zurückschalten muss die kombinierte Aktualisierung verfügbar bleiben",
+            toolWindow.isRefreshEnabled()
+        )
+    }
+
+    fun testRefreshTooltipDescribesCombinedBehaviour() {
+        val tooltip = MyMessageBundle.message("toolwindow.MyToolWindow.refresh.tooltip")
+        assertTrue(
+            "Der Tooltip muss das Neuladen der pom.xml-Dateien benennen",
+            tooltip.contains("pom.xml")
+        )
+        assertTrue(
+            "Der Tooltip muss die anschließende Versionssuche benennen",
+            tooltip.contains("new versions")
         )
     }
 

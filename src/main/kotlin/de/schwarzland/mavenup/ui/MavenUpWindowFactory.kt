@@ -155,8 +155,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /**
          * Verfügbare Versionen der verwundbaren transitiven Koordinaten (`groupId:artifactId`), die
          * beim Vulnerability-Scan ermittelt werden. Bewusst getrennt von [availableVersions], damit die
-         * New-Version-Spalte der transitiven Ansicht bei einem zwischenzeitlichen „Search for New Versions"
-         * (das [availableVersions] leert und neu füllt) nicht geleert wird.
+         * New-Version-Spalte der transitiven Ansicht bei einer erneuten Versionssuche der Haupttabelle
+         * (die [availableVersions] leert und neu füllt) nicht geleert wird.
          */
         private val transitiveAvailableVersions = mutableMapOf<String, List<String>>()
 
@@ -223,8 +223,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /**
          * Auswahlfeld für den Filter nach verfügbaren Updates (Ja/Nein/Alle).
          *
-         * Nur aktiv, sobald eine erfolgreiche Versionssuche ("Search for New Versions") mindestens eine
-         * abrufbare Versionsliste geliefert hat (siehe [updateUpdatesFilterState]).
+         * Nur aktiv, sobald eine erfolgreiche Versionssuche ("Refresh and Search for New Versions")
+         * mindestens eine abrufbare Versionsliste geliefert hat (siehe [updateUpdatesFilterState]).
          */
         internal val updatesFilterComboBox = ComboBox(TriStateFilter.entries.toTypedArray())
 
@@ -583,6 +583,13 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
             table.columnModel.getColumn(VULNERABILITIES_COLUMN).cellRenderer = vulnerabilityCellRenderer()
 
+            /**
+             * Liest die Abhängigkeiten der `pom.xml`-Dateien neu ein und baut die Tabelle auf.
+             *
+             * @param checkUpdates Wenn `true`, wird im Anschluss online nach neuen Versionen gesucht.
+             * @param clearData Wenn `true`, werden verfügbare Versionen und Versionsauswahlen verworfen.
+             * @param clearVulnerabilities Wenn `true`, werden Scan-Ergebnisse und transitive Daten verworfen.
+             */
             fun refreshAction(checkUpdates: Boolean, clearData: Boolean, clearVulnerabilities: Boolean) {
                 if (isUpdating) return
 
@@ -847,15 +854,12 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.refresh.button",
                     AllIcons.Actions.Refresh,
-                    { !isUpdating }
-                ) { refreshAction(false, true, true) })
-                add(toolbarAction(
-                    "toolwindow.MyToolWindow.checkUpdates.button",
-                    AllIcons.Actions.Find,
-                    { isCheckUpdatesEnabled() },
-                    shortLabelKey = "toolwindow.MyToolWindow.checkUpdates.button.short",
-                    descriptionProvider = { currentCheckUpdatesDescription() }
-                ) { refreshAction(true, true, false) })
+                    { isRefreshEnabled() },
+                    shortLabelKey = "toolwindow.MyToolWindow.refresh.button.short",
+                    descriptionProvider = {
+                        MyMessageBundle.message("toolwindow.MyToolWindow.refresh.tooltip")
+                    }
+                ) { refreshAction(true, true, true) })
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.checkVulnerabilities.button",
                     AllIcons.General.InspectionsEye,
@@ -1328,8 +1332,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /**
          * Prüft, ob der Updates-Filter verwendet werden darf.
          *
-         * Der Filter setzt eine erfolgreiche Versionssuche ("Search for New Versions") voraus, die für
-         * mindestens ein Artefakt eine Versionsliste geliefert hat.
+         * Der Filter setzt eine erfolgreiche Versionssuche ("Refresh and Search for New Versions") voraus,
+         * die für mindestens ein Artefakt eine Versionsliste geliefert hat.
          *
          * @return `true`, wenn mindestens eine Abhängigkeit abrufbare Versionen besitzt.
          */
@@ -1857,30 +1861,15 @@ class MavenUpWindowFactory : ToolWindowFactory {
             !isUpdating && hasSelectedUpdates()
 
         /**
-         * Prüft, ob die Suche nach neuen Versionen ausführbar ist.
+         * Prüft, ob die kombinierte Aktualisierung samt Versionssuche ausführbar ist.
          *
-         * Die Aktion wirkt ausschließlich auf die Haupttabelle: Sie verwirft deren offene Versionsauswahlen
-         * und lädt Versionen nur für direkte Abhängigkeiten. In der transitiven Sicherheitslücken-Ansicht
-         * hätte sie daher keine sichtbare Wirkung, würde aber unbemerkt Auswahlen der Haupttabelle löschen.
-         * Deshalb ist sie dort deaktiviert.
+         * Die Aktion lädt die Abhängigkeiten neu, verwirft alle bisherigen Ergebnisse und sucht
+         * anschließend nach neuen Versionen. Da sie sämtliche Daten beider Ansichten zurücksetzt,
+         * ist sie auch in der transitiven Sicherheitslücken-Ansicht verfügbar.
          *
-         * @return `true`, wenn gerade kein Update läuft und die Haupttabelle sichtbar ist.
+         * @return `true`, wenn gerade keine Aktualisierung läuft.
          */
-        internal fun isCheckUpdatesEnabled(): Boolean = !isUpdating && !showingTransitiveView
-
-        /**
-         * Liefert den Tooltip der Aktion **Search for New Versions** passend zur aktiven Ansicht.
-         *
-         * In der transitiven Sicherheitslücken-Ansicht wird erklärt, warum die Aktion dort deaktiviert ist.
-         *
-         * @return Der anzuzeigende Tooltip-Text.
-         */
-        internal fun currentCheckUpdatesDescription(): String =
-            if (showingTransitiveView) {
-                MyMessageBundle.message("toolwindow.MyToolWindow.checkUpdates.tooltip.transitiveView")
-            } else {
-                MyMessageBundle.message("toolwindow.MyToolWindow.checkUpdates.button")
-            }
+        internal fun isRefreshEnabled(): Boolean = !isUpdating
 
         /**
          * Prüft, ob die Sammelauswahl der höchsten Versionen für die aktuell sichtbare Ansicht ausführbar ist.

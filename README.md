@@ -13,7 +13,7 @@ Install **MavenUp** from the JetBrains Marketplace via `Settings > Plugins > Mar
 ## Quick start
 
 1. Open a Maven project and open the **MavenUp** tool window.
-2. Click **Refresh** to populate the table, then **Search for New Versions**.
+2. Click **Refresh and Search for New Versions** to populate the table and look up newer versions.
 3. Pick target versions and click **Update**, or run **Scan for Vulnerabilities**.
 
 See the [usage guide](docs/usage.md) for details.
