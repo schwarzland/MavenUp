@@ -22,7 +22,7 @@ See the [usage guide](docs/usage.md) for details.
 
 - [Features](FEATURES.md) — full feature overview (single source of truth).
 - [Usage](docs/usage.md) — how to use the tool window, filters, and actions.
-- [Configuration](docs/configuration.md) — all settings and Gradle proxy setup.
+- [Configuration](docs/configuration.md) — all settings.
 - [Privacy & Security](docs/privacy-and-security.md) — transmitted data and external endpoints.
 - [Architecture](docs/architecture.md) — package structure and components.
 - [Development](docs/development.md) — tests, code quality, and troubleshooting.
