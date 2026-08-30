@@ -148,6 +148,24 @@ internal fun collectTransitiveVulnerabilityRows(
         .toList()
 
 /**
+ * Sortiert Sicherheitswarnungen absteigend nach Schweregrad für die Ausgabe im pom-Kommentar.
+ *
+ * Bei gleichem Schweregrad entscheidet der höhere CVSS-Score, danach die ID, damit die Reihenfolge
+ * unabhängig von der Reihenfolge der Quellabfragen stabil bleibt. Die Sortierung wirkt sich
+ * ausschließlich auf den Kommentar der gepinnten `dependencyManagement`-Einträge aus, nicht auf die
+ * Reihenfolge der Tabellenzeilen.
+ *
+ * @param advisories Die zu sortierenden Warnungen.
+ * @return Die Warnungen mit dem höchsten Schweregrad zuerst.
+ */
+internal fun advisoriesBySeverity(advisories: List<VulnerabilityAdvisory>): List<VulnerabilityAdvisory> =
+    advisories.sortedWith(
+        compareByDescending<VulnerabilityAdvisory> { it.severity.rank }
+            .thenByDescending { it.cvssScore ?: -1.0 }
+            .thenBy { it.id }
+    )
+
+/**
  * Alternative Ansicht des MavenUp-Tool-Windows, die ausschließlich die transitiven, verwundbaren
  * Abhängigkeiten auflistet.
  *
@@ -185,14 +203,12 @@ internal class TransitiveVulnerabilitiesView(
     /** Zuordnung von `groupId:artifactId` zur empfohlenen Fix-Version (für die Dropdown-Markierung). */
     private var recommendedByKey: Map<String, String> = emptyMap()
 
-    /** Zuordnung von `groupId:artifactId` zu den IDs der Sicherheitswarnungen der Koordinate. */
-    private var advisoryIdsByKey: Map<String, List<String>> = emptyMap()
-
     /**
-     * Zuordnung von `groupId:artifactId` zu den Aliasen der Sicherheitswarnungen der Koordinate.
-     * Warnungen ohne Alias steuern ersatzweise ihre primäre ID bei.
+     * Zuordnung von `groupId:artifactId` zu den Sicherheitswarnungen der Koordinate. Dient
+     * ausschließlich als Quelle für die Kennungen im pom-Kommentar der gepinnten Einträge; die
+     * Reihenfolge der Tabellenzeilen bleibt davon unberührt.
      */
-    private var advisoryAliasesByKey: Map<String, List<String>> = emptyMap()
+    private var advisoriesByKey: Map<String, List<VulnerabilityAdvisory>> = emptyMap()
 
     /**
      * Schlüssel (`groupId:artifactId`) der Koordinaten, die ausschließlich transitiv aufgelöst und
@@ -470,12 +486,24 @@ internal class TransitiveVulnerabilitiesView(
                 managedType,
                 currentVersion,
                 newVersion,
-                advisoryIdsByKey[key].orEmpty(),
+                commentAdvisories(key).map { it.id }.distinct(),
                 transitive = key in transitiveOnlyKeys,
-                fixedVulnerabilityAliases = advisoryAliasesByKey[key].orEmpty()
+                fixedVulnerabilityAliases = commentAdvisories(key)
+                    .flatMap { advisory -> advisory.aliases.sorted().ifEmpty { listOf(advisory.id) } }
+                    .distinct()
             )
         }
     }
+
+    /**
+     * Liefert die Sicherheitswarnungen einer Koordinate in der Reihenfolge, in der ihre Kennungen im
+     * pom-Kommentar erscheinen sollen: der höchste Schweregrad zuerst.
+     *
+     * @param key Der Schlüssel `groupId:artifactId` der Koordinate.
+     * @return Die absteigend nach Schweregrad sortierten Warnungen der Koordinate.
+     */
+    private fun commentAdvisories(key: String): List<VulnerabilityAdvisory> =
+        advisoriesBySeverity(advisoriesByKey[key].orEmpty())
 
     /**
      * Prüft, ob die transitive Ansicht anstehende Versions-Updates enthält.
@@ -943,13 +971,8 @@ internal class TransitiveVulnerabilitiesView(
         recommendedByKey = rows
             .filter { it.recommendedVersion.isNotEmpty() }
             .associate { "${it.groupId}:${it.artifactId}" to it.recommendedVersion }
-        advisoryIdsByKey = rows.associate { row ->
-            "${row.groupId}:${row.artifactId}" to row.cell.allAdvisories.map { it.id }.distinct()
-        }
-        advisoryAliasesByKey = rows.associate { row ->
+        advisoriesByKey = rows.associate { row ->
             "${row.groupId}:${row.artifactId}" to row.cell.allAdvisories
-                .flatMap { advisory -> advisory.aliases.ifEmpty { setOf(advisory.id) } }
-                .distinct()
         }
         selectedVersions.keys.retainAll(rows.map { "${it.groupId}:${it.artifactId}" }.toSet())
         tableModel.setRowCount(0)

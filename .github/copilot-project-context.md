@@ -132,8 +132,9 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   `buildVersionPanel`/`applyDropdownRenderer` (delegiert an `applyVersionDropdownRenderer`), `createVersionPanel`); die Auswahl liegt in `selectedVersions`
   (nur bewusst gewählte Werte, Standard = aktuelle Version) und wird über den `onSelectionChanged`-Callback an
   `refreshToolbar` gemeldet. `collectPendingUpdates`/`hasPendingUpdates` erzeugen daraus `DependencyUpdate`s vom
-  Typ „managed dependency" (inkl. `fixedVulnerabilities` aus `advisoryIdsByKey` und `fixedVulnerabilityAliases`
-  aus `advisoryAliasesByKey` für den pom-Kommentar und
+  Typ „managed dependency" (inkl. `fixedVulnerabilities` und `fixedVulnerabilityAliases`, die über
+  `commentAdvisories`/`advisoriesBySeverity` aus `advisoriesByKey` absteigend nach Schweregrad für den
+  pom-Kommentar sortiert werden – die Zeilensortierung der Tabelle bleibt davon unberührt – und
   `transitive = true` für Koordinaten aus `transitiveOnlyKeys`, also solche, die nicht in der `pom.xml` deklariert sind);
   die verfügbaren Versionen stammen aus der Vereinigung von `availableVersions`
   (normale Versionssuche) und der persistenten `transitiveAvailableVersions`-Map, die nach einem

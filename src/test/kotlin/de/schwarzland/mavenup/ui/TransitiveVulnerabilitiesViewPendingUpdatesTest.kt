@@ -76,6 +76,76 @@ class TransitiveVulnerabilitiesViewPendingUpdatesTest : BasePlatformTestCase() {
         )
     }
 
+    fun testFixedVulnerabilitiesAreOrderedBySeverityDescending() {
+        val view = TransitiveVulnerabilitiesView(project)
+        val coordinate = "org.trans:lib:1.2.0"
+        view.update(
+            mapOf(
+                coordinate to listOf(
+                    VulnerabilityAdvisory(
+                        id = "GHSA-low",
+                        aliases = setOf("CVE-low"),
+                        severity = VulnerabilitySeverity.LOW,
+                        sources = setOf("OSV")
+                    ),
+                    VulnerabilityAdvisory(
+                        id = "GHSA-critical",
+                        aliases = setOf("CVE-critical"),
+                        severity = VulnerabilitySeverity.CRITICAL,
+                        sources = setOf("OSV")
+                    ),
+                    VulnerabilityAdvisory(
+                        id = "GHSA-medium",
+                        aliases = setOf("CVE-medium"),
+                        severity = VulnerabilitySeverity.MEDIUM,
+                        sources = setOf("OSV")
+                    )
+                )
+            ),
+            setOf(coordinate),
+            emptyMap(),
+            mapOf("org.trans:lib" to listOf("1.2.4", "1.2.0"))
+        )
+        view.selectedVersions["org.trans:lib"] = "1.2.4"
+
+        val pending = view.collectPendingUpdates()
+        assertEquals(1, pending.size)
+        assertEquals(
+            listOf("GHSA-critical", "GHSA-medium", "GHSA-low"),
+            pending[0].fixedVulnerabilities
+        )
+        assertEquals(
+            listOf("CVE-critical", "CVE-medium", "CVE-low"),
+            pending[0].fixedVulnerabilityAliases
+        )
+    }
+
+    fun testAdvisoriesBySeverityBreaksTiesByScoreAndId() {
+        val sorted = advisoriesBySeverity(
+            listOf(
+                VulnerabilityAdvisory(
+                    id = "GHSA-b",
+                    severity = VulnerabilitySeverity.HIGH,
+                    cvssScore = 7.5,
+                    sources = setOf("OSV")
+                ),
+                VulnerabilityAdvisory(
+                    id = "GHSA-a",
+                    severity = VulnerabilitySeverity.HIGH,
+                    cvssScore = 7.5,
+                    sources = setOf("OSV")
+                ),
+                VulnerabilityAdvisory(
+                    id = "GHSA-c",
+                    severity = VulnerabilitySeverity.HIGH,
+                    cvssScore = 8.8,
+                    sources = setOf("OSV")
+                )
+            )
+        )
+        assertEquals(listOf("GHSA-c", "GHSA-a", "GHSA-b"), sorted.map { it.id })
+    }
+
     fun testSelectingCurrentVersionIsNoUpdate() {
         val view = buildView()
         view.selectedVersions["org.trans:lib"] = "1.2.0"
