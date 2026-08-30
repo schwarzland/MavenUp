@@ -18,6 +18,12 @@ import com.intellij.psi.xml.XmlFile
 import com.intellij.psi.xml.XmlTag
 import org.jetbrains.idea.maven.project.MavenProject
 
+/** Erkennt zusammenhängende Whitespace-Folgen (inklusive Zeilenumbrüchen) in Kommentartexten. */
+private val WHITESPACE_REGEX = Regex("\\s+")
+
+/** Erkennt Folgen von zwei oder mehr Bindestrichen, die in XML-Kommentaren unzulässig sind. */
+private val HYPHEN_SEQUENCE_REGEX = Regex("-{2,}")
+
 /**
  * Wendet ausgewählte Versions-Updates auf die `pom.xml`-Dateien eines Projekts an und speichert
  * die Änderungen bei Bedarf auf die Festplatte.
@@ -181,8 +187,8 @@ internal class PomUpdateService(private val project: Project) {
      * Sicherheitswarnungen auf. Überschreitet die Anzahl der Kennungen [maxIds], werden nur die ersten
      * [maxIds] Kennungen geschrieben und die übrigen durch einen „and more"-Hinweis ersetzt; `0` hebt
      * die Begrenzung auf. Werden keine Kennungen geschrieben, entfällt ein abschließender Doppelpunkt
-     * des Präfixes; ist auch das Präfix leer, wird ein generischer Hinweistext verwendet. Doppelte
-     * Bindestriche werden entschärft, da sie in XML-Kommentaren unzulässig sind.
+     * des Präfixes; ist auch das Präfix leer, wird ein generischer Hinweistext verwendet. Der Text wird
+     * abschließend über [sanitizeCommentText] für XML-Kommentare entschärft.
      *
      * @param update Das anzuwendende Update mit den Kennungen der behobenen Sicherheitswarnungen.
      * @param mode Der konfigurierte Kommentarmodus; [VulnerabilityCommentMode.NONE] und
@@ -214,7 +220,22 @@ internal class PomUpdateService(private val project: Project) {
                 .filter { it.isNotEmpty() }
                 .joinToString(" ")
         }
-        return text.replace("--", "- -")
+        return sanitizeCommentText(text)
+    }
+
+    /**
+     * Entschärft einen Kommentartext, damit er in einem XML-Kommentar zulässig bleibt.
+     *
+     * Normalisiert Zeilenumbrüche und Mehrfach-Leerzeichen zu einfachen Leerzeichen und trennt Folgen von
+     * zwei oder mehr Bindestrichen (z. B. `--` oder ein einleitendes `-->`) durch Leerzeichen auf, da `--`
+     * innerhalb von XML-Kommentaren nicht vorkommen darf und den Kommentar sonst vorzeitig beenden würde.
+     *
+     * @param text Der zu entschärfende Kommentartext.
+     * @return Der entschärfte, einzeilige Kommentartext.
+     */
+    private fun sanitizeCommentText(text: String): String {
+        val singleLine = WHITESPACE_REGEX.replace(text, " ").trim()
+        return HYPHEN_SEQUENCE_REGEX.replace(singleLine) { match -> match.value.toCharArray().joinToString(" ") }
     }
 
     /**

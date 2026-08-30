@@ -283,6 +283,41 @@ class PomUpdateServiceTest : BasePlatformTestCase() {
         assertEquals("Fix - - now: GHSA-1", text)
     }
 
+    fun testManagedDependencyCommentTextEscapesCommentTerminator() {
+        val service = PomUpdateService(project)
+        val text = service.managedDependencyCommentText(
+            updateWithIds(listOf("GHSA-1")),
+            VulnerabilityCommentMode.ADVISORY_IDS,
+            "--> injected <!--",
+            0
+        )
+        assertFalse("Der Kommentar darf keine Bindestrich-Folge enthalten", text.contains("--"))
+        assertEquals("- -> injected <!- - GHSA-1", text)
+    }
+
+    fun testManagedDependencyCommentTextEscapesLongHyphenRuns() {
+        val service = PomUpdateService(project)
+        val text = service.managedDependencyCommentText(
+            updateWithIds(listOf("GHSA-1")),
+            VulnerabilityCommentMode.ADVISORY_IDS,
+            "----:",
+            0
+        )
+        assertFalse("Auch lange Bindestrich-Folgen werden vollständig aufgetrennt", text.contains("--"))
+        assertEquals("- - - -: GHSA-1", text)
+    }
+
+    fun testManagedDependencyCommentTextNormalizesLineBreaks() {
+        val service = PomUpdateService(project)
+        val text = service.managedDependencyCommentText(
+            updateWithIds(listOf("GHSA-1")),
+            VulnerabilityCommentMode.ADVISORY_IDS,
+            "Fixed\nby\tMavenUp:",
+            0
+        )
+        assertEquals("Fixed by MavenUp: GHSA-1", text)
+    }
+
     /**
      * Erzeugt ein Pin-Update mit den angegebenen Advisory-IDs.
      *
