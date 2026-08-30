@@ -147,11 +147,21 @@ internal class PomUpdateService(private val project: Project) {
             ?: dependencyManagementTag.addSubTag(
                 dependencyManagementTag.createChildTag("dependencies", null, "", false), false
             )
-        val commentMode = MavenUpSettings.getInstance().state.vulnerabilityCommentMode
+        val settingsState = MavenUpSettings.getInstance().state
+        val commentMode = settingsState.vulnerabilityCommentMode
         val dependencyXml = buildString {
             append("<dependency>\n")
             if (commentMode != VulnerabilityCommentMode.NONE) {
-                append("<!-- ").append(managedDependencyCommentText(update, commentMode)).append(" -->\n")
+                append("<!-- ")
+                    .append(
+                        managedDependencyCommentText(
+                            update,
+                            commentMode,
+                            settingsState.vulnerabilityCommentPrefix,
+                            settingsState.vulnerabilityCommentMaxIds
+                        )
+                    )
+                    .append(" -->\n")
             }
             append("<groupId>").append(update.groupId).append("</groupId>\n")
             append("<artifactId>").append(update.artifactId).append("</artifactId>\n")
@@ -166,29 +176,57 @@ internal class PomUpdateService(private val project: Project) {
     /**
      * Baut den Kommentartext für eine neu angelegte verwaltete Abhängigkeit.
      *
-     * Listet je nach [mode] die primären Advisory-IDs, deren Aliase (z. B. `CVE-…`) oder alle bekannten
-     * Kennungen der behobenen Sicherheitswarnungen auf und weist darauf hin, dass die Änderung durch
-     * MavenUp erfolgt ist. Sind keine Kennungen bekannt, wird ein generischer Hinweistext verwendet.
-     * Doppelte Bindestriche werden entschärft, da sie in XML-Kommentaren unzulässig sind.
+     * Stellt dem Text den konfigurierten [prefix] voran und listet je nach [mode] die primären
+     * Advisory-IDs, deren Aliase (z. B. `CVE-…`) oder alle bekannten Kennungen der behobenen
+     * Sicherheitswarnungen auf. Überschreitet die Anzahl der Kennungen [maxIds], werden nur die ersten
+     * [maxIds] Kennungen geschrieben und die übrigen durch einen „and more"-Hinweis ersetzt; `0` hebt
+     * die Begrenzung auf. Werden keine Kennungen geschrieben, entfällt ein abschließender Doppelpunkt
+     * des Präfixes; ist auch das Präfix leer, wird ein generischer Hinweistext verwendet. Doppelte
+     * Bindestriche werden entschärft, da sie in XML-Kommentaren unzulässig sind.
      *
      * @param update Das anzuwendende Update mit den Kennungen der behobenen Sicherheitswarnungen.
-     * @param mode Der konfigurierte Kommentarmodus; [VulnerabilityCommentMode.NONE] liefert den generischen Text.
+     * @param mode Der konfigurierte Kommentarmodus; [VulnerabilityCommentMode.NONE] und
+     * [VulnerabilityCommentMode.TEXT_ONLY] listen keine Kennungen auf.
+     * @param prefix Der konfigurierte Präfixtext vor den Kennungen.
+     * @param maxIds Die Höchstzahl der aufgelisteten Kennungen; `0` bedeutet „unbegrenzt".
      * @return Der (entschärfte) Kommentartext ohne die umschließenden Kommentar-Marker.
      */
-    private fun managedDependencyCommentText(update: DependencyUpdate, mode: VulnerabilityCommentMode): String {
+    internal fun managedDependencyCommentText(
+        update: DependencyUpdate,
+        mode: VulnerabilityCommentMode,
+        prefix: String,
+        maxIds: Int
+    ): String {
         val ids = when (mode) {
-            VulnerabilityCommentMode.NONE -> emptyList()
+            VulnerabilityCommentMode.NONE, VulnerabilityCommentMode.TEXT_ONLY -> emptyList()
             VulnerabilityCommentMode.ADVISORY_IDS -> update.fixedVulnerabilities
             VulnerabilityCommentMode.ALIASES -> update.fixedVulnerabilityAliases
             VulnerabilityCommentMode.ALL_IDS ->
                 (update.fixedVulnerabilities + update.fixedVulnerabilityAliases).distinct()
         }
-        val text = if (ids.isNotEmpty()) {
-            MyMessageBundle.message("pom.comment.managedDependency", ids.joinToString(", "))
+        val trimmedPrefix = prefix.trim()
+        val text = if (ids.isEmpty()) {
+            trimmedPrefix.trimEnd(':').trim().ifEmpty {
+                MyMessageBundle.message("pom.comment.managedDependencyNoIds")
+            }
         } else {
-            MyMessageBundle.message("pom.comment.managedDependencyNoIds")
+            listOf(trimmedPrefix, joinVulnerabilityIds(ids, maxIds))
+                .filter { it.isNotEmpty() }
+                .joinToString(" ")
         }
         return text.replace("--", "- -")
+    }
+
+    /**
+     * Verkettet die Kennungen der behobenen Sicherheitswarnungen unter Beachtung der Höchstzahl.
+     *
+     * @param ids Die zu schreibenden Kennungen; darf nicht leer sein.
+     * @param maxIds Die Höchstzahl der aufgelisteten Kennungen; Werte `<= 0` heben die Begrenzung auf.
+     * @return Die kommaseparierte Liste, bei Überschreitung gefolgt von einem „and more"-Hinweis.
+     */
+    private fun joinVulnerabilityIds(ids: List<String>, maxIds: Int): String {
+        if (maxIds <= 0 || ids.size <= maxIds) return ids.joinToString(", ")
+        return ids.take(maxIds).joinToString(", ") + " " + MyMessageBundle.message("pom.comment.andMore")
     }
 
     /**

@@ -58,6 +58,9 @@ enum class VulnerabilityCommentMode(val messageKey: String) {
     /** Es wird kein Kommentar eingefügt. */
     NONE("settings.vulnerabilityCommentMode.none"),
 
+    /** Es wird nur der konfigurierte Präfixtext ohne Kennungen eingefügt. */
+    TEXT_ONLY("settings.vulnerabilityCommentMode.textOnly"),
+
     /** Es werden nur die primären Advisory-IDs (z. B. `GHSA-…`) aufgelistet. */
     ADVISORY_IDS("settings.vulnerabilityCommentMode.advisoryIds"),
 
@@ -67,6 +70,12 @@ enum class VulnerabilityCommentMode(val messageKey: String) {
     /** Es werden alle bekannten Kennungen (primäre IDs und Aliase) aufgelistet. */
     ALL_IDS("settings.vulnerabilityCommentMode.allIds")
 }
+
+/** Standardpräfix des erklärenden XML-Kommentars vor den aufgelisteten Kennungen. */
+const val DEFAULT_VULNERABILITY_COMMENT_PREFIX = "Pinned by MavenUp to fix:"
+
+/** Standardanzahl der höchstens aufgelisteten Kennungen; `0` bedeutet „unbegrenzt". */
+const val DEFAULT_VULNERABILITY_COMMENT_MAX_IDS = 3
 
 /**
  * Diese Klasse verwaltet die persistenten Einstellungen für das MavenUp-Plugin global auf Anwendungsebene.
@@ -97,6 +106,8 @@ class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
      * @property autoSearchVersions Bestimmt, ob nach dem automatischen Neuladen der Projektdaten (Tool-Window-Start, Maven-Import/Resync) unmittelbar online nach neuen Versionen gesucht wird.
      * @property addVulnerabilityFixComment Legacy-Flag früherer Plugin-Versionen; wird ausschließlich zur Migration auf [vulnerabilityCommentMode] gelesen und daraus fortgeschrieben.
      * @property vulnerabilityCommentMode Bestimmt, welche Kennungen der behobenen Sicherheitswarnungen beim Anlegen eines gepinnten `dependencyManagement`-Eintrags als erklärender XML-Kommentar eingefügt werden.
+     * @property vulnerabilityCommentPrefix Der Text, der im erklärenden XML-Kommentar vor den Kennungen steht.
+     * @property vulnerabilityCommentMaxIds Die Höchstzahl der aufgelisteten Kennungen; darüber hinausgehende Kennungen werden durch einen „and more"-Hinweis ersetzt. `0` bedeutet „unbegrenzt".
      */
     data class State(
         var jumpOnSingleClick: Boolean = false,
@@ -115,7 +126,9 @@ class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
         var confirmVersionReset: Boolean = true,
         var autoSearchVersions: Boolean = true,
         var addVulnerabilityFixComment: Boolean = true,
-        var vulnerabilityCommentMode: VulnerabilityCommentMode = VulnerabilityCommentMode.ADVISORY_IDS
+        var vulnerabilityCommentMode: VulnerabilityCommentMode = VulnerabilityCommentMode.ADVISORY_IDS,
+        var vulnerabilityCommentPrefix: String = DEFAULT_VULNERABILITY_COMMENT_PREFIX,
+        var vulnerabilityCommentMaxIds: Int = DEFAULT_VULNERABILITY_COMMENT_MAX_IDS
     ) {
         /**
          * Normalisiert den geladenen Zustand und migriert Legacy-Bool-Flags auf [versionAutoSelectionMode].

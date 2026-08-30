@@ -229,7 +229,8 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   (`jumpOnSingleClick`, `versionAutoSelectionMode` mit `DISABLED`, `LATEST`, `LATEST_MINOR`, `hideUnstableVersions`, `hiddenVersionQualifiers`,
   `ossIndexEnabled`, `checkTransitiveDependencies`, `repositoryBrowser`, `toolbarShowText`,
   `syncMavenAfterUpdate`, `stopAfterCentralSuccess`, `offerAllVersions`, `confirmVersionReset`,
-  `autoSearchVersions`, `vulnerabilityCommentMode` mit `NONE`, `ADVISORY_IDS`, `ALIASES`, `ALL_IDS`;
+  `autoSearchVersions`, `vulnerabilityCommentMode` mit `NONE`, `TEXT_ONLY`, `ADVISORY_IDS`, `ALIASES`, `ALL_IDS`,
+  `vulnerabilityCommentPrefix`, `vulnerabilityCommentMaxIds`;
   Legacy-Migrationsfelder: `selectLatestVersion`, `selectLatestMinorVersion`, `addVulnerabilityFixComment`).
   Für die OSS-Index-Abfrage ist nur das Token erforderlich; Sonatype wertet bei der HTTP-Basic-Authentifizierung
   nur das Token aus, weshalb ein fester Platzhalter-Benutzername verwendet wird.
@@ -253,9 +254,11 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   ob nach erfolgreicher Maven-Central-Abfrage weitere private Repositories abgefragt werden, sowie die
   Combobox `versionAutoSelectionMode` mit drei Zuständen für die Auto-Auswahl bei Update-Prüfungen.
   Die Gruppe **Pom.xml Changes** bündelt Einstellungen zum Schreibverhalten beim Anwenden von Updates:
-  `syncMavenAfterUpdate` (automatischer Maven-Sync nach dem Schreiben der `pom.xml`) und die Combobox
+  `syncMavenAfterUpdate` (automatischer Maven-Sync nach dem Schreiben der `pom.xml`), die Combobox
   `vulnerabilityCommentMode` (Auswahl der Kennungen im erklärenden XML-Kommentar beim Anlegen eines gepinnten
-  `dependencyManagement`-Eintrags zur Schwachstellenbehebung, siehe `PomUpdateService.addManagedDependency`).
+  `dependencyManagement`-Eintrags zur Schwachstellenbehebung, siehe `PomUpdateService.addManagedDependency`)
+  sowie die eingerückten Felder `vulnerabilityCommentPrefix` (Kommentartext) und `vulnerabilityCommentMaxIds`
+  (Spinner `0..99`), die über `updateVulnerabilityCommentControlsEnabled` je nach Modus aktiviert werden.
   Die OSS-Index-Sektion kennzeichnet das Token bei Aktivierung als Pflichtfeld und
   verlinkt auf die Sonatype-Kontoeinstellungen zur Token-Erzeugung. Das Token wird außerhalb des EDT
   aus dem Password Safe geladen und für `isModified()` im UI-Modell gecacht.
@@ -298,7 +301,9 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   ohne vorhandenen Eintrag legt `addManagedDependency` einen neuen `<dependencyManagement>`-Eintrag an
   (Container werden bei Bedarf erzeugt) und stellt der Abhängigkeit je nach Einstellung
   `vulnerabilityCommentMode` (Standard: `ADVISORY_IDS`) über `managedDependencyCommentText` einen XML-Kommentar
-  mit den behobenen Vulnerability-Kennungen (IDs, Aliase oder beides) und MavenUp-Hinweis als erste Zeile voran
+  aus `vulnerabilityCommentPrefix` und den behobenen Vulnerability-Kennungen (IDs, Aliase oder beides) als erste
+  Zeile voran; `joinVulnerabilityIds` begrenzt die Liste auf `vulnerabilityCommentMaxIds` (0 = unbegrenzt) und
+  ersetzt die übrigen Kennungen durch „and more"
   (Erzeugung aus Text via `createTagFromText` + `reformat`); genutzt für das Pinnen transitiver Abhängigkeiten.
 - **VulnerabilityScanService**: ermittelt direkte/transitive Scan-Ziele aus dem Maven-Modell
   (`collectVulnerabilityScanTargets`, `collectResolvedDependencyRelations`) und kapselt die

@@ -191,8 +191,7 @@ class PomUpdateServiceTest : BasePlatformTestCase() {
         assertTrue("Comment lists the alias CVE-1", commentText.contains("CVE-1"))
     }
 
-    fun testAddManagedDependencyCommentFallsBackWhenNoAliasesAreKnown() {
-        val settings = MavenUpSettings.getInstance()
+    fun testAddManagedDependencyCommentFallsBackWhenNoAliasesAreKnown() {        val settings = MavenUpSettings.getInstance()
         val previousValue = settings.state.vulnerabilityCommentMode
         settings.state.vulnerabilityCommentMode = VulnerabilityCommentMode.ALIASES
         try {
@@ -206,6 +205,92 @@ class PomUpdateServiceTest : BasePlatformTestCase() {
             settings.state.vulnerabilityCommentMode = previousValue
         }
     }
+
+    fun testManagedDependencyCommentTextUsesConfiguredPrefix() {
+        val service = PomUpdateService(project)
+        val text = service.managedDependencyCommentText(
+            updateWithIds(listOf("GHSA-1")),
+            VulnerabilityCommentMode.ADVISORY_IDS,
+            "Fixes:",
+            0
+        )
+        assertEquals("Fixes: GHSA-1", text)
+    }
+
+    fun testManagedDependencyCommentTextInTextOnlyModeDropsTrailingColon() {
+        val service = PomUpdateService(project)
+        val text = service.managedDependencyCommentText(
+            updateWithIds(listOf("GHSA-1")),
+            VulnerabilityCommentMode.TEXT_ONLY,
+            DEFAULT_VULNERABILITY_COMMENT_PREFIX,
+            3
+        )
+        assertEquals("Pinned by MavenUp to fix", text)
+    }
+
+    fun testManagedDependencyCommentTextFallsBackWhenPrefixIsBlank() {
+        val service = PomUpdateService(project)
+        val text = service.managedDependencyCommentText(
+            updateWithIds(emptyList()),
+            VulnerabilityCommentMode.ADVISORY_IDS,
+            "   ",
+            3
+        )
+        assertEquals("Added by MavenUp", text)
+    }
+
+    fun testManagedDependencyCommentTextTruncatesIdsBeyondMaximum() {
+        val service = PomUpdateService(project)
+        val text = service.managedDependencyCommentText(
+            updateWithIds(listOf("GHSA-1", "GHSA-2", "GHSA-3", "GHSA-4")),
+            VulnerabilityCommentMode.ADVISORY_IDS,
+            "Fixes:",
+            2
+        )
+        assertEquals("Fixes: GHSA-1, GHSA-2 and more", text)
+    }
+
+    fun testManagedDependencyCommentTextListsAllIdsWhenMaximumIsZero() {
+        val service = PomUpdateService(project)
+        val text = service.managedDependencyCommentText(
+            updateWithIds(listOf("GHSA-1", "GHSA-2", "GHSA-3", "GHSA-4")),
+            VulnerabilityCommentMode.ADVISORY_IDS,
+            "Fixes:",
+            0
+        )
+        assertEquals("Fixes: GHSA-1, GHSA-2, GHSA-3, GHSA-4", text)
+    }
+
+    fun testManagedDependencyCommentTextKeepsAllIdsAtTheMaximum() {
+        val service = PomUpdateService(project)
+        val text = service.managedDependencyCommentText(
+            updateWithIds(listOf("GHSA-1", "GHSA-2")),
+            VulnerabilityCommentMode.ADVISORY_IDS,
+            "Fixes:",
+            2
+        )
+        assertEquals("Fixes: GHSA-1, GHSA-2", text)
+    }
+
+    fun testManagedDependencyCommentTextEscapesDoubleHyphens() {
+        val service = PomUpdateService(project)
+        val text = service.managedDependencyCommentText(
+            updateWithIds(listOf("GHSA-1")),
+            VulnerabilityCommentMode.ADVISORY_IDS,
+            "Fix -- now:",
+            0
+        )
+        assertEquals("Fix - - now: GHSA-1", text)
+    }
+
+    /**
+     * Erzeugt ein Pin-Update mit den angegebenen Advisory-IDs.
+     *
+     * @param ids Die IDs der behobenen Sicherheitswarnungen.
+     * @return Das Update für den Kommentar-Test.
+     */
+    private fun updateWithIds(ids: List<String>): DependencyUpdate =
+        DependencyUpdate("org.trans", "lib", "managed dependency", "1.2.3", "1.2.4", ids)
 
     /**
      * Legt eine verwaltete Abhängigkeit mit IDs und Aliasen im angegebenen Modus an.

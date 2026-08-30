@@ -2,6 +2,8 @@ package de.schwarzland.mavenup.ui
 
 import de.schwarzland.mavenup.service.MavenRepositoryBrowser
 import de.schwarzland.mavenup.service.MavenUpSettings
+import de.schwarzland.mavenup.service.DEFAULT_VULNERABILITY_COMMENT_MAX_IDS
+import de.schwarzland.mavenup.service.DEFAULT_VULNERABILITY_COMMENT_PREFIX
 import de.schwarzland.mavenup.service.MAVEN_UP_SETTINGS_TOPIC
 import de.schwarzland.mavenup.service.OssIndexCredentialService
 import de.schwarzland.mavenup.service.OssIndexCredentialStore
@@ -23,6 +25,7 @@ import java.util.concurrent.CompletableFuture
 import javax.swing.JComponent
 import javax.swing.JLabel
 import javax.swing.JPasswordField
+import javax.swing.JSpinner
 import javax.swing.JTextField
 
 internal const val OSS_INDEX_ACCOUNT_URL = "https://ossindex.sonatype.org"
@@ -63,6 +66,10 @@ class MavenUpConfigurable internal constructor(
     private var hiddenVersionQualifiersField: JTextField? = null
     private var checkTransitiveDependenciesCheckBox: JBCheckBox? = null
     private var vulnerabilityCommentModeComboBox: ComboBox<VulnerabilityCommentMode>? = null
+    private var vulnerabilityCommentPrefixLabel: JLabel? = null
+    private var vulnerabilityCommentPrefixField: JTextField? = null
+    private var vulnerabilityCommentMaxIdsLabel: JLabel? = null
+    private var vulnerabilityCommentMaxIdsSpinner: JSpinner? = null
     private var ossIndexEnabledCheckBox: JBCheckBox? = null
     private var ossIndexTokenLabel: JLabel? = null
     private var ossIndexTokenField: JPasswordField? = null
@@ -226,6 +233,31 @@ class MavenUpConfigurable internal constructor(
                         }
                         .component
                 }
+                indent {
+                    row {
+                        vulnerabilityCommentPrefixLabel =
+                            label(MyMessageBundle.message("settings.vulnerabilityCommentPrefix")).component
+                        vulnerabilityCommentPrefixField = textField()
+                            .align(Align.FILL)
+                            .resizableColumn()
+                            .applyToComponent {
+                                text = settings.state.vulnerabilityCommentPrefix
+                                columns = 20
+                                toolTipText = MyMessageBundle.message("settings.vulnerabilityCommentPrefix.tooltip")
+                            }
+                            .component
+                    }
+                    row {
+                        vulnerabilityCommentMaxIdsLabel =
+                            label(MyMessageBundle.message("settings.vulnerabilityCommentMaxIds")).component
+                        vulnerabilityCommentMaxIdsSpinner = spinner(0..99)
+                            .applyToComponent {
+                                value = settings.state.vulnerabilityCommentMaxIds
+                                toolTipText = MyMessageBundle.message("settings.vulnerabilityCommentMaxIds.tooltip")
+                            }
+                            .component
+                    }
+                }
             }
             group(MyMessageBundle.message("settings.group.vulnerability")) {
                 row {
@@ -275,6 +307,12 @@ class MavenUpConfigurable internal constructor(
             ossIndexEnabledCheckBox?.addActionListener {
                 updateOssIndexControlsEnabled(ossIndexEnabledCheckBox?.isSelected == true)
             }
+            updateVulnerabilityCommentControlsEnabled(settings.state.vulnerabilityCommentMode)
+            vulnerabilityCommentModeComboBox?.addActionListener {
+                updateVulnerabilityCommentControlsEnabled(
+                    vulnerabilityCommentModeComboBox?.selectedItem as? VulnerabilityCommentMode
+                )
+            }
         }
     }
 
@@ -297,6 +335,8 @@ class MavenUpConfigurable internal constructor(
             hiddenVersionQualifiersField?.text to state.hiddenVersionQualifiers,
             checkTransitiveDependenciesCheckBox?.isSelected to state.checkTransitiveDependencies,
             vulnerabilityCommentModeComboBox?.selectedItem to state.vulnerabilityCommentMode,
+            vulnerabilityCommentPrefixField?.text to state.vulnerabilityCommentPrefix,
+            vulnerabilityCommentMaxIdsSpinner?.value to state.vulnerabilityCommentMaxIds,
             ossIndexEnabledCheckBox?.isSelected to state.ossIndexEnabled
         )
         return comparisons.any { (uiValue, storedValue) -> uiValue != storedValue } || isTokenModified()
@@ -343,6 +383,11 @@ class MavenUpConfigurable internal constructor(
                 ?: VulnerabilityCommentMode.ADVISORY_IDS
         settings.state.addVulnerabilityFixComment =
             settings.state.vulnerabilityCommentMode != VulnerabilityCommentMode.NONE
+        settings.state.vulnerabilityCommentPrefix = vulnerabilityCommentPrefixField?.text?.trim()
+            ?: DEFAULT_VULNERABILITY_COMMENT_PREFIX
+        settings.state.vulnerabilityCommentMaxIds =
+            (vulnerabilityCommentMaxIdsSpinner?.value as? Int)?.coerceAtLeast(0)
+                ?: DEFAULT_VULNERABILITY_COMMENT_MAX_IDS
         settings.state.ossIndexEnabled = ossIndexEnabled
         if (credentialsLoaded) {
             storedToken = ossIndexToken
@@ -370,12 +415,15 @@ class MavenUpConfigurable internal constructor(
         hiddenVersionQualifiersField?.text = settings.state.hiddenVersionQualifiers
         checkTransitiveDependenciesCheckBox?.isSelected = settings.state.checkTransitiveDependencies
         vulnerabilityCommentModeComboBox?.selectedItem = settings.state.vulnerabilityCommentMode
+        vulnerabilityCommentPrefixField?.text = settings.state.vulnerabilityCommentPrefix
+        vulnerabilityCommentMaxIdsSpinner?.value = settings.state.vulnerabilityCommentMaxIds
         ossIndexEnabledCheckBox?.isSelected = settings.state.ossIndexEnabled
         credentialsLoaded = false
         storedToken = ""
         ossIndexTokenField?.text = ""
         updateHiddenQualifierControlsEnabled(settings.state.hideUnstableVersions)
         updateOssIndexControlsEnabled(settings.state.ossIndexEnabled)
+        updateVulnerabilityCommentControlsEnabled(settings.state.vulnerabilityCommentMode)
         loadCredentials()
     }
 
@@ -400,6 +448,10 @@ class MavenUpConfigurable internal constructor(
         hiddenVersionQualifiersField = null
         checkTransitiveDependenciesCheckBox = null
         vulnerabilityCommentModeComboBox = null
+        vulnerabilityCommentPrefixLabel = null
+        vulnerabilityCommentPrefixField = null
+        vulnerabilityCommentMaxIdsLabel = null
+        vulnerabilityCommentMaxIdsSpinner = null
         ossIndexEnabledCheckBox = null
         ossIndexTokenLabel = null
         ossIndexTokenField = null
@@ -456,6 +508,23 @@ class MavenUpConfigurable internal constructor(
         ossIndexEnabledCheckBox?.isEnabled = credentialsLoaded
         ossIndexTokenLabel?.isEnabled = enabled && credentialsLoaded
         ossIndexTokenField?.isEnabled = enabled && credentialsLoaded
+    }
+
+    /**
+     * Aktiviert oder deaktiviert die Eingabefelder für den Schwachstellen-Kommentar abhängig vom Kommentarmodus.
+     *
+     * Der Präfixtext ist nur bearbeitbar, wenn überhaupt ein Kommentar geschrieben wird; die Höchstzahl der
+     * Kennungen nur, wenn der Modus Kennungen auflistet.
+     *
+     * @param mode Der aktuell in der Combobox ausgewählte Kommentarmodus.
+     */
+    private fun updateVulnerabilityCommentControlsEnabled(mode: VulnerabilityCommentMode?) {
+        val commentEnabled = mode != null && mode != VulnerabilityCommentMode.NONE
+        val idsEnabled = commentEnabled && mode != VulnerabilityCommentMode.TEXT_ONLY
+        vulnerabilityCommentPrefixLabel?.isEnabled = commentEnabled
+        vulnerabilityCommentPrefixField?.isEnabled = commentEnabled
+        vulnerabilityCommentMaxIdsLabel?.isEnabled = idsEnabled
+        vulnerabilityCommentMaxIdsSpinner?.isEnabled = idsEnabled
     }
 
     /**

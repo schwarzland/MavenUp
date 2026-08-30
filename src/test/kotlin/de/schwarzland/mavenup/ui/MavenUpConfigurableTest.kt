@@ -380,6 +380,56 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
         settings.state.vulnerabilityCommentMode = VulnerabilityCommentMode.ADVISORY_IDS
     }
 
+    fun testVulnerabilityCommentPrefixAndMaxIdsDefaults() {
+        val state = MavenUpSettings.State()
+        assertEquals("Pinned by MavenUp to fix:", state.vulnerabilityCommentPrefix)
+        assertEquals(3, state.vulnerabilityCommentMaxIds)
+    }
+
+    fun testVulnerabilityCommentPrefixAndMaxIdsArePersistedOnApply() {
+        val settings = MavenUpSettings.getInstance()
+
+        val configurable = MavenUpConfigurable(project)
+        configurable.createComponent()
+        configurable.reset()
+        assertFalse(configurable.isModified)
+
+        val prefixField = configurable.field<javax.swing.JTextField>("vulnerabilityCommentPrefixField")
+        prefixField.text = "  Fixes:  "
+        assertTrue("Änderung des Präfix sollte isModified() true machen", configurable.isModified)
+
+        val maxIdsSpinner = configurable.field<javax.swing.JSpinner>("vulnerabilityCommentMaxIdsSpinner")
+        maxIdsSpinner.value = 7
+
+        configurable.apply()
+        assertEquals("Fixes:", settings.state.vulnerabilityCommentPrefix)
+        assertEquals(7, settings.state.vulnerabilityCommentMaxIds)
+    }
+
+    fun testVulnerabilityCommentControlsAreDisabledForModeNone() {
+        val settings = MavenUpSettings.getInstance()
+        settings.state.vulnerabilityCommentMode = VulnerabilityCommentMode.NONE
+
+        val configurable = MavenUpConfigurable(project)
+        configurable.createComponent()
+        configurable.reset()
+
+        assertFalse(configurable.field<javax.swing.JTextField>("vulnerabilityCommentPrefixField").isEnabled)
+        assertFalse(configurable.field<javax.swing.JSpinner>("vulnerabilityCommentMaxIdsSpinner").isEnabled)
+    }
+
+    fun testVulnerabilityCommentMaxIdsIsDisabledForTextOnlyMode() {
+        val settings = MavenUpSettings.getInstance()
+        settings.state.vulnerabilityCommentMode = VulnerabilityCommentMode.TEXT_ONLY
+
+        val configurable = MavenUpConfigurable(project)
+        configurable.createComponent()
+        configurable.reset()
+
+        assertTrue(configurable.field<javax.swing.JTextField>("vulnerabilityCommentPrefixField").isEnabled)
+        assertFalse(configurable.field<javax.swing.JSpinner>("vulnerabilityCommentMaxIdsSpinner").isEnabled)
+    }
+
     fun testLegacyDisabledVulnerabilityCommentIsMigratedToNone() {
         val settings = MavenUpSettings.getInstance()
         settings.loadState(MavenUpSettings.State(addVulnerabilityFixComment = false))
