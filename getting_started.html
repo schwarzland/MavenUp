@@ -76,8 +76,10 @@
         <strong>Vulnerabilities</strong> column, shown directly before <strong>Current Version</strong>.</li>
     <li><strong>Inspect the findings</strong>: Select a dependency with findings and click <strong>Vulnerability Details</strong>
         or click the populated vulnerability cell. The dialog opens a split view: the upper table lists the advisories
-        (component, source, advisory ID, aliases, and severity) for the direct dependency and related transitive findings,
-        while the lower detail pane shows the selected advisory's affected component with an <strong>Open on ...</strong>
+        (component, origin, source, advisory ID, aliases, and severity) for the direct dependency and related transitive
+        findings; the <strong>Origin</strong> column states whether a finding comes from the dependency itself, only from
+        its dependency tree, or from a component that is pulled in transitively while also being declared in a
+        <code>pom.xml</code>. The lower detail pane shows the selected advisory's affected component with an <strong>Open on ...</strong>
         link to the configured repository browser, the CVSS vector, CWE identifiers, publish/last-modified dates,
         affected version ranges and fixed-in versions when available, and the full summary, detailed description, and
         references as clickable links. The
