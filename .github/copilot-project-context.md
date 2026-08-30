@@ -303,7 +303,8 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   `vulnerabilityCommentMode` (Standard: `ADVISORY_IDS`) über `managedDependencyCommentText` einen XML-Kommentar
   aus `vulnerabilityCommentPrefix` und den behobenen Vulnerability-Kennungen (IDs, Aliase oder beides) als erste
   Zeile voran; `joinVulnerabilityIds` begrenzt die Liste auf `vulnerabilityCommentMaxIds` (0 = unbegrenzt) und
-  ersetzt die übrigen Kennungen durch „and more"
+  ersetzt die übrigen Kennungen durch „and more"; `sanitizeCommentText` normalisiert Whitespace und trennt
+  Bindestrich-Folgen (`--`, `-->`) auf, damit der XML-Kommentar nicht vorzeitig endet
   (Erzeugung aus Text via `createTagFromText` + `reformat`); genutzt für das Pinnen transitiver Abhängigkeiten.
 - **VulnerabilityScanService**: ermittelt direkte/transitive Scan-Ziele aus dem Maven-Modell
   (`collectVulnerabilityScanTargets`, `collectResolvedDependencyRelations`) und kapselt die

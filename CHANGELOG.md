@@ -53,6 +53,7 @@
 ### Fixed
 
 - Fixed a mojibake encoding artifact in a KDoc comment of `RowMatchesFilterTest.kt` (`fÃ¼r` instead of `für`).
+- Prevented a custom vulnerability comment text from breaking the pom.xml by collapsing line breaks into single spaces and splitting hyphen sequences such as `--` and `-->`, which would otherwise terminate the XML comment.
 - Fixed differing row heights between the dependency tables by applying the IntelliJ styleguide row height of 24px (scaled) to every plugin table, instead of letting each table derive its height from platform-dependent font metrics and cell renderers.
 - Kept the transitive vulnerabilities view's **New Version** column populated when running "Search for New Versions" by storing the scan-derived transitive versions separately, so the table no longer collapses to a plain list.
 - Aligned the transitive vulnerabilities view sorting with the main table by cycling column sorting through ascending, descending, and unsorted states, and made its **Version** column non-sortable.
