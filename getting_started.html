@@ -15,7 +15,9 @@
         filled without further interaction. You can also click <strong>Refresh and Search for New Versions</strong> at any
         time to reload the current project state, discard previously selected update values and vulnerability results, and
         query Maven repositories again. A green checkmark ("✓") means the item already matches the latest known version; an
-        upwards arrow ("↑") shows that a newer release is available. The automatic search can be turned off in the settings.
+        upwards arrow ("↑") shows that a newer release is available. While a refresh or a version search is running, the
+        table stays empty and names the running operation, and the rows appear again once it has finished. The automatic
+        search can be turned off in the settings.
     </li>
     <li><strong>Choose the version to apply</strong>: In the <strong>New Version</strong> column, select the version you
         want to use. When multiple entries share the same Maven property such as <code>${spring.version}</code>, MavenUp
@@ -104,7 +106,7 @@
         dropdown (including <strong>Select Recommended Version</strong>) and <strong>Reset All to Current Versions</strong>
         act on the transitive coordinates, and a right-click offers <strong>Filter by "..."</strong> plus the same version
         actions for a single coordinate. The view has its own filter row with a text filter for GroupId and ArtifactId,
-        an <strong>Updates</strong> and a <strong>Pending</strong> combo box, and a reset button; the bulk version
+        an <strong>Update</strong> and a <strong>Pending</strong> combo box, and a reset button; the bulk version
         actions apply only to the rows it leaves visible.
         Click a count to open
         its details, and switch back to the <strong>Dependencies</strong> tab to return to the main table.</li>
@@ -113,7 +115,7 @@
 <h3>Adjust the plugin to your workflow</h3>
 <p>Open <strong>Settings &gt; Tools &gt; MavenUp</strong> to personalize the plugin. The options are stored globally and apply to
     all your projects. They are organized into four
-    groups — <strong>Appearance</strong>, <strong>Versions &amp; Updates</strong>, <strong>Pom.xml Changes</strong>, and <strong>Vulnerability Check</strong>.
+    groups — <strong>Appearance and Behavior</strong>, <strong>Versions &amp; Updates</strong>, <strong>Vulnerability Check</strong>, and <strong>Pom.xml Changes</strong>.
     You can choose the repository
     browser, enable single-click navigation, choose a three-state auto-selection strategy for updates (keep current version, highest version, or latest minor in the current major line), filter out unstable releases, choose
     whether to stop after a successful Maven Central lookup, decide how the explanatory comment for
