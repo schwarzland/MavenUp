@@ -110,4 +110,62 @@ class PomNavigationServiceTest : BasePlatformTestCase() {
         val notFound = pomNavigationService.findParent(rootTag, "com.example", "other-artifact")
         assertNull("Nicht passendes Parent-Tag sollte null zurückgeben", notFound)
     }
+
+    fun testFindProperty() {
+        val pomContent = """
+            <project>
+                <properties>
+                    <example.version>1.0.0</example.version>
+                </properties>
+                <profiles>
+                    <profile>
+                        <id>ci</id>
+                        <properties>
+                            <profile.version>2.0.0</profile.version>
+                        </properties>
+                    </profile>
+                </profiles>
+            </project>
+        """.trimIndent()
+
+        val psiFile = myFixture.configureByText("pom.xml", pomContent) as XmlFile
+        val rootTag = psiFile.document?.rootTag
+
+        val pomNavigationService = PomNavigationService(project)
+
+        val global = pomNavigationService.findProperty(rootTag, "example.version")
+        assertNotNull("Globale Property sollte gefunden werden", global)
+        assertEquals("1.0.0", global?.value?.text)
+
+        val placeholder = pomNavigationService.findProperty(rootTag, "\${example.version}")
+        assertNotNull("Property in Platzhalter-Schreibweise sollte gefunden werden", placeholder)
+        assertEquals("1.0.0", placeholder?.value?.text)
+
+        val fromProfile = pomNavigationService.findProperty(rootTag, "profile.version")
+        assertNotNull("Property aus einem Profil sollte gefunden werden", fromProfile)
+        assertEquals("2.0.0", fromProfile?.value?.text)
+
+        assertNull("Unbekannte Property sollte null zurückgeben",
+            pomNavigationService.findProperty(rootTag, "missing.version"))
+        assertNull("Leerer Property-Name sollte null zurückgeben",
+            pomNavigationService.findProperty(rootTag, "   "))
+        assertNull("Fehlendes Root-Tag sollte null zurückgeben",
+            pomNavigationService.findProperty(null, "example.version"))
+    }
+
+    fun testFindPropertyWithoutPropertiesTag() {
+        val pomContent = """
+            <project>
+                <dependencies/>
+            </project>
+        """.trimIndent()
+
+        val psiFile = myFixture.configureByText("pom.xml", pomContent) as XmlFile
+        val rootTag = psiFile.document?.rootTag
+
+        val pomNavigationService = PomNavigationService(project)
+
+        assertNull("Ohne <properties> und <profiles> sollte null zurückgegeben werden",
+            pomNavigationService.findProperty(rootTag, "example.version"))
+    }
 }

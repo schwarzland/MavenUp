@@ -196,6 +196,14 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private var vulnerabilityScanPerformed = false
         private var isUpdating = false
         private var isRefreshing = false
+
+        /**
+         * `true`, solange eine Online-Suche nach neuen Versionen läuft.
+         *
+         * Solange der Wert gesetzt ist, bleibt die Tabelle der Abhängigkeiten leer und erklärt über
+         * ihren Hinweistext, dass die Ergebnisse nach Abschluss der Suche erscheinen.
+         */
+        private var isSearchingVersions = false
         private var refreshGeneration = 0
 
         /**
@@ -302,10 +310,18 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         return versionStatusTooltip(currentVersion, effectiveVersion, newestVersion)
                     }
                     val settings = MavenUpSettings.getInstance()
+                    val isProperty = column == PROPERTY_COLUMN &&
+                        (getValueAt(row, PROPERTY_COLUMN) as? String).isNullOrBlank().not()
                     return if (settings.state.jumpOnSingleClick)
-                        MyMessageBundle.message("toolwindow.MyToolWindow.table.row.tooltip.singleClick")
+                        MyMessageBundle.message(
+                            if (isProperty) "toolwindow.MyToolWindow.table.property.tooltip.singleClick"
+                            else "toolwindow.MyToolWindow.table.row.tooltip.singleClick"
+                        )
                     else
-                        MyMessageBundle.message("toolwindow.MyToolWindow.table.row.tooltip.doubleClick")
+                        MyMessageBundle.message(
+                            if (isProperty) "toolwindow.MyToolWindow.table.property.tooltip.doubleClick"
+                            else "toolwindow.MyToolWindow.table.row.tooltip.doubleClick"
+                        )
                 }
             }
             table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION)
@@ -347,8 +363,13 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         val groupId = table.getValueAt(row, GROUP_ID_COLUMN) as? String ?: ""
                         val artifactId = table.getValueAt(row, ARTIFACT_ID_COLUMN) as? String ?: ""
                         val type = table.getValueAt(row, TYPE_COLUMN) as? String ?: "dependency"
+                        val property = table.getValueAt(row, PROPERTY_COLUMN) as? String ?: ""
 
-                        pomNavigationService.navigateToDependency(groupId, artifactId, type)
+                        if (column == PROPERTY_COLUMN && property.isNotBlank()) {
+                            pomNavigationService.navigateToProperty(property, groupId, artifactId, type)
+                        } else {
+                            pomNavigationService.navigateToDependency(groupId, artifactId, type)
+                        }
                     }
                 }
 
@@ -392,6 +413,12 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     }
                     addAction(MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.navigateToPom")) {
                         pomNavigationService.navigateToDependency(groupId, artifactId, type)
+                    }
+                    addAction(
+                        MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.navigateToProperty"),
+                        property.isNotBlank()
+                    ) {
+                        pomNavigationService.navigateToProperty(property, groupId, artifactId, type)
                     }
                     val browserName = MavenUpSettings.getInstance().state.repositoryBrowser.displayName
                     addAction(MyMessageBundle.message(
@@ -612,6 +639,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
             /**
              * Liest die Abhängigkeiten der `pom.xml`-Dateien neu ein und baut die Tabelle auf.
              *
+             * Solange der Vorgang läuft, bleibt die Tabelle leer und zeigt stattdessen einen
+             * Hinweistext (siehe [updateTableEmptyText]). Ist [checkUpdates] gesetzt, werden die
+             * Zeilen erst nach Abschluss der Versionssuche durch den Folge-Refresh aufgebaut.
+             *
              * @param checkUpdates Wenn `true`, wird im Anschluss online nach neuen Versionen gesucht.
              * @param clearData Wenn `true`, werden verfügbare Versionen und Versionsauswahlen verworfen.
              * @param clearVulnerabilities Wenn `true`, werden Scan-Ergebnisse und transitive Daten verworfen.
@@ -621,9 +652,13 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
                 val generation = ++refreshGeneration
                 isRefreshing = true
+                if (checkUpdates) {
+                    isSearchingVersions = true
+                }
                 refreshToolbar()
                 cancelActiveCellEditing()
                 tableModel.setRowCount(0)
+                updateTableEmptyText()
                 if (clearData) {
                     availableVersions.clear()
                     selectedVersions.clear()
@@ -661,23 +696,25 @@ class MavenUpWindowFactory : ToolWindowFactory {
                             if (row.versionInherited) {
                                 inheritedVersionDependencies.add(row.key)
                             }
-                            tableModel.addRow(
-                                arrayOf(
-                                    row.groupId,
-                                    row.artifactId,
-                                    row.propertyName,
-                                    row.type,
-                                    buildVulnerabilityCell(
-                                        "${row.key}:${row.currentVersion}",
-                                        vulnerabilityAdvisories,
-                                        transitiveDependenciesByDirect["${row.key}:${row.currentVersion}"].orEmpty(),
-                                        declaredCoordinates
-                                    ),
-                                    row.currentVersion,
-                                    availableVersions[row.key].orEmpty()
-                                )
-                            )
+                            if (!checkUpdates) {
+                                addDependencyRow(row, declaredCoordinates)
+                            }
                         }
+
+                        if (checkUpdates) {
+                            // Die Tabelle bleibt ausgeblendet, bis die Versionssuche abgeschlossen ist;
+                            // der abschließende Refresh baut die Zeilen mit den gefundenen Versionen auf.
+                            isRefreshing = false
+                            updateTableEmptyText()
+                            updateUpdateButtonState()
+                            updateTransitiveVulnerabilitiesView()
+                            refreshToolbar()
+                            performUpdateCheck {
+                                refreshAction(false, false, false)
+                            }
+                            return@finishOnUiThread
+                        }
+
                         updateUpdateButtonState()
                         updateTypeFilterOptions()
                         updateUpdatesFilterState()
@@ -686,12 +723,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         updateTransitiveVulnerabilitiesView()
                         trimColumnWidthsToContent(table)
 
-                        if (checkUpdates) {
-                            performUpdateCheck {
-                                refreshAction(false, false, false)
-                            }
-                        }
                         isRefreshing = false
+                        updateTableEmptyText()
                         refreshToolbar()
                     }
                     .submit(AppExecutorUtil.getAppExecutorService())
@@ -1336,6 +1369,50 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 }
             }
             filterResetToolbar?.updateActionsAsync()
+            updateTableEmptyText()
+        }
+
+        /**
+         * Fügt der Tabelle der Abhängigkeiten eine Zeile des Refresh-Schnappschusses hinzu.
+         *
+         * @param row Die darzustellende Zeile des Schnappschusses.
+         * @param declaredCoordinates Alle in der `pom.xml` deklarierten Koordinaten (`groupId:artifactId:version`),
+         * anhand derer die Vulnerability-Zelle transitive von direkt deklarierten Befunden unterscheidet.
+         */
+        private fun addDependencyRow(row: RefreshRow, declaredCoordinates: Set<String>) {
+            val coordinate = "${row.key}:${row.currentVersion}"
+            (table.model as DefaultTableModel).addRow(
+                arrayOf(
+                    row.groupId,
+                    row.artifactId,
+                    row.propertyName,
+                    row.type,
+                    buildVulnerabilityCell(
+                        coordinate,
+                        vulnerabilityAdvisories,
+                        transitiveDependenciesByDirect[coordinate].orEmpty(),
+                        declaredCoordinates
+                    ),
+                    row.currentVersion,
+                    availableVersions[row.key].orEmpty()
+                )
+            )
+        }
+
+        /**
+         * Setzt den Hinweistext, der anstelle der Tabelle der Abhängigkeiten angezeigt wird, solange
+         * diese keine sichtbaren Zeilen enthält.
+         *
+         * Während eines laufenden Refreshs oder einer laufenden Versionssuche bleibt die Tabelle
+         * bewusst leer; der Hinweistext erklärt den laufenden Vorgang. Ohne laufenden Vorgang
+         * unterscheidet der Text, ob überhaupt keine Abhängigkeiten geladen wurden oder ob lediglich
+         * der aktive Filter alle Zeilen ausblendet.
+         */
+        private fun updateTableEmptyText() {
+            val model = table.model as DefaultTableModel
+            table.emptyText.text = MyMessageBundle.message(
+                dependencyTableEmptyTextKey(isRefreshing, isSearchingVersions, model.rowCount > 0)
+            )
         }
 
         /**
@@ -2242,12 +2319,17 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /**
          * Orchestriert den Prozess der Versionssuche und aktualisiert die Aktionsleiste.
          *
+         * Für die Dauer der Suche bleibt die Tabelle der Abhängigkeiten ausgeblendet und zeigt einen
+         * entsprechenden Hinweistext; erst der abschließende Refresh baut die Zeilen wieder auf.
+         *
          * @param refreshAfterCheck Callback, der nach Abschluss der Prüfung ausgeführt wird.
          */
         private fun performUpdateCheck(
             refreshAfterCheck: () -> Unit
         ) {
             isUpdating = true
+            isSearchingVersions = true
+            updateTableEmptyText()
             refreshToolbar()
 
             availableVersions.clear()
@@ -2255,6 +2337,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             checkForUpdates {
                 ApplicationManager.getApplication().invokeLater {
                     isUpdating = false
+                    isSearchingVersions = false
                     refreshAfterCheck()
                     refreshToolbar()
                 }

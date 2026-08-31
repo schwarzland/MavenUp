@@ -126,14 +126,6 @@ class MavenUpConfigurable internal constructor(
                         }
                         .component
                 }
-                row {
-                    confirmVersionResetCheckBox = checkBox(MyMessageBundle.message("settings.confirmVersionReset"))
-                        .applyToComponent {
-                            isSelected = settings.state.confirmVersionReset
-                            toolTipText = MyMessageBundle.message("settings.confirmVersionReset.tooltip")
-                        }
-                        .component
-                }
             }
             group(MyMessageBundle.message("settings.group.versions")) {
                 row {
@@ -149,26 +141,6 @@ class MavenUpConfigurable internal constructor(
                         .applyToComponent {
                             isSelected = settings.state.stopAfterCentralSuccess
                             toolTipText = MyMessageBundle.message("settings.stopAfterCentralSuccess.tooltip")
-                        }
-                        .component
-                }
-                row {
-                    label(MyMessageBundle.message("settings.versionAutoSelectionMode"))
-                    versionAutoSelectionModeComboBox = comboBox(VersionAutoSelectionMode.entries)
-                        .applyToComponent {
-                            selectedItem = settings.state.versionAutoSelectionMode
-                            toolTipText = MyMessageBundle.message("settings.versionAutoSelectionMode.tooltip")
-                            renderer = object : SimpleListCellRenderer<VersionAutoSelectionMode>() {
-                                override fun customize(
-                                    list: javax.swing.JList<out VersionAutoSelectionMode>,
-                                    value: VersionAutoSelectionMode?,
-                                    index: Int,
-                                    selected: Boolean,
-                                    hasFocus: Boolean
-                                ) {
-                                    text = if (value == null) "" else MyMessageBundle.message(value.messageKey)
-                                }
-                            }
                         }
                         .component
                 }
@@ -199,6 +171,74 @@ class MavenUpConfigurable internal constructor(
                                 columns = 20
                             }
                             .component
+                    }
+                }
+                row {
+                    label(MyMessageBundle.message("settings.versionAutoSelectionMode"))
+                    versionAutoSelectionModeComboBox = comboBox(VersionAutoSelectionMode.entries)
+                        .applyToComponent {
+                            selectedItem = settings.state.versionAutoSelectionMode
+                            toolTipText = MyMessageBundle.message("settings.versionAutoSelectionMode.tooltip")
+                            renderer = object : SimpleListCellRenderer<VersionAutoSelectionMode>() {
+                                override fun customize(
+                                    list: javax.swing.JList<out VersionAutoSelectionMode>,
+                                    value: VersionAutoSelectionMode?,
+                                    index: Int,
+                                    selected: Boolean,
+                                    hasFocus: Boolean
+                                ) {
+                                    text = if (value == null) "" else MyMessageBundle.message(value.messageKey)
+                                }
+                            }
+                        }
+                        .component
+                }
+                row {
+                    confirmVersionResetCheckBox = checkBox(MyMessageBundle.message("settings.confirmVersionReset"))
+                        .applyToComponent {
+                            isSelected = settings.state.confirmVersionReset
+                            toolTipText = MyMessageBundle.message("settings.confirmVersionReset.tooltip")
+                        }
+                        .component
+                }
+            }
+            group(MyMessageBundle.message("settings.group.vulnerability")) {
+                row {
+                    checkTransitiveDependenciesCheckBox =
+                        checkBox(MyMessageBundle.message("settings.checkTransitiveDependencies"))
+                            .applyToComponent {
+                                isSelected = settings.state.checkTransitiveDependencies
+                                toolTipText = MyMessageBundle.message("settings.checkTransitiveDependencies.tooltip")
+                            }
+                            .component
+                }
+                row {
+                    ossIndexEnabledCheckBox = checkBox(MyMessageBundle.message("settings.ossIndex.enabled"))
+                        .applyToComponent {
+                            isSelected = settings.state.ossIndexEnabled
+                            toolTipText = MyMessageBundle.message("settings.ossIndex.enabled.tooltip")
+                        }
+                        .component
+                }
+                indent {
+                    row {
+                        ossIndexTokenLabel = label(MyMessageBundle.message("settings.ossIndex.token")).component
+                        ossIndexTokenField = cell(JPasswordField())
+                            .align(Align.FILL)
+                            .resizableColumn()
+                            .applyToComponent {
+                                columns = 20
+                            }
+                            .component
+                    }
+                    row {
+                        comment(MyMessageBundle.message("settings.ossIndex.hint"))
+                    }
+                    row {
+                        browserLink(
+                            MyMessageBundle.message("settings.ossIndex.accountLink"),
+                            OSS_INDEX_ACCOUNT_URL
+                        )
                     }
                 }
             }
@@ -256,46 +296,6 @@ class MavenUpConfigurable internal constructor(
                                 toolTipText = MyMessageBundle.message("settings.vulnerabilityCommentMaxIds.tooltip")
                             }
                             .component
-                    }
-                }
-            }
-            group(MyMessageBundle.message("settings.group.vulnerability")) {
-                row {
-                    checkTransitiveDependenciesCheckBox =
-                        checkBox(MyMessageBundle.message("settings.checkTransitiveDependencies"))
-                            .applyToComponent {
-                                isSelected = settings.state.checkTransitiveDependencies
-                                toolTipText = MyMessageBundle.message("settings.checkTransitiveDependencies.tooltip")
-                            }
-                            .component
-                }
-                row {
-                    ossIndexEnabledCheckBox = checkBox(MyMessageBundle.message("settings.ossIndex.enabled"))
-                        .applyToComponent {
-                            isSelected = settings.state.ossIndexEnabled
-                            toolTipText = MyMessageBundle.message("settings.ossIndex.enabled.tooltip")
-                        }
-                        .component
-                }
-                indent {
-                    row {
-                        ossIndexTokenLabel = label(MyMessageBundle.message("settings.ossIndex.token")).component
-                        ossIndexTokenField = cell(JPasswordField())
-                            .align(Align.FILL)
-                            .resizableColumn()
-                            .applyToComponent {
-                                columns = 20
-                            }
-                            .component
-                    }
-                    row {
-                        comment(MyMessageBundle.message("settings.ossIndex.hint"))
-                    }
-                    row {
-                        browserLink(
-                            MyMessageBundle.message("settings.ossIndex.accountLink"),
-                            OSS_INDEX_ACCOUNT_URL
-                        )
                     }
                 }
             }

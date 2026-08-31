@@ -38,7 +38,9 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   **Filter by "..."** (nur beim Rechtsklick auf die Spalten GroupId, ArtifactId oder Property mit nicht-leerem Wert;
   setzt den angeklickten Wert als alleinigen Textfilter, ersetzt vorhandenen Text und wendet ihn sofort an – siehe
   `filterBy`),
-  **Navigate to pom.xml**, **Open on [Browser]**, **Set Highest Major Version** und **Set Highest Minor Version**
+  **Navigate to pom.xml**, **Navigate to Property Definition** (springt über `navigateToProperty` zur
+  Property-Definition der Zeile; nur aktiv, wenn die Zeile eine Version-Property besitzt),
+  **Open on [Browser]**, **Set Highest Major Version** und **Set Highest Minor Version**
   (setzen ausschließlich für die angeklickte Dependency die höchste verfügbare Version bzw. die höchste Version der
   aktuellen Major-Linie; nur aktiv, wenn die verfügbaren Versionen dieser Dependency bereits abgerufen wurden – siehe
   `selectHighestMajorVersionForDependency`/`selectHighestMinorVersionForDependency`/`hasSelectableVersionsForDependency`),
@@ -67,6 +69,11 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   Maven-/PSI-Daten für Refreshes werden über eine
   nicht blockierende Read-Action außerhalb des EDT erfasst. Während Refresh oder Update-Check
   laufen, bleibt der Vulnerability-Check deaktiviert, um konkurrierende Hintergrundaktionen zu vermeiden.
+  Solange ein Refresh (`isRefreshing`) oder eine Versionssuche (`isSearchingVersions`) läuft, bleibt die
+  Haupttabelle bewusst leer: `refreshAction` baut die Zeilen bei `checkUpdates = true` erst im
+  abschließenden Folge-Refresh nach der Versionssuche auf, und `updateTableEmptyText` setzt über
+  `dependencyTableEmptyTextKey` den erklärenden Hinweistext (laufender Vorgang, keine Dependencies
+  geladen oder alle Zeilen ausgefiltert) – analog zum Empty State der `TransitiveVulnerabilitiesView`.
   Die Aktionsleiste kann laut Einstellung (`toolbarShowText`) wahlweise Icon- oder Text-Buttons darstellen und
   wird bei geänderten Einstellungen über den `MAVEN_UP_SETTINGS_TOPIC`-Message-Bus sofort neu aufgebaut.
   Unterhalb der Aktionsleiste liegt eine Filterzeile mit fünf `ComboBox`-Elementen (Typ, Versionsherkunft via `TriStateFilter` [All/Yes/No], verfügbare Updates via `TriStateFilter` [All/Yes/No], anstehende Änderungen via `TriStateFilter` [All/Yes/No], Sicherheitslücken via `VulnerabilityFilter` [ALL/VULNERABLE/SELF_VULNERABLE/TRANSITIVE_VULNERABLE/NOT_VULNERABLE]) und einem `SearchTextField` (Textfilter über
@@ -199,6 +206,10 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   in eigene Dateien desselben Packages ausgelagert wurden (reine Logik/Icons, keine
   `MyToolWindow`-Abhängigkeit):
   - `MavenUpTableConstants.kt`: Spalten-Indizes und Message-Key-/Typ-Konstanten.
+  - `DependencyTableEmptyText.kt`: `dependencyTableEmptyTextKey` samt den Bundle-Schlüsseln
+    `EMPTY_TEXT_KEY_REFRESHING`, `EMPTY_TEXT_KEY_SEARCHING`, `EMPTY_TEXT_KEY_NO_DEPENDENCIES`
+    und `EMPTY_TEXT_KEY_NO_MATCHES` – bestimmt den Hinweistext der leeren Haupttabelle
+    (laufender Refresh bzw. laufende Versionssuche haben Vorrang vor Filter- und Leerzustand).
   - `VersionStatusUi.kt`: `VersionUpdateArrowIcon`, `isVersionUpToDate`, `hasNewerVersion`,
     `versionStatusText`/`versionStatusColor`/`versionStatusTooltip`, `versionDropdownItemDisplay`
     (liefert Anzeigetext und Fettschrift-Status in einem Durchgang), `versionDropdownItemText`
@@ -262,13 +273,15 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   Repository-Browser-Optionen (`MVN_REPOSITORY`, `SONATYPE_CENTRAL`) und erzeugt die jeweilige
   Versions-URL für groupId/artifactId/version.
 - **MavenUpConfigurable**: Settings-UI unter `Settings > Tools > MavenUp`.
-  Die Optionen sind in vier Gruppen (`group`) gegliedert: **Appearance**, **Versions & Updates**,
-  **Pom.xml Changes** und **Vulnerability Check**.
+  Die Optionen sind in vier Gruppen (`group`) gegliedert, die dem Arbeitsablauf folgen:
+  **Appearance and Behavior**, **Versions & Updates**, **Vulnerability Check** und **Pom.xml Changes**.
   Bietet u.a. die Checkbox für Text-Buttons in der Aktionsleiste (`toolbarShowText`) und veröffentlicht
   beim Speichern den `MAVEN_UP_SETTINGS_TOPIC`.
   Die Gruppe **Versions & Updates** enthält zusätzlich die Option `stopAfterCentralSuccess` zur Steuerung,
-  ob nach erfolgreicher Maven-Central-Abfrage weitere private Repositories abgefragt werden, sowie die
-  Combobox `versionAutoSelectionMode` mit drei Zuständen für die Auto-Auswahl bei Update-Prüfungen.
+  ob nach erfolgreicher Maven-Central-Abfrage weitere private Repositories abgefragt werden, die
+  Combobox `versionAutoSelectionMode` mit drei Zuständen für die Auto-Auswahl bei Update-Prüfungen
+  (nach den Versionsfiltern platziert, da die Vorauswahl auf der gefilterten Liste arbeitet) sowie
+  `confirmVersionReset`.
   Die Gruppe **Pom.xml Changes** bündelt Einstellungen zum Schreibverhalten beim Anwenden von Updates:
   `syncMavenAfterUpdate` (automatischer Maven-Sync nach dem Schreiben der `pom.xml`), die Combobox
   `vulnerabilityCommentMode` (Auswahl der Kennungen im erklärenden XML-Kommentar beim Anlegen eines gepinnten
@@ -338,7 +351,11 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   Auto-Selektions-Helfer (`chooseAutoSelectedVersion`, `latestVersionWithinSameMajor`,
   `extractLeadingMajorNumber`, `selectableRecommendedVersion`) liegen als Top-Level-Funktionen in `ui/VersionAutoSelection`.
 - **PomNavigationService**: sucht Definitionen in der `pom.xml` (`findDependency`, `findParent`,
-  `findPlugin`) und springt über `navigateToDependency` im Editor an die jeweilige Stelle.
+  `findPlugin`, `findProperty`) und springt über `navigateToDependency` bzw. `navigateToProperty` im Editor
+  an die jeweilige Stelle. `findProperty` berücksichtigt das globale `<properties>`-Tag sowie
+  `<properties>`-Blöcke innerhalb von `<profiles><profile>` und akzeptiert den Property-Namen auch in
+  der Platzhalter-Schreibweise `${name}`. `navigateToProperty` fällt auf `navigateToDependency` zurück,
+  wenn die Property in keiner `pom.xml` des Projekts definiert ist.
 - **VulnerabilityDetailDialog**: Master-Detail-Detailansicht für direkte und transitive Befunde. Rein informativer Dialog – zeigt ausschließlich einen **Close**-Button (kein OK/Cancel), entsprechend den JetBrains UI-Richtlinien für read-only Dialoge. Der obere Bereich (`OnePixelSplitter`) enthält eine Tabelle mit den Spalten Component, **Origin**, Source, Advisory, Aliases und **Severity**; die **Origin**-Spalte steht unmittelbar hinter Component und zeigt über `VulnerabilityCell.detailOrigins()` die Herkunft (`direct`, `transitive`, `transitive, also declared directly`), sodass der Komponentenname unverändert bleibt. Der untere Detailbereich ist ein `VulnerabilityInfoPanel`, das zur selektierten Zeile Komponente, Zusammenfassung und Referenzen anzeigt. Die **Severity**-Spalte ist per `vulnerabilityColor` nach Schweregrad farblich hinterlegt (gleiches Farbschema wie die Vulnerability-Spalte im Hauptfenster). Alle Tabellenspalten sind über einen `TableRowSorter` sortierbar (aufsteigend → absteigend → unsortiert) mit denselben `sortableHeaderIcon`-Indikatoren wie im Hauptfenster; die **Severity**-Spalte nutzt `severityCellComparator` (Kritikalität, dann CVSS-Score, beide absteigend – erster Klick zeigt die kritischsten Befunde oben), alle übrigen Spalten `cellTextComparator`. Die Spaltenbreiten werden beim Öffnen über `trimColumnWidthsToContent` inhaltsbasiert getrimmt und skalieren via `AUTO_RESIZE_SUBSEQUENT_COLUMNS` proportional mit der Dialoggröße. Der Dialog besitzt keine eigene Aktionsleiste mehr; das Öffnen im Repository-Browser erfolgt über einen Hyperlink im Detailbereich (top-level `artifactBrowserUrl`). Zusätzlich öffnet ein Rechtsklick auf die selektierte Zeile über IntelliJs `ActionSystem` ein plattformkonformes Kontextmenü mit **Open on [Browser]** (Label mit konfiguriertem Browser-Namen). Die Kontextmenüs verwenden `JBPopupMenu`/`JBMenuItem`, damit Theme, Abstände und Auswahlfarben der IDE verwendet werden.
 - **VulnerabilityInfoPanel**: Detailbereich der Master-Detail-Ansicht. Zeigt zur selektierten Sicherheitswarnung (`showRow(coordinate, advisory)`) die betroffene Komponente inkl. **Open on ...**-Hyperlink zum konfigurierten Repository-Browser, Advisory-ID, Aliase, Schweregrad inkl. CVSS-Score, CVSS-Vektor, CWE-Kennungen, Veröffentlichungs- und Änderungsdatum, Quellen, betroffene Versionsbereiche, die Fixed-in-Versionen, die Zusammenfassung, die ausführliche Beschreibung und die Referenzen als anklickbare Hyperlinks (öffnen im Browser über `BrowserUtil`) in einem `JEditorPane` mit HTML-Inhalt (Word-Wrap-View-Factory für weichen Umbruch überlanger Zeilen, horizontaler Scrollbalken deaktiviert); ohne Selektion wird ein Platzhaltertext angezeigt.
 - **MyMessageBundle**: I18n-Wrapper (`messages.MyMessageBundle`).

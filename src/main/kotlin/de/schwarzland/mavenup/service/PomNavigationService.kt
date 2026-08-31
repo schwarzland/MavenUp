@@ -11,6 +11,7 @@ import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiManager
 import com.intellij.psi.xml.XmlFile
 import com.intellij.psi.xml.XmlTag
@@ -110,6 +111,84 @@ internal class PomNavigationService(private val project: Project) {
     }
 
     /**
+     * Sucht die Definition einer Maven-Property in der `pom.xml`.
+     *
+     * Berücksichtigt sowohl das globale `<properties>`-Tag als auch `<properties>`-Blöcke
+     * innerhalb von `<profiles><profile>`.
+     *
+     * @param rootTag Das Root-Tag der `pom.xml`.
+     * @param propertyName Der Name der Property, optional in der Schreibweise `${name}`.
+     * @return Das Tag der Property-Definition oder `null`, wenn die Property hier nicht definiert ist.
+     */
+    internal fun findProperty(rootTag: XmlTag?, propertyName: String): XmlTag? {
+        val name = propertyName.trim().removeSurrounding("\${", "}").trim()
+        if (name.isEmpty() || rootTag == null) return null
+
+        rootTag.findFirstSubTag("properties")?.findFirstSubTag(name)?.let { return it }
+
+        val profilesTag = rootTag.findFirstSubTag("profiles") ?: return null
+        return profilesTag.findSubTags("profile")
+            .firstNotNullOfOrNull { it.findFirstSubTag("properties")?.findFirstSubTag(name) }
+    }
+
+    /**
+     * Öffnet den Editor und springt zur Definition der angegebenen Maven-Property in der `pom.xml`.
+     *
+     * Ist die Property in keiner `pom.xml` des Projekts definiert, wird auf die Navigation zur
+     * Abhängigkeit selbst zurückgefallen.
+     *
+     * @param propertyName Der Name der Property, optional in der Schreibweise `${name}`.
+     * @param groupId Die Group-ID der Abhängigkeit für den Fallback.
+     * @param artifactId Die Artefakt-ID der Abhängigkeit für den Fallback.
+     * @param type Der Typ der Abhängigkeit für den Fallback.
+     */
+    internal fun navigateToProperty(
+        propertyName: String,
+        groupId: String,
+        artifactId: String,
+        type: String = "dependency"
+    ) {
+        if (propertyName.isBlank()) {
+            navigateToDependency(groupId, artifactId, type)
+            return
+        }
+
+        ProgressManager.getInstance().run(object : Task.Backgroundable(
+            project,
+            MyMessageBundle.message("toolwindow.MyToolWindow.refresh.button"),
+            false
+        ) {
+            override fun run(indicator: ProgressIndicator) {
+                for (mavenProject in MavenProjectsManager.getInstance(project).projects) {
+                    val pomFile = mavenProject.file
+                    val targetTag = ApplicationManager.getApplication().runReadAction<XmlTag?> {
+                        val psiFile = PsiManager.getInstance(project).findFile(pomFile) as? XmlFile
+                        findProperty(psiFile?.document?.rootTag, propertyName)
+                    } ?: continue
+
+                    openInEditor(pomFile, targetTag)
+                    return
+                }
+                navigateToDependency(groupId, artifactId, type)
+            }
+        })
+    }
+
+    /**
+     * Öffnet die angegebene Datei im Editor und positioniert den Cursor auf dem übergebenen Tag.
+     *
+     * @param pomFile Die zu öffnende `pom.xml`.
+     * @param targetTag Das Tag, an dessen Position gesprungen wird.
+     */
+    private fun openInEditor(pomFile: VirtualFile, targetTag: XmlTag) {
+        val offset = ApplicationManager.getApplication().runReadAction<Int> { targetTag.textOffset }
+        ApplicationManager.getApplication().invokeLater {
+            val descriptor = OpenFileDescriptor(project, pomFile, offset)
+            FileEditorManager.getInstance(project).openTextEditor(descriptor, true)
+        }
+    }
+
+    /**
      * Öffnet den Editor und springt zur Definition der angegebenen Abhängigkeit in der `pom.xml`.
      *
      * @param groupId Die Group-ID der Abhängigkeit.
@@ -145,10 +224,7 @@ internal class PomNavigationService(private val project: Project) {
                     }
 
                     if (targetTag != null) {
-                        ApplicationManager.getApplication().invokeLater {
-                            val descriptor = OpenFileDescriptor(project, pomFile, targetTag.textOffset)
-                            FileEditorManager.getInstance(project).openTextEditor(descriptor, true)
-                        }
+                        openInEditor(pomFile, targetTag)
                         return
                     }
                 }

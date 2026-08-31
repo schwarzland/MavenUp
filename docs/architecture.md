@@ -17,7 +17,7 @@ The plugin is clearly divided into three layers.
 - `PomUpdateService`: applies selected version updates to the `pom.xml` files via PSI (dependencies, dependencyManagement, plugins, pluginManagement, parent) and saves the changes when Maven sync is active; `managedDependencyCommentText` builds the explanatory comment of a newly pinned entry from the configured comment mode, comment text, and identifier limit and sanitizes the text so it can never terminate the XML comment.
 - `VulnerabilityScanService`: determines direct and transitive scan targets from the Maven model and encapsulates the Sonatype OSS Index query including error handling.
 - `DependencyVersionService`: queries the available versions of all dependencies and plugins and derives a pre-selection from them depending on the auto-selection strategy (`VersionSearchResult`); `fetchAvailableVersions` retrieves versions for a targeted set of coordinates (for example the vulnerable transitive ones after a scan), and the stateless auto-selection helpers live in `VersionAutoSelection`.
-- `PomNavigationService`: locates dependency, parent, and plugin definitions in the `pom.xml` and opens the editor at the respective location.
+- `PomNavigationService`: locates dependency, parent, plugin, and version-property definitions in the `pom.xml` and opens the editor at the respective location.
 - Supported CVSS vectors from OSV are converted into comparable base scores with `us.springett:cvss-calculator`. For not-yet-supported vectors, the finding is retained and uses the severity of the source.
 
 ## UI (`de.schwarzland.mavenup.ui`)
