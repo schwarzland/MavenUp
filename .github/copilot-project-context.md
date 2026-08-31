@@ -38,7 +38,9 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   **Filter by "..."** (nur beim Rechtsklick auf die Spalten GroupId, ArtifactId oder Property mit nicht-leerem Wert;
   setzt den angeklickten Wert als alleinigen Textfilter, ersetzt vorhandenen Text und wendet ihn sofort an – siehe
   `filterBy`),
-  **Navigate to pom.xml**, **Open on [Browser]**, **Set Highest Major Version** und **Set Highest Minor Version**
+  **Navigate to pom.xml**, **Navigate to Property Definition** (springt über `navigateToProperty` zur
+  Property-Definition der Zeile; nur aktiv, wenn die Zeile eine Version-Property besitzt),
+  **Open on [Browser]**, **Set Highest Major Version** und **Set Highest Minor Version**
   (setzen ausschließlich für die angeklickte Dependency die höchste verfügbare Version bzw. die höchste Version der
   aktuellen Major-Linie; nur aktiv, wenn die verfügbaren Versionen dieser Dependency bereits abgerufen wurden – siehe
   `selectHighestMajorVersionForDependency`/`selectHighestMinorVersionForDependency`/`hasSelectableVersionsForDependency`),

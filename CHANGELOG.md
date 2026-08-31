@@ -6,6 +6,7 @@
 
 ### Added
 
+- Added a **Navigate to Property Definition** entry to the dependency row context menu that jumps to the version property inside `<properties>` and stays disabled for rows without a version property.
 - Added an *(inherited)* marker in the **Current Version** column for dependencies, plugins, and parents that have no `<version>` tag in the `pom.xml` because their version comes from the parent POM or an imported BOM; the version is rendered in italics and a muted color, and a tooltip explains the origin.
 - Added a **Version** filter combo box to the dependency table that shows all rows, only rows with an inherited version, or only rows with their own `<version>` tag; it is enabled only while at least one inherited version exists and is cleared by the filter reset button.
 

@@ -414,6 +414,12 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     addAction(MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.navigateToPom")) {
                         pomNavigationService.navigateToDependency(groupId, artifactId, type)
                     }
+                    addAction(
+                        MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.navigateToProperty"),
+                        property.isNotBlank()
+                    ) {
+                        pomNavigationService.navigateToProperty(property, groupId, artifactId, type)
+                    }
                     val browserName = MavenUpSettings.getInstance().state.repositoryBrowser.displayName
                     addAction(MyMessageBundle.message(
                         TOOLWINDOW_MY_TOOL_WINDOW_CONTEXT_MENU_OPEN_IN_MVN_REPOSITORY, browserName)) {
