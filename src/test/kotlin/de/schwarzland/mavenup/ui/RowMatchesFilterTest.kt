@@ -423,12 +423,12 @@ class RowMatchesFilterTest {
         assertEquals("Unchanged", triStateFilterOptionLabel(TriStateFilter.NO, CHANGES_FILTER_LABELS))
 
         assertEquals("All", triStateFilterOptionLabel(TriStateFilter.ALL, UPDATES_FILTER_LABELS))
-        assertEquals("Update available", triStateFilterOptionLabel(TriStateFilter.YES, UPDATES_FILTER_LABELS))
+        assertEquals("Available", triStateFilterOptionLabel(TriStateFilter.YES, UPDATES_FILTER_LABELS))
         assertEquals("Up to date", triStateFilterOptionLabel(TriStateFilter.NO, UPDATES_FILTER_LABELS))
 
         assertEquals("All", triStateFilterOptionLabel(TriStateFilter.ALL, VERSION_SOURCE_FILTER_LABELS))
         assertEquals("Inherited", triStateFilterOptionLabel(TriStateFilter.YES, VERSION_SOURCE_FILTER_LABELS))
-        assertEquals("Declared in pom.xml", triStateFilterOptionLabel(TriStateFilter.NO, VERSION_SOURCE_FILTER_LABELS))
+        assertEquals("Declared", triStateFilterOptionLabel(TriStateFilter.NO, VERSION_SOURCE_FILTER_LABELS))
     }
 
     @Test
@@ -481,10 +481,10 @@ class RowMatchesFilterTest {
     @Test
     fun testVulnerabilityFilterEnumLabels() {
         assertEquals("All", VulnerabilityFilter.ALL.label)
-        assertEquals("Any vulnerability", VulnerabilityFilter.VULNERABLE.label)
-        assertEquals("Own vulnerability", VulnerabilityFilter.SELF_VULNERABLE.label)
-        assertEquals("Transitive vulnerability", VulnerabilityFilter.TRANSITIVE_VULNERABLE.label)
-        assertEquals("No vulnerability", VulnerabilityFilter.NOT_VULNERABLE.label)
-        assertEquals("Own vulnerability", VulnerabilityFilter.SELF_VULNERABLE.toString())
+        assertEquals("Any", VulnerabilityFilter.VULNERABLE.label)
+        assertEquals("Own", VulnerabilityFilter.SELF_VULNERABLE.label)
+        assertEquals("Transitive", VulnerabilityFilter.TRANSITIVE_VULNERABLE.label)
+        assertEquals("None", VulnerabilityFilter.NOT_VULNERABLE.label)
+        assertEquals("Own", VulnerabilityFilter.SELF_VULNERABLE.toString())
     }
 }
