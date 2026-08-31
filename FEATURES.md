@@ -78,7 +78,7 @@ This document describes the key features of the MavenUp IntelliJ plugin, grouped
 
 ## Settings & Configuration
 
-- **Global plugin settings**: Supports configurable behavior in `Settings > Tools > MavenUp` (click behavior, automatic version search, auto-select strategy, unstable-version filtering, Central-short-circuit behavior, and the explanatory comment written for pinned vulnerability fixes), stored at application level so the configuration applies to all projects, organized into four headed groups: **Appearance and Behavior**, **Versions & Updates**, **Vulnerability Check**, and **Pom.xml Changes**.
+- **Global plugin settings**: Supports configurable behavior in `Settings > Tools > MavenUp` (click behavior, automatic version search, auto-select strategy, unstable-version filtering, Central-short-circuit behavior, and the explanatory comment written for pinned vulnerability fixes), stored at application level so the configuration applies to all projects, organized into four headed groups: **Appearance and Behavior**, **Versions and Updates**, **Vulnerability Check**, and **Pom.xml Changes**.
 - **Immediate auto-select setting application**: Changing the auto-selection mode in settings and applying it immediately updates all **New Version** selections in the open tool window without requiring a new update check.
 - **Configurable toolbar button style**: Lets users switch the tool window toolbar between icon-only buttons and buttons with text labels (default); the change applies immediately to the open tool window.
 

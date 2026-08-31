@@ -274,10 +274,10 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   Versions-URL für groupId/artifactId/version.
 - **MavenUpConfigurable**: Settings-UI unter `Settings > Tools > MavenUp`.
   Die Optionen sind in vier Gruppen (`group`) gegliedert, die dem Arbeitsablauf folgen:
-  **Appearance and Behavior**, **Versions & Updates**, **Vulnerability Check** und **Pom.xml Changes**.
+  **Appearance and Behavior**, **Versions and Updates**, **Vulnerability Check** und **Pom.xml Changes**.
   Bietet u.a. die Checkbox für Text-Buttons in der Aktionsleiste (`toolbarShowText`) und veröffentlicht
   beim Speichern den `MAVEN_UP_SETTINGS_TOPIC`.
-  Die Gruppe **Versions & Updates** enthält zusätzlich die Option `stopAfterCentralSuccess` zur Steuerung,
+  Die Gruppe **Versions and Updates** enthält zusätzlich die Option `stopAfterCentralSuccess` zur Steuerung,
   ob nach erfolgreicher Maven-Central-Abfrage weitere private Repositories abgefragt werden, die
   Combobox `versionAutoSelectionMode` mit drei Zuständen für die Auto-Auswahl bei Update-Prüfungen
   (nach den Versionsfiltern platziert, da die Vorauswahl auf der gefilterten Liste arbeitet) sowie

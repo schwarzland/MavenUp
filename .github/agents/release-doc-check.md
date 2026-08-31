@@ -1,6 +1,6 @@
 ---
 name: release-doc-check
-description: Prüft im Release-Branch die Release-Dokumentation (CHANGELOG.md, FEATURES.md, README.md, getting_started.html, plugin.xml <description>) auf Vollständigkeit gegen das letzte Release und gleicht die Version in gradle.properties mit dem CHANGELOG ab. Läuft ausschließlich auf einem Release-Branch – auf main oder feature/** bricht er ab.
+description: Prüft im Release-Branch die Release-Dokumentation (CHANGELOG.md, FEATURES.md, README.md, getting_started.html, plugin.xml <description>, Dateien unter docs/) auf Vollständigkeit gegen das letzte Release und gleicht die Version in gradle.properties mit dem CHANGELOG ab. Läuft ausschließlich auf einem Release-Branch – auf main oder feature/** bricht er ab.
 tools: ['edit', 'view', 'create', 'grep', 'glob', 'powershell']
 ---
 
@@ -64,12 +64,15 @@ Halte dich an die verbindlichen Regeln aus `.github/copilot-instructions.md`.
 - Gleiche die Liste gegen die tatsächliche Implementierung unter `src/main/kotlin/` ab.
 
 ### 3. README.md – Vollständigkeit
-- Prüfe die Abschnitte **Funktionen** (Deutsch), **Benutzung** (Deutsch **und** Englisch),
-  **Einstellungen** (Deutsch) und **Architektur** auf Vollständigkeit und Konsistenz.
-- Jede neue/geänderte Funktion im Abschnitt **Funktionen**, jede neue Benutzeraktion in
-  **Benutzung** (DE **und** EN), jede neue Einstellung in **Einstellungen**.
-- Entferne veraltete Formulierungen (z. B. „jetzt", „neu"). Keine inhaltlichen Dopplungen
-  zwischen den Abschnitten.
+- Sprache: **Englisch**. Die README ist eine schlanke Landing Page und enthält ausschließlich
+  Kurzbeschreibung, Installation, Quick Start, die Dokumentationsliste und den Abschnitt
+  **AI instructions** – Detailinhalte gehören in `FEATURES.md` bzw. unter `docs/`.
+- Prüfe, ob Kurzbeschreibung und Quick Start noch zum aktuellen Funktionsumfang passen.
+- Prüfe die Dokumentationsliste auf Vollständigkeit (siehe Abschnitt 6) und den Abschnitt
+  **AI instructions** darauf, ob `AGENTS.md`, `.github/copilot-instructions.md` und
+  `.github/copilot-project-context.md` weiterhin korrekt verlinkt sind.
+- Entferne veraltete Formulierungen (z. B. „now", „new"). Keine inhaltlichen Dopplungen
+  zwischen README und `FEATURES.md` bzw. den `docs/`-Dateien.
 
 ### 4. plugin.xml – Sektion `<description>`
 - Datei: `src/main/resources/META-INF/plugin.xml`.
@@ -92,7 +95,32 @@ Halte dich an die verbindlichen Regeln aus `.github/copilot-instructions.md`.
 - Gleiche die Seite mit `FEATURES.md` und `src/main/resources/META-INF/plugin.xml` ab, damit
   keine grundlegende Funktion aus der Produktbeschreibung fehlt.
 
-### 6. gradle.properties – Version gegen CHANGELOG.md
+### 6. Dokumentation unter `docs/`
+- Sprache: **Englisch**.
+- `README.md` ist eine schlanke Landing Page; die Detailinhalte liegen ausschließlich in den
+  `docs/`-Dateien. Prüfe daher jede thematisch betroffene Datei einzeln:
+  - `docs/usage.md`: Bedienung des Tool-Windows, Filter, Aktionen, Kontextmenü, Navigation.
+  - `docs/configuration.md`: **alle** Einstellungen – jede neue oder geänderte Einstellung muss hier stehen.
+  - `docs/privacy-and-security.md`: übertragene Daten und externe Endpunkte.
+  - `docs/architecture.md`: Paketstruktur, Komponenten und deren Aufgaben.
+  - `docs/development.md`: Tests, Codequalität, Gradle-Proxy-Konfiguration, Troubleshooting.
+  - `docs/release-and-ci.md`: Branching, GitHub-Actions-Workflows, Dependabot, Publishing.
+  - `docs/licenses.md`: eingebettete Drittanbieter-Bibliotheken mit Name, Version, Lizenz (inkl. Link)
+    und Verwendungszweck – prüfe gegen `build.gradle.kts`, ob Abhängigkeiten hinzugekommen,
+    aktualisiert oder entfernt wurden.
+  - `docs/presentation.md`: Sprechleitfaden für Demos – **bewusst auf Deutsch** verfasst; prüfe, ob die
+    dort beschriebene Produktdarstellung noch zur aktuellen Funktionalität passt.
+- Ergänze fehlende Inhalte, aktualisiere geänderte Beschreibungen, entferne veraltete Abschnitte
+  und veraltete Formulierungen (z. B. „now", „new").
+- Jeder Punkt gehört an **genau eine** Stelle: keine inhaltlichen Dopplungen zwischen `README.md`
+  und `docs/` oder zwischen den `docs/`-Dateien untereinander.
+- Prüfe, ob die Dokumentationsliste in `README.md` alle nutzerrelevanten Dateien unter `docs/` verlinkt
+  (Ausnahme: `docs/presentation.md`); ergänze fehlende Verlinkungen und entferne Links auf nicht mehr
+  existierende Dateien.
+- Neue `docs/`-Dateien, die für eine seit dem letzten Release ergänzte Funktion nötig sind, legst du an
+  und verlinkst sie in `README.md`.
+
+### 7. gradle.properties – Version gegen CHANGELOG.md
 - Vergleiche `version=` in `gradle.properties` mit der obersten Versionsnummer
   (`## [x.y.z]`) in `CHANGELOG.md`.
 - Bei Abweichung ist die **CHANGELOG-Version die Quelle der Wahrheit** für dieses Release:
@@ -101,8 +129,9 @@ Halte dich an die verbindlichen Regeln aus `.github/copilot-instructions.md`.
 - Melde die Korrektur explizit in der Zusammenfassung.
 
 ## Arbeitsweise & Grenzen
-- Nimm nur Änderungen an den sechs oben genannten Zielartefakten vor
-  (`CHANGELOG.md`, `FEATURES.md`, `README.md`, `getting_started.html`, `plugin.xml`, `gradle.properties`).
+- Nimm nur Änderungen an den oben genannten Zielartefakten vor
+  (`CHANGELOG.md`, `FEATURES.md`, `README.md`, `getting_started.html`, `plugin.xml`,
+  den Dateien unter `docs/` und `gradle.properties`).
 - Ändere **keinen** Produktivcode und **keine** Tests.
 - Führe **keinen** `git commit` und **kein** `git push` aus.
 - Fasse am Ende zusammen: geprüfter Branch, gefundene Lücken/Abweichungen und die
