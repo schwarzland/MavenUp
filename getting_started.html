@@ -41,9 +41,12 @@
 <h3>Navigate and inspect entries</h3>
 <ul>
     <li><strong>Filter the table</strong>: Type in the filter field above the table to narrow the list by GroupId,
-        ArtifactId or Property, and use the combo boxes to filter by dependency type, pending version changes,
-        available updates, or security findings. You can also right-click a GroupId, ArtifactId, or Property cell and
-        choose <strong>Filter by "..."</strong> to filter by that exact value. The updates filter becomes available
+        ArtifactId or Property, and use the combo boxes to filter by dependency type, version source, pending version
+        changes, available updates, or security findings. You can also right-click a GroupId, ArtifactId, or Property
+        cell and
+        choose <strong>Filter by "..."</strong> to filter by that exact value. The version filter becomes available as
+        soon as at least one row has an inherited version and lets you show only inherited rows or only rows declaring
+        their own <code>&lt;version&gt;</code> tag; the updates filter becomes available
         after a successful "Refresh and Search for New Versions" and then shows only rows with a newer version; the vulnerabilities
         filter becomes available after a successful "Scan for Vulnerabilities" and lets you separate rows whose own
         dependency is affected from rows that are only affected through their transitive dependencies. All filters

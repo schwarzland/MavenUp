@@ -425,6 +425,57 @@ class RowMatchesFilterTest {
         assertEquals("All", triStateFilterOptionLabel(TriStateFilter.ALL, UPDATES_FILTER_LABELS))
         assertEquals("Update available", triStateFilterOptionLabel(TriStateFilter.YES, UPDATES_FILTER_LABELS))
         assertEquals("Up to date", triStateFilterOptionLabel(TriStateFilter.NO, UPDATES_FILTER_LABELS))
+
+        assertEquals("All", triStateFilterOptionLabel(TriStateFilter.ALL, VERSION_SOURCE_FILTER_LABELS))
+        assertEquals("Inherited", triStateFilterOptionLabel(TriStateFilter.YES, VERSION_SOURCE_FILTER_LABELS))
+        assertEquals("Declared in pom.xml", triStateFilterOptionLabel(TriStateFilter.NO, VERSION_SOURCE_FILTER_LABELS))
+    }
+
+    @Test
+    fun testVersionSourceFilterAllMatchesBothKinds() {
+        val inherited = FilterRow("org.a", "lib", "p", "dependency", versionInherited = true)
+        val declared = FilterRow("org.a", "lib", "p", "dependency", versionInherited = false)
+        val criteria = FilterCriteria("", "", versionSourceFilter = TriStateFilter.ALL)
+
+        assertTrue(rowMatchesFilter(inherited, criteria))
+        assertTrue(rowMatchesFilter(declared, criteria))
+    }
+
+    @Test
+    fun testVersionSourceFilterYesKeepsOnlyInheritedRows() {
+        val criteria = FilterCriteria("", "", versionSourceFilter = TriStateFilter.YES)
+
+        assertTrue(rowMatchesFilter(FilterRow("org.a", "lib", "p", "dependency", versionInherited = true), criteria))
+        assertFalse(rowMatchesFilter(FilterRow("org.a", "lib", "p", "dependency", versionInherited = false), criteria))
+    }
+
+    @Test
+    fun testVersionSourceFilterNoHidesInheritedRows() {
+        val criteria = FilterCriteria("", "", versionSourceFilter = TriStateFilter.NO)
+
+        assertFalse(rowMatchesFilter(FilterRow("org.a", "lib", "p", "dependency", versionInherited = true), criteria))
+        assertTrue(rowMatchesFilter(FilterRow("org.a", "lib", "p", "dependency", versionInherited = false), criteria))
+    }
+
+    @Test
+    fun testVersionSourceFilterCombinesWithOtherCriteria() {
+        val row = FilterRow("org.a", "lib", "p", "plugin", versionInherited = true)
+
+        assertTrue(
+            rowMatchesFilter(row, FilterCriteria("lib", "plugin", versionSourceFilter = TriStateFilter.YES))
+        )
+        assertFalse(
+            rowMatchesFilter(row, FilterCriteria("lib", "dependency", versionSourceFilter = TriStateFilter.YES))
+        )
+        assertFalse(
+            rowMatchesFilter(row, FilterCriteria("other", "plugin", versionSourceFilter = TriStateFilter.YES))
+        )
+    }
+
+    @Test
+    fun testVersionInheritedDefaultsToFalse() {
+        assertFalse(FilterRow("org.a", "lib", "p", "dependency").versionInherited)
+        assertEquals(TriStateFilter.ALL, FilterCriteria("", "").versionSourceFilter)
     }
 
     @Test
