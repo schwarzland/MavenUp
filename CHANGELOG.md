@@ -18,9 +18,9 @@
 - Kept all context and toolbar operations (version selection, bulk actions, reset, navigation, vulnerability details) fully available for entries with an inherited version; choosing a version adds an explicit `<version>` tag.
 - Kept the dependency table hidden behind an explanatory empty state while a refresh or a version search is running — like the transitive vulnerabilities view — and rebuilt its rows only once the operation has finished.
 - Shortened the filter row labels and combo box option texts (for example **Vulnerabilities:** to **CVEs:** and *Transitive vulnerability* to *Transitive*) so the filter controls take up less horizontal space and leave more room for the search field; the full meaning stays available in each control's tooltip.
-- Reordered the settings groups under `Settings > Tools > MavenUp` to follow the actual workflow: **Appearance and Behavior**, **Versions & Updates**, **Vulnerability Check**, **Pom.xml Changes**.
+- Reordered the settings groups under `Settings > Tools > MavenUp` to follow the actual workflow: **Appearance and Behavior**, **Versions and Updates**, **Vulnerability Check**, **Pom.xml Changes**.
 - Renamed the first settings group from **Appearance** to **Appearance and Behavior** because it also contains behavioral options such as the single-click navigation.
-- Moved **Confirm before resetting all version selections** from the appearance group to **Versions & Updates**, where the other version-selection options live.
+- Moved **Confirm before resetting all version selections** from the appearance group to **Versions and Updates**, where the other version-selection options live.
 - Placed **Automatically select version after checking for updates** after the version filters, since the pre-selection operates on the filtered list of versions.
 
 ## 3.0.0

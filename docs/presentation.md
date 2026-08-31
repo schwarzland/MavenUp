@@ -97,13 +97,14 @@ Mögliche Inhalte:
 
 - **Tool-Window öffnen**: erscheint nur für Maven-Projekte, mit eigenem Icon (Light-/Dark-Variante).
 - **Tabelle erklären**: Dependencies, Plugins, Parent-POM sowie `dependencyManagement`- und `pluginManagement`-Einträge in einer Tabelle, mit Type-Spalte.
-- **Automatik betonen**: Beim Laden der Projektdaten und nach jedem Maven-Import läuft „Refresh and Search for New Versions" automatisch – die Spalte **New Version** ist sofort gefüllt.
-- **Navigation demonstrieren**: Klick (bzw. Doppelklick, je nach Einstellung) auf eine Zeile springt an die exakte Stelle in der `pom.xml`.
-- **Kontextmenü kurz aufklappen**: Filter by „…", Navigate to pom.xml, Open on MVN Repository / Sonatype Central, Versions-Shortcuts, Vulnerability Details – Einträge bleiben stets sichtbar, nur enabled/disabled ändert sich.
-- **Filterzeile zeigen**: Textfilter über GroupId/ArtifactId/Property plus vier Combo-Boxen (Type, Updates, Pending, Vulnerabilities) und ein Reset-Button.
+- **Automatik betonen**: Beim Laden der Projektdaten und nach jedem Maven-Import läuft „Refresh and Search for New Versions" automatisch – die Spalte **New Version** ist sofort gefüllt. Während Refresh und Versionssuche bleibt die Tabelle leer und benennt den laufenden Vorgang.
+- **Navigation demonstrieren**: Klick (bzw. Doppelklick, je nach Einstellung) auf eine Zeile springt an die exakte Stelle in der `pom.xml`; ein Klick in die Spalte **Property** springt stattdessen zur Definition der Property in `<properties>` – auch innerhalb eines `<profile>`.
+- **Geerbte Versionen zeigen**: Einträge ohne eigenes `<version>`-Tag – Version kommt aus dem Parent-POM oder einem importierten BOM – erscheinen kursiv und gedämpft mit dem Marker *(inherited)*; ein Update schreibt ein explizites `<version>`-Tag.
+- **Kontextmenü kurz aufklappen**: Filter by „…", Navigate to pom.xml, Navigate to Property Definition, Open on MVN Repository / Sonatype Central, Versions-Shortcuts, Vulnerability Details – Einträge bleiben stets sichtbar, nur enabled/disabled ändert sich.
+- **Filterzeile zeigen**: Textfilter über GroupId/ArtifactId/Property plus fünf Combo-Boxen (Type, Version, Update, Pending, CVEs) und ein Reset-Button.
 - **Sortierung**: Spaltenköpfe schalten aufsteigend → absteigend → Original-Reihenfolge der `pom.xml`.
 
-**Demo-Tipp**: Erst filtern („nur Update available"), dann sortieren – das macht den Nutzen sofort greifbar.
+**Demo-Tipp**: Erst filtern (**Update: Available**), dann sortieren – das macht den Nutzen sofort greifbar.
 
 ---
 
@@ -152,7 +153,7 @@ Mögliche Inhalte:
 
 Mögliche Inhalte:
 
-- **Einstellungen** unter `Settings > Tools > MavenUp`, gruppiert in *Appearance and Behavior*, *Versions & Updates*, *Vulnerability Check* und *Pom.xml Changes*; global für alle Projekte. Details siehe [configuration.md](configuration.md).
+- **Einstellungen** unter `Settings > Tools > MavenUp`, gruppiert in *Appearance and Behavior*, *Versions and Updates*, *Vulnerability Check* und *Pom.xml Changes*; global für alle Projekte. Details siehe [configuration.md](configuration.md).
 - Highlights nennen: Klickverhalten, automatische Versionssuche, Auto-Auswahl-Strategie, Filtern instabiler Qualifier (`rc,beta,milestone`), Central-First-Strategie, Repository-Browser (MVN Repository / Sonatype Central), Toolbar-Stil.
 - **Datenschutz**: Es werden ausschließlich Maven-Koordinaten (groupId, artifactId, version) über HTTPS übertragen – kein Quellcode, keine Pfade, keine Projektdaten. Der OSS-Index-Token liegt im IntelliJ Password Safe. Siehe [privacy-and-security.md](privacy-and-security.md).
 - **Betrieb**: Alle langen Operationen laufen im Hintergrund; das Plugin nutzt nur dynamische Extension Points und lässt sich ohne IDE-Neustart installieren und aktualisieren.

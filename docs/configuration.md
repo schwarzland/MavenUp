@@ -2,7 +2,7 @@
 
 ## Settings
 
-Under `Settings > Tools > MavenUp`, the following options can be configured. The settings are stored globally at the application level and therefore apply to all projects. For better clarity, they are grouped into four thematic sections with headings that follow the typical workflow: **Appearance and Behavior**, **Versions & Updates**, **Vulnerability Check**, and **Pom.xml Changes**.
+Under `Settings > Tools > MavenUp`, the following options can be configured. The settings are stored globally at the application level and therefore apply to all projects. For better clarity, they are grouped into four thematic sections with headings that follow the typical workflow: **Appearance and Behavior**, **Versions and Updates**, **Vulnerability Check**, and **Pom.xml Changes**.
 
 ### Appearance and Behavior
 
