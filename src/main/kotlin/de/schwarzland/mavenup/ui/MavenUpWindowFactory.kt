@@ -310,10 +310,18 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         return versionStatusTooltip(currentVersion, effectiveVersion, newestVersion)
                     }
                     val settings = MavenUpSettings.getInstance()
+                    val isProperty = column == PROPERTY_COLUMN &&
+                        (getValueAt(row, PROPERTY_COLUMN) as? String).isNullOrBlank().not()
                     return if (settings.state.jumpOnSingleClick)
-                        MyMessageBundle.message("toolwindow.MyToolWindow.table.row.tooltip.singleClick")
+                        MyMessageBundle.message(
+                            if (isProperty) "toolwindow.MyToolWindow.table.property.tooltip.singleClick"
+                            else "toolwindow.MyToolWindow.table.row.tooltip.singleClick"
+                        )
                     else
-                        MyMessageBundle.message("toolwindow.MyToolWindow.table.row.tooltip.doubleClick")
+                        MyMessageBundle.message(
+                            if (isProperty) "toolwindow.MyToolWindow.table.property.tooltip.doubleClick"
+                            else "toolwindow.MyToolWindow.table.row.tooltip.doubleClick"
+                        )
                 }
             }
             table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION)
@@ -355,8 +363,13 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         val groupId = table.getValueAt(row, GROUP_ID_COLUMN) as? String ?: ""
                         val artifactId = table.getValueAt(row, ARTIFACT_ID_COLUMN) as? String ?: ""
                         val type = table.getValueAt(row, TYPE_COLUMN) as? String ?: "dependency"
+                        val property = table.getValueAt(row, PROPERTY_COLUMN) as? String ?: ""
 
-                        pomNavigationService.navigateToDependency(groupId, artifactId, type)
+                        if (column == PROPERTY_COLUMN && property.isNotBlank()) {
+                            pomNavigationService.navigateToProperty(property, groupId, artifactId, type)
+                        } else {
+                            pomNavigationService.navigateToDependency(groupId, artifactId, type)
+                        }
                     }
                 }
 

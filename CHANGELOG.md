@@ -11,6 +11,7 @@
 
 ### Changed
 
+- Changed the click navigation in the **Property** column so it jumps to the property definition in the `pom.xml` instead of the dependency entry, falling back to the dependency when the property is not declared in any project `pom.xml`.
 - Kept all context and toolbar operations (version selection, bulk actions, reset, navigation, vulnerability details) fully available for entries with an inherited version; choosing a version adds an explicit `<version>` tag.
 - Kept the dependency table hidden behind an explanatory empty state while a refresh or a version search is running — like the transitive vulnerabilities view — and rebuilt its rows only once the operation has finished.
 - Shortened the filter row labels and combo box option texts (for example **Vulnerabilities:** to **CVEs:** and *Transitive vulnerability* to *Transitive*) so the filter controls take up less horizontal space and leave more room for the search field; the full meaning stays available in each control's tooltip.
