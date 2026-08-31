@@ -20,6 +20,11 @@ import de.schwarzland.mavenup.ui.RefreshSnapshot
 import de.schwarzland.mavenup.ui.VulnerabilityOrigin
 import de.schwarzland.mavenup.ui.buildVulnerabilityCell
 import de.schwarzland.mavenup.ui.canCheckVulnerabilities
+import de.schwarzland.mavenup.ui.EMPTY_TEXT_KEY_NO_DEPENDENCIES
+import de.schwarzland.mavenup.ui.EMPTY_TEXT_KEY_NO_MATCHES
+import de.schwarzland.mavenup.ui.EMPTY_TEXT_KEY_REFRESHING
+import de.schwarzland.mavenup.ui.EMPTY_TEXT_KEY_SEARCHING
+import de.schwarzland.mavenup.ui.dependencyTableEmptyTextKey
 import de.schwarzland.mavenup.ui.vulnerabilitySummary
 import de.schwarzland.mavenup.ui.vulnerabilityCellComparator
 import de.schwarzland.mavenup.ui.VersionUpdateArrowIcon
@@ -68,6 +73,43 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertFalse(canCheckVulnerabilities(isRefreshing = true, isUpdating = false))
         assertFalse(canCheckVulnerabilities(isRefreshing = false, isUpdating = true))
         assertFalse(canCheckVulnerabilities(isRefreshing = true, isUpdating = true))
+    }
+
+    fun testDependencyTableEmptyTextKeyPrefersRunningOperations() {
+        assertEquals(
+            EMPTY_TEXT_KEY_SEARCHING,
+            dependencyTableEmptyTextKey(isRefreshing = true, isSearchingVersions = true, hasLoadedRows = true)
+        )
+        assertEquals(
+            EMPTY_TEXT_KEY_SEARCHING,
+            dependencyTableEmptyTextKey(isRefreshing = false, isSearchingVersions = true, hasLoadedRows = false)
+        )
+        assertEquals(
+            EMPTY_TEXT_KEY_REFRESHING,
+            dependencyTableEmptyTextKey(isRefreshing = true, isSearchingVersions = false, hasLoadedRows = true)
+        )
+    }
+
+    fun testDependencyTableEmptyTextKeyDistinguishesFilterAndMissingData() {
+        assertEquals(
+            EMPTY_TEXT_KEY_NO_MATCHES,
+            dependencyTableEmptyTextKey(isRefreshing = false, isSearchingVersions = false, hasLoadedRows = true)
+        )
+        assertEquals(
+            EMPTY_TEXT_KEY_NO_DEPENDENCIES,
+            dependencyTableEmptyTextKey(isRefreshing = false, isSearchingVersions = false, hasLoadedRows = false)
+        )
+    }
+
+    fun testDependencyTableEmptyTextKeysResolveToMessages() {
+        listOf(
+            EMPTY_TEXT_KEY_SEARCHING,
+            EMPTY_TEXT_KEY_REFRESHING,
+            EMPTY_TEXT_KEY_NO_MATCHES,
+            EMPTY_TEXT_KEY_NO_DEPENDENCIES
+        ).forEach { key ->
+            assertTrue(key, MyMessageBundle.message(key).isNotBlank())
+        }
     }
 
     fun testVulnerabilityColumnIsAssociatedWithCurrentVersion() {

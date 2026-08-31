@@ -67,6 +67,11 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   Maven-/PSI-Daten für Refreshes werden über eine
   nicht blockierende Read-Action außerhalb des EDT erfasst. Während Refresh oder Update-Check
   laufen, bleibt der Vulnerability-Check deaktiviert, um konkurrierende Hintergrundaktionen zu vermeiden.
+  Solange ein Refresh (`isRefreshing`) oder eine Versionssuche (`isSearchingVersions`) läuft, bleibt die
+  Haupttabelle bewusst leer: `refreshAction` baut die Zeilen bei `checkUpdates = true` erst im
+  abschließenden Folge-Refresh nach der Versionssuche auf, und `updateTableEmptyText` setzt über
+  `dependencyTableEmptyTextKey` den erklärenden Hinweistext (laufender Vorgang, keine Dependencies
+  geladen oder alle Zeilen ausgefiltert) – analog zum Empty State der `TransitiveVulnerabilitiesView`.
   Die Aktionsleiste kann laut Einstellung (`toolbarShowText`) wahlweise Icon- oder Text-Buttons darstellen und
   wird bei geänderten Einstellungen über den `MAVEN_UP_SETTINGS_TOPIC`-Message-Bus sofort neu aufgebaut.
   Unterhalb der Aktionsleiste liegt eine Filterzeile mit fünf `ComboBox`-Elementen (Typ, Versionsherkunft via `TriStateFilter` [All/Yes/No], verfügbare Updates via `TriStateFilter` [All/Yes/No], anstehende Änderungen via `TriStateFilter` [All/Yes/No], Sicherheitslücken via `VulnerabilityFilter` [ALL/VULNERABLE/SELF_VULNERABLE/TRANSITIVE_VULNERABLE/NOT_VULNERABLE]) und einem `SearchTextField` (Textfilter über
@@ -199,6 +204,10 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   in eigene Dateien desselben Packages ausgelagert wurden (reine Logik/Icons, keine
   `MyToolWindow`-Abhängigkeit):
   - `MavenUpTableConstants.kt`: Spalten-Indizes und Message-Key-/Typ-Konstanten.
+  - `DependencyTableEmptyText.kt`: `dependencyTableEmptyTextKey` samt den Bundle-Schlüsseln
+    `EMPTY_TEXT_KEY_REFRESHING`, `EMPTY_TEXT_KEY_SEARCHING`, `EMPTY_TEXT_KEY_NO_DEPENDENCIES`
+    und `EMPTY_TEXT_KEY_NO_MATCHES` – bestimmt den Hinweistext der leeren Haupttabelle
+    (laufender Refresh bzw. laufende Versionssuche haben Vorrang vor Filter- und Leerzustand).
   - `VersionStatusUi.kt`: `VersionUpdateArrowIcon`, `isVersionUpToDate`, `hasNewerVersion`,
     `versionStatusText`/`versionStatusColor`/`versionStatusTooltip`, `versionDropdownItemDisplay`
     (liefert Anzeigetext und Fettschrift-Status in einem Durchgang), `versionDropdownItemText`
