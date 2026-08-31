@@ -153,6 +153,13 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private val transitiveDependenciesByDirect = mutableMapOf<String, Set<String>>()
 
         /**
+         * Schlüssel (`groupId:artifactId`) der Einträge, deren Version nicht in der `pom.xml`
+         * deklariert, sondern vom Parent-POM oder einem importierten BOM geerbt wird. Der
+         * Renderer der Spalte **Current Version** hält eine lebende Referenz auf diese Menge.
+         */
+        private val inheritedVersionDependencies = mutableSetOf<String>()
+
+        /**
          * Verfügbare Versionen der verwundbaren transitiven Koordinaten (`groupId:artifactId`), die
          * beim Vulnerability-Scan ermittelt werden. Bewusst getrennt von [availableVersions], damit die
          * New-Version-Spalte der transitiven Ansicht bei einer erneuten Versionssuche der Haupttabelle
@@ -268,6 +275,12 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     val row = rowAtPoint(e.point)
                     val column = columnAtPoint(e.point)
                     if (row < 0 || column == VULNERABILITIES_COLUMN) return super.getToolTipText(e)
+                    if (column == CURRENT_VERSION_COLUMN) {
+                        val groupId = getValueAt(row, GROUP_ID_COLUMN) as? String ?: ""
+                        val artifactId = getValueAt(row, ARTIFACT_ID_COLUMN) as? String ?: ""
+                        inheritedVersionTooltip(inheritedVersionDependencies.contains("$groupId:$artifactId"))
+                            ?.let { return it }
+                    }
                     if (column == NEW_VERSION_COLUMN) {
                         @Suppress("UNCHECKED_CAST")
                         val versions = getValueAt(row, NEW_VERSION_COLUMN) as? List<String> ?: emptyList()
@@ -470,6 +483,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
             applyRowFilter()
 
             // Custom Renderer and Editor for the "New Version" column
+            table.columnModel.getColumn(CURRENT_VERSION_COLUMN).cellRenderer =
+                createCurrentVersionRenderer(inheritedVersionDependencies)
             table.columnModel.getColumn(NEW_VERSION_COLUMN).cellRenderer =
                 TableCellRenderer { table, value, isSelected, _, row, _ ->
                     val groupId = table?.getValueAt(row, GROUP_ID_COLUMN) as? String ?: ""
@@ -614,6 +629,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 dependencyToProperty.clear()
                 knownDependencies.clear()
                 knownTypes.clear()
+                inheritedVersionDependencies.clear()
                 updateUpdateButtonState()
 
                 val managedDependencyType =
@@ -633,6 +649,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         snapshot.rows.forEach { row ->
                             knownDependencies[row.key] = row.currentVersion
                             knownTypes[row.key] = row.type
+                            if (row.versionInherited) {
+                                inheritedVersionDependencies.add(row.key)
+                            }
                             tableModel.addRow(
                                 arrayOf(
                                     row.groupId,

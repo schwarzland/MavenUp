@@ -2,6 +2,16 @@
 
 # MavenUp Changelog
 
+## [Unreleased]
+
+### Added
+
+- Added an *(inherited)* marker in the **Current Version** column for dependencies, plugins, and parents that have no `<version>` tag in the `pom.xml` because their version comes from the parent POM or an imported BOM; the version is rendered in italics and a muted color, and a tooltip explains the origin.
+
+### Changed
+
+- Kept all context and toolbar operations (version selection, bulk actions, reset, navigation, vulnerability details) fully available for entries with an inherited version; choosing a version adds an explicit `<version>` tag.
+
 ## 3.0.0
 
 ### Added

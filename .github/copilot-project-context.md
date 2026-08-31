@@ -57,6 +57,13 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   vor **Current Version** und ordnet transitive Befunde über den Maven-Dependency-Tree der
   jeweiligen direkten Dependency zu. Sie zeigt Gesamtzahl, transitive Anzahl und höchste Severity;
   der zeilenbezogene Detaildialog markiert die zugehörigen transitiven Komponenten.
+  Die Spalte **Current Version** nutzt den über `createCurrentVersionRenderer` gesetzten Renderer:
+  Einträge ohne eigenes `<version>`-Tag (Version aus Parent-POM oder importiertem BOM) stehen in
+  `inheritedVersionDependencies` und werden kursiv, in `JBColor.GRAY` und mit dem Marker „(inherited)"
+  samt erklärendem Tooltip dargestellt; der Renderer setzt die Vordergrundfarbe bei jedem Aufruf
+  explizit, weil `DefaultTableCellRenderer` dieselbe Komponenteninstanz wiederverwendet und eine
+  gesetzte Farbe sonst auf alle folgenden Zeilen durchschlägt. Alle Kontext- und Toolbar-Aktionen
+  bleiben für sie unverändert nutzbar.
   Maven-/PSI-Daten für Refreshes werden über eine
   nicht blockierende Read-Action außerhalb des EDT erfasst. Während Refresh oder Update-Check
   laufen, bleibt der Vulnerability-Check deaktiviert, um konkurrierende Hintergrundaktionen zu vermeiden.
@@ -210,7 +217,13 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
     `vulnerabilitySummary`, `worstSeverity`, `canCheckVulnerabilities`, `vulnerabilityColor`,
     `vulnerabilityCellRenderer` (geteilter Zell-Renderer von Haupttabelle und transitiver Ansicht),
     `VulnerabilityScanTargets`, `artifactNodeCoordinate`, `coordinateString`.
-  - `RefreshSnapshot.kt`: `RefreshRow`, `RefreshSnapshot`.
+  - `RefreshSnapshot.kt`: `RefreshRow` (inkl. `versionInherited`), `RefreshSnapshot`.
+  - `InheritedVersionUi.kt`: `inheritedVersionCellText`, `inheritedVersionTooltip`,
+    `createCurrentVersionRenderer` samt `INHERITED_VERSION_MARKER_KEY`/`INHERITED_VERSION_TOOLTIP_KEY` –
+    kennzeichnet Zeilen ohne eigenes `<version>`-Tag in der Spalte **Current Version** kursiv, in
+    `JBColor.GRAY` und mit dem Marker „(inherited)"; die Vordergrundfarbe wird pro Aufruf explizit
+    gesetzt (Auswahl-, Gedämpft- oder Tabellenfarbe), der Renderer hält eine lebende Referenz auf die
+    Schlüsselmenge, der Modellwert der Zelle bleibt unverändert.
   - `MavenRepositoryLink.kt`: `buildMavenRepositoryUrl`.
   - `SortableHeaderIcon.kt`: `sortableHeaderIcon` und `installSortableHeaderRenderer`
     (geteilter Kopfzeilen-Renderer für alle Plugin-Tabellen).
@@ -295,7 +308,9 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   in `recommendedFixVersion`.
 - **RefreshSnapshotCollector**: liest über PSI die deklarierten Dependencies, Plugins und
   Versions-Properties der `pom.xml`-Dateien und liefert einen `RefreshSnapshot`; löst
-  Property-Platzhalter (auch die Version im `<parent>`-Tag) über `resolveVersionPlaceholder` auf. Zustandslos, benötigt nur das Projekt.
+  Property-Platzhalter (auch die Version im `<parent>`-Tag) über `resolveVersionPlaceholder` auf. Setzt
+  `RefreshRow.versionInherited`, wenn die `pom.xml` für den Eintrag kein eigenes `<version>`-Tag deklariert
+  (Version stammt aus Parent-POM oder importiertem BOM). Zustandslos, benötigt nur das Projekt.
 - **PomUpdateService**: wendet ausgewählte Updates über PSI/`WriteCommandAction` auf die
   `pom.xml` an (`applyUpdateToPom`, `updateXmlTagVersion`, Parent/Dependencies/Plugins) und
   speichert die Dateien vor dem Maven-Sync (`persistPomChanges`). Für „managed dependency"-Updates
@@ -330,6 +345,7 @@ Tests: `src/test/kotlin/de/schwarzland/mavenup/` spiegeln die Paketstruktur (`mo
 Reine Logik nutzt JUnit (z. B. `VulnerabilityApiServiceTest`, `VersionAutoSelectionTest`), Tests mit
 Projekt-/PSI-Umgebung erben von `BasePlatformTestCase` (z. B. `MavenUpWindowFactoryTest`,
 `RefreshSnapshotCollectorTest`, `PomNavigationServiceTest`, `PomUpdateServiceTest`, `VersionStatusUiTest`,
+`InheritedVersionUiTest`,
 `DependencyVersionServiceTest`, `VulnerabilityScanServiceTest`). Netzwerklastige Services werden über
 injizierte Seams/Interfaces netzwerkfrei getestet.
 
