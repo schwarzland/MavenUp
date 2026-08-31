@@ -99,6 +99,13 @@ internal val UPDATES_FILTER_LABELS = TriStateFilterLabels(
     "toolwindow.MyToolWindow.filter.updates.option.no"
 )
 
+/** Kontextspezifische Optionstexte des Filters nach der Herkunft der Version. */
+internal val VERSION_SOURCE_FILTER_LABELS = TriStateFilterLabels(
+    "toolwindow.MyToolWindow.filter.versionSource.option.all",
+    "toolwindow.MyToolWindow.filter.versionSource.option.yes",
+    "toolwindow.MyToolWindow.filter.versionSource.option.no"
+)
+
 /**
  * Filteroption des Sicherheitslücken-Filters.
  *
@@ -161,6 +168,8 @@ internal fun vulnerabilityFilterRenderer(): ListCellRenderer<in VulnerabilityFil
  * @property hasUpdate `true`, wenn für die Zeile eine neuere Version verfügbar ist.
  * @property hasDirectVulnerabilities `true`, wenn die Abhängigkeit der Zeile selbst betroffen ist.
  * @property hasTransitiveVulnerabilities `true`, wenn mindestens eine transitive Abhängigkeit der Zeile betroffen ist.
+ * @property versionInherited `true`, wenn die `pom.xml` für die Zeile kein eigenes `<version>`-Tag
+ * deklariert und die Version daher vom Parent-POM oder einem importierten BOM stammt.
  */
 internal data class FilterRow(
     val groupId: String,
@@ -170,7 +179,8 @@ internal data class FilterRow(
     val hasChange: Boolean = false,
     val hasUpdate: Boolean = false,
     val hasDirectVulnerabilities: Boolean = false,
-    val hasTransitiveVulnerabilities: Boolean = false
+    val hasTransitiveVulnerabilities: Boolean = false,
+    val versionInherited: Boolean = false
 ) {
     /** `true`, wenn für die Zeile eigene oder transitive Sicherheitslücken gemeldet sind. */
     val hasVulnerabilities: Boolean
@@ -185,13 +195,16 @@ internal data class FilterRow(
  * @property changesFilter Die ausgewählte Filteroption für Änderungen (Alle, Ja, Nein).
  * @property updatesFilter Die ausgewählte Filteroption für verfügbare Updates (Alle, Ja, Nein).
  * @property vulnerabilitiesFilter Die ausgewählte Filteroption für Sicherheitslücken.
+ * @property versionSourceFilter Die ausgewählte Filteroption für die Herkunft der Version
+ * ([TriStateFilter.YES] zeigt nur geerbte, [TriStateFilter.NO] nur in der `pom.xml` deklarierte Versionen).
  */
 internal data class FilterCriteria(
     val searchText: String,
     val typeFilter: String,
     val changesFilter: TriStateFilter = TriStateFilter.ALL,
     val updatesFilter: TriStateFilter = TriStateFilter.ALL,
-    val vulnerabilitiesFilter: VulnerabilityFilter = VulnerabilityFilter.ALL
+    val vulnerabilitiesFilter: VulnerabilityFilter = VulnerabilityFilter.ALL,
+    val versionSourceFilter: TriStateFilter = TriStateFilter.ALL
 )
 
 /**
@@ -203,7 +216,9 @@ internal data class FilterCriteria(
  * exakter Übereinstimmung des Typs. Der Änderungs- und Updates-Filter prüfen,
  * ob Änderungen bzw. verfügbare Updates vorliegen (`YES`), nicht vorliegen (`NO`) oder
  * der Filter inaktiv ist (`ALL`). Der Sicherheitslücken-Filter unterscheidet zusätzlich zwischen
- * beliebigen, eigenen und transitiven Befunden.
+ * beliebigen, eigenen und transitiven Befunden. Der Filter nach der Herkunft der Version zeigt
+ * bei `YES` nur Zeilen mit geerbter Version und bei `NO` nur Zeilen mit einem eigenen
+ * `<version>`-Tag in der `pom.xml`.
  *
  * @param row Die filterrelevanten Werte der zu prüfenden Zeile.
  * @param criteria Die aktuell aktiven Filterkriterien.
@@ -233,5 +248,11 @@ internal fun rowMatchesFilter(row: FilterRow, criteria: FilterCriteria): Boolean
         VulnerabilityFilter.TRANSITIVE_VULNERABLE -> row.hasTransitiveVulnerabilities
         VulnerabilityFilter.NOT_VULNERABLE -> !row.hasVulnerabilities
     }
-    return textMatches && typeMatches && changesMatches && updatesMatches && vulnerabilitiesMatches
+    val versionSourceMatches = when (criteria.versionSourceFilter) {
+        TriStateFilter.ALL -> true
+        TriStateFilter.YES -> row.versionInherited
+        TriStateFilter.NO -> !row.versionInherited
+    }
+    return textMatches && typeMatches && changesMatches && updatesMatches &&
+        vulnerabilitiesMatches && versionSourceMatches
 }

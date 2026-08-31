@@ -57,15 +57,22 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   vor **Current Version** und ordnet transitive Befunde über den Maven-Dependency-Tree der
   jeweiligen direkten Dependency zu. Sie zeigt Gesamtzahl, transitive Anzahl und höchste Severity;
   der zeilenbezogene Detaildialog markiert die zugehörigen transitiven Komponenten.
+  Die Spalte **Current Version** nutzt den über `createCurrentVersionRenderer` gesetzten Renderer:
+  Einträge ohne eigenes `<version>`-Tag (Version aus Parent-POM oder importiertem BOM) stehen in
+  `inheritedVersionDependencies` und werden kursiv, in `JBColor.GRAY` und mit dem Marker „(inherited)"
+  samt erklärendem Tooltip dargestellt; der Renderer setzt die Vordergrundfarbe bei jedem Aufruf
+  explizit, weil `DefaultTableCellRenderer` dieselbe Komponenteninstanz wiederverwendet und eine
+  gesetzte Farbe sonst auf alle folgenden Zeilen durchschlägt. Alle Kontext- und Toolbar-Aktionen
+  bleiben für sie unverändert nutzbar.
   Maven-/PSI-Daten für Refreshes werden über eine
   nicht blockierende Read-Action außerhalb des EDT erfasst. Während Refresh oder Update-Check
   laufen, bleibt der Vulnerability-Check deaktiviert, um konkurrierende Hintergrundaktionen zu vermeiden.
   Die Aktionsleiste kann laut Einstellung (`toolbarShowText`) wahlweise Icon- oder Text-Buttons darstellen und
   wird bei geänderten Einstellungen über den `MAVEN_UP_SETTINGS_TOPIC`-Message-Bus sofort neu aufgebaut.
-  Unterhalb der Aktionsleiste liegt eine Filterzeile mit vier `ComboBox`-Elementen (Typ, verfügbare Updates via `TriStateFilter` [All/Yes/No], anstehende Änderungen via `TriStateFilter` [All/Yes/No], Sicherheitslücken via `VulnerabilityFilter` [ALL/VULNERABLE/SELF_VULNERABLE/TRANSITIVE_VULNERABLE/NOT_VULNERABLE]) und einem `SearchTextField` (Textfilter über
-  GroupId, ArtifactId und Property, case-insensitiv; kann zusätzlich über den Kontextmenü-Eintrag **Filter by "..."** per `filterBy` befüllt werden); die beiden `TriStateFilter`-Comboboxen zeigen über `triStateFilterRenderer`/`triStateFilterOptionLabel` und die `TriStateFilterLabels`-Konstanten (`CHANGES_FILTER_LABELS`, `UPDATES_FILTER_LABELS`) kontextspezifische, selbsterklärende Optionstexte statt generischer Yes/No-Werte, die Vulnerabilities-Combobox nutzt `vulnerabilityFilterRenderer` und die Labels des `VulnerabilityFilter`-Enums. Alle Filter werden über
+  Unterhalb der Aktionsleiste liegt eine Filterzeile mit fünf `ComboBox`-Elementen (Typ, Versionsherkunft via `TriStateFilter` [All/Yes/No], verfügbare Updates via `TriStateFilter` [All/Yes/No], anstehende Änderungen via `TriStateFilter` [All/Yes/No], Sicherheitslücken via `VulnerabilityFilter` [ALL/VULNERABLE/SELF_VULNERABLE/TRANSITIVE_VULNERABLE/NOT_VULNERABLE]) und einem `SearchTextField` (Textfilter über
+  GroupId, ArtifactId und Property, case-insensitiv; kann zusätzlich über den Kontextmenü-Eintrag **Filter by "..."** per `filterBy` befüllt werden); die `TriStateFilter`-Comboboxen zeigen über `triStateFilterRenderer`/`triStateFilterOptionLabel` und die `TriStateFilterLabels`-Konstanten (`CHANGES_FILTER_LABELS`, `UPDATES_FILTER_LABELS`, `VERSION_SOURCE_FILTER_LABELS`) kontextspezifische Optionstexte statt generischer Yes/No-Werte, die Vulnerabilities-Combobox nutzt `vulnerabilityFilterRenderer` und die Labels des `VulnerabilityFilter`-Enums. Alle Filterlabels und Optionstexte sind bewusst kurz gehalten (z. B. `CVEs:` mit `Any`/`Own`/`Transitive`/`None`), damit die Filterzeile wenig Breite belegt; die vollständige Bedeutung steht jeweils im Tooltip. Alle Filter werden über
   einen `TableRowSorter` mittels der Top-Level-Funktion `rowMatchesFilter`
-  kombiniert. Der Changes-Filter ist nur aktiv, wenn mindestens eine abweichende Version ausgewählt wurde (`isChangesFilterAvailable`/`updateChangesFilterState`, ausgelöst über `updateUpdateButtonState`). Der Updates-Filter ist nur nach einer erfolgreichen Versionssuche aktiv (`isUpdatesFilterAvailable`/`updateUpdatesFilterState`) und nutzt die Top-Level-Funktion `hasNewerVersion`; der Vulnerabilities-Filter ist nur nach einer erfolgreichen Sicherheitsprüfung aktiv (`vulnerabilityScanPerformed` via `isVulnerabilitiesFilterAvailable`/`updateVulnerabilitiesFilterState`) und unterscheidet über `VulnerabilityCell.hasDirectAdvisories`/`hasTransitiveAdvisories` zwischen eigenen und transitiven Befunden. Am Ende der Filterzeile setzt eine `ActionToolbar` mit einer einzelnen Reset-Aktion (`resetAllFilters`) alle Filter zurück; sie ist nur aktiv, solange `isResetFiltersEnabled` mindestens einen aktiven Filter meldet. Derselbe `TableRowSorter` übernimmt zusätzlich die spaltenweise Sortierung über die Kopfzeile:
+  kombiniert. Der Changes-Filter ist nur aktiv, wenn mindestens eine abweichende Version ausgewählt wurde (`isChangesFilterAvailable`/`updateChangesFilterState`, ausgelöst über `updateUpdateButtonState`). Der Versionsherkunft-Filter ist nur aktiv, solange `inheritedVersionDependencies` nicht leer ist (`isVersionSourceFilterAvailable`/`updateVersionSourceFilterState`), und blendet wahlweise nur geerbte oder nur im `pom.xml` deklarierte Zeilen ein. Der Updates-Filter ist nur nach einer erfolgreichen Versionssuche aktiv (`isUpdatesFilterAvailable`/`updateUpdatesFilterState`) und nutzt die Top-Level-Funktion `hasNewerVersion`; der Vulnerabilities-Filter ist nur nach einer erfolgreichen Sicherheitsprüfung aktiv (`vulnerabilityScanPerformed` via `isVulnerabilitiesFilterAvailable`/`updateVulnerabilitiesFilterState`) und unterscheidet über `VulnerabilityCell.hasDirectAdvisories`/`hasTransitiveAdvisories` zwischen eigenen und transitiven Befunden. Am Ende der Filterzeile setzt eine `ActionToolbar` mit einer einzelnen Reset-Aktion (`resetAllFilters`) alle Filter zurück; sie ist nur aktiv, solange `isResetFiltersEnabled` mindestens einen aktiven Filter meldet. Derselbe `TableRowSorter` übernimmt zusätzlich die spaltenweise Sortierung über die Kopfzeile:
   ein überschriebenes `toggleSortOrder` schaltet zyklisch zwischen aufsteigend, absteigend und
   unsortiert (pom.xml-Reihenfolge) um; die Spalten **Current Version** und **New Version** sind nicht
   sortierbar. Die Spalte **Vulnerabilities** ist über den `vulnerabilityCellComparator`
@@ -201,8 +208,10 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
     `createVersionPanel` samt Status-Glyphen und `JBColor`-Werten.
   - `DependencyFilterModel.kt`: `TriStateFilter`, `TriStateFilterLabels`,
     `triStateFilterOptionLabel`, `triStateFilterRenderer` (geteilter Combobox-Renderer von Haupttabelle
-    und transitiver Filterzeile), die `*_FILTER_LABELS`, `VulnerabilityFilter` samt
-    `vulnerabilityFilterRenderer`, `FilterRow`, `FilterCriteria`,
+    und transitiver Filterzeile), die `*_FILTER_LABELS` (inkl. `VERSION_SOURCE_FILTER_LABELS`),
+    `VulnerabilityFilter` samt
+    `vulnerabilityFilterRenderer`, `FilterRow` (inkl. `versionInherited`),
+    `FilterCriteria` (inkl. `versionSourceFilter`),
     `rowMatchesFilter`.
   - `VulnerabilityCellModel.kt`: `VulnerabilityCell` (inkl. `declaredCoordinates` sowie
     `detailFindings`/`detailOrigins`), `VulnerabilityOrigin` (`DIRECT`, `TRANSITIVE`,
@@ -210,7 +219,13 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
     `vulnerabilitySummary`, `worstSeverity`, `canCheckVulnerabilities`, `vulnerabilityColor`,
     `vulnerabilityCellRenderer` (geteilter Zell-Renderer von Haupttabelle und transitiver Ansicht),
     `VulnerabilityScanTargets`, `artifactNodeCoordinate`, `coordinateString`.
-  - `RefreshSnapshot.kt`: `RefreshRow`, `RefreshSnapshot`.
+  - `RefreshSnapshot.kt`: `RefreshRow` (inkl. `versionInherited`), `RefreshSnapshot`.
+  - `InheritedVersionUi.kt`: `inheritedVersionCellText`, `inheritedVersionTooltip`,
+    `createCurrentVersionRenderer` samt `INHERITED_VERSION_MARKER_KEY`/`INHERITED_VERSION_TOOLTIP_KEY` –
+    kennzeichnet Zeilen ohne eigenes `<version>`-Tag in der Spalte **Current Version** kursiv, in
+    `JBColor.GRAY` und mit dem Marker „(inherited)"; die Vordergrundfarbe wird pro Aufruf explizit
+    gesetzt (Auswahl-, Gedämpft- oder Tabellenfarbe), der Renderer hält eine lebende Referenz auf die
+    Schlüsselmenge, der Modellwert der Zelle bleibt unverändert.
   - `MavenRepositoryLink.kt`: `buildMavenRepositoryUrl`.
   - `SortableHeaderIcon.kt`: `sortableHeaderIcon` und `installSortableHeaderRenderer`
     (geteilter Kopfzeilen-Renderer für alle Plugin-Tabellen).
@@ -295,7 +310,9 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   in `recommendedFixVersion`.
 - **RefreshSnapshotCollector**: liest über PSI die deklarierten Dependencies, Plugins und
   Versions-Properties der `pom.xml`-Dateien und liefert einen `RefreshSnapshot`; löst
-  Property-Platzhalter (auch die Version im `<parent>`-Tag) über `resolveVersionPlaceholder` auf. Zustandslos, benötigt nur das Projekt.
+  Property-Platzhalter (auch die Version im `<parent>`-Tag) über `resolveVersionPlaceholder` auf. Setzt
+  `RefreshRow.versionInherited`, wenn die `pom.xml` für den Eintrag kein eigenes `<version>`-Tag deklariert
+  (Version stammt aus Parent-POM oder importiertem BOM). Zustandslos, benötigt nur das Projekt.
 - **PomUpdateService**: wendet ausgewählte Updates über PSI/`WriteCommandAction` auf die
   `pom.xml` an (`applyUpdateToPom`, `updateXmlTagVersion`, Parent/Dependencies/Plugins) und
   speichert die Dateien vor dem Maven-Sync (`persistPomChanges`). Für „managed dependency"-Updates
@@ -330,6 +347,7 @@ Tests: `src/test/kotlin/de/schwarzland/mavenup/` spiegeln die Paketstruktur (`mo
 Reine Logik nutzt JUnit (z. B. `VulnerabilityApiServiceTest`, `VersionAutoSelectionTest`), Tests mit
 Projekt-/PSI-Umgebung erben von `BasePlatformTestCase` (z. B. `MavenUpWindowFactoryTest`,
 `RefreshSnapshotCollectorTest`, `PomNavigationServiceTest`, `PomUpdateServiceTest`, `VersionStatusUiTest`,
+`InheritedVersionUiTest`,
 `DependencyVersionServiceTest`, `VulnerabilityScanServiceTest`). Netzwerklastige Services werden über
 injizierte Seams/Interfaces netzwerkfrei getestet.
 

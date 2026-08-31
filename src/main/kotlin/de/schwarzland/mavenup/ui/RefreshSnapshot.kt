@@ -8,13 +8,17 @@ package de.schwarzland.mavenup.ui
  * @property propertyName Der Name der Version-Property oder ein leerer String.
  * @property type Der Typ der Abhängigkeit (z. B. Dependency, Parent, managed plugin).
  * @property currentVersion Die aktuell im Projekt verwendete Version.
+ * @property versionInherited `true`, wenn die `pom.xml` für diesen Eintrag kein eigenes
+ * `<version>`-Tag deklariert und die Version daher vom Parent-POM oder einem importierten
+ * BOM geerbt wird.
  */
 internal data class RefreshRow(
     val groupId: String,
     val artifactId: String,
     val propertyName: String,
     val type: String,
-    val currentVersion: String
+    val currentVersion: String,
+    val versionInherited: Boolean = false
 ) {
     /** Eindeutiger Schlüssel der Zeile in der Form `groupId:artifactId`. */
     val key: String = "$groupId:$artifactId"

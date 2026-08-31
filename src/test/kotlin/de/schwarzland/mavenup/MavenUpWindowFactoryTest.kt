@@ -10,6 +10,7 @@ import de.schwarzland.mavenup.service.MavenRepositoryBrowser
 import de.schwarzland.mavenup.service.VersionAutoSelectionMode
 import de.schwarzland.mavenup.ui.buildMavenRepositoryUrl
 import de.schwarzland.mavenup.ui.GROUP_ID_COLUMN
+import de.schwarzland.mavenup.ui.ARTIFACT_ID_COLUMN
 import de.schwarzland.mavenup.ui.MavenUpWindowFactory
 import de.schwarzland.mavenup.ui.TransitiveVulnerabilitiesView
 import de.schwarzland.mavenup.ui.UpdateConfirmationDialog
@@ -2011,6 +2012,66 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertTrue(toolWindow.isResetFiltersEnabled())
         toolWindow.vulnerabilitiesFilterComboBox.selectedItem = VulnerabilityFilter.ALL
         assertFalse(toolWindow.isResetFiltersEnabled())
+
+        toolWindow.versionSourceFilterComboBox.selectedItem = TriStateFilter.NO
+        assertTrue(toolWindow.isResetFiltersEnabled())
+        toolWindow.versionSourceFilterComboBox.selectedItem = TriStateFilter.ALL
+        assertFalse(toolWindow.isResetFiltersEnabled())
+    }
+
+    fun testVersionSourceFilterIsDisabledWithoutInheritedRows() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        assertFalse(toolWindow.isVersionSourceFilterAvailable())
+        assertFalse(toolWindow.versionSourceFilterComboBox.isEnabled)
+
+        toolWindow.inheritedVersionDependencies.add("com.example:lib-a")
+        toolWindow.updateVersionSourceFilterState()
+
+        assertTrue(toolWindow.isVersionSourceFilterAvailable())
+        assertTrue(toolWindow.versionSourceFilterComboBox.isEnabled)
+    }
+
+    fun testVersionSourceFilterResetsSelectionWhenUnavailable() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        toolWindow.inheritedVersionDependencies.add("com.example:lib-a")
+        toolWindow.updateVersionSourceFilterState()
+        toolWindow.versionSourceFilterComboBox.selectedItem = TriStateFilter.YES
+
+        toolWindow.inheritedVersionDependencies.clear()
+        toolWindow.updateVersionSourceFilterState()
+
+        assertFalse(toolWindow.versionSourceFilterComboBox.isEnabled)
+        assertEquals(TriStateFilter.ALL, toolWindow.versionSourceFilterComboBox.selectedItem)
+    }
+
+    fun testVersionSourceFilterHidesInheritedAndDeclaredRows() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val content = toolWindow.getContent()
+        val table = findTable(content)!!
+        val model = table.model as javax.swing.table.DefaultTableModel
+
+        model.addRow(arrayOf("com.example", "inherited", "", "dependency", null, "1.0.0", listOf("1.0.0")))
+        model.addRow(arrayOf("com.example", "declared", "", "dependency", null, "2.0.0", listOf("2.0.0")))
+        toolWindow.inheritedVersionDependencies.add("com.example:inherited")
+        toolWindow.updateVersionSourceFilterState()
+
+        toolWindow.versionSourceFilterComboBox.selectedItem = TriStateFilter.NO
+        toolWindow.applyRowFilter()
+        assertEquals(1, table.rowCount)
+        assertEquals("declared", table.getValueAt(0, ARTIFACT_ID_COLUMN))
+
+        toolWindow.versionSourceFilterComboBox.selectedItem = TriStateFilter.YES
+        toolWindow.applyRowFilter()
+        assertEquals(1, table.rowCount)
+        assertEquals("inherited", table.getValueAt(0, ARTIFACT_ID_COLUMN))
+
+        toolWindow.versionSourceFilterComboBox.selectedItem = TriStateFilter.ALL
+        toolWindow.applyRowFilter()
+        assertEquals(2, table.rowCount)
     }
 
     fun testFilterByReplacesSearchTextAndAppliesFilter() {
@@ -2044,10 +2105,13 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         model.addRow(arrayOf("com.example", "lib-b", "", "plugin", null, "1.0.0", listOf("1.0.0")))
 
         toolWindow.updateTypeFilterOptions()
+        toolWindow.inheritedVersionDependencies.add("com.example:lib-a")
+        toolWindow.updateVersionSourceFilterState()
         toolWindow.searchTextField.text = "lib-a"
         toolWindow.typeFilterComboBox.selectedItem = "dependency"
         toolWindow.changesFilterComboBox.selectedItem = TriStateFilter.NO
         toolWindow.vulnerabilitiesFilterComboBox.selectedItem = VulnerabilityFilter.NOT_VULNERABLE
+        toolWindow.versionSourceFilterComboBox.selectedItem = TriStateFilter.YES
         toolWindow.applyRowFilter()
         assertEquals(1, table.rowCount)
 
@@ -2056,6 +2120,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertEquals("", toolWindow.searchTextField.text)
         assertEquals(TriStateFilter.ALL, toolWindow.changesFilterComboBox.selectedItem)
         assertEquals(VulnerabilityFilter.ALL, toolWindow.vulnerabilitiesFilterComboBox.selectedItem)
+        assertEquals(TriStateFilter.ALL, toolWindow.versionSourceFilterComboBox.selectedItem)
         assertFalse(toolWindow.isResetFiltersEnabled())
         assertEquals(2, table.rowCount)
     }

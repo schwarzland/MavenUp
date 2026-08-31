@@ -126,6 +126,54 @@ class RefreshSnapshotCollectorTest : BasePlatformTestCase() {
         assertEquals("3.1.0", parentRow.currentVersion)
         assertEquals("parent", parentRow.type)
         assertEquals("", parentRow.propertyName)
+        assertFalse("Deklarierte Parent-Version darf nicht als geerbt gelten", parentRow.versionInherited)
+    }
+
+    fun testCollectDependenciesAndPropertiesReportsMissingVersionAsEmpty() {
+        val pomContent = """
+            <project>
+                <dependencies>
+                    <dependency>
+                        <groupId>com.example</groupId>
+                        <artifactId>managed-by-bom</artifactId>
+                    </dependency>
+                </dependencies>
+            </project>
+        """.trimIndent()
+
+        val psiFile = myFixture.configureByText("pom.xml", pomContent) as XmlFile
+        val rootTag = psiFile.document?.rootTag
+
+        val targetMap = mutableMapOf<String, String>()
+        RefreshSnapshotCollector(project).collectDependenciesAndProperties(
+            rootTag,
+            "dependencies",
+            "dependency",
+            targetMap,
+            mutableMapOf()
+        )
+
+        assertEquals("", targetMap["com.example:managed-by-bom"])
+    }
+
+    fun testCollectParentDependencyWithoutVersionIsMarkedInherited() {
+        val pomContent = """
+            <project>
+                <parent>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-parent</artifactId>
+                </parent>
+            </project>
+        """.trimIndent()
+
+        val psiFile = myFixture.configureByText("pom.xml", pomContent) as XmlFile
+        val rootTag = psiFile.document?.rootTag
+
+        val parentRow = RefreshSnapshotCollector(project).collectParentDependency(rootTag, mutableMapOf())
+
+        assertNotNull("Parent-Dependency sollte gefunden werden", parentRow)
+        assertTrue("Parent ohne <version> muss als geerbt markiert sein", parentRow!!.versionInherited)
+        assertEquals("", parentRow.currentVersion)
     }
 
     fun testCollectParentDependencyWithProperty() {

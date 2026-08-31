@@ -114,7 +114,8 @@ internal class RefreshSnapshotCollector(private val project: Project) {
             artifactId = a,
             propertyName = propertyName,
             type = PARENT_TYPE,
-            currentVersion = resolveVersionPlaceholder(v, effectiveProperties)
+            currentVersion = resolveVersionPlaceholder(v, effectiveProperties),
+            versionInherited = v.isBlank()
         )
     }
 
@@ -190,7 +191,8 @@ internal class RefreshSnapshotCollector(private val project: Project) {
                         propertyName = properties[key].orEmpty(),
                         type = "dependency",
                         currentVersion = resolvedDependencies[key]?.artifact?.version
-                            ?: resolveVersionPlaceholder(value, effectiveProperties)
+                            ?: resolveVersionPlaceholder(value, effectiveProperties),
+                        versionInherited = value.isBlank()
                     )
                 )
             }
@@ -203,7 +205,8 @@ internal class RefreshSnapshotCollector(private val project: Project) {
                         propertyName = properties[key].orEmpty(),
                         type = managedDependencyType,
                         currentVersion = resolvedDependencies[key]?.artifact?.version
-                            ?: resolveVersionPlaceholder(value, effectiveProperties)
+                            ?: resolveVersionPlaceholder(value, effectiveProperties),
+                        versionInherited = value.isBlank()
                     )
                 )
             }
@@ -220,7 +223,8 @@ internal class RefreshSnapshotCollector(private val project: Project) {
                         propertyName = properties[key].orEmpty(),
                         type = "plugin",
                         currentVersion = resolvedPlugins[key]?.version
-                            ?: resolveVersionPlaceholder(value, effectiveProperties)
+                            ?: resolveVersionPlaceholder(value, effectiveProperties),
+                        versionInherited = value.isBlank()
                     )
                 )
             }
@@ -233,7 +237,8 @@ internal class RefreshSnapshotCollector(private val project: Project) {
                         propertyName = properties[key].orEmpty(),
                         type = MANAGED_PLUGIN,
                         currentVersion = resolvedPlugins[key]?.version
-                            ?: resolveVersionPlaceholder(value, effectiveProperties)
+                            ?: resolveVersionPlaceholder(value, effectiveProperties),
+                        versionInherited = value.isBlank()
                     )
                 )
             }
