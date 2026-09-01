@@ -7,6 +7,7 @@
 ### Added
 
 - Added a **Dependency Submission** GitHub Actions workflow that submits the resolved Gradle dependency graph — including transitive dependencies — to GitHub so Dependabot can raise security alerts for them.
+- Added a **Dependency Review** GitHub Actions workflow that fails a pull request introducing a dependency with a known vulnerability of severity `moderate` or higher.
 
 ## 3.1.0
 

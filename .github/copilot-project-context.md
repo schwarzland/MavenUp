@@ -15,7 +15,9 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   `koverHtmlReport`/`koverXmlReport`). CI: `.github/workflows/ci.yml` (`build verifyPlugin detekt koverXmlReport`).
 - Supply-Chain-Sicherheit: `.github/workflows/dependency-submission.yml` meldet über
   `gradle/actions/dependency-submission` den aufgelösten Gradle-Abhängigkeitsgraph (inkl. transitiver
-  Abhängigkeiten) an GitHub, damit Dependabot Sicherheitswarnungen dazu erzeugen kann.
+  Abhängigkeiten) an GitHub, damit Dependabot Sicherheitswarnungen dazu erzeugen kann;
+  `.github/workflows/dependency-review.yml` prüft Pull Requests mit
+  `actions/dependency-review-action` gegen die GitHub Advisory Database.
 - Plugin-Descriptor: `src/main/resources/META-INF/plugin.xml`
 - Tool-Window-Icon: `src/main/resources/icons/mavenUpToolWindow.svg` (Light) und `mavenUpToolWindow_dark.svg` (Dark), in `plugin.xml` über das `icon`-Attribut des `<toolWindow>` referenziert.
 
