@@ -2,6 +2,12 @@
 
 # MavenUp Changelog
 
+## [Unreleased]
+
+### Added
+
+- Added a **Dependency Submission** GitHub Actions workflow that submits the resolved Gradle dependency graph — including transitive dependencies — to GitHub so Dependabot can raise security alerts for them.
+
 ## 3.1.0
 
 ### Added

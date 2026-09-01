@@ -13,6 +13,9 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
 - Codequalität: **detekt** (statische Analyse, Config `config/detekt/detekt.yml`, Bestandsbefunde in
   `config/detekt/baseline.xml`; läuft via `check`/`build`) und **Kover** (Testabdeckung,
   `koverHtmlReport`/`koverXmlReport`). CI: `.github/workflows/ci.yml` (`build verifyPlugin detekt koverXmlReport`).
+- Supply-Chain-Sicherheit: `.github/workflows/dependency-submission.yml` meldet über
+  `gradle/actions/dependency-submission` den aufgelösten Gradle-Abhängigkeitsgraph (inkl. transitiver
+  Abhängigkeiten) an GitHub, damit Dependabot Sicherheitswarnungen dazu erzeugen kann.
 - Plugin-Descriptor: `src/main/resources/META-INF/plugin.xml`
 - Tool-Window-Icon: `src/main/resources/icons/mavenUpToolWindow.svg` (Light) und `mavenUpToolWindow_dark.svg` (Dark), in `plugin.xml` über das `icon`-Attribut des `<toolWindow>` referenziert.
 
