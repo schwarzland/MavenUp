@@ -10,6 +10,11 @@
 - Added a **Dependency Graph Submit** GitHub Actions workflow that submits the graph generated for a pull request via `workflow_run`, so pull requests from forks are covered without granting write access to untrusted code.
 - Added a **Dependency Review** GitHub Actions workflow that fails a pull request introducing a dependency with a known vulnerability of severity `moderate` or higher.
 
+### Changed
+
+- Split the AI agent project context: `.github/copilot-project-context.md` serves as a slim overview, while the detailed component descriptions live in `.github/context/components-ui.md` and `.github/context/components-service.md`.
+- Restructured the tool window component reference into dedicated subsections (background processing, action toolbar, context menu, table columns, filter row, sorting, bulk version selection, transitive view behaviour) for faster lookup.
+
 ## 3.1.0
 
 ### Added

@@ -5,7 +5,8 @@ Für dieses Projekt gelten zusätzliche Anweisungen, die ursprünglich für GitH
 ## Referenzen
 
 - [.github/copilot-instructions.md](../.github/copilot-instructions.md): Verbindliche Arbeitsanweisungen für Änderungen an README, CHANGELOG, FEATURES, plugin.xml, Unittests, KDoc, etc.
-- [.github/copilot-project-context.md](../.github/copilot-project-context.md): Detaillierter Projektkontext, Paketstruktur und Komponentenbeschreibung.
+- [.github/copilot-project-context.md](../.github/copilot-project-context.md): Projektkontext-Übersicht, Paketstruktur und Verweise auf die Komponentenreferenzen.
+- [.github/context/components-ui.md](../.github/context/components-ui.md) und [.github/context/components-service.md](../.github/context/components-service.md): ausführliche Komponentenbeschreibungen je Package.
 
 ## Wichtige Regeln (Zusammenfassung)
 

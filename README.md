@@ -35,6 +35,7 @@ Binding instructions and context information exist for the further development o
 
 - **[AGENTS.md](AGENTS.md)**: cross-tool entry point read by many AI coding agents (e.g. OpenAI Codex / Codex CLI, GitHub Copilot CLI, Cursor, Aider, Jules, Zed); it points every agent to the binding repository instructions below.
 - **[.github/copilot-instructions.md](.github/copilot-instructions.md)**: binding work instructions for documentation, testing, KDoc, and processes.
-- **[.github/copilot-project-context.md](.github/copilot-project-context.md)**: detailed project context, architecture overview, and component description.
+- **[.github/copilot-project-context.md](.github/copilot-project-context.md)**: project context overview, package structure, and links to the component references.
+- **[.github/context/](.github/context/)**: detailed component descriptions per package — [`components-ui.md`](.github/context/components-ui.md) and [`components-service.md`](.github/context/components-service.md).
 
 These files must be considered and kept up to date with every change.
