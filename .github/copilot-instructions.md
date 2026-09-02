@@ -52,11 +52,13 @@ Bei **jeder** Änderung im Repository sind diese Punkte immer zu berücksichtige
    - Nach jeder Implementierungsänderung prüfen, ob bestehende Tests noch korrekt sind, und fehlgeschlagene oder veraltete Tests sofort korrigieren.
 6. **.github/copilot-project-context.md** ergänzen/aktualisieren, wenn sich Verhalten, Nutzung, Konfiguration oder Architektur ändert. Dabei gelten folgende Regeln:
    - Sprache: Deutsch. Die Datei dient als kompakte Referenz für Copilot-Agenten.
-   - Jede neue Klasse/Komponente wird in der **Komponenten**-Liste ergänzt; veraltete oder umbenannte Klassen werden aktualisiert oder entfernt.
-   - Jede neue Einstellung in `MavenUpSettings.State` muss in der Komponenten-Beschreibung von **MavenUpSettings** namentlich aufgeführt sein.
+   - Der Projektkontext ist aufgeteilt: `.github/copilot-project-context.md` ist die schlanke Übersicht (Projektbeschreibung, Build/CI, Paketstruktur, Tests, Prozesse); die ausführlichen Komponentenbeschreibungen liegen in `.github/context/components-ui.md` (Package `ui`) und `.github/context/components-service.md` (Packages `service` und `model`).
+   - Jede neue Klasse/Komponente wird in der thematisch passenden Datei unter `.github/context/` ergänzt; veraltete oder umbenannte Klassen werden dort aktualisiert oder entfernt. Die Übersichtsdatei enthält keine Klassenbeschreibungen, sondern nur die Verweise auf diese Dateien.
+   - Jede neue Einstellung in `MavenUpSettings.State` muss in der Komponenten-Beschreibung von **MavenUpSettings** (in `.github/context/components-service.md`) namentlich aufgeführt sein.
    - Enum-Werte (z. B. `MavenRepositoryBrowser`) müssen korrekt benannt sein – keine Fantasie-Namen, die nicht im Code existieren.
-   - Neue Packages oder strukturelle Änderungen in der **Paketstruktur** aktualisieren.
-   - Nach jeder Änderung die Komponenten-Liste mit den tatsächlich vorhandenen Klassen unter `src/main/kotlin/` abgleichen.
+   - Neue Packages oder strukturelle Änderungen in der **Paketstruktur** der Übersichtsdatei aktualisieren; kommt eine neue Kontextdatei hinzu, ist sie dort in der Komponentenreferenz zu verlinken.
+   - Nach jeder Änderung die Komponenten-Listen mit den tatsächlich vorhandenen Klassen unter `src/main/kotlin/` abgleichen.
+   - Wächst eine Kontextdatei deutlich über ~30 KB, ist eine weitere thematische Aufteilung zu prüfen, damit Agenten nicht unnötig viel Kontext laden müssen.
 7. **Methoden und Funktionen** der Klassen ergänzen/aktualisieren und dokumentieren, wenn sich Verhalten, Nutzung, Konfiguration oder Architektur ändert.
 8. **KDoc-Qualität prüfen und sicherstellen** – bei jeder Änderung an einer Klasse oder Methode sind **alle** berührten Klassen und Methoden auf vollständige und korrekte KDoc zu prüfen. Konkret:
    - Jede Klasse, jedes `object`, jedes `enum` und jede `data class` muss einen KDoc-Kommentar haben.

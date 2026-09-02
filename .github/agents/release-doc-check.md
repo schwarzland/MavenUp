@@ -69,8 +69,9 @@ Halte dich an die verbindlichen Regeln aus `.github/copilot-instructions.md`.
   **AI instructions** – Detailinhalte gehören in `FEATURES.md` bzw. unter `docs/`.
 - Prüfe, ob Kurzbeschreibung und Quick Start noch zum aktuellen Funktionsumfang passen.
 - Prüfe die Dokumentationsliste auf Vollständigkeit (siehe Abschnitt 6) und den Abschnitt
-  **AI instructions** darauf, ob `AGENTS.md`, `.github/copilot-instructions.md` und
-  `.github/copilot-project-context.md` weiterhin korrekt verlinkt sind.
+  **AI instructions** darauf, ob `AGENTS.md`, `.github/copilot-instructions.md`,
+  `.github/copilot-project-context.md` sowie die Komponentenreferenzen unter `.github/context/`
+  weiterhin korrekt verlinkt sind.
 - Entferne veraltete Formulierungen (z. B. „now", „new"). Keine inhaltlichen Dopplungen
   zwischen README und `FEATURES.md` bzw. den `docs/`-Dateien.
 
