@@ -1,0 +1,40 @@
+name: Dependency Graph Submit
+
+# Uebermittelt den von '.github/workflows/dependency-graph.yml' fuer einen Pull Request
+# erzeugten Abhaengigkeitsgraph. Der Umweg ueber 'workflow_run' ist noetig, weil Pull
+# Requests aus Forks nur einen lesenden GITHUB_TOKEN erhalten und die Dependency
+# Submission API 'contents: write' verlangt. 'workflow_run' laeuft im Kontext des
+# Zielrepositories und damit ausserhalb des Zugriffs des Fork-Codes.
+on:
+  workflow_run:
+    workflows: [ 'Dependency Graph' ]
+    types: [ completed ]
+
+# 'actions: read' erlaubt das Herunterladen des Artefakts aus dem ausloesenden Lauf,
+# 'contents: write' die Uebermittlung an die Dependency Submission API.
+permissions:
+  actions: read
+  contents: write
+
+# Pro ausloesendem Lauf nur eine Uebermittlung; aeltere Laeufe sind ueberholt.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: true
+
+jobs:
+  submit:
+    name: Submit dependency graph
+    # Nur fuer erfolgreiche Pull-Request-Laeufe; Pushes auf 'main' melden ihren Graph
+    # bereits selbst und wuerden hier kein Artefakt hinterlassen.
+    if: >-
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # Gespeicherten Graph herunterladen und an GitHub melden. Ein Checkout ist nicht
+      # noetig, weil ausschliesslich das Artefakt des ausloesenden Laufs verarbeitet wird.
+      - name: Download and submit dependency graph
+        uses: gradle/actions/dependency-submission@v6
+        with:
+          dependency-graph: download-and-submit

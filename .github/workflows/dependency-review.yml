@@ -1,11 +1,16 @@
 name: Dependency Review
 
+# Vergleicht den Abhaengigkeitsgraph des Pull Requests mit dem von 'main' und blockiert
+# den Merge, sobald neue Abhaengigkeiten mit bekannten Schwachstellen hinzukommen.
+# Der Graph selbst wird von '.github/workflows/dependency-graph.yml' erzeugt; dieser
+# Workflow benoetigt daher weder Checkout noch JDK noch einen Gradle-Lauf.
 on:
-  # Prueft ausschliesslich Pull Requests gegen 'main' und nur dann, wenn sich die Build-
-  # oder Abhaengigkeitskonfiguration geaendert hat. Aenderungen am Quellcode koennen den
-  # Abhaengigkeitsgraph nicht beeinflussen.
+  # WICHTIG: Diese Pfadliste muss identisch zu den Triggern in
+  # '.github/workflows/dependency-graph.yml' bleiben (GitHub Actions unterstuetzt keine
+  # YAML-Anker). Ohne passenden Graph wartet die Pruefung vergeblich auf einen Snapshot.
   pull_request:
-    branches: [ "main" ]
+    branches:
+      - main
     paths:
       - 'build.gradle.kts'
       - 'settings.gradle.kts'
@@ -13,12 +18,14 @@ on:
       - 'gradle/**'
       - 'gradlew'
       - 'gradlew.bat'
+      - '.github/workflows/dependency-graph.yml'
+      - '.github/workflows/dependency-graph-submit.yml'
       - '.github/workflows/dependency-review.yml'
 
-# 'contents: write' wird von der Dependency Submission API benoetigt, um den Graph des
-# PR-Branches zu melden; 'pull-requests: write' erlaubt die Zusammenfassung als PR-Kommentar.
+# Least Privilege: Die Pruefung liest nur; 'pull-requests: write' wird ausschliesslich
+# fuer die Zusammenfassung als Pull-Request-Kommentar benoetigt.
 permissions:
-  contents: write
+  contents: read
   pull-requests: write
 
 # Bei mehreren Pushes auf denselben Pull Request laufende Pruefungen abbrechen.
@@ -30,39 +37,19 @@ jobs:
   dependency-review:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    # Pull Requests aus Forks erhalten nur einen lesenden GITHUB_TOKEN und koennen den
-    # Abhaengigkeitsgraph daher nicht melden. Solche Pull Requests werden uebersprungen
-    # und bleiben durch die Dependabot-Warnungen auf 'main' abgedeckt.
-    if: github.event.pull_request.head.repo.full_name == github.repository
     steps:
-      # Schritt 1: Repository auschecken.
-      - name: Checkout Code
-        uses: actions/checkout@v7
-
-      # Schritt 2: JDK bereitstellen. Die gemeinsame Composite-Action './.github/actions/setup'
-      # wird hier bewusst NICHT verwendet, weil sie zusaetzlich 'gradle/actions/setup-gradle'
-      # ausfuehrt; 'dependency-submission' bringt die Gradle-Konfiguration bereits selbst mit.
-      - name: Set up JDK 21
-        uses: actions/setup-java@v5
-        with:
-          java-version: '21'
-          distribution: 'zulu'
-
-      # Schritt 3: Abhaengigkeitsgraph des PR-Branches aufloesen und melden. Ohne diesen
-      # Schritt koennte die Pruefung den Stand des Pull Requests nicht mit 'main' vergleichen,
-      # weil Gradle-Abhaengigkeiten nicht statisch aus den Build-Dateien ableitbar sind.
-      - name: Submit Gradle dependency graph
-        uses: gradle/actions/dependency-submission@v6
-
-      # Schritt 4: Neu hinzugekommene Abhaengigkeiten gegen die GitHub Advisory Database
-      # pruefen. Der Job schlaegt fehl, sobald der Pull Request eine Abhaengigkeit mit einer
-      # bekannten Schwachstelle ab Schweregrad 'moderate' einfuehrt. Die Retry-Optionen sind
-      # noetig, weil der in Schritt 3 gemeldete Snapshot serverseitig kurz verzoegert
-      # verfuegbar wird.
+      # Neu hinzugekommene Abhaengigkeiten gegen die GitHub Advisory Database pruefen.
+      # Der Job schlaegt fehl, sobald der Pull Request eine Abhaengigkeit mit einer
+      # bekannten Schwachstelle ab Schweregrad 'moderate' einfuehrt.
       - name: Review dependency changes
         uses: actions/dependency-review-action@v5
         with:
           fail-on-severity: moderate
-          comment-summary-in-pr: on-failure
+          # Pull Requests aus Forks erhalten nur einen lesenden GITHUB_TOKEN und koennen
+          # keinen Kommentar schreiben; dort wird die Zusammenfassung deaktiviert und das
+          # Ergebnis steht ausschliesslich in der Job-Summary.
+          comment-summary-in-pr: ${{ github.event.pull_request.head.repo.full_name == github.repository && 'on-failure' || 'never' }}
+          # Die Retry-Optionen sind noetig, weil der Graph des Pull Requests parallel in
+          # 'Dependency Graph' erzeugt und erst danach serverseitig verfuegbar wird.
           retry-on-snapshot-warnings: true
           retry-on-snapshot-warnings-timeout: 600

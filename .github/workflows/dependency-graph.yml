@@ -1,0 +1,113 @@
+name: Dependency Graph
+
+# Erzeugt den aufgeloesten Gradle-Abhaengigkeitsgraph fuer 'main' und fuer Pull Requests.
+# Beide Faelle teilen sich dieselben Schritte, unterscheiden sich aber in den benoetigten
+# Berechtigungen und werden deshalb als zwei Jobs mit eigenem 'permissions'-Block abgebildet.
+on:
+  # Der von GitHub angezeigte Abhaengigkeitsgraph beschreibt immer den Stand des
+  # Standard-Branches. Deshalb wird auf 'main' direkt uebermittelt.
+  push:
+    branches:
+      - main
+    paths:
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle.properties'
+      - 'gradle/**'
+      - 'gradlew'
+      - 'gradlew.bat'
+      - '.github/workflows/dependency-graph.yml'
+      - '.github/workflows/dependency-graph-submit.yml'
+      - '.github/workflows/dependency-review.yml'
+
+  # Fuer Pull Requests wird der Graph des PR-Standes erzeugt, damit
+  # 'Dependency Review' den Pull Request gegen 'main' vergleichen kann.
+  # WICHTIG: Diese Pfadliste muss identisch zu der des 'push'-Triggers oben und zu der in
+  # '.github/workflows/dependency-review.yml' bleiben (GitHub Actions unterstuetzt keine
+  # YAML-Anker). Laeuft die Review ohne passenden Graph, wartet sie vergeblich auf einen Snapshot.
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle.properties'
+      - 'gradle/**'
+      - 'gradlew'
+      - 'gradlew.bat'
+      - '.github/workflows/dependency-graph.yml'
+      - '.github/workflows/dependency-graph-submit.yml'
+      - '.github/workflows/dependency-review.yml'
+
+  # Manueller Trigger, um den Graph nach Bedarf neu zu erzeugen (z. B. nach Aenderungen
+  # an den Repository-Einstellungen oder zum erstmaligen Befuellen).
+  workflow_dispatch:
+
+# Least Privilege: Die Standardberechtigung ist leer, jeder Job fordert nur an, was er braucht.
+permissions: {}
+
+# Bei mehreren Pushes auf denselben Branch bzw. Pull Request laufende Laeufe abbrechen;
+# nur der neueste Abhaengigkeitsgraph ist relevant.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Fuer 'main' und manuelle Laeufe kann der Graph direkt an die Dependency Submission API
+  # gemeldet werden. Erst dadurch kann Dependabot fuer dieses Gradle-Projekt
+  # Sicherheitswarnungen zu transitiven Abhaengigkeiten melden.
+  submit:
+    name: Submit dependency graph
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # 'contents: write' ist die Mindestberechtigung der Dependency Submission API.
+    permissions:
+      contents: write
+    steps:
+      # Schritt 1: Repository auschecken.
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      # Schritt 2: JDK bereitstellen. Die gemeinsame Composite-Action './.github/actions/setup'
+      # wird hier bewusst NICHT verwendet, weil sie zusaetzlich 'gradle/actions/setup-gradle'
+      # ausfuehrt; 'dependency-submission' bringt die Gradle-Konfiguration bereits selbst mit.
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          java-version: '21'
+          distribution: 'zulu'
+
+      # Schritt 3: Alle Konfigurationen aufloesen und den vollstaendigen Abhaengigkeitsgraph
+      # (inklusive transitiver Abhaengigkeiten) an GitHub uebermitteln.
+      - name: Generate and submit dependency graph
+        uses: gradle/actions/dependency-submission@v6
+
+  # Pull Requests aus Forks erhalten nur einen lesenden GITHUB_TOKEN und koennen den Graph
+  # deshalb nicht selbst melden. Der Graph wird daher lediglich erzeugt und als Artefakt
+  # abgelegt; die Uebermittlung uebernimmt '.github/workflows/dependency-graph-submit.yml'.
+  # Dadurch werden auch Fork-Pull-Requests geprueft, ohne untrusted Code Schreibrechte zu geben.
+  generate:
+    name: Generate dependency graph
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      # Schritt 1: Repository auschecken.
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      # Schritt 2: JDK bereitstellen (siehe Begruendung im Job 'submit').
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          java-version: '21'
+          distribution: 'zulu'
+
+      # Schritt 3: Graph erzeugen und als Workflow-Artefakt speichern statt zu uebermitteln.
+      - name: Generate and upload dependency graph
+        uses: gradle/actions/dependency-submission@v6
+        with:
+          dependency-graph: generate-and-upload
