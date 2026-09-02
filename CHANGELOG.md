@@ -2,6 +2,14 @@
 
 # MavenUp Changelog
 
+## [Unreleased]
+
+### Added
+
+- Added a **Dependency Graph** GitHub Actions workflow that submits the resolved Gradle dependency graph — including transitive dependencies — to GitHub so Dependabot can raise security alerts for them.
+- Added a **Dependency Graph Submit** GitHub Actions workflow that submits the graph generated for a pull request via `workflow_run`, so pull requests from forks are covered without granting write access to untrusted code.
+- Added a **Dependency Review** GitHub Actions workflow that fails a pull request introducing a dependency with a known vulnerability of severity `moderate` or higher.
+
 ## 3.1.0
 
 ### Added

@@ -1,0 +1,55 @@
+name: Dependency Review
+
+# Vergleicht den Abhaengigkeitsgraph des Pull Requests mit dem von 'main' und blockiert
+# den Merge, sobald neue Abhaengigkeiten mit bekannten Schwachstellen hinzukommen.
+# Der Graph selbst wird von '.github/workflows/dependency-graph.yml' erzeugt; dieser
+# Workflow benoetigt daher weder Checkout noch JDK noch einen Gradle-Lauf.
+on:
+  # WICHTIG: Diese Pfadliste muss identisch zu den Triggern in
+  # '.github/workflows/dependency-graph.yml' bleiben (GitHub Actions unterstuetzt keine
+  # YAML-Anker). Ohne passenden Graph wartet die Pruefung vergeblich auf einen Snapshot.
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle.properties'
+      - 'gradle/**'
+      - 'gradlew'
+      - 'gradlew.bat'
+      - '.github/workflows/dependency-graph.yml'
+      - '.github/workflows/dependency-graph-submit.yml'
+      - '.github/workflows/dependency-review.yml'
+
+# Least Privilege: Die Pruefung liest nur; 'pull-requests: write' wird ausschliesslich
+# fuer die Zusammenfassung als Pull-Request-Kommentar benoetigt.
+permissions:
+  contents: read
+  pull-requests: write
+
+# Bei mehreren Pushes auf denselben Pull Request laufende Pruefungen abbrechen.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dependency-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      # Neu hinzugekommene Abhaengigkeiten gegen die GitHub Advisory Database pruefen.
+      # Der Job schlaegt fehl, sobald der Pull Request eine Abhaengigkeit mit einer
+      # bekannten Schwachstelle ab Schweregrad 'moderate' einfuehrt.
+      - name: Review dependency changes
+        uses: actions/dependency-review-action@v5
+        with:
+          fail-on-severity: moderate
+          # Pull Requests aus Forks erhalten nur einen lesenden GITHUB_TOKEN und koennen
+          # keinen Kommentar schreiben; dort wird die Zusammenfassung deaktiviert und das
+          # Ergebnis steht ausschliesslich in der Job-Summary.
+          comment-summary-in-pr: ${{ github.event.pull_request.head.repo.full_name == github.repository && 'on-failure' || 'never' }}
+          # Die Retry-Optionen sind noetig, weil der Graph des Pull Requests parallel in
+          # 'Dependency Graph' erzeugt und erst danach serverseitig verfuegbar wird.
+          retry-on-snapshot-warnings: true
+          retry-on-snapshot-warnings-timeout: 600

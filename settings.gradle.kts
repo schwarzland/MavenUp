@@ -16,6 +16,17 @@ plugins {
     id("org.jetbrains.intellij.platform.settings") version "2.18.1"
 }
 
+buildscript {
+    configurations.classpath {
+        resolutionStrategy {
+            force("org.jsoup:jsoup:1.23.2")
+            force("com.fasterxml.jackson.core:jackson-core:2.22.2")
+            force("com.fasterxml.jackson.core:jackson-databind:2.22.2")
+            force("com.fasterxml.jackson.module:jackson-module-kotlin:2.22.2")
+        }
+    }
+}
+
 @Suppress("UnstableApiUsage")
 dependencyResolutionManagement {
     // Configure all projects' repositories

@@ -13,6 +13,13 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
 - Codequalität: **detekt** (statische Analyse, Config `config/detekt/detekt.yml`, Bestandsbefunde in
   `config/detekt/baseline.xml`; läuft via `check`/`build`) und **Kover** (Testabdeckung,
   `koverHtmlReport`/`koverXmlReport`). CI: `.github/workflows/ci.yml` (`build verifyPlugin detekt koverXmlReport`).
+- Supply-Chain-Sicherheit: `.github/workflows/dependency-graph.yml` erzeugt über
+  `gradle/actions/dependency-submission` den aufgelösten Gradle-Abhängigkeitsgraph (inkl. transitiver
+  Abhängigkeiten) und meldet ihn bei Pushes auf `main` direkt an GitHub, damit Dependabot
+  Sicherheitswarnungen dazu erzeugen kann; bei Pull Requests wird der Graph nur als Artefakt abgelegt und
+  von `.github/workflows/dependency-graph-submit.yml` per `workflow_run` gemeldet (fork-sicher).
+  `.github/workflows/dependency-review.yml` prüft Pull Requests mit
+  `actions/dependency-review-action` gegen die GitHub Advisory Database.
 - Plugin-Descriptor: `src/main/resources/META-INF/plugin.xml`
 - Tool-Window-Icon: `src/main/resources/icons/mavenUpToolWindow.svg` (Light) und `mavenUpToolWindow_dark.svg` (Dark), in `plugin.xml` über das `icon`-Attribut des `<toolWindow>` referenziert.
 
