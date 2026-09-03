@@ -4,12 +4,14 @@ The plugin is clearly divided into three layers.
 
 ## Data model (`de.schwarzland.mavenup.model`)
 - Contains lean DTOs for the UI/service data exchange, e.g. `DependencyUpdate` and `VulnerabilityAdvisory`.
+- `MavenUpBadgeState` describes the state signaled by the badge dot on the tool window icon.
 - `AffectedVersionRange` parses the human-readable affected version ranges of an advisory back into comparable bounds — exclusive (`< y`, from OSV `fixed`) as well as inclusive (`<= y`, from OSV `last_affected`) upper bounds — and decides via `isFixedIn` whether a version is still affected — the basis for the recommended fix version.
 
 ## Service (`de.schwarzland.mavenup.service`)
 - `MavenUpStartupActivity`: makes the tool window available on project startup as soon as Maven projects already exist.
 - `MavenUpMavenImportListener`: declaratively (`<projectListeners>`) registered `MavenImportListener` that makes the tool window available after every completed Maven import; the declarative registration is unregistered automatically when the plugin is unloaded and enables updates without an IDE restart.
 - `MavenUpToolWindowActivator`: shared, idempotent helper object used by the startup activity and the import listener to make the tool window available.
+- `ToolWindowBadgeService`: project-level service that marks the tool window stripe icon with a badge dot built by the platform's `BadgeIconSupplier`, so position and color come from the active theme; the stateless `determineBadgeState` derives the badge state from the highest known severity, the availability of newer versions, and the configured `toolWindowBadgeMode`.
 - `MavenUpSettings`: application-wide persistence service (`PersistentStateComponent`, `Service.Level.APP`) in `mavenup_settings.xml`; the settings apply globally to all projects and also contain the configurable Central-first short-circuit strategy, the automatic version search (`autoSearchVersions`), and the pom.xml comment options (`vulnerabilityCommentMode`, `vulnerabilityCommentPrefix`, `vulnerabilityCommentMaxIds`), whose legacy boolean predecessor is migrated on load. The OSS Index token is stored separately via `OssIndexCredentialService` in the Password Safe. For HTTP Basic authentication a fixed placeholder username is used because Sonatype only evaluates the token.
 - `DependencyApiService`, `VulnerabilityApiService`, and `OssIndexApiService`: encapsulate external API queries for versions and vulnerabilities outside the UI; `DependencyApiService` robustly determines the Maven `settings.xml` via the IDE path with a fallback to `${user.home}/.m2/settings.xml` and logs the used path at DEBUG level.
 - `VulnerabilityMerger`: deduplicates findings from multiple sources based on advisory IDs and aliases and keeps the richest detail data of both findings, including the CVSS vector belonging to the highest score.

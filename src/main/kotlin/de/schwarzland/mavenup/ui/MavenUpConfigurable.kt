@@ -7,6 +7,7 @@ import de.schwarzland.mavenup.service.DEFAULT_VULNERABILITY_COMMENT_PREFIX
 import de.schwarzland.mavenup.service.MAVEN_UP_SETTINGS_TOPIC
 import de.schwarzland.mavenup.service.OssIndexCredentialService
 import de.schwarzland.mavenup.service.OssIndexCredentialStore
+import de.schwarzland.mavenup.service.ToolWindowBadgeMode
 import de.schwarzland.mavenup.service.VersionAutoSelectionMode
 import de.schwarzland.mavenup.service.VulnerabilityCommentMode
 import com.intellij.openapi.application.ApplicationManager
@@ -55,6 +56,7 @@ class MavenUpConfigurable internal constructor(
     private var jumpOnSingleClickCheckBox: JBCheckBox? = null
     private var repositoryBrowserComboBox: ComboBox<MavenRepositoryBrowser>? = null
     private var toolbarShowTextCheckBox: JBCheckBox? = null
+    private var toolWindowBadgeModeComboBox: ComboBox<ToolWindowBadgeMode>? = null
     private var syncMavenAfterUpdateCheckBox: JBCheckBox? = null
     private var stopAfterCentralSuccessCheckBox: JBCheckBox? = null
     private var autoSearchVersionsCheckBox: JBCheckBox? = null
@@ -123,6 +125,26 @@ class MavenUpConfigurable internal constructor(
                         .applyToComponent {
                             isSelected = settings.state.jumpOnSingleClick
                             toolTipText = MyMessageBundle.message("settings.jumpOnSingleClick.tooltip")
+                        }
+                        .component
+                }
+                row {
+                    label(MyMessageBundle.message("settings.toolWindowBadgeMode"))
+                    toolWindowBadgeModeComboBox = comboBox(ToolWindowBadgeMode.entries)
+                        .applyToComponent {
+                            selectedItem = settings.state.toolWindowBadgeMode
+                            toolTipText = MyMessageBundle.message("settings.toolWindowBadgeMode.tooltip")
+                            renderer = object : SimpleListCellRenderer<ToolWindowBadgeMode>() {
+                                override fun customize(
+                                    list: javax.swing.JList<out ToolWindowBadgeMode>,
+                                    value: ToolWindowBadgeMode?,
+                                    index: Int,
+                                    selected: Boolean,
+                                    hasFocus: Boolean
+                                ) {
+                                    text = if (value == null) "" else MyMessageBundle.message(value.messageKey)
+                                }
+                            }
                         }
                         .component
                 }
@@ -325,6 +347,7 @@ class MavenUpConfigurable internal constructor(
             jumpOnSingleClickCheckBox?.isSelected to state.jumpOnSingleClick,
             repositoryBrowserComboBox?.selectedItem to state.repositoryBrowser,
             toolbarShowTextCheckBox?.isSelected to state.toolbarShowText,
+            toolWindowBadgeModeComboBox?.selectedItem to state.toolWindowBadgeMode,
             syncMavenAfterUpdateCheckBox?.isSelected to state.syncMavenAfterUpdate,
             stopAfterCentralSuccessCheckBox?.isSelected to state.stopAfterCentralSuccess,
             autoSearchVersionsCheckBox?.isSelected to state.autoSearchVersions,
@@ -365,6 +388,8 @@ class MavenUpConfigurable internal constructor(
         settings.state.repositoryBrowser = repositoryBrowserComboBox?.selectedItem as? MavenRepositoryBrowser
             ?: MavenRepositoryBrowser.MVN_REPOSITORY
         settings.state.toolbarShowText = toolbarShowTextCheckBox?.isSelected ?: false
+        settings.state.toolWindowBadgeMode = toolWindowBadgeModeComboBox?.selectedItem as? ToolWindowBadgeMode
+            ?: ToolWindowBadgeMode.VULNERABILITIES_AND_UPDATES
         settings.state.syncMavenAfterUpdate = syncMavenAfterUpdateCheckBox?.isSelected ?: true
         settings.state.stopAfterCentralSuccess = stopAfterCentralSuccessCheckBox?.isSelected ?: true
         settings.state.autoSearchVersions = autoSearchVersionsCheckBox?.isSelected ?: true
@@ -405,6 +430,7 @@ class MavenUpConfigurable internal constructor(
         jumpOnSingleClickCheckBox?.isSelected = settings.state.jumpOnSingleClick
         repositoryBrowserComboBox?.selectedItem = settings.state.repositoryBrowser
         toolbarShowTextCheckBox?.isSelected = settings.state.toolbarShowText
+        toolWindowBadgeModeComboBox?.selectedItem = settings.state.toolWindowBadgeMode
         syncMavenAfterUpdateCheckBox?.isSelected = settings.state.syncMavenAfterUpdate
         stopAfterCentralSuccessCheckBox?.isSelected = settings.state.stopAfterCentralSuccess
         autoSearchVersionsCheckBox?.isSelected = settings.state.autoSearchVersions
@@ -437,6 +463,7 @@ class MavenUpConfigurable internal constructor(
         jumpOnSingleClickCheckBox = null
         repositoryBrowserComboBox = null
         toolbarShowTextCheckBox = null
+        toolWindowBadgeModeComboBox = null
         syncMavenAfterUpdateCheckBox = null
         stopAfterCentralSuccessCheckBox = null
         autoSearchVersionsCheckBox = null

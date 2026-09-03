@@ -11,6 +11,8 @@
 - Added a **Dependency Review** GitHub Actions workflow that fails a pull request introducing a dependency with a known vulnerability of severity `moderate` or higher.
 - Added a closable success banner above the dependency table that reports a finished vulnerability scan without any finding, including the number of scanned coordinates.
 - Added dedicated empty states to the **Transitive CVEs** tab that distinguish a scan without any finding from a scan whose findings all affect directly declared dependencies, the latter offering a link that switches to the **Dependencies** tab and filters it to the affected rows.
+- Added a status badge on the MavenUp tool window icon that marks high or critical vulnerabilities in red, lower-severity findings in yellow, and available new versions in blue.
+- Added a setting that limits this badge to vulnerabilities or turns it off entirely.
 
 ### Changed
 

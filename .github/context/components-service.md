@@ -10,7 +10,16 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   `MavenImportListener`, der das Tool-Window nach abgeschlossenem Maven-Import verfügbar macht;
   die deklarative Registrierung ermöglicht Plugin-Updates ohne IDE-Neustart.
 - **MavenUpToolWindowActivator**: gemeinsames, idempotentes Hilfsobjekt zum Verfügbarmachen
-  des Tool-Windows, genutzt von Startup-Aktivität und Import-Listener.
+  des Tool-Windows, genutzt von Startup-Aktivität und Import-Listener; nutzt die gemeinsame
+  Konstante `MAVEN_UP_TOOL_WINDOW_ID`.
+- **ToolWindowBadgeService**: projektgebundener Service (`Service.Level.PROJECT`), der den Badge-Punkt
+  auf dem Stripe-Icon des Tool-Windows setzt. Die Icon-Varianten stammen aus
+  `com.intellij.ui.BadgeIconSupplier` (Info/Warning/Error), sodass Position und Farbe des Punktes aus
+  dem aktiven Theme kommen. `update` setzt das Icon auf dem EDT und ist gegen fehlendes oder
+  disposed Tool-Window abgesichert, `reset` stellt das Basis-Icon wieder her (Aufruf in
+  `MyToolWindow.dispose()`). Die zustandslose Funktion `determineBadgeState` leitet aus höchstem
+  Schweregrad, verfügbaren Updates und `toolWindowBadgeMode` den `MavenUpBadgeState` ab; ein
+  „alles in Ordnung"-Badge gibt es bewusst nicht.
 
 ## Einstellungen und Message-Bus
 - **MavenUpSettings**: `PersistentStateComponent` auf Anwendungsebene (`Service.Level.APP`), global für alle Projekte gespeichert in `mavenup_settings.xml`
@@ -18,7 +27,8 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   `ossIndexEnabled`, `checkTransitiveDependencies`, `repositoryBrowser`, `toolbarShowText`,
   `syncMavenAfterUpdate`, `stopAfterCentralSuccess`, `offerAllVersions`, `confirmVersionReset`,
   `autoSearchVersions`, `vulnerabilityCommentMode` mit `NONE`, `TEXT_ONLY`, `ADVISORY_IDS`, `ALIASES`, `ALL_IDS`,
-  `vulnerabilityCommentPrefix`, `vulnerabilityCommentMaxIds`;
+  `vulnerabilityCommentPrefix`, `vulnerabilityCommentMaxIds`,
+  `toolWindowBadgeMode` mit `OFF`, `VULNERABILITIES`, `VULNERABILITIES_AND_UPDATES`;
   Legacy-Migrationsfelder: `selectLatestVersion`, `selectLatestMinorVersion`, `addVulnerabilityFixComment`).
   Für die OSS-Index-Abfrage ist nur das Token erforderlich; Sonatype wertet bei der HTTP-Basic-Authentifizierung
   nur das Token aus, weshalb ein fester Platzhalter-Benutzername verwendet wird.
@@ -26,13 +36,16 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   keine OSS-Index-Abfrage gesendet.
 - **MAVEN_UP_SETTINGS_TOPIC**: `Topic<Runnable>` in `service`, über das `MavenUpConfigurable.apply()`
   Einstellungsänderungen veröffentlicht, damit offene UI-Komponenten (z.B. die Tool-Window-Aktionsleiste
-  und die Versionsvorauswahl) sofort reagieren können. Beim Empfang wird die Toolbar neu aufgebaut und
+  und die Versionsvorauswahl) sofort reagieren können. Beim Empfang wird die Toolbar neu aufgebaut,
+  der Tool-Window-Badge aktualisiert und
   `applySelectLatestVersionSetting()` nur dann aufgerufen, wenn sich `versionAutoSelectionMode`
   tatsächlich geändert hat, damit andere Einstellungsänderungen die bereits getroffene **New Version**-Auswahl
   nicht zurücksetzen.
 - **MavenRepositoryBrowser**: Enum in `service`, definiert die zwei konfigurierbaren
   Repository-Browser-Optionen (`MVN_REPOSITORY`, `SONATYPE_CENTRAL`) und erzeugt die jeweilige
   Versions-URL für groupId/artifactId/version.
+- **ToolWindowBadgeMode**: Enum in `service` mit den Anzeigeoptionen des Tool-Window-Badges
+  (`OFF`, `VULNERABILITIES`, `VULNERABILITIES_AND_UPDATES`).
 
 ## API- und Sicherheitsservices
 - **VulnerabilityApiService**: OSV-Batchabfrage plus Detailanreicherung und Filterung
@@ -57,6 +70,8 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   Token (HTTP 401/403) für eine qualifizierte Fehlermeldung.
 
 ## Sicherheitsdatenmodell (`model`)
+- **MavenUpBadgeState**: Enum mit den Badge-Zuständen des Tool-Window-Icons (`NONE`, `UPDATES`,
+  `VULNERABILITIES`, `SEVERE_VULNERABILITIES`).
 - **VulnerabilityMerger / VulnerabilityAdvisory**: normalisiertes Security-Datenmodell und
   quellenübergreifende Deduplizierung anhand von IDs/Aliasen; CVSS-Vektoren werden über
   `us.springett:cvss-calculator` normalisiert, bei nicht unterstützten CVSS-Versionen wird auf
