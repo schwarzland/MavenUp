@@ -2,12 +2,15 @@ package de.schwarzland.mavenup.ui
 
 import de.schwarzland.mavenup.model.DependencyUpdate
 import de.schwarzland.mavenup.model.VulnerabilityAdvisory
+import de.schwarzland.mavenup.model.VulnerabilitySeverity
 import de.schwarzland.mavenup.service.DependencyVersionService
 import de.schwarzland.mavenup.service.MavenUpSettings
 import de.schwarzland.mavenup.service.MAVEN_UP_SETTINGS_TOPIC
 import de.schwarzland.mavenup.service.RefreshSnapshotCollector
 import de.schwarzland.mavenup.service.PomUpdateService
 import de.schwarzland.mavenup.service.PomNavigationService
+import de.schwarzland.mavenup.service.ToolWindowBadgeService
+import de.schwarzland.mavenup.service.determineBadgeState
 import de.schwarzland.mavenup.service.VulnerabilityScanService
 import de.schwarzland.mavenup.service.VersionAutoSelectionMode
 import de.schwarzland.mavenup.service.VulnerabilityApiService
@@ -145,6 +148,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private val refreshSnapshotCollector = RefreshSnapshotCollector(project)
         private val pomUpdateService = PomUpdateService(project)
         private val pomNavigationService = PomNavigationService(project)
+        private val toolWindowBadgeService = ToolWindowBadgeService.getInstance(project)
         private val availableVersions = mutableMapOf<String, List<String>>()
         private val selectedVersions = mutableMapOf<String, String>()
         private val dependencyToProperty = mutableMapOf<String, String>()
@@ -1012,11 +1016,18 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 ApplicationManager.getApplication().invokeLater {
                     rebuildToolbar()
                     applySelectLatestVersionSettingIfChanged()
+                    updateToolWindowBadge()
                 }
             })
         }
 
-        override fun dispose() = Unit
+        /**
+         * Entfernt den Badge vom Stripe-Icon, wenn die Tool-Window-Komponente verworfen wird.
+         *
+         * Damit bleibt nach einem dynamischen Plugin-Update oder dem Schließen des Projekts
+         * kein veralteter Statuspunkt am Icon zurück.
+         */
+        override fun dispose() = toolWindowBadgeService.reset()
 
         /**
          * Verbindet die Komponente mit den Tabs des Tool Windows.
@@ -1411,7 +1422,42 @@ class MavenUpWindowFactory : ToolWindowFactory {
             )
             updateTransitiveTabTitle()
             updateScanHint()
+            updateToolWindowBadge()
             refreshToolbar()
+        }
+
+        /**
+         * Ermittelt den höchsten Schweregrad aller bekannten Sicherheitswarnungen.
+         *
+         * @return Der höchste Schweregrad oder `null`, wenn keine Warnung vorliegt.
+         */
+        internal fun worstVulnerabilitySeverity(): VulnerabilitySeverity? {
+            val advisories = vulnerabilityAdvisories.values.flatten()
+            return if (advisories.isEmpty()) null else worstSeverity(advisories)
+        }
+
+        /**
+         * Prüft, ob für mindestens eine bekannte Abhängigkeit eine neuere Version vorliegt.
+         *
+         * @return `true`, wenn die Versionssuche mindestens ein Update ergeben hat.
+         */
+        internal fun hasAvailableUpdates(): Boolean =
+            knownDependencies.any { (key, currentVersion) ->
+                hasNewerVersion(currentVersion, availableVersions[key]?.firstOrNull().orEmpty())
+            }
+
+        /**
+         * Aktualisiert den Badge auf dem Stripe-Icon des Tool-Windows anhand der aktuellen
+         * Scan- und Versionsergebnisse sowie der konfigurierten Anzeigeoption.
+         */
+        internal fun updateToolWindowBadge() {
+            toolWindowBadgeService.update(
+                determineBadgeState(
+                    worstVulnerabilitySeverity(),
+                    hasAvailableUpdates(),
+                    MavenUpSettings.getInstance().state.toolWindowBadgeMode
+                )
+            )
         }
 
         /**

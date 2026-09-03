@@ -2673,4 +2673,60 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         assertTrue(toolWindow.isResetVersionsEnabled())
     }
+
+    /**
+     * Stellt sicher, dass eine neuere Version als verfügbar erkannt wird und der Badge-Zustand
+     * daraus abgeleitet werden kann.
+     */
+    fun testHasAvailableUpdatesDetectsNewerVersion() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+        val (availableVersions, _, knownDependencies) = versionMaps(toolWindow)
+
+        val key = "com.example:badge-updates"
+        knownDependencies[key] = "1.0.0"
+
+        assertFalse("Ohne abgerufene Versionen darf kein Update gemeldet werden", toolWindow.hasAvailableUpdates())
+
+        availableVersions[key] = listOf("2.0.0", "1.0.0")
+        assertTrue("Eine höhere Version muss als Update gelten", toolWindow.hasAvailableUpdates())
+
+        availableVersions[key] = listOf("1.0.0")
+        assertFalse("Die aktuelle Version allein ist kein Update", toolWindow.hasAvailableUpdates())
+    }
+
+    /**
+     * Stellt sicher, dass der höchste Schweregrad über alle Funde hinweg ermittelt wird und ohne
+     * Funde `null` zurückgegeben wird.
+     */
+    fun testWorstVulnerabilitySeverityReturnsHighestFinding() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        assertNull("Ohne Scan-Ergebnis darf kein Schweregrad gemeldet werden", toolWindow.worstVulnerabilitySeverity())
+
+        @Suppress("UNCHECKED_CAST")
+        val advisories = toolWindow.javaClass.getDeclaredField("vulnerabilityAdvisories")
+            .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, List<VulnerabilityAdvisory>>
+        advisories["com.example:low:1.0.0"] = listOf(
+            VulnerabilityAdvisory(id = "CVE-LOW", severity = VulnerabilitySeverity.LOW, sources = setOf("OSV"))
+        )
+        advisories["com.example:critical:1.0.0"] = listOf(
+            VulnerabilityAdvisory(id = "CVE-CRIT", severity = VulnerabilitySeverity.CRITICAL, sources = setOf("OSV"))
+        )
+
+        assertEquals(VulnerabilitySeverity.CRITICAL, toolWindow.worstVulnerabilitySeverity())
+    }
+
+    /**
+     * Stellt sicher, dass die Badge-Aktualisierung auch ohne registriertes Tool-Window robust ist.
+     */
+    fun testUpdateToolWindowBadgeDoesNotThrow() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        toolWindow.updateToolWindowBadge()
+
+        assertFalse("Projekt darf durch die Badge-Aktualisierung nicht disposed werden", project.isDisposed)
+    }
 }

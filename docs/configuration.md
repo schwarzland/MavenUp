@@ -9,6 +9,7 @@ Under `Settings > Tools > MavenUp`, the following options can be configured. The
 - **Maven Repository Browser**: Selects the browser for artifact version pages — **MVN Repository** (default, `mvnrepository.com`) or **Sonatype Central** (`central.sonatype.com`). The selection applies to the right-click context menu in the main window and the right-click context menu in the vulnerability details dialog (all columns except **References**).
 - **Show text labels on toolbar buttons instead of icons only**: Renders the actions in the top action bar of the tool window and the vulnerability details dialog as buttons with text labels instead of icon-only buttons (default: on); the labels are shortened (the full text remains as a tooltip) so the action bar also fits on low screen resolutions. The change is applied to the open tool window immediately.
 - **Jump to pom.xml on single click**: Enables navigation to the `pom.xml` with a single click instead of a double click.
+- **Status badge on the tool window icon**: Controls the badge dot on the MavenUp tool window icon — **Show a badge for vulnerabilities and available updates** (default), **Show a badge for vulnerabilities only**, or **Never show a badge**. The change is applied to the open tool window immediately. See [usage.md](usage.md) for what the badge colors mean.
 
 ### Versions and Updates
 

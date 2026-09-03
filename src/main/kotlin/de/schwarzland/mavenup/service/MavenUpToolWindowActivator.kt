@@ -42,7 +42,7 @@ internal object MavenUpToolWindowActivator {
                 }
 
                 val toolWindowManager = ToolWindowManager.getInstance(project)
-                val tw = toolWindowManager.getToolWindow("MavenUp")
+                val tw = toolWindowManager.getToolWindow(MAVEN_UP_TOOL_WINDOW_ID)
 
                 if (tw == null) {
                     LOG.warn("MavenUp Tool Window konnte nicht gefunden werden (Tool Window nicht registriert?)")

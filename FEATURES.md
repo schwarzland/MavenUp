@@ -7,6 +7,7 @@ This document describes the key features of the MavenUp IntelliJ plugin, grouped
 ## Tool Window & UI
 
 - **Maven-only tool window availability**: The MavenUp tool window is shown for Maven projects and becomes available after Maven import if needed. It appears in the tool window bar with a dedicated MavenUp icon (with a Light and Dark theme variant) instead of a generic IntelliJ icon.
+- **Status badge on the tool window icon**: After a refresh or a vulnerability scan the tool window icon carries a small badge dot rendered by the IntelliJ platform, so the current state is visible even while the tool window is collapsed: red for at least one high or critical finding, yellow for findings up to medium severity, and blue when no vulnerability is known but newer versions are available. Following the IntelliJ UI guidelines only one badge is shown at a time and no badge appears when there is nothing to act on. The badge is removed when the tool window is disposed and can be limited to vulnerabilities or switched off in the settings.
 - **Dependency and plugin overview**: Displays dependencies, plugins, and the parent POM from `pom.xml` in a table.
 - **Parent POM support**: The `<parent>` section of each `pom.xml` is listed as a dependency with type "parent", including version checks and updates; property-based parent versions are resolved to a concrete version.
 - **Support for managed scopes**: Includes `dependencyManagement` and `pluginManagement` entries.
@@ -82,6 +83,7 @@ This document describes the key features of the MavenUp IntelliJ plugin, grouped
 - **Global plugin settings**: Supports configurable behavior in `Settings > Tools > MavenUp` (click behavior, automatic version search, auto-select strategy, unstable-version filtering, Central-short-circuit behavior, and the explanatory comment written for pinned vulnerability fixes), stored at application level so the configuration applies to all projects, organized into four headed groups: **Appearance and Behavior**, **Versions and Updates**, **Vulnerability Check**, and **Pom.xml Changes**.
 - **Immediate auto-select setting application**: Changing the auto-selection mode in settings and applying it immediately updates all **New Version** selections in the open tool window without requiring a new update check.
 - **Configurable toolbar button style**: Lets users switch the tool window toolbar between icon-only buttons and buttons with text labels (default); the change applies immediately to the open tool window.
+- **Configurable status badge**: Lets users choose whether the badge on the tool window icon reports vulnerabilities and available updates (default), only vulnerabilities, or nothing at all; the change applies immediately to the open tool window.
 
 ---
 

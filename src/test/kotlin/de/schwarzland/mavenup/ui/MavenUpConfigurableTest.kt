@@ -3,10 +3,12 @@ package de.schwarzland.mavenup.ui
 import de.schwarzland.mavenup.service.MavenRepositoryBrowser
 import de.schwarzland.mavenup.service.MavenUpSettings
 import de.schwarzland.mavenup.service.OssIndexCredentialStore
+import de.schwarzland.mavenup.service.ToolWindowBadgeMode
 import de.schwarzland.mavenup.service.VersionAutoSelectionMode
 import de.schwarzland.mavenup.service.VulnerabilityCommentMode
 import com.intellij.credentialStore.Credentials
 import com.intellij.openapi.options.ConfigurationException
+import com.intellij.openapi.ui.ComboBox
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.util.ui.UIUtil
 import java.util.concurrent.CountDownLatch
@@ -217,7 +219,7 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
         assertFalse(configurable.isModified)
 
         @Suppress("UNCHECKED_CAST")
-        val comboBox = configurable.field<com.intellij.openapi.ui.ComboBox<MavenRepositoryBrowser>>("repositoryBrowserComboBox")
+        val comboBox = configurable.field<ComboBox<MavenRepositoryBrowser>>("repositoryBrowserComboBox")
         comboBox.selectedItem = MavenRepositoryBrowser.SONATYPE_CENTRAL
         assertTrue("Änderung der Combobox sollte isModified() true machen", configurable.isModified)
 
@@ -254,6 +256,32 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
 
     fun testSyncMavenAfterUpdateDefaultIsTrue() {
         assertTrue(MavenUpSettings.State().syncMavenAfterUpdate)
+    }
+
+    fun testToolWindowBadgeModeDefaultShowsVulnerabilitiesAndUpdates() {
+        assertEquals(
+            ToolWindowBadgeMode.VULNERABILITIES_AND_UPDATES,
+            MavenUpSettings.State().toolWindowBadgeMode
+        )
+    }
+
+    fun testToolWindowBadgeModeSelectionIsPersistedOnApply() {
+        val settings = MavenUpSettings.getInstance()
+        settings.state.toolWindowBadgeMode = ToolWindowBadgeMode.VULNERABILITIES_AND_UPDATES
+
+        val configurable = MavenUpConfigurable(project)
+        configurable.createComponent()
+        configurable.reset()
+        assertFalse(configurable.isModified)
+
+        val comboBox = configurable.field<ComboBox<ToolWindowBadgeMode>>("toolWindowBadgeModeComboBox")
+        comboBox.selectedItem = ToolWindowBadgeMode.OFF
+        assertTrue("Änderung der Auswahl sollte isModified() true machen", configurable.isModified)
+
+        configurable.apply()
+        assertEquals(ToolWindowBadgeMode.OFF, settings.state.toolWindowBadgeMode)
+
+        settings.state.toolWindowBadgeMode = ToolWindowBadgeMode.VULNERABILITIES_AND_UPDATES
     }
 
     fun testStopAfterCentralSuccessDefaultIsTrue() {
@@ -350,7 +378,7 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
         assertFalse(configurable.isModified)
 
         val comboBox = configurable
-            .field<com.intellij.openapi.ui.ComboBox<VulnerabilityCommentMode>>("vulnerabilityCommentModeComboBox")
+            .field<ComboBox<VulnerabilityCommentMode>>("vulnerabilityCommentModeComboBox")
         comboBox.selectedItem = VulnerabilityCommentMode.ALIASES
         assertTrue("Änderung der Combobox sollte isModified() true machen", configurable.isModified)
 
@@ -370,7 +398,7 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
         configurable.reset()
 
         val comboBox = configurable
-            .field<com.intellij.openapi.ui.ComboBox<VulnerabilityCommentMode>>("vulnerabilityCommentModeComboBox")
+            .field<ComboBox<VulnerabilityCommentMode>>("vulnerabilityCommentModeComboBox")
         comboBox.selectedItem = VulnerabilityCommentMode.NONE
         configurable.apply()
 
@@ -485,7 +513,7 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
         assertFalse(configurable.isModified)
 
         @Suppress("UNCHECKED_CAST")
-        val comboBox = configurable.field<com.intellij.openapi.ui.ComboBox<VersionAutoSelectionMode>>(
+        val comboBox = configurable.field<ComboBox<VersionAutoSelectionMode>>(
             "versionAutoSelectionModeComboBox"
         )
         comboBox.selectedItem = VersionAutoSelectionMode.LATEST_MINOR

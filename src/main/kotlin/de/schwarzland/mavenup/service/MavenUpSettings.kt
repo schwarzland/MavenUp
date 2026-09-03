@@ -71,6 +71,23 @@ enum class VulnerabilityCommentMode(val messageKey: String) {
     ALL_IDS("settings.vulnerabilityCommentMode.allIds")
 }
 
+/**
+ * Beschreibt, welche Zustände als Badge (kleiner farbiger Punkt) auf dem Stripe-Icon des
+ * MavenUp-Tool-Windows signalisiert werden.
+ *
+ * @property messageKey Schlüssel für den lokalisierten Anzeigetext in den Einstellungen.
+ */
+enum class ToolWindowBadgeMode(val messageKey: String) {
+    /** Es wird nie ein Badge angezeigt. */
+    OFF("settings.toolWindowBadgeMode.off"),
+
+    /** Es wird nur bei bekannten Sicherheitslücken ein Badge angezeigt. */
+    VULNERABILITIES("settings.toolWindowBadgeMode.vulnerabilities"),
+
+    /** Es wird zusätzlich ein Badge angezeigt, wenn neue Versionen verfügbar sind. */
+    VULNERABILITIES_AND_UPDATES("settings.toolWindowBadgeMode.vulnerabilitiesAndUpdates")
+}
+
 /** Standardpräfix des erklärenden XML-Kommentars vor den aufgelisteten Kennungen. */
 const val DEFAULT_VULNERABILITY_COMMENT_PREFIX = "Pinned by MavenUp to fix:"
 
@@ -108,6 +125,7 @@ class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
      * @property vulnerabilityCommentMode Bestimmt, welche Kennungen der behobenen Sicherheitswarnungen beim Anlegen eines gepinnten `dependencyManagement`-Eintrags als erklärender XML-Kommentar eingefügt werden.
      * @property vulnerabilityCommentPrefix Der Text, der im erklärenden XML-Kommentar vor den Kennungen steht.
      * @property vulnerabilityCommentMaxIds Die Höchstzahl der aufgelisteten Kennungen; darüber hinausgehende Kennungen werden durch einen „and more"-Hinweis ersetzt. `0` bedeutet „unbegrenzt".
+     * @property toolWindowBadgeMode Bestimmt, welche Zustände als farbiger Badge auf dem Stripe-Icon des Tool-Windows signalisiert werden.
      */
     data class State(
         var jumpOnSingleClick: Boolean = false,
@@ -128,7 +146,8 @@ class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
         var addVulnerabilityFixComment: Boolean = true,
         var vulnerabilityCommentMode: VulnerabilityCommentMode = VulnerabilityCommentMode.ADVISORY_IDS,
         var vulnerabilityCommentPrefix: String = DEFAULT_VULNERABILITY_COMMENT_PREFIX,
-        var vulnerabilityCommentMaxIds: Int = DEFAULT_VULNERABILITY_COMMENT_MAX_IDS
+        var vulnerabilityCommentMaxIds: Int = DEFAULT_VULNERABILITY_COMMENT_MAX_IDS,
+        var toolWindowBadgeMode: ToolWindowBadgeMode = ToolWindowBadgeMode.VULNERABILITIES_AND_UPDATES
     ) {
         /**
          * Normalisiert den geladenen Zustand und migriert Legacy-Bool-Flags auf [versionAutoSelectionMode].

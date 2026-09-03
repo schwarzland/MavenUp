@@ -19,6 +19,11 @@
         table stays empty and names the running operation, and the rows appear again once it has finished. The automatic
         search can be turned off in the settings.
     </li>
+    <li><strong>Watch the tool window icon</strong>: After a refresh or a vulnerability scan, the MavenUp icon in the
+        tool-window bar carries a small colored dot so you notice the state without opening the tool window: red for a
+        high or critical vulnerability, yellow for lower-severity findings, and blue when no vulnerability is known but
+        a newer version is available. No dot means there is nothing to act on. You can limit the dot to vulnerabilities
+        or switch it off in the settings.</li>
     <li><strong>Choose the version to apply</strong>: In the <strong>New Version</strong> column, select the version you
         want to use. When multiple entries share the same Maven property such as <code>${spring.version}</code>, MavenUp
         keeps the selection in sync automatically. The dropdown text is bold when a pending change is selected, and the
@@ -118,7 +123,7 @@
     all your projects. They are organized into four
     groups — <strong>Appearance and Behavior</strong>, <strong>Versions and Updates</strong>, <strong>Vulnerability Check</strong>, and <strong>Pom.xml Changes</strong>.
     You can choose the repository
-    browser, enable single-click navigation, choose a three-state auto-selection strategy for updates (keep current version, highest version, or latest minor in the current major line), filter out unstable releases, choose
+    browser, enable single-click navigation, decide whether the tool window icon shows a status badge, choose a three-state auto-selection strategy for updates (keep current version, highest version, or latest minor in the current major line), filter out unstable releases, choose
     whether to stop after a successful Maven Central lookup, decide how the explanatory comment for
     newly pinned vulnerability fixes looks (its text, which identifiers it lists, and how many), and configure an optional Sonatype OSS Index API token. These
     options are meant to make first-time use fast and keep the tool window practical for everyday dependency maintenance.</p>
