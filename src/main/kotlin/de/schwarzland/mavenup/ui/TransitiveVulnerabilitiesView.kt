@@ -8,6 +8,7 @@ import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.ComboBox
+import com.intellij.ui.SimpleTextAttributes
 import com.intellij.ui.components.JBPanel
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.table.JBTable
@@ -184,12 +185,21 @@ internal fun advisoriesBySeverity(advisories: List<VulnerabilityAdvisory>): List
  * @param project Das zugehörige Projekt, für das der Detaildialog geöffnet wird.
  * @param onSelectionChanged Callback, der bei jeder Änderung der Versionsauswahl aufgerufen wird
  * (z. B. um die Aktionsleiste zu aktualisieren).
+ * @param onShowDirectVulnerabilities Callback des Links im Empty State, der zu den ausschließlich
+ * direkt deklarierten Befunden im Tab **Dependencies** wechselt.
  */
 @Suppress("TooManyFunctions")
 internal class TransitiveVulnerabilitiesView(
     private val project: Project,
-    private val onSelectionChanged: () -> Unit = {}
+    private val onSelectionChanged: () -> Unit = {},
+    private val onShowDirectVulnerabilities: () -> Unit = {}
 ) : JBPanel<JBPanel<*>>(BorderLayout()) {
+
+    /** `true`, sobald mindestens ein Sicherheits-Scan abgeschlossen wurde. */
+    private var scanPerformed = false
+
+    /** `true`, wenn der letzte Scan mindestens eine direkt deklarierte Abhängigkeit beanstandet hat. */
+    private var hasDirectFindings = false
 
     /**
      * Zuordnung von `groupId:artifactId` zur in der New-Version-Spalte gewählten Zielversion.
@@ -315,7 +325,7 @@ internal class TransitiveVulnerabilitiesView(
 
         add(filterPanel, BorderLayout.NORTH)
         add(JBScrollPane(table), BorderLayout.CENTER)
-        updateEmptyText(withoutFindings = true)
+        updateEmptyText()
         applyRowFilter()
     }
 
@@ -949,14 +959,21 @@ internal class TransitiveVulnerabilitiesView(
      * @param knownTypes Zuordnung von `groupId:artifactId` zum in der Haupttabelle angezeigten Typ.
      * @param availableVersions Zuordnung von `groupId:artifactId` zu den verfügbaren Versionen der
      * letzten Versionssuche (befüllt die New-Version-Spalte).
+     * @param scanPerformed `true`, wenn mindestens ein Sicherheits-Scan abgeschlossen wurde.
+     * @param hasDirectFindings `true`, wenn der letzte Scan mindestens eine direkt deklarierte
+     * Abhängigkeit beanstandet hat.
      */
     fun update(
         advisoriesByCoordinate: Map<String, List<VulnerabilityAdvisory>>,
         transitiveCoordinates: Set<String>,
         knownTypes: Map<String, String> = emptyMap(),
-        availableVersions: Map<String, List<String>> = emptyMap()
+        availableVersions: Map<String, List<String>> = emptyMap(),
+        scanPerformed: Boolean = false,
+        hasDirectFindings: Boolean = false
     ) {
         this.availableVersions = availableVersions
+        this.scanPerformed = scanPerformed
+        this.hasDirectFindings = hasDirectFindings
         val transitiveTypeLabel = MyMessageBundle.message("toolwindow.TransitiveVulnerabilities.type.transitive")
         val rows = collectTransitiveVulnerabilityRows(
             advisoriesByCoordinate,
@@ -991,7 +1008,7 @@ internal class TransitiveVulnerabilitiesView(
         }
         trimColumnWidthsToContent(table)
         applyRecommendedRowHeight(table)
-        updateEmptyText(rows.isEmpty())
+        updateEmptyText()
         filterPanel.updateAvailability()
         applyRowFilter()
     }
@@ -1000,16 +1017,22 @@ internal class TransitiveVulnerabilitiesView(
      * Setzt den Empty-State-Text der Tabelle passend zur Ursache der leeren Ansicht.
      *
      * Der Tab bleibt gemäß den JetBrains-UI-Guidelines stets auswählbar; statt ihn zu deaktivieren,
-     * erklärt dieser Text im Tab-Inhalt, warum keine Einträge vorliegen.
-     *
-     * @param withoutFindings `true`, wenn überhaupt keine transitiven Funde vorliegen, `false`, wenn
-     * lediglich der aktive Filter alle Zeilen ausblendet.
+     * erklärt dieser Text im Tab-Inhalt, warum keine Einträge vorliegen. Liegen ausschließlich
+     * direkt deklarierte Befunde vor, ergänzt eine zweite Zeile einen Link, der in den Tab
+     * **Dependencies** wechselt und dort auf die betroffenen Zeilen filtert.
      */
-    private fun updateEmptyText(withoutFindings: Boolean) {
-        table.emptyText.text = if (withoutFindings) {
-            MyMessageBundle.message("toolwindow.TransitiveVulnerabilities.emptyText.noScan")
-        } else {
-            MyMessageBundle.message("toolwindow.TransitiveVulnerabilities.emptyText.noMatches")
+    internal fun updateEmptyText() {
+        val state = transitiveEmptyState(
+            scanPerformed = scanPerformed,
+            hasTransitiveRows = tableModel.rowCount > 0,
+            hasDirectFindings = hasDirectFindings
+        )
+        table.emptyText.text = MyMessageBundle.message(state.bundleKey)
+        if (state == TransitiveEmptyState.ONLY_DIRECT) {
+            table.emptyText.appendLine(
+                MyMessageBundle.message("toolwindow.TransitiveVulnerabilities.emptyText.onlyDirect.link"),
+                SimpleTextAttributes.LINK_PLAIN_ATTRIBUTES
+            ) { onShowDirectVulnerabilities() }
         }
     }
 

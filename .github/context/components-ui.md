@@ -13,6 +13,7 @@ in Hintergrund-Tasks.
 - Während Refresh oder Update-Check laufen, bleibt der Vulnerability-Check deaktiviert, um konkurrierende Hintergrundaktionen zu vermeiden.
 - Solange ein Refresh (`isRefreshing`) oder eine Versionssuche (`isSearchingVersions`) läuft, bleibt die Haupttabelle bewusst leer: `refreshAction` baut die Zeilen bei `checkUpdates = true` erst im abschließenden Folge-Refresh nach der Versionssuche auf.
 - `updateTableEmptyText` setzt über `dependencyTableEmptyTextKey` den erklärenden Hinweistext (laufender Vorgang, keine Dependencies geladen oder alle Zeilen ausgefiltert) – analog zum Empty State der `TransitiveVulnerabilitiesView`.
+- `updateScanHint` blendet nach einem Scan ohne jeden Befund (`isNoVulnerabilitiesHintVisible` aus `directVulnerabilityCount`/`transitiveVulnerabilityCount`) einen schließbaren `InlineBanner` mit `EditorNotificationPanel.Status.Success` im `scanHintPanel` direkt oberhalb der Tabelle ein; `hideScanHint` entfernt ihn beim Schließen, bei einem Refresh mit `clearVulnerabilities` und bei einem Scan mit Befunden. `lastScannedCount` (Größe von `VulnerabilityScanTargets.dependencies`) liefert die im Text genannte Anzahl geprüfter Koordinaten.
 
 ### Aktionsleiste
 - Die Aktionen liegen in einer `ActionToolbar` (Icon-Actions mit Tooltip) oberhalb der jeweiligen Tabelle – je Tab eine eigene Instanz über dieselbe Aktionsgruppe – und wirken stets auf die Tabelle des aktiven Tabs.
@@ -134,8 +135,13 @@ Auswahlfarben der IDE verwendet werden.
   Anzahl betroffener Koordinaten (`transitiveVulnerabilityCount`/`hasTransitiveVulnerabilities`) in den Tab-Titel. Der Tab
   wird bewusst weder deaktiviert noch entfernt und es findet kein automatischer Rückwechsel statt, da der Styleguide
   vorschreibt: „Do not remove or disable a tab when its functions are unavailable. Explain why a tab's content is
-  unavailable in the body of the tab." Stattdessen erklärt der Empty State der Tabelle
-  (`toolwindow.TransitiveVulnerabilities.emptyText.noScan`/`...noMatches`), warum nichts angezeigt wird. Da eine
+  unavailable in the body of the tab." Stattdessen erklärt der Empty State der Tabelle, warum nichts angezeigt wird:
+  `updateEmptyText` leitet den Zustand über die reine Funktion `transitiveEmptyState` (Enum `TransitiveEmptyState`)
+  aus `scanPerformed`, dem Zeilenbestand und `hasDirectFindings` ab – `NOT_SCANNED`, `NO_MATCHES`, `NO_FINDINGS`
+  (Scan ohne jeden Befund) oder `ONLY_DIRECT` (nur direkt deklarierte Befunde). Im Fall `ONLY_DIRECT` hängt
+  `appendLine` eine Link-Zeile an, deren `onShowDirectVulnerabilities`-Callback über
+  `MyToolWindow.showDirectVulnerabilitiesInDependencies` in den Tab **Dependencies** wechselt und dort auf
+  `VulnerabilityFilter.SELF_VULNERABLE` filtert. Da eine
   Swing-Komponente nur einen Container haben kann, erzeugt `installToolbars` je Tab eine eigene `ActionToolbar`-Instanz
   über dieselbe `toolbarGroup`; `refreshToolbar` aktualisiert beide. Jeder Tab bringt seine eigene Filterzeile mit; die der Haupttabelle liegt
   im Tab **Dependencies**, die transitive Ansicht nutzt `TransitiveVulnerabilitiesFilterPanel` (siehe unten). Die reine Top-Level-Funktion `collectTransitiveVulnerabilityRows`
@@ -203,6 +209,9 @@ Auswahlfarben der IDE verwendet werden.
     `EMPTY_TEXT_KEY_REFRESHING`, `EMPTY_TEXT_KEY_SEARCHING`, `EMPTY_TEXT_KEY_NO_DEPENDENCIES`
     und `EMPTY_TEXT_KEY_NO_MATCHES` – bestimmt den Hinweistext der leeren Haupttabelle
     (laufender Refresh bzw. laufende Versionssuche haben Vorrang vor Filter- und Leerzustand).
+  - `TransitiveEmptyState.kt`: Enum `TransitiveEmptyState` samt Bundle-Schlüsseln und die reinen Funktionen
+    `transitiveEmptyState` (Empty State des Tabs **Transitive CVEs**) und `isNoVulnerabilitiesHintVisible`
+    (Sichtbarkeit des Erfolgshinweises im Tab **Dependencies**).
   - `VersionStatusUi.kt`: `VersionUpdateArrowIcon`, `isVersionUpToDate`, `hasNewerVersion`,
     `versionStatusText`/`versionStatusColor`/`versionStatusTooltip`, `versionDropdownItemDisplay`
     (liefert Anzeigetext und Fettschrift-Status in einem Durchgang), `versionDropdownItemText`

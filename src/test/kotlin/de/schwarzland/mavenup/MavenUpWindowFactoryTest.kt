@@ -1297,6 +1297,62 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         )
     }
 
+    fun testTransitiveViewEmptyStateReportsScanWithoutAnyFindings() {
+        val view = TransitiveVulnerabilitiesView(project)
+
+        view.update(
+            advisoriesByCoordinate = emptyMap(),
+            transitiveCoordinates = emptySet(),
+            scanPerformed = true,
+            hasDirectFindings = false
+        )
+
+        assertEquals(
+            "Ein Scan ohne jeden Befund muss dies im Empty State melden",
+            "No vulnerabilities found in the last scan.",
+            view.table.emptyText.text
+        )
+    }
+
+    fun testTransitiveViewEmptyStateReportsOnlyDirectFindings() {
+        val view = TransitiveVulnerabilitiesView(project)
+
+        view.update(
+            advisoriesByCoordinate = mapOf(
+                "com.example:direct:1.0.0" to listOf(
+                    VulnerabilityAdvisory(id = "CVE-2", severity = VulnerabilitySeverity.HIGH, sources = setOf("OSV"))
+                )
+            ),
+            transitiveCoordinates = emptySet(),
+            scanPerformed = true,
+            hasDirectFindings = true
+        )
+
+        assertEquals(
+            "Nur direkte Befunde müssen im Empty State erklärt werden",
+            "No transitive vulnerabilities found. All findings affect directly declared dependencies.",
+            view.table.emptyText.text
+        )
+    }
+
+    fun testShowDirectVulnerabilitiesInDependenciesFiltersMainTable() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+        toolWindow.setTransitiveViewVisible(true)
+
+        toolWindow.showDirectVulnerabilitiesInDependencies()
+
+        assertFalse(
+            "Der Link muss zurück in den Tab Dependencies wechseln",
+            toolWindow.isTransitiveViewVisible()
+        )
+        assertEquals(
+            "Der Link muss auf die selbst betroffenen Zeilen filtern",
+            VulnerabilityFilter.SELF_VULNERABLE,
+            toolWindow.vulnerabilitiesFilterComboBox.selectedItem
+        )
+    }
+
     fun testRefreshStaysAvailableWhileTransitiveViewIsShown() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         toolWindow.getContent()

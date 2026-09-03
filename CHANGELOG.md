@@ -9,6 +9,8 @@
 - Added a **Dependency Graph** GitHub Actions workflow that submits the resolved Gradle dependency graph — including transitive dependencies — to GitHub so Dependabot can raise security alerts for them.
 - Added a **Dependency Graph Submit** GitHub Actions workflow that submits the graph generated for a pull request via `workflow_run`, so pull requests from forks are covered without granting write access to untrusted code.
 - Added a **Dependency Review** GitHub Actions workflow that fails a pull request introducing a dependency with a known vulnerability of severity `moderate` or higher.
+- Added a closable success banner above the dependency table that reports a finished vulnerability scan without any finding, including the number of scanned coordinates.
+- Added dedicated empty states to the **Transitive CVEs** tab that distinguish a scan without any finding from a scan whose findings all affect directly declared dependencies, the latter offering a link that switches to the **Dependencies** tab and filters it to the affected rows.
 
 ### Changed
 

@@ -39,6 +39,8 @@ import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
 import com.intellij.ui.DocumentAdapter
+import com.intellij.ui.EditorNotificationPanel
+import com.intellij.ui.InlineBanner
 import com.intellij.ui.SearchTextField
 import com.intellij.ui.components.JBPanel
 import com.intellij.ui.components.JBScrollPane
@@ -169,7 +171,11 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private val transitiveAvailableVersions = mutableMapOf<String, List<String>>()
 
         /** Alternative Ansicht, die ausschließlich transitive, verwundbare Abhängigkeiten auflistet. */
-        private val transitiveVulnerabilitiesView = TransitiveVulnerabilitiesView(project) { refreshToolbar() }
+        private val transitiveVulnerabilitiesView = TransitiveVulnerabilitiesView(
+            project,
+            { refreshToolbar() },
+            { showDirectVulnerabilitiesInDependencies() }
+        )
 
         /** Wurzelkomponente des Tabs **Transitive CVEs**: Aktionsleiste über der transitiven Ansicht. */
         private val transitiveContent = JBPanel<JBPanel<*>>(BorderLayout())
@@ -264,6 +270,18 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
         /** Container für die Aktionsleiste und die Filterzeile des Tabs **Dependencies**. */
         private val topPanel = JBPanel<JBPanel<*>>(BorderLayout())
+
+        /** Container der Filterzeile und des Scan-Hinweises unterhalb der Aktionsleiste. */
+        private val filterAndHintPanel = JBPanel<JBPanel<*>>(BorderLayout())
+
+        /** Container des Scan-Hinweises direkt oberhalb der Tabelle; leer, solange kein Hinweis vorliegt. */
+        private val scanHintPanel = JBPanel<JBPanel<*>>(BorderLayout())
+
+        /** Der aktuell eingeblendete Scan-Hinweis oder `null`, wenn kein Hinweis angezeigt wird. */
+        private var scanHintBanner: InlineBanner? = null
+
+        /** Anzahl der beim letzten Scan geprüften Koordinaten; speist den Text des Scan-Hinweises. */
+        private var lastScannedCount = 0
 
         /** Aktionsleiste am Ende der Filterzeile zum Zurücksetzen aller Filter. */
         private var filterResetToolbar: ActionToolbar? = null
@@ -669,6 +687,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     transitiveDependenciesByDirect.clear()
                     transitiveAvailableVersions.clear()
                     vulnerabilityScanPerformed = false
+                    lastScannedCount = 0
+                    hideScanHint()
                 }
                 dependencyToProperty.clear()
                 knownDependencies.clear()
@@ -970,7 +990,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 ) { openSettings() })
             }
             installToolbars()
-            topPanel.add(buildFilterPanel(), BorderLayout.SOUTH)
+            filterAndHintPanel.add(buildFilterPanel(), BorderLayout.NORTH)
+            filterAndHintPanel.add(scanHintPanel, BorderLayout.SOUTH)
+            topPanel.add(filterAndHintPanel, BorderLayout.SOUTH)
             add(topPanel, BorderLayout.NORTH)
 
             project.messageBus.connect(this@MyToolWindow).subscribe(MavenImportListener.TOPIC, object : MavenImportListener {
@@ -1248,6 +1270,78 @@ class MavenUpWindowFactory : ToolWindowFactory {
             transitiveCoordinates.count { vulnerabilityAdvisories[it]?.isNotEmpty() == true }
 
         /**
+         * Zählt die direkt deklarierten Koordinaten, für die mindestens eine Sicherheitswarnung vorliegt.
+         *
+         * Direkt sind alle Koordinaten der Scan-Ergebnisse, die nicht ausschließlich transitiv
+         * aufgelöst wurden.
+         *
+         * @return Anzahl der betroffenen, direkt deklarierten Abhängigkeiten.
+         */
+        internal fun directVulnerabilityCount(): Int =
+            vulnerabilityAdvisories.count { (coordinate, advisories) ->
+                advisories.isNotEmpty() && coordinate !in transitiveCoordinates
+            }
+
+        /**
+         * Blendet den Erfolgshinweis „keine Sicherheitslücken gefunden" passend zum letzten Scan ein
+         * oder aus.
+         *
+         * Der Hinweis ist ein schließbarer [InlineBanner] mit Erfolgsstatus direkt oberhalb der Tabelle
+         * und erscheint ausschließlich nach einem Scan ohne jeden Befund. Ein erneuter Refresh oder Scan
+         * entfernt ihn wieder.
+         */
+        private fun updateScanHint() {
+            val visible = isNoVulnerabilitiesHintVisible(
+                vulnerabilityScanPerformed,
+                directVulnerabilityCount(),
+                transitiveVulnerabilityCount()
+            )
+            if (!visible) {
+                hideScanHint()
+                return
+            }
+            val message = MyMessageBundle.message(
+                "toolwindow.MyToolWindow.scanHint.noVulnerabilities",
+                lastScannedCount
+            )
+            val banner = scanHintBanner
+            if (banner != null) {
+                banner.setMessage(message)
+                return
+            }
+            val newBanner = InlineBanner(message, EditorNotificationPanel.Status.Success)
+                .showCloseButton(true)
+                .setCloseAction { hideScanHint() }
+            scanHintBanner = newBanner
+            scanHintPanel.add(newBanner, BorderLayout.CENTER)
+            scanHintPanel.revalidate()
+            scanHintPanel.repaint()
+        }
+
+        /**
+         * Entfernt den Erfolgshinweis aus dem Tab **Dependencies**, sofern einer angezeigt wird.
+         */
+        private fun hideScanHint() {
+            val banner = scanHintBanner ?: return
+            scanHintBanner = null
+            scanHintPanel.remove(banner)
+            scanHintPanel.revalidate()
+            scanHintPanel.repaint()
+        }
+
+        /**
+         * Wechselt in den Tab **Dependencies** und filtert dort auf die direkt betroffenen Zeilen.
+         *
+         * Ziel des Links im Empty State der transitiven Ansicht, wenn ein Scan ausschließlich Befunde
+         * an direkt deklarierten Abhängigkeiten ergeben hat.
+         */
+        internal fun showDirectVulnerabilitiesInDependencies() {
+            setTransitiveViewVisible(false)
+            vulnerabilitiesFilterComboBox.selectedItem = VulnerabilityFilter.SELF_VULNERABLE
+            applyRowFilter()
+        }
+
+        /**
          * Wählt den Tab der Hauptabhängigkeitstabelle oder den der transitiven Sicherheitslücken-Ansicht.
          *
          * Sind die Tabs noch nicht über [bindTabs] verbunden (z.B. in Tests ohne Tool Window), wird nur
@@ -1267,6 +1361,13 @@ class MavenUpWindowFactory : ToolWindowFactory {
             showingTransitiveView = visible
             refreshToolbar()
         }
+
+        /**
+         * Prüft, ob aktuell der Tab **Transitive CVEs** ausgewählt ist.
+         *
+         * @return `true`, wenn die transitive Sicherheitslücken-Ansicht sichtbar ist.
+         */
+        internal fun isTransitiveViewVisible(): Boolean = showingTransitiveView
 
         /**
          * Übernimmt den aktuell ausgewählten Tab in den internen Zustand und aktualisiert die
@@ -1304,9 +1405,12 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 vulnerabilityAdvisories,
                 transitiveCoordinates,
                 knownTypes,
-                availableVersions + transitiveAvailableVersions
+                availableVersions + transitiveAvailableVersions,
+                vulnerabilityScanPerformed,
+                directVulnerabilityCount() > 0
             )
             updateTransitiveTabTitle()
+            updateScanHint()
             refreshToolbar()
         }
 
@@ -2427,6 +2531,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             transitiveDependenciesByDirect.clear()
             transitiveDependenciesByDirect.putAll(scanTargets.transitiveDependenciesByDirect)
             vulnerabilityScanPerformed = true
+            lastScannedCount = scanTargets.dependencies.size
             updateTransitiveVulnerabilitiesView()
         }
 
