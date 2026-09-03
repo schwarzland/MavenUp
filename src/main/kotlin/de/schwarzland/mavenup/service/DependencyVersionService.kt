@@ -15,11 +15,15 @@ import org.jetbrains.idea.maven.project.MavenProjectsManager
  * Ergebnis einer Versionssuche: die verfügbaren Versionen je Abhängigkeit und die daraus
  * abgeleitete Vorauswahl.
  *
- * @property availableVersions Zuordnung von Abhängigkeitsschlüssel (`groupId:artifactId`) zu den verfügbaren Versionen.
+ * @property availableVersions Zuordnung von Abhängigkeitsschlüssel (`groupId:artifactId`) zu den gemäß den
+ * Einstellungen gefilterten Versionen.
+ * @property rawVersions Zuordnung von Abhängigkeitsschlüssel zu den ungefilterten Versionen, damit
+ * geänderte Anzeigeeinstellungen ohne erneute Netzwerkabfrage angewendet werden können.
  * @property selectedVersions Zuordnung von Abhängigkeitsschlüssel zur vorausgewählten Zielversion.
  */
 internal data class VersionSearchResult(
     val availableVersions: Map<String, List<String>>,
+    val rawVersions: Map<String, List<String>>,
     val selectedVersions: Map<String, String>
 )
 
@@ -31,13 +35,16 @@ internal data class VersionSearchResult(
  * [VersionSearchResult] zurückgegeben.
  *
  * @property project Das Projekt, dessen Maven-Modell und `pom.xml`-Dateien ausgewertet werden.
- * @property fetchVersions Ruft die verfügbaren Versionen eines Artefakts ab (injizierbar für Tests).
+ * @property fetchAllVersions Ruft alle verfügbaren Versionen eines Artefakts ungefiltert ab (injizierbar für Tests).
+ * @property applyVersionSettings Wendet die Anzeigeeinstellungen auf eine Versionsliste an (injizierbar für Tests).
  * @property refreshSnapshotCollector Löst Property-Platzhalter in `pom.xml`-Versionen auf (injizierbar für Tests).
  */
 internal class DependencyVersionService(
     private val project: Project,
-    private val fetchVersions: (groupId: String, artifactId: String, currentVersion: String) -> List<String> =
-        DependencyApiService(project)::fetchVersions,
+    private val fetchAllVersions: (groupId: String, artifactId: String) -> List<String> =
+        DependencyApiService(project)::fetchAllVersions,
+    private val applyVersionSettings: (versions: List<String>, currentVersion: String) -> List<String> =
+        DependencyApiService(project)::applyVersionSettings,
     private val refreshSnapshotCollector: RefreshSnapshotCollector = RefreshSnapshotCollector(project)
 ) {
 
@@ -55,39 +62,46 @@ internal class DependencyVersionService(
         indicator: ProgressIndicator
     ): VersionSearchResult {
         val availableVersions = mutableMapOf<String, List<String>>()
+        val rawVersions = mutableMapOf<String, List<String>>()
         val selectedVersions = mutableMapOf<String, String>()
 
         MavenProjectsManager.getInstance(project).projects.forEach { mavenProject ->
-            processProjectUpdates(mavenProject, indicator, availableVersions, selectedVersions)
+            processProjectUpdates(mavenProject, indicator, availableVersions, rawVersions, selectedVersions)
         }
 
-        postProcessPropertyUpdates(dependencyToProperty, currentVersions, availableVersions, selectedVersions)
+        postProcessPropertyUpdates(
+            dependencyToProperty,
+            currentVersions,
+            availableVersions,
+            rawVersions,
+            selectedVersions
+        )
 
-        return VersionSearchResult(availableVersions, selectedVersions)
+        return VersionSearchResult(availableVersions, rawVersions, selectedVersions)
     }
 
     /**
-     * Ruft die verfügbaren Versionen für eine gezielte Menge von Koordinaten ab.
+     * Ruft die ungefilterten verfügbaren Versionen für eine gezielte Menge von Koordinaten ab.
      *
      * Wird u. a. genutzt, um nach einem Vulnerability-Scan ausschließlich für die verwundbaren
      * transitiven Koordinaten Versionen zu ermitteln, ohne den gesamten Dependency-Tree abzufragen.
-     * Es findet keine Vorauswahl statt; zurückgegeben werden nur die Versionslisten.
+     * Es findet keine Vorauswahl und keine Filterung nach den Anzeigeeinstellungen statt.
      *
      * @param coordinates Zuordnung von `groupId:artifactId` zur aktuell aufgelösten Version.
      * @param indicator Der Fortschrittsindikator der laufenden Hintergrundaufgabe.
-     * @return Zuordnung von `groupId:artifactId` zu den verfügbaren Versionen (nur nicht-leere Listen).
+     * @return Zuordnung von `groupId:artifactId` zu den ungefilterten Versionen (nur nicht-leere Listen).
      */
     internal fun fetchAvailableVersions(
         coordinates: Map<String, String>,
         indicator: ProgressIndicator
     ): Map<String, List<String>> {
         val result = mutableMapOf<String, List<String>>()
-        coordinates.forEach { (key, version) ->
+        coordinates.forEach { (key, _) ->
             if (indicator.isCanceled) return@forEach
             val groupId = key.substringBefore(":")
             val artifactId = key.substringAfter(":")
             indicator.text2 = "$groupId:$artifactId"
-            val versions = fetchVersions(groupId, artifactId, version)
+            val versions = fetchAllVersions(groupId, artifactId)
             if (versions.isNotEmpty()) {
                 result[key] = versions
             }
@@ -103,6 +117,7 @@ internal class DependencyVersionService(
         mavenProject: MavenProject,
         indicator: ProgressIndicator,
         availableVersions: MutableMap<String, List<String>>,
+        rawVersions: MutableMap<String, List<String>>,
         selectedVersions: MutableMap<String, String>
     ) {
         val allKeysWithVersions = mutableMapOf<String, String>()
@@ -125,7 +140,15 @@ internal class DependencyVersionService(
             if (indicator.isCanceled) return
             val groupId = key.substringBefore(":")
             val artifactId = key.substringAfter(":")
-            checkArtifactUpdate(groupId, artifactId, version, indicator, availableVersions, selectedVersions)
+            checkArtifactUpdate(
+                groupId,
+                artifactId,
+                version,
+                indicator,
+                availableVersions,
+                rawVersions,
+                selectedVersions
+            )
         }
     }
 
@@ -204,6 +227,7 @@ internal class DependencyVersionService(
         dependencyToProperty: Map<String, String>,
         currentVersions: Map<String, String>,
         availableVersions: MutableMap<String, List<String>>,
+        rawVersions: MutableMap<String, List<String>>,
         selectedVersions: MutableMap<String, String>
     ) {
         val propertyToDependencies: Map<String, List<String>> = dependencyToProperty
@@ -212,7 +236,7 @@ internal class DependencyVersionService(
 
         propertyToDependencies.forEach { (_, depKeys) ->
             if (depKeys.size > 1) {
-                intersectVersions(depKeys, currentVersions, availableVersions, selectedVersions)
+                intersectVersions(depKeys, currentVersions, availableVersions, rawVersions, selectedVersions)
             }
         }
     }
@@ -220,16 +244,20 @@ internal class DependencyVersionService(
     /**
      * Reduziert die verfügbaren Versionen für eine Gruppe von Abhängigkeiten auf deren gemeinsame
      * Schnittmenge und wählt bei aktivierter Einstellung automatisch die konfigurierte Zielversion vor.
+     *
+     * Die Schnittmenge wird auf den ungefilterten Versionen gebildet; die angezeigten Versionen
+     * ergeben sich anschließend je Abhängigkeit aus [applyVersionSettings].
      */
     internal fun intersectVersions(
         depKeys: List<String>,
         currentVersions: Map<String, String>,
         availableVersions: MutableMap<String, List<String>>,
+        rawVersions: MutableMap<String, List<String>>,
         selectedVersions: MutableMap<String, String>
     ) {
         var commonVersions: List<String>? = null
         depKeys.forEach { depKey ->
-            val versions = availableVersions[depKey] ?: emptyList()
+            val versions = rawVersions[depKey] ?: emptyList()
             commonVersions = if (commonVersions == null) {
                 versions
             } else {
@@ -242,14 +270,16 @@ internal class DependencyVersionService(
         } ?: emptyList()
 
         depKeys.forEach { depKey ->
-            availableVersions[depKey] = sortedCommonVersions
-            if (sortedCommonVersions.isNotEmpty() &&
+            val currentVersion = currentVersions[depKey] ?: ""
+            rawVersions[depKey] = sortedCommonVersions
+            val visibleVersions = applyVersionSettings(sortedCommonVersions, currentVersion)
+            availableVersions[depKey] = visibleVersions
+            if (visibleVersions.isNotEmpty() &&
                 MavenUpSettings.getInstance().state.versionAutoSelectionMode != VersionAutoSelectionMode.DISABLED
             ) {
-                val currentVersion = currentVersions[depKey] ?: ""
                 val autoSelectedVersion = chooseAutoSelectedVersion(
                     currentVersion,
-                    sortedCommonVersions,
+                    visibleVersions,
                     MavenUpSettings.getInstance().state.versionAutoSelectionMode
                 )
                 if (autoSelectedVersion != currentVersion) {
@@ -257,15 +287,16 @@ internal class DependencyVersionService(
                 } else {
                     selectedVersions.remove(depKey)
                 }
-            } else if (sortedCommonVersions.isNotEmpty()) {
-                selectedVersions[depKey] = currentVersions[depKey] ?: ""
+            } else if (visibleVersions.isNotEmpty()) {
+                selectedVersions[depKey] = currentVersion
             }
         }
     }
 
     /**
-     * Ruft die verfügbaren Versionen für ein einzelnes Artefakt ab und speichert
-     * die Ergebnisse in [availableVersions] sowie die Vorauswahl in [selectedVersions].
+     * Ruft die verfügbaren Versionen für ein einzelnes Artefakt ab und speichert die ungefilterten
+     * Versionen in [rawVersions], die gemäß den Einstellungen sichtbaren Versionen in
+     * [availableVersions] sowie die Vorauswahl in [selectedVersions].
      */
     internal fun checkArtifactUpdate(
         groupId: String?,
@@ -273,31 +304,51 @@ internal class DependencyVersionService(
         currentVersion: String?,
         indicator: ProgressIndicator,
         availableVersions: MutableMap<String, List<String>>,
+        rawVersions: MutableMap<String, List<String>>,
         selectedVersions: MutableMap<String, String>
     ) {
         indicator.text2 = "$groupId:$artifactId"
 
-        if (groupId != null && artifactId != null) {
-            val version = currentVersion ?: ""
-            val versions = fetchVersions(groupId, artifactId, version)
-            if (versions.isNotEmpty()) {
-                val key = "$groupId:$artifactId"
-                availableVersions[key] = versions
-                if (MavenUpSettings.getInstance().state.versionAutoSelectionMode != VersionAutoSelectionMode.DISABLED) {
-                    val autoSelectedVersion = chooseAutoSelectedVersion(
-                        version,
-                        versions,
-                        MavenUpSettings.getInstance().state.versionAutoSelectionMode
-                    )
-                    if (autoSelectedVersion != version) {
-                        selectedVersions[key] = autoSelectedVersion
-                    } else {
-                        selectedVersions.remove(key)
-                    }
-                } else {
-                    selectedVersions[key] = version
-                }
-            }
+        if (groupId == null || artifactId == null) return
+        val version = currentVersion ?: ""
+        val allVersions = fetchAllVersions(groupId, artifactId)
+        if (allVersions.isEmpty()) return
+
+        val key = "$groupId:$artifactId"
+        val versions = applyVersionSettings(allVersions, version)
+        rawVersions[key] = allVersions
+        availableVersions[key] = versions
+        if (versions.isEmpty()) return
+
+        applyAutoSelection(key, version, versions, selectedVersions)
+    }
+
+    /**
+     * Übernimmt die konfigurierte Auto-Selektionsstrategie für eine einzelne Abhängigkeit.
+     *
+     * Entspricht die ermittelte Zielversion der aktuellen Version, wird kein Update vorgemerkt.
+     *
+     * @param key Der Abhängigkeitsschlüssel (`groupId:artifactId`).
+     * @param currentVersion Die aktuell verwendete Version.
+     * @param versions Die angebotenen Versionen.
+     * @param selectedVersions Die zu befüllende Vorauswahl.
+     */
+    private fun applyAutoSelection(
+        key: String,
+        currentVersion: String,
+        versions: List<String>,
+        selectedVersions: MutableMap<String, String>
+    ) {
+        val autoSelectionMode = MavenUpSettings.getInstance().state.versionAutoSelectionMode
+        if (autoSelectionMode == VersionAutoSelectionMode.DISABLED) {
+            selectedVersions[key] = currentVersion
+            return
+        }
+        val autoSelectedVersion = chooseAutoSelectedVersion(currentVersion, versions, autoSelectionMode)
+        if (autoSelectedVersion != currentVersion) {
+            selectedVersions[key] = autoSelectedVersion
+        } else {
+            selectedVersions.remove(key)
         }
     }
 }

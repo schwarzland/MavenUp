@@ -57,6 +57,7 @@ Auswahlfarben der IDE verwendet werden.
 - **New Version** zeigt über die Helper-Funktionen `isVersionUpToDate()`, `versionStatusText()`, `versionStatusColor()` und `versionStatusTooltip()` ein Status-Glyph und farbcodierten Text: grüner Haken „✓", wenn die ausgewählte Version die neueste ist, sonst ein Pfeil nach oben „↑". Das Glyph ist ein einfärbbares Text-Label (kein IntelliJ-Icon) und übernimmt dieselbe Farbe wie die Versionsnummer: Es wird nur eingefärbt (grün bzw. orange), wenn eine von der aktuellen abweichende Version ausgewählt ist; andernfalls verwendet es die Standardfarbe. Glyph und Farbe richten sich immer nach der **ausgewählten** Version im Dropdown.
 - Bei einer ausstehenden Änderung (ausgewählte ≠ aktuelle Version) wird der Dropdown-Text fett dargestellt. In der aufgeklappten Liste markiert der gemeinsame Renderer `applyVersionDropdownRenderer()` die aktuelle Version mit „(current)" und die über `recommendedVersionForDependency()` ermittelte Fix-Version mit „(recommended)", jeweils fett – identisch zur `TransitiveVulnerabilitiesView`.
 - `createVersionPanel()` baut das JPanel mit Status-Glyph und ComboBox zusammen; Farben verwenden `JBColor`-Doppelwerte für Light-/Dark-Mode-Kompatibilität.
+- Die abgerufenen Versionen liegen ungefiltert in `rawAvailableVersions` bzw. `rawTransitiveAvailableVersions`; `availableVersions`/`transitiveAvailableVersions` enthalten die daraus über `DependencyApiService.applyVersionSettings` abgeleitete Anzeige. Ändern sich `hideUnstableVersions`, `hiddenVersionQualifiers` oder `offerAllVersions`, berechnet `applyVersionVisibilitySettingsIfChanged` (Vergleich gegen `lastVersionVisibilitySettings`) über `applyVersionVisibilitySettings` die Spalte **New Version** beider Ansichten sofort neu, ohne erneute Netzwerkabfrage; nicht mehr angebotene Auswahlen werden verworfen.
 
 ### Filterzeile
 - Unterhalb der Aktionsleiste liegt eine Filterzeile mit fünf `ComboBox`-Elementen (Typ, Versionsherkunft via `TriStateFilter` [All/Yes/No], verfügbare Updates via `TriStateFilter` [All/Yes/No], anstehende Änderungen via `TriStateFilter` [All/Yes/No], Sicherheitslücken via `VulnerabilityFilter` [ALL/VULNERABLE/SELF_VULNERABLE/TRANSITIVE_VULNERABLE/NOT_VULNERABLE]) und einem `SearchTextField` (Textfilter über GroupId, ArtifactId und Property, case-insensitiv; kann zusätzlich über den Kontextmenü-Eintrag **Filter by "..."** per `filterBy` befüllt werden).
@@ -125,7 +126,8 @@ Auswahlfarben der IDE verwendet werden.
   Koordinaten, via `DependencyVersionService.fetchAvailableVersions`) befüllt wird. Die Trennung
   verhindert, dass eine erneute Versionssuche der Haupttabelle (die `availableVersions` leert) die
   New-Version-Spalte der transitiven Ansicht leert; `transitiveAvailableVersions` wird nur beim Leeren der
-  Vulnerabilities (`clearVulnerabilities`) bzw. bei einem neuen Scan zurückgesetzt. Die Ansicht ist ein eigener
+  Vulnerabilities (`clearVulnerabilities`) bzw. bei einem neuen Scan zurückgesetzt. `dropUnavailableSelections`
+  verwirft dabei Auswahlen, die durch geänderte Anzeigeeinstellungen nicht mehr angeboten werden. Die Ansicht ist ein eigener
   `Content` **Transitive CVEs** des `ContentManager` des Tool Windows und wird daher von der IDE als Tab in der
   Kopfzeile gerendert (der JetBrains-Styleguide „Tabs" fordert für Tool Windows automatisch generierte Tabs statt einer
   eingebetteten Tab-Leiste); `MyToolWindow.bindTabs` merkt sich `ContentManager` und beide `Content`-Objekte, ein

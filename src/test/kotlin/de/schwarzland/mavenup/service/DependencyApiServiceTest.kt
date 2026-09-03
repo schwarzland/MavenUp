@@ -379,6 +379,66 @@ class DependencyApiServiceTest : BasePlatformTestCase() {
         }
     }
 
+    fun testApplyVersionSettingsKeepsOnlyNewerVersionsByDefault() {
+        val settings = MavenUpSettings.getInstance()
+        val previousHide = settings.state.hideUnstableVersions
+        val previousOfferAll = settings.state.offerAllVersions
+        settings.state.hideUnstableVersions = false
+        settings.state.offerAllVersions = false
+
+        val service = DependencyApiService(project)
+        try {
+            val filtered = service.applyVersionSettings(listOf("3.0.0", "2.0.0", "1.0.0"), "2.0.0")
+            assertEquals(listOf("3.0.0", "2.0.0"), filtered)
+        } finally {
+            settings.state.hideUnstableVersions = previousHide
+            settings.state.offerAllVersions = previousOfferAll
+        }
+    }
+
+    fun testApplyVersionSettingsKeepsOlderVersionsWhenOfferAllEnabled() {
+        val settings = MavenUpSettings.getInstance()
+        val previousHide = settings.state.hideUnstableVersions
+        val previousOfferAll = settings.state.offerAllVersions
+        settings.state.hideUnstableVersions = false
+        settings.state.offerAllVersions = true
+
+        val service = DependencyApiService(project)
+        val input = listOf("3.0.0", "2.0.0", "1.0.0")
+        try {
+            assertEquals(input, service.applyVersionSettings(input, "2.0.0"))
+        } finally {
+            settings.state.hideUnstableVersions = previousHide
+            settings.state.offerAllVersions = previousOfferAll
+        }
+    }
+
+    fun testApplyVersionSettingsRemovesUnstableVersionsWhenHideEnabled() {
+        val settings = MavenUpSettings.getInstance()
+        val previousHide = settings.state.hideUnstableVersions
+        val previousQualifiers = settings.state.hiddenVersionQualifiers
+        val previousOfferAll = settings.state.offerAllVersions
+        settings.state.hideUnstableVersions = true
+        settings.state.hiddenVersionQualifiers = "rc"
+        settings.state.offerAllVersions = true
+
+        val service = DependencyApiService(project)
+        try {
+            val filtered = service.applyVersionSettings(listOf("3.0.0", "3.0.0-RC1", "1.0.0"), "2.0.0")
+            assertEquals(listOf("3.0.0", "1.0.0"), filtered)
+        } finally {
+            settings.state.hideUnstableVersions = previousHide
+            settings.state.hiddenVersionQualifiers = previousQualifiers
+            settings.state.offerAllVersions = previousOfferAll
+        }
+    }
+
+    fun testApplyVersionSettingsWithEmptyInputReturnsEmptyList() {
+        val service = DependencyApiService(project)
+
+        assertTrue(service.applyVersionSettings(emptyList(), "1.0.0").isEmpty())
+    }
+
     fun testVersionHasQualifierIsCaseInsensitive() {
         val service = DependencyApiService(project)
 

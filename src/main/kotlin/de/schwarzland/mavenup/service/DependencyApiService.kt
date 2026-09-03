@@ -16,6 +16,9 @@ private const val CENTRAL_REPOSITORY_ID = "central"
 private const val CENTRAL_REPOSITORY_URL = "https://repo1.maven.org/maven2"
 private val LOG = Logger.getInstance(DependencyApiService::class.java)
 
+/** Untere Versionsgrenze, die jede vom Repository gemeldete Version einschließt. */
+private val NO_VERSION_FLOOR = ComparableVersion("")
+
 /**
  * Ergebnis einer Versionsabfrage gegen ein einzelnes Maven-Repository.
  *
@@ -470,35 +473,64 @@ class DependencyApiService(private val project: Project) {
         if (offerAllVersions) ComparableVersion("") else ComparableVersion(currentVersion)
 
     /**
-     * Die Hauptmethode zum Abrufen aller relevanten Update-Versionen für ein Artefakt.
-     * Führt Repository-Suche, Credential-Auflösung, Filterung und Sortierung zusammen.
+     * Ruft alle von den konfigurierten Repositories gemeldeten Versionen eines Artefakts ab, ohne
+     * die anzeigebezogenen Einstellungen [MavenUpSettings.State.offerAllVersions] und
+     * [MavenUpSettings.State.hideUnstableVersions] anzuwenden.
      *
      * Die zurückgegebene Liste ist absteigend nach [ComparableVersion] sortiert; die vom Repository
      * als neueste deklarierte Version (`<release>`/`<latest>`) wird jedoch an den Anfang gestellt,
      * damit nachgelagerte Logik (Statusanzeige, Auto-Auswahl der höchsten Version) die tatsächlich
      * zuletzt veröffentlichte Version als neueste behandelt.
      *
-     * Ist die Einstellung [MavenUpSettings.State.offerAllVersions] aktiviert, werden alle vom
-     * Repository gemeldeten Versionen (auch ältere als die aktuelle) angeboten; andernfalls werden
-     * nur Versionen `>=` der aktuellen Version berücksichtigt.
+     * Da das Ergebnis ungefiltert ist, kann die Anzeige über [applyVersionSettings] jederzeit ohne
+     * erneute Netzwerkabfrage an geänderte Einstellungen angepasst werden.
+     *
+     * @param groupId Die GroupId des Artefakts.
+     * @param artifactId Die ArtifactId des Artefakts.
+     * @return Alle gefundenen Versionen, absteigend sortiert und mit der neuesten Version zuerst.
      */
-    fun fetchVersions(groupId: String, artifactId: String, currentVersion: String): List<String> {
+    fun fetchAllVersions(groupId: String, artifactId: String): List<String> {
         val settings = MavenUpSettings.getInstance().state
         val repositoryInfos = getMavenRepositoryInfos()
         val serverCredentials = getMavenServerCredentials()
-        val currentComparable = resolveVersionFloor(currentVersion, settings.offerAllVersions)
         val collected = collectVersionsFromRepositories(
             repositoryInfos,
             settings.stopAfterCentralSuccess
         ) { repoInfo ->
-            fetchVersionsFromRepository(repoInfo, groupId, artifactId, currentComparable, serverCredentials)
+            fetchVersionsFromRepository(repoInfo, groupId, artifactId, NO_VERSION_FLOOR, serverCredentials)
         }
         val sortedVersions = collected.versions.sortedWith { v1, v2 ->
             ComparableVersion(v2).compareTo(ComparableVersion(v1))
         }
-        val filteredVersions = filterVersionsBySettings(sortedVersions)
-        return orderWithNewestFirst(filteredVersions, collected.newestVersion)
+        return orderWithNewestFirst(sortedVersions, collected.newestVersion)
     }
+
+    /**
+     * Wendet die anzeigebezogenen Versionseinstellungen auf eine bereits abgerufene Versionsliste an.
+     *
+     * Ist [MavenUpSettings.State.offerAllVersions] deaktiviert, bleiben nur Versionen `>=` der
+     * aktuellen Version übrig; zusätzlich werden bei aktivem [MavenUpSettings.State.hideUnstableVersions]
+     * die konfigurierten instabilen Qualifier ausgeblendet. Die Reihenfolge der Eingabeliste bleibt
+     * erhalten, sodass die neueste Version weiterhin an erster Stelle steht.
+     *
+     * @param versions Die ungefilterte, absteigend sortierte Versionsliste.
+     * @param currentVersion Die aktuell verwendete Version des Artefakts.
+     * @return Die gemäß den Einstellungen gefilterte Versionsliste.
+     */
+    fun applyVersionSettings(versions: List<String>, currentVersion: String): List<String> {
+        val floor = resolveVersionFloor(currentVersion, MavenUpSettings.getInstance().state.offerAllVersions)
+        return filterVersionsBySettings(versions.filter { ComparableVersion(it) >= floor })
+    }
+
+    /**
+     * Die Hauptmethode zum Abrufen aller relevanten Update-Versionen für ein Artefakt.
+     * Führt Repository-Suche, Credential-Auflösung, Filterung und Sortierung zusammen.
+     *
+     * Entspricht [fetchAllVersions] mit anschließend angewendeten Einstellungen
+     * (siehe [applyVersionSettings]).
+     */
+    fun fetchVersions(groupId: String, artifactId: String, currentVersion: String): List<String> =
+        applyVersionSettings(fetchAllVersions(groupId, artifactId), currentVersion)
 
     /**
      * Stellt die vom Repository als neueste deklarierte Version an den Anfang der Liste, sofern sie

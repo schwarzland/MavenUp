@@ -16,6 +16,7 @@
 
 ### Changed
 
+- The **Hide unstable versions** and **Offer all versions** settings take effect on the **New Version** column immediately after they are changed, without requiring another version search.
 - Split the AI agent project context: `.github/copilot-project-context.md` serves as a slim overview, while the detailed component descriptions live in `.github/context/components-ui.md` and `.github/context/components-service.md`.
 - Restructured the tool window component reference into dedicated subsections (background processing, action toolbar, context menu, table columns, filter row, sorting, bulk version selection, transitive view behaviour) for faster lookup.
 
