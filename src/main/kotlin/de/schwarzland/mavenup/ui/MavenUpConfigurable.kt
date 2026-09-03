@@ -21,10 +21,12 @@ import com.intellij.util.concurrency.AppExecutorUtil
 import com.intellij.ui.SimpleListCellRenderer
 import com.intellij.ui.components.JBCheckBox
 import com.intellij.ui.dsl.builder.Align
+import com.intellij.ui.dsl.builder.Panel
 import com.intellij.ui.dsl.builder.panel
 import java.util.concurrent.CompletableFuture
 import javax.swing.JComponent
 import javax.swing.JLabel
+import javax.swing.JList
 import javax.swing.JPasswordField
 import javax.swing.JSpinner
 import javax.swing.JTextField
@@ -87,254 +89,294 @@ class MavenUpConfigurable internal constructor(
 
     /**
      * Erstellt die Benutzeroberfläche für die Einstellungen unter Verwendung des IntelliJ UI DSL.
+     *
+     * Die vier Einstellungsgruppen werden in eigene Erweiterungsfunktionen ausgelagert, damit diese
+     * Methode flach bleibt und jede Gruppe für sich lesbar ist.
      */
     override fun createComponent(): JComponent {
         val settings = MavenUpSettings.getInstance()
         return panel {
-            group(MyMessageBundle.message("settings.group.appearance")) {
-                row {
-                    label(MyMessageBundle.message("settings.repositoryBrowser"))
-                    repositoryBrowserComboBox = comboBox(MavenRepositoryBrowser.entries)
-                        .applyToComponent {
-                            selectedItem = settings.state.repositoryBrowser
-                            toolTipText = MyMessageBundle.message("settings.repositoryBrowser.tooltip")
-                            renderer = object : SimpleListCellRenderer<MavenRepositoryBrowser>() {
-                                override fun customize(
-                                    list: javax.swing.JList<out MavenRepositoryBrowser>,
-                                    value: MavenRepositoryBrowser?,
-                                    index: Int,
-                                    selected: Boolean,
-                                    hasFocus: Boolean
-                                ) {
-                                    text = value?.displayName ?: ""
-                                }
-                            }
-                        }
-                        .component
-                }
-                row {
-                    toolbarShowTextCheckBox = checkBox(MyMessageBundle.message("settings.toolbarShowText"))
-                        .applyToComponent {
-                            isSelected = settings.state.toolbarShowText
-                            toolTipText = MyMessageBundle.message("settings.toolbarShowText.tooltip")
-                        }
-                        .component
-                }
-                row {
-                    jumpOnSingleClickCheckBox = checkBox(MyMessageBundle.message("settings.jumpOnSingleClick"))
-                        .applyToComponent {
-                            isSelected = settings.state.jumpOnSingleClick
-                            toolTipText = MyMessageBundle.message("settings.jumpOnSingleClick.tooltip")
-                        }
-                        .component
-                }
-                row {
-                    label(MyMessageBundle.message("settings.toolWindowBadgeMode"))
-                    toolWindowBadgeModeComboBox = comboBox(ToolWindowBadgeMode.entries)
-                        .applyToComponent {
-                            selectedItem = settings.state.toolWindowBadgeMode
-                            toolTipText = MyMessageBundle.message("settings.toolWindowBadgeMode.tooltip")
-                            renderer = object : SimpleListCellRenderer<ToolWindowBadgeMode>() {
-                                override fun customize(
-                                    list: javax.swing.JList<out ToolWindowBadgeMode>,
-                                    value: ToolWindowBadgeMode?,
-                                    index: Int,
-                                    selected: Boolean,
-                                    hasFocus: Boolean
-                                ) {
-                                    text = if (value == null) "" else MyMessageBundle.message(value.messageKey)
-                                }
-                            }
-                        }
-                        .component
-                }
+            appearanceGroup(settings)
+            versionsGroup(settings)
+            vulnerabilityGroup(settings)
+            pomChangesGroup(settings)
+            installControlListeners(settings)
+        }
+    }
+
+    /**
+     * Erzeugt einen Listen-Renderer, der den Anzeigetext eines Enum-Werts über [textOf] bestimmt
+     * und für `null` einen leeren Text liefert.
+     *
+     * @param textOf Liefert den Anzeigetext für einen Wert.
+     * @return Der wiederverwendbare Renderer für Auswahlfelder.
+     */
+    private fun <T> listCellRenderer(textOf: (T) -> String): SimpleListCellRenderer<T> =
+        object : SimpleListCellRenderer<T>() {
+            override fun customize(
+                list: JList<out T>,
+                value: T?,
+                index: Int,
+                selected: Boolean,
+                hasFocus: Boolean
+            ) {
+                text = value?.let(textOf).orEmpty()
             }
-            group(MyMessageBundle.message("settings.group.versions")) {
-                row {
-                    autoSearchVersionsCheckBox = checkBox(MyMessageBundle.message("settings.autoSearchVersions"))
-                        .applyToComponent {
-                            isSelected = settings.state.autoSearchVersions
-                            toolTipText = MyMessageBundle.message("settings.autoSearchVersions.tooltip")
-                        }
-                        .component
-                }
-                row {
-                    stopAfterCentralSuccessCheckBox = checkBox(MyMessageBundle.message("settings.stopAfterCentralSuccess"))
-                        .applyToComponent {
-                            isSelected = settings.state.stopAfterCentralSuccess
-                            toolTipText = MyMessageBundle.message("settings.stopAfterCentralSuccess.tooltip")
-                        }
-                        .component
-                }
-                row {
-                    offerAllVersionsCheckBox = checkBox(MyMessageBundle.message("settings.offerAllVersions"))
-                        .applyToComponent {
-                            isSelected = settings.state.offerAllVersions
-                            toolTipText = MyMessageBundle.message("settings.offerAllVersions.tooltip")
-                        }
-                        .component
-                }
-                row {
-                    hideUnstableVersionsCheckBox = checkBox(MyMessageBundle.message("settings.hideUnstableVersions"))
-                            .applyToComponent {
-                                isSelected = settings.state.hideUnstableVersions
-                                toolTipText = MyMessageBundle.message("settings.hideUnstableVersions.tooltip")
-                            }
-                            .component
-                }
-                indent {
-                    row {
-                        hiddenVersionQualifiersLabel = label(MyMessageBundle.message("settings.hiddenVersionQualifiers")).component
-                        hiddenVersionQualifiersField = textField()
-                            .align(Align.FILL)
-                            .resizableColumn()
-                            .applyToComponent {
-                                text = settings.state.hiddenVersionQualifiers
-                                columns = 20
-                            }
-                            .component
+        }
+
+    /**
+     * Baut die Gruppe **Appearance and Behavior** mit Repository-Browser, Toolbar-Beschriftung,
+     * Klickverhalten und der Anzeigeoption des Tool-Window-Badges auf.
+     *
+     * @param settings Die Einstellungen, aus denen die Startwerte gelesen werden.
+     */
+    private fun Panel.appearanceGroup(settings: MavenUpSettings) {
+        group(MyMessageBundle.message("settings.group.appearance")) {
+            row {
+                label(MyMessageBundle.message("settings.repositoryBrowser"))
+                repositoryBrowserComboBox = comboBox(MavenRepositoryBrowser.entries)
+                    .applyToComponent {
+                        selectedItem = settings.state.repositoryBrowser
+                        toolTipText = MyMessageBundle.message("settings.repositoryBrowser.tooltip")
+                        renderer = listCellRenderer<MavenRepositoryBrowser> { it.displayName }
                     }
-                }
+                    .component
+            }
+            row {
+                toolbarShowTextCheckBox = checkBox(MyMessageBundle.message("settings.toolbarShowText"))
+                    .applyToComponent {
+                        isSelected = settings.state.toolbarShowText
+                        toolTipText = MyMessageBundle.message("settings.toolbarShowText.tooltip")
+                    }
+                    .component
+            }
+            row {
+                jumpOnSingleClickCheckBox = checkBox(MyMessageBundle.message("settings.jumpOnSingleClick"))
+                    .applyToComponent {
+                        isSelected = settings.state.jumpOnSingleClick
+                        toolTipText = MyMessageBundle.message("settings.jumpOnSingleClick.tooltip")
+                    }
+                    .component
+            }
+            row {
+                label(MyMessageBundle.message("settings.toolWindowBadgeMode"))
+                toolWindowBadgeModeComboBox = comboBox(ToolWindowBadgeMode.entries)
+                    .applyToComponent {
+                        selectedItem = settings.state.toolWindowBadgeMode
+                        toolTipText = MyMessageBundle.message("settings.toolWindowBadgeMode.tooltip")
+                        renderer = listCellRenderer<ToolWindowBadgeMode> {
+                            MyMessageBundle.message(it.messageKey)
+                        }
+                    }
+                    .component
+            }
+        }
+    }
+
+    /**
+     * Baut die Gruppe **Versions and Updates** mit automatischer Versionssuche, Repository-Strategie,
+     * Versionsfiltern und der Vorauswahl-Strategie auf.
+     *
+     * @param settings Die Einstellungen, aus denen die Startwerte gelesen werden.
+     */
+    private fun Panel.versionsGroup(settings: MavenUpSettings) {
+        group(MyMessageBundle.message("settings.group.versions")) {
+            row {
+                autoSearchVersionsCheckBox = checkBox(MyMessageBundle.message("settings.autoSearchVersions"))
+                    .applyToComponent {
+                        isSelected = settings.state.autoSearchVersions
+                        toolTipText = MyMessageBundle.message("settings.autoSearchVersions.tooltip")
+                    }
+                    .component
+            }
+            row {
+                stopAfterCentralSuccessCheckBox = checkBox(MyMessageBundle.message("settings.stopAfterCentralSuccess"))
+                    .applyToComponent {
+                        isSelected = settings.state.stopAfterCentralSuccess
+                        toolTipText = MyMessageBundle.message("settings.stopAfterCentralSuccess.tooltip")
+                    }
+                    .component
+            }
+            row {
+                offerAllVersionsCheckBox = checkBox(MyMessageBundle.message("settings.offerAllVersions"))
+                    .applyToComponent {
+                        isSelected = settings.state.offerAllVersions
+                        toolTipText = MyMessageBundle.message("settings.offerAllVersions.tooltip")
+                    }
+                    .component
+            }
+            row {
+                hideUnstableVersionsCheckBox = checkBox(MyMessageBundle.message("settings.hideUnstableVersions"))
+                    .applyToComponent {
+                        isSelected = settings.state.hideUnstableVersions
+                        toolTipText = MyMessageBundle.message("settings.hideUnstableVersions.tooltip")
+                    }
+                    .component
+            }
+            indent {
                 row {
-                    label(MyMessageBundle.message("settings.versionAutoSelectionMode"))
-                    versionAutoSelectionModeComboBox = comboBox(VersionAutoSelectionMode.entries)
+                    hiddenVersionQualifiersLabel =
+                        label(MyMessageBundle.message("settings.hiddenVersionQualifiers")).component
+                    hiddenVersionQualifiersField = textField()
+                        .align(Align.FILL)
+                        .resizableColumn()
                         .applyToComponent {
-                            selectedItem = settings.state.versionAutoSelectionMode
-                            toolTipText = MyMessageBundle.message("settings.versionAutoSelectionMode.tooltip")
-                            renderer = object : SimpleListCellRenderer<VersionAutoSelectionMode>() {
-                                override fun customize(
-                                    list: javax.swing.JList<out VersionAutoSelectionMode>,
-                                    value: VersionAutoSelectionMode?,
-                                    index: Int,
-                                    selected: Boolean,
-                                    hasFocus: Boolean
-                                ) {
-                                    text = if (value == null) "" else MyMessageBundle.message(value.messageKey)
-                                }
-                            }
+                            text = settings.state.hiddenVersionQualifiers
+                            columns = 20
+                        }
+                        .component
+                }
+            }
+            row {
+                label(MyMessageBundle.message("settings.versionAutoSelectionMode"))
+                versionAutoSelectionModeComboBox = comboBox(VersionAutoSelectionMode.entries)
+                    .applyToComponent {
+                        selectedItem = settings.state.versionAutoSelectionMode
+                        toolTipText = MyMessageBundle.message("settings.versionAutoSelectionMode.tooltip")
+                        renderer = listCellRenderer<VersionAutoSelectionMode> {
+                            MyMessageBundle.message(it.messageKey)
+                        }
+                    }
+                    .component
+            }
+            row {
+                confirmVersionResetCheckBox = checkBox(MyMessageBundle.message("settings.confirmVersionReset"))
+                    .applyToComponent {
+                        isSelected = settings.state.confirmVersionReset
+                        toolTipText = MyMessageBundle.message("settings.confirmVersionReset.tooltip")
+                    }
+                    .component
+            }
+        }
+    }
+
+    /**
+     * Baut die Gruppe **Vulnerability Check** mit der Prüfung transitiver Abhängigkeiten und den
+     * OSS-Index-Zugangsdaten auf.
+     *
+     * @param settings Die Einstellungen, aus denen die Startwerte gelesen werden.
+     */
+    private fun Panel.vulnerabilityGroup(settings: MavenUpSettings) {
+        group(MyMessageBundle.message("settings.group.vulnerability")) {
+            row {
+                checkTransitiveDependenciesCheckBox =
+                    checkBox(MyMessageBundle.message("settings.checkTransitiveDependencies"))
+                        .applyToComponent {
+                            isSelected = settings.state.checkTransitiveDependencies
+                            toolTipText = MyMessageBundle.message("settings.checkTransitiveDependencies.tooltip")
+                        }
+                        .component
+            }
+            row {
+                ossIndexEnabledCheckBox = checkBox(MyMessageBundle.message("settings.ossIndex.enabled"))
+                    .applyToComponent {
+                        isSelected = settings.state.ossIndexEnabled
+                        toolTipText = MyMessageBundle.message("settings.ossIndex.enabled.tooltip")
+                    }
+                    .component
+            }
+            indent {
+                row {
+                    ossIndexTokenLabel = label(MyMessageBundle.message("settings.ossIndex.token")).component
+                    ossIndexTokenField = cell(JPasswordField())
+                        .align(Align.FILL)
+                        .resizableColumn()
+                        .applyToComponent {
+                            columns = 20
                         }
                         .component
                 }
                 row {
-                    confirmVersionResetCheckBox = checkBox(MyMessageBundle.message("settings.confirmVersionReset"))
-                        .applyToComponent {
-                            isSelected = settings.state.confirmVersionReset
-                            toolTipText = MyMessageBundle.message("settings.confirmVersionReset.tooltip")
-                        }
-                        .component
+                    comment(MyMessageBundle.message("settings.ossIndex.hint"))
+                }
+                row {
+                    browserLink(
+                        MyMessageBundle.message("settings.ossIndex.accountLink"),
+                        OSS_INDEX_ACCOUNT_URL
+                    )
                 }
             }
-            group(MyMessageBundle.message("settings.group.vulnerability")) {
-                row {
-                    checkTransitiveDependenciesCheckBox =
-                        checkBox(MyMessageBundle.message("settings.checkTransitiveDependencies"))
-                            .applyToComponent {
-                                isSelected = settings.state.checkTransitiveDependencies
-                                toolTipText = MyMessageBundle.message("settings.checkTransitiveDependencies.tooltip")
-                            }
-                            .component
-                }
-                row {
-                    ossIndexEnabledCheckBox = checkBox(MyMessageBundle.message("settings.ossIndex.enabled"))
-                        .applyToComponent {
-                            isSelected = settings.state.ossIndexEnabled
-                            toolTipText = MyMessageBundle.message("settings.ossIndex.enabled.tooltip")
-                        }
-                        .component
-                }
-                indent {
-                    row {
-                        ossIndexTokenLabel = label(MyMessageBundle.message("settings.ossIndex.token")).component
-                        ossIndexTokenField = cell(JPasswordField())
-                            .align(Align.FILL)
-                            .resizableColumn()
-                            .applyToComponent {
-                                columns = 20
-                            }
-                            .component
+        }
+    }
+
+    /**
+     * Baut die Gruppe **Pom.xml Changes** mit Maven-Sync und den Optionen des erklärenden
+     * XML-Kommentars auf.
+     *
+     * @param settings Die Einstellungen, aus denen die Startwerte gelesen werden.
+     */
+    // "Pom.xml Changes" enthaelt den Dateinamen pom.xml und ist daher bewusst nicht in Title Case.
+    @Suppress("DialogTitleCapitalization")
+    private fun Panel.pomChangesGroup(settings: MavenUpSettings) {
+        group(MyMessageBundle.message("settings.group.pomChanges")) {
+            row {
+                syncMavenAfterUpdateCheckBox = checkBox(MyMessageBundle.message("settings.syncMavenAfterUpdate"))
+                    .applyToComponent {
+                        isSelected = settings.state.syncMavenAfterUpdate
+                        toolTipText = MyMessageBundle.message("settings.syncMavenAfterUpdate.tooltip")
                     }
-                    row {
-                        comment(MyMessageBundle.message("settings.ossIndex.hint"))
-                    }
-                    row {
-                        browserLink(
-                            MyMessageBundle.message("settings.ossIndex.accountLink"),
-                            OSS_INDEX_ACCOUNT_URL
-                        )
-                    }
-                }
+                    .component
             }
-            // "Pom.xml Changes" enthaelt den Dateinamen pom.xml und ist daher bewusst nicht in Title Case.
-            @Suppress("DialogTitleCapitalization")
-            group(MyMessageBundle.message("settings.group.pomChanges")) {
+            row {
+                label(MyMessageBundle.message("settings.vulnerabilityCommentMode"))
+                vulnerabilityCommentModeComboBox = comboBox(VulnerabilityCommentMode.entries)
+                    .applyToComponent {
+                        selectedItem = settings.state.vulnerabilityCommentMode
+                        toolTipText = MyMessageBundle.message("settings.vulnerabilityCommentMode.tooltip")
+                        renderer = listCellRenderer<VulnerabilityCommentMode> {
+                            MyMessageBundle.message(it.messageKey)
+                        }
+                    }
+                    .component
+            }
+            indent {
                 row {
-                    syncMavenAfterUpdateCheckBox = checkBox(MyMessageBundle.message("settings.syncMavenAfterUpdate"))
+                    vulnerabilityCommentPrefixLabel =
+                        label(MyMessageBundle.message("settings.vulnerabilityCommentPrefix")).component
+                    vulnerabilityCommentPrefixField = textField()
+                        .align(Align.FILL)
+                        .resizableColumn()
                         .applyToComponent {
-                            isSelected = settings.state.syncMavenAfterUpdate
-                            toolTipText = MyMessageBundle.message("settings.syncMavenAfterUpdate.tooltip")
+                            text = settings.state.vulnerabilityCommentPrefix
+                            columns = 20
+                            toolTipText = MyMessageBundle.message("settings.vulnerabilityCommentPrefix.tooltip")
                         }
                         .component
                 }
                 row {
-                    label(MyMessageBundle.message("settings.vulnerabilityCommentMode"))
-                    vulnerabilityCommentModeComboBox = comboBox(VulnerabilityCommentMode.entries)
+                    vulnerabilityCommentMaxIdsLabel =
+                        label(MyMessageBundle.message("settings.vulnerabilityCommentMaxIds")).component
+                    vulnerabilityCommentMaxIdsSpinner = spinner(0..99)
                         .applyToComponent {
-                            selectedItem = settings.state.vulnerabilityCommentMode
-                            toolTipText = MyMessageBundle.message("settings.vulnerabilityCommentMode.tooltip")
-                            renderer = object : SimpleListCellRenderer<VulnerabilityCommentMode>() {
-                                override fun customize(
-                                    list: javax.swing.JList<out VulnerabilityCommentMode>,
-                                    value: VulnerabilityCommentMode?,
-                                    index: Int,
-                                    selected: Boolean,
-                                    hasFocus: Boolean
-                                ) {
-                                    text = if (value == null) "" else MyMessageBundle.message(value.messageKey)
-                                }
-                            }
+                            value = settings.state.vulnerabilityCommentMaxIds
+                            toolTipText = MyMessageBundle.message("settings.vulnerabilityCommentMaxIds.tooltip")
                         }
                         .component
                 }
-                indent {
-                    row {
-                        vulnerabilityCommentPrefixLabel =
-                            label(MyMessageBundle.message("settings.vulnerabilityCommentPrefix")).component
-                        vulnerabilityCommentPrefixField = textField()
-                            .align(Align.FILL)
-                            .resizableColumn()
-                            .applyToComponent {
-                                text = settings.state.vulnerabilityCommentPrefix
-                                columns = 20
-                                toolTipText = MyMessageBundle.message("settings.vulnerabilityCommentPrefix.tooltip")
-                            }
-                            .component
-                    }
-                    row {
-                        vulnerabilityCommentMaxIdsLabel =
-                            label(MyMessageBundle.message("settings.vulnerabilityCommentMaxIds")).component
-                        vulnerabilityCommentMaxIdsSpinner = spinner(0..99)
-                            .applyToComponent {
-                                value = settings.state.vulnerabilityCommentMaxIds
-                                toolTipText = MyMessageBundle.message("settings.vulnerabilityCommentMaxIds.tooltip")
-                            }
-                            .component
-                    }
-                }
             }
-            updateHiddenQualifierControlsEnabled(settings.state.hideUnstableVersions)
-            hideUnstableVersionsCheckBox?.addActionListener {
-                updateHiddenQualifierControlsEnabled(hideUnstableVersionsCheckBox?.isSelected == true)
-            }
-            updateOssIndexControlsEnabled(settings.state.ossIndexEnabled)
-            ossIndexEnabledCheckBox?.addActionListener {
-                updateOssIndexControlsEnabled(ossIndexEnabledCheckBox?.isSelected == true)
-            }
-            updateVulnerabilityCommentControlsEnabled(settings.state.vulnerabilityCommentMode)
-            vulnerabilityCommentModeComboBox?.addActionListener {
-                updateVulnerabilityCommentControlsEnabled(
-                    vulnerabilityCommentModeComboBox?.selectedItem as? VulnerabilityCommentMode
-                )
-            }
+        }
+    }
+
+    /**
+     * Setzt den initialen Aktivierungszustand der abhängigen Bedienelemente und verdrahtet die
+     * Listener, die ihn bei einer Auswahländerung nachführen.
+     *
+     * @param settings Die Einstellungen, aus denen der Startzustand gelesen wird.
+     */
+    private fun installControlListeners(settings: MavenUpSettings) {
+        updateHiddenQualifierControlsEnabled(settings.state.hideUnstableVersions)
+        hideUnstableVersionsCheckBox?.addActionListener {
+            updateHiddenQualifierControlsEnabled(hideUnstableVersionsCheckBox?.isSelected == true)
+        }
+        updateOssIndexControlsEnabled(settings.state.ossIndexEnabled)
+        ossIndexEnabledCheckBox?.addActionListener {
+            updateOssIndexControlsEnabled(ossIndexEnabledCheckBox?.isSelected == true)
+        }
+        updateVulnerabilityCommentControlsEnabled(settings.state.vulnerabilityCommentMode)
+        vulnerabilityCommentModeComboBox?.addActionListener {
+            updateVulnerabilityCommentControlsEnabled(
+                vulnerabilityCommentModeComboBox?.selectedItem as? VulnerabilityCommentMode
+            )
         }
     }
 
