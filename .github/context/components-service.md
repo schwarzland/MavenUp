@@ -62,6 +62,10 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   den verwendeten Settings-Pfad auf DEBUG-Ebene, fragt `maven-metadata.xml` für Versionslisten ab,
   löst Credential-Platzhalter auf, filtert Versionen gemäß Plugin-Einstellungen (Qualifier-Filter, Sortierung)
   und berücksichtigt die konfigurierbare Central-first-Short-Circuit-Strategie (`stopAfterCentralSuccess`).
+  `fetchAllVersions` liefert die ungefilterte Versionsliste, `applyVersionSettings` wendet
+  `offerAllVersions` (untere Grenze via `resolveVersionFloor`) und `hideUnstableVersions`
+  (`filterVersionsBySettings`) auf eine bereits abgerufene Liste an; `fetchVersions` kombiniert beide,
+  sodass Einstellungsänderungen ohne erneute Netzwerkabfrage wirksam werden.
   Die neueste Version wird über `extractNewestFromMetadata` aus den `<release>`/`<latest>`-Feldern bestimmt
   (Central bevorzugt) und via `orderWithNewestFirst` an den Listenanfang gestellt; Rückgabetypen sind
   `RepositoryVersions` (pro Repository) und `CollectedVersions` (aggregiert).
@@ -107,10 +111,12 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   Die reine Farbzuordnung `vulnerabilityColor` liegt als Top-Level-Helfer in `VulnerabilityCellModel`.
 - **DependencyVersionService**: fragt über `searchVersions` die verfügbaren Versionen aller
   Dependencies/Plugins ab (inkl. PSI-Erfassung verwalteter Einträge und Property-Schnittmengen)
-  und liefert verfügbare Versionen samt Vorauswahl als `VersionSearchResult`. `fetchAvailableVersions`
-  ruft gezielt die Versionslisten einer übergebenen Koordinatenmenge ab (ohne Vorauswahl; genutzt für die
-  verwundbaren transitiven Koordinaten nach einem Scan). Die Versionsabfrage
-  ist als Funktions-Seam per Konstruktor injizierbar (netzwerkfreie Tests). Die zustandslosen
+  und liefert gefilterte Versionen, ungefilterte Versionen (`rawVersions`) und Vorauswahl als
+  `VersionSearchResult`. `fetchAvailableVersions` ruft gezielt die ungefilterten Versionslisten einer
+  übergebenen Koordinatenmenge ab (ohne Vorauswahl; genutzt für die
+  verwundbaren transitiven Koordinaten nach einem Scan). Versionsabfrage (`fetchAllVersions`) und
+  Einstellungsfilter (`applyVersionSettings`) sind als Funktions-Seams per Konstruktor injizierbar
+  (netzwerkfreie Tests). Die zustandslosen
   Auto-Selektions-Helfer (`chooseAutoSelectedVersion`, `latestVersionWithinSameMajor`,
   `extractLeadingMajorNumber`, `selectableRecommendedVersion`) liegen als Top-Level-Funktionen in `ui/VersionAutoSelection`.
 - **PomNavigationService**: sucht Definitionen in der `pom.xml` (`findDependency`, `findParent`,

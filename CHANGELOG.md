@@ -13,10 +13,13 @@
 - Added dedicated empty states to the **Transitive CVEs** tab that distinguish a scan without any finding from a scan whose findings all affect directly declared dependencies, the latter offering a link that switches to the **Dependencies** tab and filters it to the affected rows.
 - Added a status badge on the MavenUp tool window icon that marks high or critical vulnerabilities in red, lower-severity findings in yellow, and available new versions in blue.
 - Added a setting that limits this badge to vulnerabilities or turns it off entirely.
+- Added a **Dependency Graph** workflow status badge to the README.
+- Added JetBrains Marketplace version and download badges to the README.
 
 ### Changed
 
-- Split the AI agent project context: `.github/copilot-project-context.md` serves as a slim overview, while the detailed component descriptions live in `.github/context/components-ui.md` and `.github/context/components-service.md`.
+- The **Hide unstable versions** and **Offer all versions** settings take effect on the **New Version** column immediately after they are changed, without requiring another version search.
+- Split the AI agent project context: `.github/copilot-project-context.md` serves as a slim overview, while the detailed component descriptions live in `.github/context/components-ui.md`, `.github/context/components-ui-toolwindow.md`, `.github/context/components-ui-dialogs.md` and `.github/context/components-service.md`.
 - Restructured the tool window component reference into dedicated subsections (background processing, action toolbar, context menu, table columns, filter row, sorting, bulk version selection, transitive view behaviour) for faster lookup.
 
 ## 3.1.0

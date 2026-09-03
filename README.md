@@ -1,6 +1,9 @@
 # MavenUp
 
+[![JetBrains Marketplace Version](https://img.shields.io/jetbrains/plugin/v/de.schwarzland.mavenup.svg?label=marketplace)](https://plugins.jetbrains.com/plugin/33068-mavenup)
+[![JetBrains Marketplace Downloads](https://img.shields.io/jetbrains/plugin/d/de.schwarzland.mavenup.svg)](https://plugins.jetbrains.com/plugin/33068-mavenup)
 [![Build and Test](https://github.com/schwarzland/MavenUp/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/schwarzland/MavenUp/actions/workflows/ci.yml)
+[![Dependency Graph](https://github.com/schwarzland/MavenUp/actions/workflows/dependency-graph.yml/badge.svg?branch=main)](https://github.com/schwarzland/MavenUp/actions/workflows/dependency-graph.yml)
 [![Create Draft Release](https://github.com/schwarzland/MavenUp/actions/workflows/create-draft-release.yml/badge.svg)](https://github.com/schwarzland/MavenUp/actions/workflows/create-draft-release.yml)
 [![Publish Release to Marketplace](https://github.com/schwarzland/MavenUp/actions/workflows/publish-release.yml/badge.svg)](https://github.com/schwarzland/MavenUp/actions/workflows/publish-release.yml)
 
@@ -36,6 +39,6 @@ Binding instructions and context information exist for the further development o
 - **[AGENTS.md](AGENTS.md)**: cross-tool entry point read by many AI coding agents (e.g. OpenAI Codex / Codex CLI, GitHub Copilot CLI, Cursor, Aider, Jules, Zed); it points every agent to the binding repository instructions below.
 - **[.github/copilot-instructions.md](.github/copilot-instructions.md)**: binding work instructions for documentation, testing, KDoc, and processes.
 - **[.github/copilot-project-context.md](.github/copilot-project-context.md)**: project context overview, package structure, and links to the component references.
-- **[.github/context/](.github/context/)**: detailed component descriptions per package — [`components-ui.md`](.github/context/components-ui.md) and [`components-service.md`](.github/context/components-service.md).
+- **[.github/context/](.github/context/)**: detailed component descriptions per package — [`components-ui.md`](.github/context/components-ui.md), [`components-ui-toolwindow.md`](.github/context/components-ui-toolwindow.md), [`components-ui-dialogs.md`](.github/context/components-ui-dialogs.md) and [`components-service.md`](.github/context/components-service.md).
 
 These files must be considered and kept up to date with every change.

@@ -32,7 +32,9 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
 
 ### Komponentenreferenz
 Die ausführliche Beschreibung aller Klassen ist nach Package aufgeteilt:
-- [`context/components-ui.md`](context/components-ui.md): Tool-Window, Dialoge und Ansichten, Settings-UI, UI-Hilfsdateien, I18n.
+- [`context/components-ui.md`](context/components-ui.md): UI-Hilfsdateien und I18n, mit Verweisen auf die beiden folgenden Dateien.
+- [`context/components-ui-toolwindow.md`](context/components-ui-toolwindow.md): Tool-Window (Hintergrundverarbeitung, Aktionsleiste, Kontextmenü, Tabellenspalten, Filterzeile, Sortierung, Sammelaktionen).
+- [`context/components-ui-dialogs.md`](context/components-ui-dialogs.md): Dialoge, transitive Sicherheitslücken-Ansicht und Settings-UI.
 - [`context/components-service.md`](context/components-service.md): Startup/Tool-Window-Aktivierung, Einstellungen und Message-Bus, API- und Sicherheitsservices, Sicherheitsdatenmodell, PSI- und Maven-Services.
 
 Wird eine Klasse hinzugefügt, umbenannt oder entfernt, ist sie in der thematisch passenden dieser beiden Dateien zu pflegen – nicht in dieser Übersicht.

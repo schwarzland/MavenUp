@@ -2729,4 +2729,148 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         assertFalse("Projekt darf durch die Badge-Aktualisierung nicht disposed werden", project.isDisposed)
     }
+
+    /**
+     * Liefert die per Reflection zugängliche Map der ungefilterten Versionen eines Tool-Windows.
+     */
+    private fun rawVersionMap(toolWindow: MavenUpWindowFactory.MyToolWindow): MutableMap<String, List<String>> =
+        toolWindow.javaClass.getDeclaredField("rawAvailableVersions")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, List<String>>
+
+    /**
+     * Führt [block] mit den angegebenen Anzeigeeinstellungen aus und stellt die vorherigen Werte
+     * anschließend wieder her.
+     */
+    private fun <T> withVersionVisibilitySettings(
+        hideUnstable: Boolean,
+        offerAll: Boolean,
+        block: () -> T
+    ): T {
+        val state = MavenUpSettings.getInstance().state
+        val previousHide = state.hideUnstableVersions
+        val previousOfferAll = state.offerAllVersions
+        state.hideUnstableVersions = hideUnstable
+        state.offerAllVersions = offerAll
+        try {
+            return block()
+        } finally {
+            state.hideUnstableVersions = previousHide
+            state.offerAllVersions = previousOfferAll
+        }
+    }
+
+    /**
+     * Stellt sicher, dass das Aktivieren von "Hide unstable versions" die Spalte **New Version**
+     * ohne erneute Versionssuche aktualisiert.
+     */
+    fun testApplyVersionVisibilitySettingsHidesUnstableVersionsImmediately() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val model = findTable(toolWindow.getContent())!!.model as javax.swing.table.DefaultTableModel
+        val (availableVersions, _, knownDependencies) = versionMaps(toolWindow)
+        val raw = rawVersionMap(toolWindow)
+
+        val key = "com.example:unstable-lib"
+        knownDependencies[key] = "1.0.0"
+        raw[key] = listOf("2.0.0", "2.0.0-RC1", "1.0.0")
+        availableVersions[key] = raw[key]!!
+        model.addRow(arrayOf("com.example", "unstable-lib", "", "dependency", null, "1.0.0", raw[key]))
+
+        withVersionVisibilitySettings(hideUnstable = true, offerAll = false) {
+            toolWindow.applyVersionVisibilitySettings()
+        }
+
+        assertEquals(listOf("2.0.0", "1.0.0"), availableVersions[key])
+        assertEquals(listOf("2.0.0", "1.0.0"), model.getValueAt(0, 6))
+    }
+
+    /**
+     * Stellt sicher, dass "Offer all versions" ältere Versionen sofort anbietet bzw. entfernt.
+     */
+    fun testApplyVersionVisibilitySettingsTogglesOlderVersions() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val model = findTable(toolWindow.getContent())!!.model as javax.swing.table.DefaultTableModel
+        val (availableVersions, _, knownDependencies) = versionMaps(toolWindow)
+        val raw = rawVersionMap(toolWindow)
+
+        val key = "com.example:downgrade-lib"
+        knownDependencies[key] = "1.5.0"
+        raw[key] = listOf("2.0.0", "1.5.0", "1.0.0")
+        model.addRow(arrayOf("com.example", "downgrade-lib", "", "dependency", null, "1.5.0", emptyList<String>()))
+
+        withVersionVisibilitySettings(hideUnstable = false, offerAll = true) {
+            toolWindow.applyVersionVisibilitySettings()
+        }
+        assertEquals(listOf("2.0.0", "1.5.0", "1.0.0"), availableVersions[key])
+
+        withVersionVisibilitySettings(hideUnstable = false, offerAll = false) {
+            toolWindow.applyVersionVisibilitySettings()
+        }
+        assertEquals(listOf("2.0.0", "1.5.0"), availableVersions[key])
+        assertEquals(listOf("2.0.0", "1.5.0"), model.getValueAt(0, 6))
+    }
+
+    /**
+     * Stellt sicher, dass eine Auswahl verworfen wird, die durch die geänderten Einstellungen nicht
+     * mehr angeboten wird.
+     */
+    fun testApplyVersionVisibilitySettingsDropsUnavailableSelection() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val model = findTable(toolWindow.getContent())!!.model as javax.swing.table.DefaultTableModel
+        val (availableVersions, selectedVersions, knownDependencies) = versionMaps(toolWindow)
+        val raw = rawVersionMap(toolWindow)
+
+        val key = "com.example:selection-lib"
+        knownDependencies[key] = "1.0.0"
+        raw[key] = listOf("2.0.0-RC1", "1.0.0")
+        availableVersions[key] = raw[key]!!
+        selectedVersions[key] = "2.0.0-RC1"
+        model.addRow(arrayOf("com.example", "selection-lib", "", "dependency", null, "1.0.0", raw[key]))
+
+        withVersionVisibilitySettings(hideUnstable = true, offerAll = false) {
+            toolWindow.applyVersionVisibilitySettings()
+        }
+
+        assertEquals(listOf("1.0.0"), availableVersions[key])
+        assertFalse("Nicht mehr angebotene Auswahl muss verworfen werden", selectedVersions.containsKey(key))
+    }
+
+    /**
+     * Stellt sicher, dass die angebotenen Versionen nur bei tatsächlich geänderten Einstellungen
+     * neu berechnet werden.
+     */
+    fun testApplyVersionVisibilitySettingsIfChangedReactsOnlyToChanges() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+        val (availableVersions, _, knownDependencies) = versionMaps(toolWindow)
+        val raw = rawVersionMap(toolWindow)
+
+        val key = "com.example:changed-lib"
+        knownDependencies[key] = "1.0.0"
+        raw[key] = listOf("2.0.0", "2.0.0-RC1", "1.0.0")
+
+        toolWindow.applyVersionVisibilitySettingsIfChanged()
+        assertFalse("Ohne Änderung darf nichts neu berechnet werden", availableVersions.containsKey(key))
+
+        withVersionVisibilitySettings(hideUnstable = true, offerAll = false) {
+            toolWindow.applyVersionVisibilitySettingsIfChanged()
+        }
+
+        assertEquals(listOf("2.0.0", "1.0.0"), availableVersions[key])
+    }
+
+    /**
+     * Stellt sicher, dass der zuletzt bekannte Zustand der Anzeigeeinstellungen korrekt ausgelesen wird.
+     */
+    fun testCurrentVersionVisibilitySettingsReflectsState() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        val settings = withVersionVisibilitySettings(hideUnstable = true, offerAll = true) {
+            toolWindow.currentVersionVisibilitySettings()
+        }
+
+        assertTrue(settings.first)
+        assertTrue(settings.third)
+    }
 }

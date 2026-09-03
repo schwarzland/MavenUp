@@ -4,6 +4,7 @@ import de.schwarzland.mavenup.model.DependencyUpdate
 import de.schwarzland.mavenup.model.VulnerabilityAdvisory
 import de.schwarzland.mavenup.model.VulnerabilitySeverity
 import de.schwarzland.mavenup.service.DependencyVersionService
+import de.schwarzland.mavenup.service.DependencyApiService
 import de.schwarzland.mavenup.service.MavenUpSettings
 import de.schwarzland.mavenup.service.MAVEN_UP_SETTINGS_TOPIC
 import de.schwarzland.mavenup.service.RefreshSnapshotCollector
@@ -145,6 +146,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private val vulnerabilityApiService = VulnerabilityApiService()
         private val vulnerabilityScanService = VulnerabilityScanService(project)
         private val dependencyVersionService = DependencyVersionService(project)
+        private val dependencyApiService = DependencyApiService(project)
         private val refreshSnapshotCollector = RefreshSnapshotCollector(project)
         private val pomUpdateService = PomUpdateService(project)
         private val pomNavigationService = PomNavigationService(project)
@@ -173,6 +175,21 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * (die [availableVersions] leert und neu füllt) nicht geleert wird.
          */
         private val transitiveAvailableVersions = mutableMapOf<String, List<String>>()
+
+        /**
+         * Ungefilterte Versionen der Abhängigkeiten der Haupttabelle (`groupId:artifactId`).
+         *
+         * Dient als Grundlage, um die Anzeigeeinstellungen **Hide unstable versions** und
+         * **Offer all versions** ohne erneute Netzwerkabfrage neu anwenden zu können
+         * (siehe [applyVersionVisibilitySettings]).
+         */
+        private val rawAvailableVersions = mutableMapOf<String, List<String>>()
+
+        /** Ungefilterte Versionen der verwundbaren transitiven Koordinaten (`groupId:artifactId`). */
+        private val rawTransitiveAvailableVersions = mutableMapOf<String, List<String>>()
+
+        /** Aktuell aufgelöste Version je verwundbarer transitiver Koordinate (`groupId:artifactId`). */
+        private val transitiveCurrentVersions = mutableMapOf<String, String>()
 
         /** Alternative Ansicht, die ausschließlich transitive, verwundbare Abhängigkeiten auflistet. */
         private val transitiveVulnerabilitiesView = TransitiveVulnerabilitiesView(
@@ -224,6 +241,15 @@ class MavenUpWindowFactory : ToolWindowFactory {
          */
         private var lastVersionAutoSelectionMode =
             MavenUpSettings.getInstance().state.versionAutoSelectionMode
+
+        /**
+         * Zuletzt bekannter Zustand der anzeigebezogenen Versionseinstellungen
+         * (**Hide unstable versions**, **Hidden version qualifiers**, **Offer all versions**).
+         *
+         * Dient dazu, die angebotenen Versionen der Spalte **New Version** nur dann neu zu berechnen,
+         * wenn sich eine dieser Einstellungen tatsächlich geändert hat.
+         */
+        private var lastVersionVisibilitySettings = currentVersionVisibilitySettings()
 
         /** Die Tabelle der Abhängigkeiten; wird im Property-Initializer von [content] zugewiesen. */
         private var table: JBTable
@@ -683,6 +709,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 updateTableEmptyText()
                 if (clearData) {
                     availableVersions.clear()
+                    rawAvailableVersions.clear()
                     selectedVersions.clear()
                 }
                 if (clearVulnerabilities) {
@@ -690,6 +717,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     transitiveCoordinates.clear()
                     transitiveDependenciesByDirect.clear()
                     transitiveAvailableVersions.clear()
+                    rawTransitiveAvailableVersions.clear()
+                    transitiveCurrentVersions.clear()
                     vulnerabilityScanPerformed = false
                     lastScannedCount = 0
                     hideScanHint()
@@ -784,6 +813,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                                     ApplicationManager.getApplication().invokeLater {
                                         selectedVersions.clear()
                                         availableVersions.clear()
+                                        rawAvailableVersions.clear()
                                         transitiveVulnerabilitiesView.resetSelections()
                                         refreshAction(false, true, true)
 
@@ -1006,6 +1036,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 ) {
                     ApplicationManager.getApplication().invokeLater {
                         availableVersions.clear()
+                        rawAvailableVersions.clear()
                         selectedVersions.clear()
                         refreshAction(isAutoVersionSearchEnabled(), true, true)
                     }
@@ -1015,6 +1046,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             project.messageBus.connect(this@MyToolWindow).subscribe(MAVEN_UP_SETTINGS_TOPIC, Runnable {
                 ApplicationManager.getApplication().invokeLater {
                     rebuildToolbar()
+                    applyVersionVisibilitySettingsIfChanged()
                     applySelectLatestVersionSettingIfChanged()
                     updateToolWindowBadge()
                 }
@@ -1754,6 +1786,78 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
+         * Liest den aktuellen Zustand der anzeigebezogenen Versionseinstellungen aus.
+         *
+         * @return Tripel aus **Hide unstable versions**, **Hidden version qualifiers** und **Offer all versions**.
+         */
+        internal fun currentVersionVisibilitySettings(): Triple<Boolean, String, Boolean> {
+            val state = MavenUpSettings.getInstance().state
+            return Triple(state.hideUnstableVersions, state.hiddenVersionQualifiers, state.offerAllVersions)
+        }
+
+        /**
+         * Wendet die anzeigebezogenen Versionseinstellungen nur dann erneut an, wenn sich mindestens
+         * eine von ihnen geändert hat.
+         *
+         * Dadurch bleibt die Spalte **New Version** beim Ändern unbeteiligter Einstellungen unverändert.
+         */
+        internal fun applyVersionVisibilitySettingsIfChanged() {
+            val visibilitySettings = currentVersionVisibilitySettings()
+            if (visibilitySettings != lastVersionVisibilitySettings) {
+                lastVersionVisibilitySettings = visibilitySettings
+                applyVersionVisibilitySettings()
+            }
+        }
+
+        /**
+         * Berechnet die in der Spalte **New Version** angebotenen Versionen aus den zwischengespeicherten
+         * ungefilterten Versionen neu.
+         *
+         * Dadurch wirken die Einstellungen **Hide unstable versions** und **Offer all versions** sofort,
+         * ohne dass eine erneute Versionssuche nötig ist. Auswahlen, die dadurch nicht mehr angeboten
+         * werden, werden verworfen.
+         */
+        internal fun applyVersionVisibilitySettings() {
+            for ((key, versions) in rawAvailableVersions) {
+                availableVersions[key] =
+                    dependencyApiService.applyVersionSettings(versions, knownDependencies[key].orEmpty())
+            }
+            for ((key, versions) in rawTransitiveAvailableVersions) {
+                transitiveAvailableVersions[key] =
+                    dependencyApiService.applyVersionSettings(versions, transitiveCurrentVersions[key].orEmpty())
+            }
+            dropUnavailableVersionSelections()
+            cancelActiveCellEditing()
+            refreshNewVersionColumn()
+            updateUpdateButtonState()
+            applyRowFilter()
+            updateTransitiveVulnerabilitiesView()
+        }
+
+        /**
+         * Schreibt die aktuell angebotenen Versionen in die Spalte **New Version** aller Tabellenzeilen.
+         */
+        private fun refreshNewVersionColumn() {
+            val model = table.model as DefaultTableModel
+            for (row in 0 until model.rowCount) {
+                val groupId = model.getValueAt(row, GROUP_ID_COLUMN)?.toString().orEmpty()
+                val artifactId = model.getValueAt(row, ARTIFACT_ID_COLUMN)?.toString().orEmpty()
+                model.setValueAt(availableVersions["$groupId:$artifactId"].orEmpty(), row, NEW_VERSION_COLUMN)
+            }
+            table.repaint()
+        }
+
+        /**
+         * Verwirft Versionsauswahlen, die in den aktuell angebotenen Versionen nicht mehr enthalten sind.
+         */
+        private fun dropUnavailableVersionSelections() {
+            selectedVersions.entries.removeAll { (key, version) ->
+                val versions = availableVersions[key].orEmpty()
+                versions.isNotEmpty() && version !in versions
+            }
+        }
+
+        /**
          * Wählt für alle aktuell in der Tabelle sichtbaren Abhängigkeiten die höchste verfügbare Version
          * (über alle Major-Linien hinweg) aus.
          *
@@ -2483,6 +2587,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             refreshToolbar()
 
             availableVersions.clear()
+            rawAvailableVersions.clear()
             selectedVersions.clear()
             checkForUpdates {
                 ApplicationManager.getApplication().invokeLater {
@@ -2525,7 +2630,14 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
                     ApplicationManager.getApplication().invokeLater {
                         transitiveAvailableVersions.clear()
-                        transitiveAvailableVersions.putAll(transitiveVersions)
+                        rawTransitiveAvailableVersions.clear()
+                        rawTransitiveAvailableVersions.putAll(transitiveVersions)
+                        transitiveVersions.forEach { (key, versions) ->
+                            transitiveAvailableVersions[key] = dependencyApiService.applyVersionSettings(
+                                versions,
+                                transitiveCurrentVersions[key].orEmpty()
+                            )
+                        }
                         applyVulnerabilityResults(results, scanTargets)
                         ossIndexScan.errorMessage?.let(::showOssIndexError)
                         onFinished()
@@ -2560,6 +2672,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 }
                 .toMap()
             if (coordinates.isEmpty()) return emptyMap()
+            transitiveCurrentVersions.clear()
+            transitiveCurrentVersions.putAll(coordinates)
             return dependencyVersionService.fetchAvailableVersions(coordinates, indicator)
         }
 
@@ -2620,6 +2734,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
                     ApplicationManager.getApplication().invokeLater {
                         availableVersions.putAll(result.availableVersions)
+                        rawAvailableVersions.putAll(result.rawVersions)
                         selectedVersions.putAll(result.selectedVersions)
                         onFinished()
                     }

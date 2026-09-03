@@ -992,6 +992,7 @@ internal class TransitiveVulnerabilitiesView(
             "${row.groupId}:${row.artifactId}" to row.cell.allAdvisories
         }
         selectedVersions.keys.retainAll(rows.map { "${it.groupId}:${it.artifactId}" }.toSet())
+        dropUnavailableSelections()
         tableModel.setRowCount(0)
         rows.forEach { row ->
             val key = "${row.groupId}:${row.artifactId}"
@@ -1011,6 +1012,20 @@ internal class TransitiveVulnerabilitiesView(
         updateEmptyText()
         filterPanel.updateAvailability()
         applyRowFilter()
+    }
+
+    /**
+     * Verwirft Versionsauswahlen, die in den aktuell verfügbaren Versionen nicht mehr enthalten sind.
+     *
+     * Notwendig, wenn geänderte Anzeigeeinstellungen (z. B. **Hide unstable versions**) eine zuvor
+     * gewählte Version ausblenden; ohne diese Bereinigung bliebe eine nicht mehr auswählbare Version
+     * als vermeintliches Update stehen.
+     */
+    internal fun dropUnavailableSelections() {
+        selectedVersions.entries.removeAll { (key, version) ->
+            val versions = availableVersions[key].orEmpty()
+            versions.isNotEmpty() && version !in versions
+        }
     }
 
     /**
