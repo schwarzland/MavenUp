@@ -84,7 +84,8 @@
 <ol>
     <li><strong>Run a vulnerability scan</strong>: Click <strong>Scan for Vulnerabilities</strong> to check the direct
         dependencies and, when enabled, their resolved transitive dependencies. Results are shown in the
-        <strong>Vulnerabilities</strong> column, shown directly before <strong>Current Version</strong>.</li>
+        <strong>Vulnerabilities</strong> column, shown directly before <strong>Current Version</strong>. If nothing is found,
+        a closable banner above the table confirms the clean result and names the number of scanned coordinates.</li>
     <li><strong>Inspect the findings</strong>: Select a dependency with findings and click <strong>Vulnerability Details</strong>
         or click the populated vulnerability cell. The dialog opens a split view: the upper table lists the advisories
         (component, origin, source, advisory ID, aliases, and severity) for the direct dependency and related transitive
@@ -100,7 +101,7 @@
     <li><strong>Review transitive vulnerabilities</strong>: Switch to the
         <strong>Transitive CVEs</strong> tab in the tool window header (next to the <strong>Dependencies</strong> tab) to open a dedicated view
         listing every transitive dependency with known vulnerabilities, its type, its vulnerability count, and an
-        editable new-version column. The tab title shows how many transitive coordinates are affected; before the first scan the view explains how to fill it. Pick a new version to pin it in <code>dependencyManagement</code>
+        editable new-version column. The tab title shows how many transitive coordinates are affected; when the view is empty it explains why — no scan yet, no matching row, a scan without any finding, or findings that all affect directly declared dependencies, in which case a link takes you back to the filtered <strong>Dependencies</strong> tab. Pick a new version to pin it in <code>dependencyManagement</code>
         and apply it with <strong>Update</strong>; the recommended fix version is shown in bold with a
         <em>(recommended)</em> marker in the dropdown. In this view the toolbar's <strong>Select Highest Version</strong>
         dropdown (including <strong>Select Recommended Version</strong>) and <strong>Reset All to Current Versions</strong>
