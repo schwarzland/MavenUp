@@ -13,6 +13,8 @@
 - Added dedicated empty states to the **Transitive CVEs** tab that distinguish a scan without any finding from a scan whose findings all affect directly declared dependencies, the latter offering a link that switches to the **Dependencies** tab and filters it to the affected rows.
 - Added a status badge on the MavenUp tool window icon that marks high or critical vulnerabilities in red, lower-severity findings in yellow, and available new versions in blue.
 - Added a setting that limits this badge to vulnerabilities or turns it off entirely.
+- Added a **Dependency Graph** workflow status badge to the README.
+- Added JetBrains Marketplace version and download badges to the README.
 
 ### Changed
 

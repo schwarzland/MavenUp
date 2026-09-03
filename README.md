@@ -1,6 +1,9 @@
 # MavenUp
 
+[![JetBrains Marketplace Version](https://img.shields.io/jetbrains/plugin/v/de.schwarzland.mavenup.svg?label=marketplace)](https://plugins.jetbrains.com/plugin/33068-mavenup)
+[![JetBrains Marketplace Downloads](https://img.shields.io/jetbrains/plugin/d/de.schwarzland.mavenup.svg)](https://plugins.jetbrains.com/plugin/33068-mavenup)
 [![Build and Test](https://github.com/schwarzland/MavenUp/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/schwarzland/MavenUp/actions/workflows/ci.yml)
+[![Dependency Graph](https://github.com/schwarzland/MavenUp/actions/workflows/dependency-graph.yml/badge.svg?branch=main)](https://github.com/schwarzland/MavenUp/actions/workflows/dependency-graph.yml)
 [![Create Draft Release](https://github.com/schwarzland/MavenUp/actions/workflows/create-draft-release.yml/badge.svg)](https://github.com/schwarzland/MavenUp/actions/workflows/create-draft-release.yml)
 [![Publish Release to Marketplace](https://github.com/schwarzland/MavenUp/actions/workflows/publish-release.yml/badge.svg)](https://github.com/schwarzland/MavenUp/actions/workflows/publish-release.yml)
 
