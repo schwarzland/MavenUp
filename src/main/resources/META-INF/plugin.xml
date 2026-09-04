@@ -63,17 +63,22 @@
 
         <projectConfigurable parentId="tools" instance="de.schwarzland.mavenup.ui.MavenUpConfigurable"
                              id="de.schwarzland.mavenup.ui.MavenUpConfigurable" displayName="MavenUp"/>
+        <!-- groupWeight steuert die Reihenfolge im Einstellungsbaum (hoeherer Wert zuerst);
+             ohne diese Angabe sortiert die Plattform die Unterseiten alphabetisch. -->
         <projectConfigurable parentId="de.schwarzland.mavenup.ui.MavenUpConfigurable"
                              instance="de.schwarzland.mavenup.ui.MavenUpVersionsConfigurable"
                              id="de.schwarzland.mavenup.ui.MavenUpVersionsConfigurable"
+                             groupWeight="30"
                              bundle="messages.MyMessageBundle" key="settings.page.versions"/>
         <projectConfigurable parentId="de.schwarzland.mavenup.ui.MavenUpConfigurable"
                              instance="de.schwarzland.mavenup.ui.MavenUpVulnerabilityConfigurable"
                              id="de.schwarzland.mavenup.ui.MavenUpVulnerabilityConfigurable"
+                             groupWeight="20"
                              bundle="messages.MyMessageBundle" key="settings.page.vulnerability"/>
         <projectConfigurable parentId="de.schwarzland.mavenup.ui.MavenUpConfigurable"
                              instance="de.schwarzland.mavenup.ui.MavenUpPomChangesConfigurable"
                              id="de.schwarzland.mavenup.ui.MavenUpPomChangesConfigurable"
+                             groupWeight="10"
                              bundle="messages.MyMessageBundle" key="settings.page.pomChanges"/>
 
         <postStartupActivity implementation="de.schwarzland.mavenup.service.MavenUpStartupActivity"/>

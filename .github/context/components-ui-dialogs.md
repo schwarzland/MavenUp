@@ -100,7 +100,10 @@ UI-Komponenten: [`components-ui.md`](components-ui.md) und
 ## Settings-UI
 Die Einstellungen sind gemäß den IntelliJ-UI-Guidelines als Seitenbaum unter `Settings > Tools > MavenUp`
 registriert (Registrierung über `projectConfigurable` mit `parentId` in `plugin.xml`), damit jede Seite ohne
-Scrollen lesbar bleibt. Alle Seiten binden ihre Bedienelemente über die Kotlin-UI-DSL
+Scrollen lesbar bleibt. Die Reihenfolge der Unterseiten wird über `groupWeight` gesteuert (30 = Versions and
+Updates, 20 = Vulnerability Check, 10 = Pom.xml Changes); die Plattform sortiert Kindseiten über
+`Weighted.COMPARATOR` nach absteigendem Gewicht und bei Gleichstand alphabetisch, nicht nach
+Deklarationsreihenfolge. Alle Seiten binden ihre Bedienelemente über die Kotlin-UI-DSL
 (`bindSelected`/`bindText`/`bindItem`/`bindIntValue`) an `MavenUpSettings.State`; `isModified`/`apply`/`reset`
 liefert die DSL. Abhängige Felder werden über `enabledIf` gesteuert.
 - **MavenUpSettingsPage**: Abstrakte Basis aller Einstellungsseiten (erbt von `BoundConfigurable`). Stellt den
