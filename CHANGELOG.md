@@ -25,6 +25,7 @@
 - Replaced the tooltips of the settings options with explanatory comments below each control and shortened the option labels accordingly.
 - The **Hide unstable versions** and **Offer all versions** settings take effect on the **New Version** column immediately after they are changed, without requiring another version search.
 - Split the AI agent project context: `.github/copilot-project-context.md` serves as a slim overview, while the detailed component descriptions live in `.github/context/components-ui.md`, `.github/context/components-ui-toolwindow.md`, `.github/context/components-ui-dialogs.md` and `.github/context/components-service.md`.
+- Split the feature documentation: `FEATURES.md` became a slim index, while the feature descriptions moved into `docs/features/tool-window-and-ui.md`, `docs/features/version-management.md`, `docs/features/repositories-and-authentication.md`, `docs/features/vulnerability-scanning.md`, `docs/features/settings-and-configuration.md`, and `docs/features/architecture-and-reliability.md`.
 - Restructured the tool window component reference into dedicated subsections (background processing, action toolbar, context menu, table columns, filter row, sorting, bulk version selection, transitive view behaviour) for faster lookup.
 
 ### Fixed

@@ -23,7 +23,7 @@ See the [usage guide](docs/usage.md) for details.
 
 ## Documentation
 
-- [Features](FEATURES.md) — full feature overview (single source of truth).
+- [Features](FEATURES.md) — feature index (single source of truth), split by area under [docs/features/](docs/features/).
 - [Usage](docs/usage.md) — how to use the tool window, filters, and actions.
 - [Configuration](docs/configuration.md) — all settings.
 - [Privacy & Security](docs/privacy-and-security.md) — transmitted data and external endpoints.

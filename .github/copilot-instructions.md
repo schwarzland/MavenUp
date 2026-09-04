@@ -5,7 +5,7 @@ Bei **jeder** Änderung im Repository sind diese Punkte immer zu berücksichtige
 1. **README.md** ergänzen/aktualisieren, wenn sich Nutzung, Konfiguration oder Architektur ändert. Dabei gelten folgende Regeln:
    - **Sprache: Englisch.** README.md und alle Dateien unter `docs/` werden auf Englisch gepflegt.
    - **README.md ist eine schlanke Landing Page.** Sie enthält nur Kurzbeschreibung, Installation, Quick Start und Verweise auf `FEATURES.md` sowie die Dateien unter `docs/`. Detailinhalte gehören ausschließlich in die jeweilige `docs/`-Datei, nicht in die README.
-   - **Features: FEATURES.md ist die Single Source of Truth.** Ergänze oder aktualisiere neue/geänderte Funktionen ausschließlich in `FEATURES.md` (Englisch); README.md und die `docs/`-Dateien referenzieren auf FEATURES.md statt Features zu duplizieren.
+   - **Features: FEATURES.md ist die Single Source of Truth.** `FEATURES.md` ist dabei nur der Index; die eigentlichen Feature-Beschreibungen liegen thematisch aufgeteilt unter `docs/features/` (Englisch). Ergänze oder aktualisiere neue/geänderte Funktionen ausschließlich dort; README.md und die übrigen `docs/`-Dateien referenzieren auf FEATURES.md statt Features zu duplizieren.
    - **Ausgelagerte Dokumentation unter `docs/`** – jede Änderung wird in genau der thematisch passenden Datei gepflegt:
      - `docs/usage.md`: Bedienung des Tool-Windows, Filter, Aktionen.
      - `docs/configuration.md`: **alle Einstellungen** (jede neue Einstellung hier ergänzen).
@@ -14,6 +14,7 @@ Bei **jeder** Änderung im Repository sind diese Punkte immer zu berücksichtige
      - `docs/development.md`: Tests, Codequalität, Gradle-Proxy-Konfiguration, Troubleshooting.
      - `docs/release-and-ci.md`: Branching, GitHub-Actions-Workflows, Dependabot, Publishing.
      - `docs/licenses.md`: eingebettete Drittanbieter-Bibliotheken und deren Lizenzen (siehe auch Punkt 9).
+     - `docs/features/`: die thematisch aufgeteilten Feature-Beschreibungen (siehe Punkt 3).
    - **AGENTS.md** ist der herstellerübergreifende Agenten-Einstiegspunkt und verweist auf `.github/copilot-instructions.md` und `.github/copilot-project-context.md`; ändert sich der Speicherort oder die Rolle dieser verbindlichen Instruktionsdateien, ist AGENTS.md entsprechend anzugleichen.
    - Der Abschnitt **AI instructions** der README verlinkt `AGENTS.md`, `.github/copilot-instructions.md` und `.github/copilot-project-context.md`; diese Linkliste ist bei Umbenennung oder Ergänzung solcher Dateien aktuell zu halten.
    - Veraltete Formulierungen (z. B. „now", „new") sind beim Bearbeiten zu entfernen.
@@ -27,18 +28,27 @@ Bei **jeder** Änderung im Repository sind diese Punkte immer zu berücksichtige
    - Struktur: pro Version **genau einen** `### Added`-, `### Changed`- und `### Fixed`-Block – niemals doppelte Kategorien innerhalb derselben Version.
    - Jeder Eintrag ist ein prägnanter Satz (ein Gedanke pro Zeile); keine Redundanzen, keine Dopplungen.
    - Nach dem Hinzufügen den gesamten Bereich überfliegen und sicherstellen, dass keine Kategorie doppelt vorkommt und alle Einträge thematisch korrekt zugeordnet sind.
-3. **FEATURES.md** ergänzen/aktualisieren, wenn neue Funktionen hinzugefügt oder bestehende Funktionen geändert werden. Sprache: Englisch. Dabei gelten folgende Regeln:
+3. **FEATURES.md** und die Dateien unter **`docs/features/`** ergänzen/aktualisieren, wenn neue Funktionen hinzugefügt oder bestehende Funktionen geändert werden. Sprache: Englisch. Dabei gelten folgende Regeln:
+   - `FEATURES.md` ist ausschließlich der Index: Kurzbeschreibung, Liste der Feature-Bereiche mit Link auf die jeweilige Datei unter `docs/features/` und die Pflegehinweise – keine Feature-Beschreibungen.
+   - Die Feature-Beschreibungen stehen in genau einer thematisch passenden Datei unter `docs/features/`:
+     - `docs/features/tool-window-and-ui.md`: Tool-Window, Tabelleninhalte, Navigation, Kontextmenüs, Toolbar, Filter, Sortierung.
+     - `docs/features/version-management.md`: Versionsermittlung, Auswahlstrategien, Bulk-Aktionen, Statusanzeigen.
+     - `docs/features/repositories-and-authentication.md`: Repository-Abfragen, Credentials aus `settings.xml`, Repository-Browser.
+     - `docs/features/vulnerability-scanning.md`: Sicherheitsprüfung, transitive Findings, Details-Dialog, OSS-Index-Integration.
+     - `docs/features/settings-and-configuration.md`: Funktionen der Plugin-Einstellungen.
+     - `docs/features/architecture-and-reliability.md`: Hintergrundverarbeitung, Logging, dynamisches Laden, Paketstruktur.
    - Jede Funktion wird als ein prägnanter Bullet-Point beschrieben – ein Gedanke pro Zeile.
-   - Neue Features werden als neuer Bullet-Point ergänzt; geänderte Features werden im bestehenden Bullet-Point aktualisiert – keine Dopplungen.
+   - Neue Features werden als neuer Bullet-Point in der passenden Datei ergänzt; geänderte Features werden im bestehenden Bullet-Point aktualisiert – keine Dopplungen, auch nicht zwischen den Dateien.
    - Veraltete oder entfernte Funktionen werden gelöscht.
-   - Nach jeder Änderung die gesamte Liste auf Dopplungen und Lücken im Vergleich zur aktuellen Implementierung prüfen.
+   - Ein neuer Feature-Bereich wird nur angelegt, wenn er in keine bestehende Datei passt, und ist dann im Index von `FEATURES.md` zu verlinken.
+   - Nach jeder Änderung die betroffenen Listen auf Dopplungen und Lücken im Vergleich zur aktuellen Implementierung prüfen sowie den Index auf verwaiste oder fehlende Links.
 4. **src/main/resources/META-INF/plugin.xml** – die Sektion `<description>` aktualisieren, wenn neue Funktionen hinzugefügt oder bestehende Funktionen geändert werden. Dabei gelten folgende Regeln:
    - Sprache: Englisch. Die Description wird auf dem JetBrains Marketplace und im IDE Plugin Manager angezeigt – sie muss für Endanwender verständlich formuliert sein.
    - **Struktur & Hierarchie**: Beginne mit einem prägnanten Lead-Satz (max. 2 Sätze), der das Plugin kurzfristig zusammenfasst. Danach: **Core Features** (Haupt-Features, 3–5 Punkte) oben prominent platzieren und mit `<b>` hervorheben, gefolgt von **Advanced Capabilities** (erweiterte Features) für Power-User. Diese Hierarchie macht sofort klar, wofür das Plugin ist.
    - Jeder `<li>`-Eintrag beschreibt **genau eine** Funktion kompakt in einem Satz.
    - Neue Funktionen als neuen `<li>`-Eintrag ergänzen; geänderte Funktionen im bestehenden `<li>` aktualisieren – keine Dopplungen.
    - Beschreibungen müssen die tatsächliche Implementierung korrekt widerspiegeln – keine produktspezifischen Hardcodierungen, die durch Einstellungen variieren können (z. B. nie einen festen Repository-Namen nennen, wenn der Browser konfigurierbar ist).
-   - Nach jeder Änderung die vollständige `<description>` mit FEATURES.md abgleichen: jede wichtige Funktion aus FEATURES.md muss sinngemäß abgedeckt sein; veraltete oder entfernte Einträge sind zu löschen.
+   - Nach jeder Änderung die vollständige `<description>` mit den Feature-Dateien unter `docs/features/` abgleichen: jede wichtige Funktion muss sinngemäß abgedeckt sein; veraltete oder entfernte Einträge sind zu löschen.
 5. **Unittests** schreiben oder anpassen – Ziel ist eine **sehr hohe Testabdeckung**. Dabei gelten folgende Regeln:
    - **Jede neue öffentliche oder interne Methode** (`public`, `internal`) bekommt mindestens einen Unittest.
    - **Jede Änderung an bestehender Logik** macht die zugehörigen Tests ungültig – diese sind zu aktualisieren oder zu ergänzen.
@@ -79,7 +89,7 @@ Bei **jeder** Änderung im Repository sind diese Punkte immer zu berücksichtige
     - Neue Bedienelemente oder Workflows als zusätzliche `<li>`-Einträge in der bestehenden `<ol>` ergänzen; geänderte Aktionen im bestehenden Eintrag aktualisieren.
     - Veraltete oder entfernte Aktionen sind zu löschen.
     - Nach jeder Änderung die gesamte `getting_started.html` mit der tatsächlichen Bedienung abgleichen und sicherstellen, dass alle wesentlichen Schritte für einen Einsteiger abgedeckt sind.
-    - Die Inhalte müssen mit `FEATURES.md` und `src/main/resources/META-INF/plugin.xml` abgestimmt sein; veraltete oder fehlende Einsteiger-Schritte sind zu korrigieren.
+    - Die Inhalte müssen mit den Feature-Dateien unter `docs/features/` und `src/main/resources/META-INF/plugin.xml` abgestimmt sein; veraltete oder fehlende Einsteiger-Schritte sind zu korrigieren.
 11. **Dateigröße und Refactoring** – wenn eine Klasse, ein `object` oder allgemein eine `.kt`-Datei mehr als 800 bis 1000 Zeilen Code enthält, muss sie im Sinne eines Refactorings restrukturiert werden. Es ist zu prüfen, welches Risiko dabei besteht. Der Anwender muss gefragt werden, ob das Refactoring erfolgen soll. Dabei gelten folgende Regeln:
     - Die Datei ist in kleinere, thematisch klar abgegrenzte Einheiten aufzuteilen (z. B. Extraktion von Services, Helfern, UI-Komponenten oder Datenmodellen in eigene Dateien).
     - Die Aufteilung muss die bestehende Paketstruktur (`model`, `service`, `ui`) respektieren und Verantwortlichkeiten sauber trennen (Single Responsibility).

@@ -10,7 +10,7 @@ Für dieses Projekt gelten zusätzliche Anweisungen, die ursprünglich für GitH
 
 ## Wichtige Regeln (Zusammenfassung)
 
-1. **README.md/CHANGELOG.md/FEATURES.md** bei Änderungen immer aktuell halten.
+1. **README.md/CHANGELOG.md/FEATURES.md** (inklusive der Feature-Dateien unter `docs/features/`) bei Änderungen immer aktuell halten.
 2. **plugin.xml** Description aktuell halten.
 3. **Hohe Testabdeckung**: Jede neue/geänderte Logik benötigt Tests.
 4. **KDoc**: Alle berührten Klassen/Methoden müssen korrektes KDoc auf Deutsch haben.
