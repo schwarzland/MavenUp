@@ -126,6 +126,7 @@ class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
      * @property vulnerabilityCommentPrefix Der Text, der im erklärenden XML-Kommentar vor den Kennungen steht.
      * @property vulnerabilityCommentMaxIds Die Höchstzahl der aufgelisteten Kennungen; darüber hinausgehende Kennungen werden durch einen „and more"-Hinweis ersetzt. `0` bedeutet „unbegrenzt".
      * @property toolWindowBadgeMode Bestimmt, welche Zustände als farbiger Badge auf dem Stripe-Icon des Tool-Windows signalisiert werden.
+     * @property privateGroupIds Kommagetrennte Liste privater/unternehmensinterner GroupId-Präfixe (z. B. "com.myCompany, de.meineFirma.produkt"). Abhängigkeiten, Plugins, verwaltete Abhängigkeiten/Plugins und Parent-POMs mit übereinstimmender GroupId werden von Abfragen an Maven Central (repo1.maven.org) ausgeschlossen.
      */
     data class State(
         var jumpOnSingleClick: Boolean = false,
@@ -147,7 +148,8 @@ class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
         var vulnerabilityCommentMode: VulnerabilityCommentMode = VulnerabilityCommentMode.ADVISORY_IDS,
         var vulnerabilityCommentPrefix: String = DEFAULT_VULNERABILITY_COMMENT_PREFIX,
         var vulnerabilityCommentMaxIds: Int = DEFAULT_VULNERABILITY_COMMENT_MAX_IDS,
-        var toolWindowBadgeMode: ToolWindowBadgeMode = ToolWindowBadgeMode.VULNERABILITIES_AND_UPDATES
+        var toolWindowBadgeMode: ToolWindowBadgeMode = ToolWindowBadgeMode.VULNERABILITIES_AND_UPDATES,
+        var privateGroupIds: String = ""
     ) {
         /**
          * Normalisiert den geladenen Zustand und migriert Legacy-Bool-Flags auf [versionAutoSelectionMode].

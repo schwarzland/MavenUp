@@ -44,7 +44,7 @@ internal const val OSS_INDEX_ACCOUNT_URL = "https://ossindex.sonatype.org"
  * - Sicherheitsprüfungen (OSS Index) zu aktivieren und Zugangsdaten zu verwalten.
  *
  * Die Einstellungen sind in der UI in die Gruppen **Appearance**, **Versions and Updates**,
- * **Pom.xml Changes** und **Vulnerability Check** gegliedert.
+ * **Privacy**, **Pom.xml Changes** und **Vulnerability Check** gegliedert.
  *
  * Die Klasse wird benötigt, um die Plugin-Einstellungen in den IDE-Einstellungen anzuzeigen
  * und Änderungen an [MavenUpSettings] sowie [OssIndexCredentialStore] zu persistieren.
@@ -77,6 +77,7 @@ class MavenUpConfigurable internal constructor(
     private var ossIndexEnabledCheckBox: JBCheckBox? = null
     private var ossIndexTokenLabel: JLabel? = null
     private var ossIndexTokenField: JPasswordField? = null
+    private var privateGroupIdsField: JTextField? = null
     private var storedToken = ""
     private var credentialsLoaded = false
     private var credentialLoadGeneration = 0
@@ -90,7 +91,7 @@ class MavenUpConfigurable internal constructor(
     /**
      * Erstellt die Benutzeroberfläche für die Einstellungen unter Verwendung des IntelliJ UI DSL.
      *
-     * Die vier Einstellungsgruppen werden in eigene Erweiterungsfunktionen ausgelagert, damit diese
+     * Die fünf Einstellungsgruppen werden in eigene Erweiterungsfunktionen ausgelagert, damit diese
      * Methode flach bleibt und jede Gruppe für sich lesbar ist.
      */
     override fun createComponent(): JComponent {
@@ -98,6 +99,7 @@ class MavenUpConfigurable internal constructor(
         return panel {
             appearanceGroup(settings)
             versionsGroup(settings)
+            privacyGroup(settings)
             vulnerabilityGroup(settings)
             pomChangesGroup(settings)
             installControlListeners(settings)
@@ -244,6 +246,29 @@ class MavenUpConfigurable internal constructor(
                     .applyToComponent {
                         isSelected = settings.state.confirmVersionReset
                         toolTipText = MyMessageBundle.message("settings.confirmVersionReset.tooltip")
+                    }
+                    .component
+            }
+        }
+    }
+
+    /**
+     * Baut die Gruppe **Privacy** mit dem Filter für private/unternehmensinterne GroupId-Präfixe auf,
+     * die von Abfragen an Maven Central ausgeschlossen werden.
+     *
+     * @param settings Die Einstellungen, aus denen die Startwerte gelesen werden.
+     */
+    private fun Panel.privacyGroup(settings: MavenUpSettings) {
+        group(MyMessageBundle.message("settings.group.privacy")) {
+            row {
+                label(MyMessageBundle.message("settings.privateGroupIds"))
+                privateGroupIdsField = textField()
+                    .align(Align.FILL)
+                    .resizableColumn()
+                    .applyToComponent {
+                        text = settings.state.privateGroupIds
+                        columns = 20
+                        toolTipText = MyMessageBundle.message("settings.privateGroupIds.tooltip")
                     }
                     .component
             }
@@ -402,7 +427,8 @@ class MavenUpConfigurable internal constructor(
             vulnerabilityCommentModeComboBox?.selectedItem to state.vulnerabilityCommentMode,
             vulnerabilityCommentPrefixField?.text to state.vulnerabilityCommentPrefix,
             vulnerabilityCommentMaxIdsSpinner?.value to state.vulnerabilityCommentMaxIds,
-            ossIndexEnabledCheckBox?.isSelected to state.ossIndexEnabled
+            ossIndexEnabledCheckBox?.isSelected to state.ossIndexEnabled,
+            privateGroupIdsField?.text to state.privateGroupIds
         )
         return comparisons.any { (uiValue, storedValue) -> uiValue != storedValue } || isTokenModified()
     }
@@ -456,6 +482,7 @@ class MavenUpConfigurable internal constructor(
             (vulnerabilityCommentMaxIdsSpinner?.value as? Int)?.coerceAtLeast(0)
                 ?: DEFAULT_VULNERABILITY_COMMENT_MAX_IDS
         settings.state.ossIndexEnabled = ossIndexEnabled
+        settings.state.privateGroupIds = privateGroupIdsField?.text?.trim().orEmpty()
         if (credentialsLoaded) {
             storedToken = ossIndexToken
             credentialService.store(storedToken)
@@ -486,6 +513,7 @@ class MavenUpConfigurable internal constructor(
         vulnerabilityCommentPrefixField?.text = settings.state.vulnerabilityCommentPrefix
         vulnerabilityCommentMaxIdsSpinner?.value = settings.state.vulnerabilityCommentMaxIds
         ossIndexEnabledCheckBox?.isSelected = settings.state.ossIndexEnabled
+        privateGroupIdsField?.text = settings.state.privateGroupIds
         credentialsLoaded = false
         storedToken = ""
         ossIndexTokenField?.text = ""
@@ -524,6 +552,7 @@ class MavenUpConfigurable internal constructor(
         ossIndexEnabledCheckBox = null
         ossIndexTokenLabel = null
         ossIndexTokenField = null
+        privateGroupIdsField = null
     }
 
     /**

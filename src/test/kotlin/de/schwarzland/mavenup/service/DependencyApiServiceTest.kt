@@ -505,4 +505,71 @@ class DependencyApiServiceTest : BasePlatformTestCase() {
 
         assertNull(resolved)
     }
+
+    fun testIsPrivateGroupIdMatchesExactAndSubGroupIds() {
+        val settings = MavenUpSettings.getInstance()
+        val previous = settings.state.privateGroupIds
+        settings.state.privateGroupIds = "com.myCompany, de.meineFirma.produkt"
+
+        val service = DependencyApiService(project)
+        try {
+            assertTrue(service.isPrivateGroupId("com.myCompany"))
+            assertTrue(service.isPrivateGroupId("com.myCompany.internal"))
+            assertTrue(service.isPrivateGroupId("de.meineFirma.produkt"))
+            assertTrue(service.isPrivateGroupId("de.meineFirma.produkt.core"))
+            assertFalse(service.isPrivateGroupId("com.myCompanyOther"))
+            assertFalse(service.isPrivateGroupId("org.apache.commons"))
+        } finally {
+            settings.state.privateGroupIds = previous
+        }
+    }
+
+    fun testIsPrivateGroupIdWithBlankSettingReturnsFalse() {
+        val settings = MavenUpSettings.getInstance()
+        val previous = settings.state.privateGroupIds
+        settings.state.privateGroupIds = "   ,  "
+
+        val service = DependencyApiService(project)
+        try {
+            assertFalse(service.isPrivateGroupId("com.myCompany"))
+        } finally {
+            settings.state.privateGroupIds = previous
+        }
+    }
+
+    fun testExcludeCentralForPrivateGroupIdRemovesOnlyCentral() {
+        val settings = MavenUpSettings.getInstance()
+        val previous = settings.state.privateGroupIds
+        settings.state.privateGroupIds = "com.myCompany"
+
+        val service = DependencyApiService(project)
+        val repositories = listOf(
+            Pair<String?, String>("central", "https://repo1.maven.org/maven2"),
+            Pair<String?, String>("private-1", "https://private-1.example.org/maven")
+        )
+        try {
+            val filtered = service.excludeCentralForPrivateGroupId(repositories, "com.myCompany.module")
+            assertEquals(listOf(repositories[1]), filtered)
+        } finally {
+            settings.state.privateGroupIds = previous
+        }
+    }
+
+    fun testExcludeCentralForPrivateGroupIdKeepsAllForNonPrivateGroupId() {
+        val settings = MavenUpSettings.getInstance()
+        val previous = settings.state.privateGroupIds
+        settings.state.privateGroupIds = "com.myCompany"
+
+        val service = DependencyApiService(project)
+        val repositories = listOf(
+            Pair<String?, String>("central", "https://repo1.maven.org/maven2"),
+            Pair<String?, String>("private-1", "https://private-1.example.org/maven")
+        )
+        try {
+            val filtered = service.excludeCentralForPrivateGroupId(repositories, "org.apache.commons")
+            assertEquals(repositories, filtered)
+        } finally {
+            settings.state.privateGroupIds = previous
+        }
+    }
 }

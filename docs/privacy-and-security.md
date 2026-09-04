@@ -25,3 +25,6 @@ MavenUp places great importance on transparency and data minimization when acces
 
 ## Note for corporate environments
 In confidential corporate environments, note that during a version or vulnerability check the coordinates of internal or private dependencies (e.g. `com.mycompany.internal:my-module:1.0.0`) may also appear in requests to the configured external services, provided they exist in the project.
+
+## Excluding private GroupIds from Maven Central
+The **Private GroupId prefixes** setting (see [configuration.md](configuration.md)) lets you configure a comma-separated list of GroupId prefixes (e.g. `com.myCompany, de.meineFirma.produkt`) that are considered private/internal. Any dependency, plugin, managed dependency, managed plugin, or parent POM whose GroupId matches one of these prefixes is excluded from queries to Maven Central (`repo1.maven.org`), so no company information is transmitted to that external server. Other configured private repositories are still queried for matching GroupIds, and OSV.dev/OSS Index vulnerability checks are unaffected by this setting.

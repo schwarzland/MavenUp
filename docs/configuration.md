@@ -2,7 +2,7 @@
 
 ## Settings
 
-Under `Settings > Tools > MavenUp`, the following options can be configured. The settings are stored globally at the application level and therefore apply to all projects. For better clarity, they are grouped into four thematic sections with headings that follow the typical workflow: **Appearance and Behavior**, **Versions and Updates**, **Vulnerability Check**, and **Pom.xml Changes**.
+Under `Settings > Tools > MavenUp`, the following options can be configured. The settings are stored globally at the application level and therefore apply to all projects. For better clarity, they are grouped into five thematic sections with headings that follow the typical workflow: **Appearance and Behavior**, **Versions and Updates**, **Privacy**, **Vulnerability Check**, and **Pom.xml Changes**.
 
 ### Appearance and Behavior
 
@@ -20,6 +20,10 @@ Under `Settings > Tools > MavenUp`, the following options can be configured. The
 - **Hidden version qualifiers (comma-separated)**: List of the types to hide, e.g. `rc,beta,milestone` (as an indented sub-item in the IntelliJ settings style; label and field are only active when the filter is enabled; the field adapts to the dialog width so longer lists remain readable). The change is applied to the open tool window immediately, without a renewed version search.
 - **Automatically select version after checking for updates**: Sets the pre-selection strategy for **New Version** as a combo box with three states: **Keep current version (no auto-selection)**, **Select highest available version**, or **Select latest minor version in current major line**. The strategy is applied to the versions that remain after the two filters above. The change is applied to the open tool window immediately with **Apply** or **OK**, without a renewed update check; other settings do not change the current selection.
 - **Confirm before resetting all version selections**: Determines whether the **Reset All to Current Versions** action shows a confirmation dialog before discarding all version selections (default: on). The dialog offers a "Don't ask again" option that also disables this setting. This setting only takes effect when no filter is active; with an active filter, you are always asked instead whether to reset all or only the filtered dependencies.
+
+### Privacy
+
+- **Private GroupId prefixes (comma-separated)**: List of GroupId prefixes considered private/internal, e.g. `com.myCompany, de.meineFirma.produkt`. Any dependency, plugin, managed dependency, managed plugin, or parent POM whose GroupId equals one of these prefixes or starts with `<prefix>.` is excluded from queries to Maven Central (`repo1.maven.org`), so no company information is transmitted to that external server. Other configured private repositories are still queried for matching GroupIds. See [privacy-and-security.md](privacy-and-security.md) for details on transmitted data.
 
 ### Vulnerability Check
 

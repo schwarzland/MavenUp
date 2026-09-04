@@ -525,6 +525,29 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
         settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.DISABLED
     }
 
+    fun testPrivateGroupIdsDefaultIsEmpty() {
+        assertEquals("", MavenUpSettings.State().privateGroupIds)
+    }
+
+    fun testPrivateGroupIdsSelectionIsPersistedOnApply() {
+        val settings = MavenUpSettings.getInstance()
+        settings.state.privateGroupIds = ""
+
+        val configurable = MavenUpConfigurable(project)
+        configurable.createComponent()
+        configurable.reset()
+        assertFalse(configurable.isModified)
+
+        val field = configurable.field<javax.swing.JTextField>("privateGroupIdsField")
+        field.text = "com.myCompany, de.meineFirma.produkt"
+        assertTrue("Änderung des Felds sollte isModified() true machen", configurable.isModified)
+
+        configurable.apply()
+        assertEquals("com.myCompany, de.meineFirma.produkt", settings.state.privateGroupIds)
+
+        settings.state.privateGroupIds = ""
+    }
+
     fun testMavenRepositoryBrowserUrlPatterns() {
         assertEquals(
             "https://mvnrepository.com/artifact/com.example/lib/1.0",

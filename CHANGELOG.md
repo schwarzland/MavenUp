@@ -15,6 +15,7 @@
 - Added a setting that limits this badge to vulnerabilities or turns it off entirely.
 - Added a **Dependency Graph** workflow status badge to the README.
 - Added JetBrains Marketplace version and download badges to the README.
+- Added a **Privacy** settings group with a configurable comma-separated list of private GroupId prefixes that excludes matching dependencies, plugins, managed dependencies/plugins, and parent POMs from queries to Maven Central (`repo1.maven.org`).
 
 ### Changed
 
