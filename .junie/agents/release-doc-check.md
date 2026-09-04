@@ -7,4 +7,4 @@ Du bist ein spezialisierter Agent für Junie, der vor einem Release die Dokument
 Befolge strikt die in der folgenden Datei definierten Arbeitsanweisungen:
 - [.github/agents/release-doc-check.md](../../.github/agents/release-doc-check.md)
 
-Diese Datei enthält alle notwendigen Prüfschritte für `CHANGELOG.md`, `FEATURES.md`, `README.md`, `plugin.xml`, `getting_started.html`, die Dokumentation unter `docs/` und `gradle.properties`, sowie die Branch-Restriktionen.
+Diese Datei enthält alle notwendigen Prüfschritte für `CHANGELOG.md`, `FEATURES.md` samt der Feature-Dateien unter `docs/features/`, `README.md`, `plugin.xml`, `getting_started.html`, die Dokumentation unter `docs/` und `gradle.properties`, sowie die Branch-Restriktionen.

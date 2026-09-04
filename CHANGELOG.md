@@ -15,12 +15,22 @@
 - Added a setting that limits this badge to vulnerabilities or turns it off entirely.
 - Added a **Dependency Graph** workflow status badge to the README.
 - Added JetBrains Marketplace version and download badges to the README.
+- Added a **Privacy** settings group on the **Versions and Updates** page with a configurable comma-separated list of private GroupId prefixes that excludes matching dependencies, plugins, managed dependencies/plugins, and parent POMs from queries to Maven Central (`repo1.maven.org`).
+- Added a **More Settings** group with quick links from the **MavenUp** root page to each sub-page, including a short description of what the page contains.
 
 ### Changed
 
+- Restructured the plugin settings into a settings tree following the IntelliJ UI guidelines: the **MavenUp** root page keeps appearance and behavior, while **Versions and Updates**, **Vulnerability Check**, and **Pom.xml Changes** became sub-pages, so no page requires scrolling.
+- Grouped the **Versions and Updates** page into *Version Lookup*, *Privacy*, and *Version Selection* so the settings follow the order in which they take effect.
+- Replaced the tooltips of the settings options with explanatory comments below each control and shortened the option labels accordingly.
 - The **Hide unstable versions** and **Offer all versions** settings take effect on the **New Version** column immediately after they are changed, without requiring another version search.
 - Split the AI agent project context: `.github/copilot-project-context.md` serves as a slim overview, while the detailed component descriptions live in `.github/context/components-ui.md`, `.github/context/components-ui-toolwindow.md`, `.github/context/components-ui-dialogs.md` and `.github/context/components-service.md`.
+- Split the feature documentation: `FEATURES.md` became a slim index, while the feature descriptions moved into `docs/features/tool-window-and-ui.md`, `docs/features/version-management.md`, `docs/features/repositories-and-authentication.md`, `docs/features/vulnerability-scanning.md`, `docs/features/settings-and-configuration.md`, and `docs/features/architecture-and-reliability.md`.
 - Restructured the tool window component reference into dedicated subsections (background processing, action toolbar, context menu, table columns, filter row, sorting, bulk version selection, transitive view behaviour) for faster lookup.
+
+### Fixed
+
+- Fixed the order of the MavenUp sub-pages in the settings tree, which the platform sorted alphabetically (**Pom.xml Changes** first) instead of following the workflow order shown by the quick links.
 
 ## 3.1.0
 

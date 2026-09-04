@@ -28,7 +28,8 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   `syncMavenAfterUpdate`, `stopAfterCentralSuccess`, `offerAllVersions`, `confirmVersionReset`,
   `autoSearchVersions`, `vulnerabilityCommentMode` mit `NONE`, `TEXT_ONLY`, `ADVISORY_IDS`, `ALIASES`, `ALL_IDS`,
   `vulnerabilityCommentPrefix`, `vulnerabilityCommentMaxIds`,
-  `toolWindowBadgeMode` mit `OFF`, `VULNERABILITIES`, `VULNERABILITIES_AND_UPDATES`;
+  `toolWindowBadgeMode` mit `OFF`, `VULNERABILITIES`, `VULNERABILITIES_AND_UPDATES`,
+  `privateGroupIds` (kommagetrennte private/unternehmensinterne GroupId-Präfixe, Standard leer);
   Legacy-Migrationsfelder: `selectLatestVersion`, `selectLatestMinorVersion`, `addVulnerabilityFixComment`).
   Für die OSS-Index-Abfrage ist nur das Token erforderlich; Sonatype wertet bei der HTTP-Basic-Authentifizierung
   nur das Token aus, weshalb ein fester Platzhalter-Benutzername verwendet wird.
@@ -69,6 +70,10 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   Die neueste Version wird über `extractNewestFromMetadata` aus den `<release>`/`<latest>`-Feldern bestimmt
   (Central bevorzugt) und via `orderWithNewestFirst` an den Listenanfang gestellt; Rückgabetypen sind
   `RepositoryVersions` (pro Repository) und `CollectedVersions` (aggregiert).
+  `isPrivateGroupId` prüft eine GroupId gegen die Einstellung `privateGroupIds` (exakter Präfix oder
+  `<Präfix>.`); `excludeCentralForPrivateGroupId` entfernt Maven Central aus der Repository-Liste, wenn die
+  GroupId privat ist, sodass `fetchAllVersions` für private GroupIds keine Koordinaten an
+  `repo1.maven.org` überträgt, andere konfigurierte private Repositories aber weiterhin abfragt.
 - **OssIndexApiService / OssIndexCredentialService**: optionale Sonatype-Abfrage über Maven-purl
   und sichere Zugangsdatenablage; wirft `OssIndexAuthenticationException` bei ungültigem/abgelaufenem
   Token (HTTP 401/403) für eine qualifizierte Fehlermeldung.

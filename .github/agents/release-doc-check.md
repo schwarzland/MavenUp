@@ -56,24 +56,27 @@ Halte dich an die verbindlichen Regeln aus `.github/copilot-instructions.md`.
 - Jeder Eintrag ist ein prägnanter Satz (ein Gedanke pro Zeile) und thematisch korrekt einsortiert.
 - Ergänze fehlende Einträge, korrigiere falsch einsortierte Einträge, entferne Dopplungen.
 
-### 2. FEATURES.md – Vollständigkeit
+### 2. FEATURES.md und `docs/features/` – Vollständigkeit
 - Sprache: **Englisch**.
-- Jede Funktion ist ein prägnanter Bullet-Point (ein Gedanke pro Zeile).
+- `FEATURES.md` ist der Index: prüfe, ob jede Datei unter `docs/features/` dort verlinkt ist
+  und keine verwaisten Links existieren.
+- Die Feature-Beschreibungen stehen in den Dateien unter `docs/features/`; jede Funktion ist
+  ein prägnanter Bullet-Point (ein Gedanke pro Zeile) in der thematisch passenden Datei.
 - Ergänze neue Features, aktualisiere geänderte Features im bestehenden Bullet-Point,
-  entferne veraltete/entfernte Funktionen. Keine Dopplungen.
-- Gleiche die Liste gegen die tatsächliche Implementierung unter `src/main/kotlin/` ab.
+  entferne veraltete/entfernte Funktionen. Keine Dopplungen – auch nicht zwischen den Dateien.
+- Gleiche die Listen gegen die tatsächliche Implementierung unter `src/main/kotlin/` ab.
 
 ### 3. README.md – Vollständigkeit
 - Sprache: **Englisch**. Die README ist eine schlanke Landing Page und enthält ausschließlich
   Kurzbeschreibung, Installation, Quick Start, die Dokumentationsliste und den Abschnitt
-  **AI instructions** – Detailinhalte gehören in `FEATURES.md` bzw. unter `docs/`.
+  **AI instructions** – Detailinhalte gehören unter `docs/` bzw. `docs/features/`.
 - Prüfe, ob Kurzbeschreibung und Quick Start noch zum aktuellen Funktionsumfang passen.
 - Prüfe die Dokumentationsliste auf Vollständigkeit (siehe Abschnitt 6) und den Abschnitt
   **AI instructions** darauf, ob `AGENTS.md`, `.github/copilot-instructions.md`,
   `.github/copilot-project-context.md` sowie die Komponentenreferenzen unter `.github/context/`
   weiterhin korrekt verlinkt sind.
 - Entferne veraltete Formulierungen (z. B. „now", „new"). Keine inhaltlichen Dopplungen
-  zwischen README und `FEATURES.md` bzw. den `docs/`-Dateien.
+  zwischen README und den `docs/`-Dateien.
 
 ### 4. plugin.xml – Sektion `<description>`
 - Datei: `src/main/resources/META-INF/plugin.xml`.
@@ -82,8 +85,8 @@ Halte dich an die verbindlichen Regeln aus `.github/copilot-instructions.md`.
 - Ergänze neue Funktionen als `<li>`, aktualisiere geänderte im bestehenden `<li>`, entferne
   veraltete Einträge. Keine Dopplungen, keine produktspezifischen Hardcodierungen, die durch
   Einstellungen variieren können.
-- Gleiche die `<description>` inhaltlich mit `FEATURES.md` ab: jede wichtige Funktion muss
-  sinngemäß abgedeckt sein.
+- Gleiche die `<description>` inhaltlich mit den Feature-Dateien unter `docs/features/` ab: jede
+  wichtige Funktion muss sinngemäß abgedeckt sein.
 
 ### 5. getting_started.html – Einsteiger-Workflow
 - Datei: `getting_started.html`.
@@ -93,7 +96,8 @@ Halte dich an die verbindlichen Regeln aus `.github/copilot-instructions.md`.
   Update, Navigation, Sicherheitsprüfung und grundlegende Konfiguration.
 - Ergänze fehlende Workflows, aktualisiere umbenannte Aktionen oder geänderte Dialoge,
   entferne veraltete Schritte. Keine Dopplungen; die Reihenfolge muss sinnvoll für neue Nutzer sein.
-- Gleiche die Seite mit `FEATURES.md` und `src/main/resources/META-INF/plugin.xml` ab, damit
+- Gleiche die Seite mit den Feature-Dateien unter `docs/features/` und
+  `src/main/resources/META-INF/plugin.xml` ab, damit
   keine grundlegende Funktion aus der Produktbeschreibung fehlt.
 
 ### 6. Dokumentation unter `docs/`
@@ -111,12 +115,14 @@ Halte dich an die verbindlichen Regeln aus `.github/copilot-instructions.md`.
     aktualisiert oder entfernt wurden.
   - `docs/presentation.md`: Sprechleitfaden für Demos – **bewusst auf Deutsch** verfasst; prüfe, ob die
     dort beschriebene Produktdarstellung noch zur aktuellen Funktionalität passt.
+  - `docs/features/`: die Feature-Beschreibungen je Bereich – siehe Abschnitt 2.
 - Ergänze fehlende Inhalte, aktualisiere geänderte Beschreibungen, entferne veraltete Abschnitte
   und veraltete Formulierungen (z. B. „now", „new").
 - Jeder Punkt gehört an **genau eine** Stelle: keine inhaltlichen Dopplungen zwischen `README.md`
   und `docs/` oder zwischen den `docs/`-Dateien untereinander.
 - Prüfe, ob die Dokumentationsliste in `README.md` alle nutzerrelevanten Dateien unter `docs/` verlinkt
-  (Ausnahme: `docs/presentation.md`); ergänze fehlende Verlinkungen und entferne Links auf nicht mehr
+  (Ausnahmen: `docs/presentation.md` und die über `FEATURES.md` verlinkten Dateien unter
+  `docs/features/`); ergänze fehlende Verlinkungen und entferne Links auf nicht mehr
   existierende Dateien.
 - Neue `docs/`-Dateien, die für eine seit dem letzten Release ergänzte Funktion nötig sind, legst du an
   und verlinkst sie in `README.md`.

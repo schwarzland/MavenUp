@@ -473,6 +473,47 @@ class DependencyApiService(private val project: Project) {
         if (offerAllVersions) ComparableVersion("") else ComparableVersion(currentVersion)
 
     /**
+     * Prüft, ob eine GroupId gemäß der Einstellung [MavenUpSettings.State.privateGroupIds] als
+     * privat/unternehmensintern gilt.
+     *
+     * Eine GroupId gilt als privat, wenn sie exakt einem konfigurierten Präfix entspricht oder mit
+     * `<Präfix>.` beginnt, damit z. B. der Präfix `com.myCompany` auch `com.myCompany.produkt`
+     * abdeckt, ohne unbeabsichtigt unabhängige GroupIds wie `com.myCompanyOther` zu erfassen.
+     *
+     * @param groupId Die zu prüfende GroupId.
+     * @return `true`, wenn die GroupId als privat konfiguriert ist.
+     */
+    fun isPrivateGroupId(groupId: String): Boolean {
+        val privateGroupIds = MavenUpSettings.getInstance().state.privateGroupIds
+            .split(",")
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+        return privateGroupIds.any { prefix -> groupId == prefix || groupId.startsWith("$prefix.") }
+    }
+
+    /**
+     * Entfernt Maven Central ([CENTRAL_REPOSITORY_URL]) aus der Liste der abzufragenden Repositories,
+     * wenn [groupId] gemäß [isPrivateGroupId] als privat/unternehmensintern gilt.
+     *
+     * So wird sichergestellt, dass für als privat konfigurierte GroupIds keine Koordinaten an
+     * `repo1.maven.org` übertragen werden; die übrigen (privaten) Repositories aus der `settings.xml`
+     * werden weiterhin abgefragt.
+     *
+     * @param repositoryInfos Die ursprünglich ermittelten Repositories.
+     * @param groupId Die GroupId des abzufragenden Artefakts.
+     * @return Die gefilterte Repository-Liste.
+     */
+    internal fun excludeCentralForPrivateGroupId(
+        repositoryInfos: List<Pair<String?, String>>,
+        groupId: String
+    ): List<Pair<String?, String>> {
+        if (!isPrivateGroupId(groupId)) {
+            return repositoryInfos
+        }
+        return repositoryInfos.filter { it.second != CENTRAL_REPOSITORY_URL }
+    }
+
+    /**
      * Ruft alle von den konfigurierten Repositories gemeldeten Versionen eines Artefakts ab, ohne
      * die anzeigebezogenen Einstellungen [MavenUpSettings.State.offerAllVersions] und
      * [MavenUpSettings.State.hideUnstableVersions] anzuwenden.
@@ -491,7 +532,7 @@ class DependencyApiService(private val project: Project) {
      */
     fun fetchAllVersions(groupId: String, artifactId: String): List<String> {
         val settings = MavenUpSettings.getInstance().state
-        val repositoryInfos = getMavenRepositoryInfos()
+        val repositoryInfos = excludeCentralForPrivateGroupId(getMavenRepositoryInfos(), groupId)
         val serverCredentials = getMavenServerCredentials()
         val collected = collectVersionsFromRepositories(
             repositoryInfos,
