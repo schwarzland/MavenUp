@@ -108,6 +108,24 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
         assertEquals(ToolWindowBadgeMode.OFF, settings.state.toolWindowBadgeMode)
     }
 
+    fun testSubPageQuickLinksAreShownInTreeOrder() {
+        val configurable = createConfigurable()
+
+        val linkTexts = configurable.subPageLinks.map { it.text }
+
+        assertEquals(
+            listOf("Versions and Updates", "Vulnerability Check", "Pom.xml Changes"),
+            linkTexts
+        )
+    }
+
+    fun testSubPageQuickLinksAreEnabled() {
+        val configurable = createConfigurable()
+
+        assertTrue(configurable.subPageLinks.isNotEmpty())
+        configurable.subPageLinks.forEach { assertTrue("Quick-Link muss bedienbar sein", it.isEnabled) }
+    }
+
     fun testDisposeUiResourcesReleasesComponents() {
         val configurable = createConfigurable()
 
@@ -117,6 +135,7 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
         assertNull(configurable.toolbarShowTextCheckBox)
         assertNull(configurable.jumpOnSingleClickCheckBox)
         assertNull(configurable.toolWindowBadgeModeComboBox)
+        assertTrue(configurable.subPageLinks.isEmpty())
     }
 
     fun testMavenRepositoryBrowserUrlPatterns() {

@@ -18,6 +18,7 @@ Tools
 - **Show text labels on toolbar buttons**: Renders the actions in the top action bar of the tool window and the vulnerability details dialog as buttons with text labels instead of icon-only buttons (default: on); the labels are shortened (the full text remains as a tooltip) so the action bar also fits on low screen resolutions. The change is applied to the open tool window immediately.
 - **Jump to pom.xml on a single click**: Enables navigation to the `pom.xml` with a single click instead of a double click.
 - **Status badge on the tool window icon**: Controls the badge dot on the MavenUp tool window icon — **Show a badge for vulnerabilities and available updates** (default), **Show a badge for vulnerabilities only**, or **Never show a badge**. The change is applied to the open tool window immediately. See [usage.md](usage.md) for what the badge colors mean.
+- **More Settings**: Quick links at the bottom of the page open the three sub-pages directly; each link carries a short description of the page content. Inside the settings dialog the link selects the corresponding tree node without opening another dialog.
 
 ### Versions and Updates
 

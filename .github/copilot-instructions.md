@@ -85,6 +85,15 @@ Bei **jeder** Änderung im Repository sind diese Punkte immer zu berücksichtige
     - Die Aufteilung muss die bestehende Paketstruktur (`model`, `service`, `ui`) respektieren und Verantwortlichkeiten sauber trennen (Single Responsibility).
     - Öffentliches Verhalten und bestehende Tests dürfen durch das Refactoring nicht brechen; Tests sind bei Bedarf an die neue Struktur anzupassen.
     - Nach dem Refactoring sind die betroffenen Dokumentations- und Kontextdateien (insbesondere `.github/copilot-project-context.md`) an die neue Struktur anzugleichen.
-12. **kein git commit** ausführen.
+12. **IntelliJ-Styleguide für Dialoge und UI** – jede Änderung oder Ergänzung an einem Dialog, an der Settings-UI oder an sonstigen UI-Komponenten muss den [IntelliJ Platform UI Guidelines](https://plugins.jetbrains.com/docs/intellij/ui-guidelines-welcome.html) entsprechen. Dabei gelten folgende Regeln:
+    - **Kotlin UI DSL v2** (`panel { row { … } }`) ist für neue und geänderte Oberflächen zu verwenden; kein manueller Swing-Layout-Code, wo die DSL ausreicht.
+    - **Einstellungen an den Zustand binden** über `bindSelected`/`bindText`/`bindItem`/`bindIntValue` statt über manuelle `isModified`/`apply`/`reset`-Implementierungen; abhängige Bedienelemente werden über `enabledIf`/`visibleIf` gesteuert, nicht über eigene Listener.
+    - **Seitenlänge begrenzen**: Eine Einstellungsseite soll ohne Scrollen lesbar bleiben. Wächst sie darüber hinaus, ist sie in Unterseiten (`projectConfigurable` mit `parentId`) aufzuteilen; die Wurzelseite verlinkt ihre Unterseiten per Quick-Link und navigiert über `Settings.select` statt über einen neuen Dialog.
+    - **Beschriftungen**: Labels vor Eingabefeldern enden auf einen Doppelpunkt, Checkbox- und Radio-Button-Texte nicht. Titel von Seiten, Gruppen und Dialogen stehen in Title Case, Optionstexte in Sentence Case.
+    - **Erklärungen** gehören als `comment`/`rowComment` sichtbar unter das Bedienelement, nicht in einen Tooltip; Optionstexte bleiben kurz.
+    - **Gruppierung**: Zusammengehörige Optionen werden über `group(...)` gebündelt; eine einzelne Gruppe auf einer Seite ist zu vermeiden, abhängige Unteroptionen werden per `indent` eingerückt.
+    - **Read-only-Dialoge** erhalten nur einen **Close**-Button, keine OK/Cancel-Kombination.
+    - Nach jeder UI-Änderung ist zu prüfen, ob Beschriftungen, Reihenfolge und Gruppierung noch zur tatsächlichen Bedienung passen, und die betroffene Dokumentation (`docs/usage.md`, `docs/configuration.md`, `getting_started.html`) anzugleichen.
+13. **kein git commit** ausführen.
 
 Diese Vorgaben gelten standardmäßig für alle KI-Änderungen (GitHub Copilot, Junie, etc.) in diesem Projekt.

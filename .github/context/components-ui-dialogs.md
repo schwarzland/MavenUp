@@ -108,7 +108,12 @@ liefert die DSL. Abhängige Felder werden über `enabledIf` gesteuert.
   Erweiterungspunkte `beforeApply()` (Pflichtfeldprüfung vor dem Schreiben) und `afterApply()` (Nachbereitung).
   Die Datei enthält zusätzlich `settingsListCellRenderer` als gemeinsamen Renderer für Auswahlfelder.
 - **MavenUpConfigurable**: Wurzelseite (`displayName` „MavenUp"). Enthält ausschließlich Darstellung und
-  Verhalten: `repositoryBrowser`, `toolbarShowText`, `jumpOnSingleClick` und `toolWindowBadgeMode`.
+  Verhalten: `repositoryBrowser`, `toolbarShowText`, `jumpOnSingleClick` und `toolWindowBadgeMode`. Am Seitenende
+  steht die Gruppe **More Settings** mit Quick-Links (`ActionLink` über `Row.link`) auf die drei Unterseiten,
+  jeweils mit Kurzbeschreibung als `rowComment`. `navigateToSubPage` ermittelt über
+  `DataManager`/`Settings.KEY` den Einstellungsdialog und wählt den Zielknoten per `Settings.select`; ohne
+  Dialogkontext wird als Rückfalloption `ShowSettingsUtil.showSettingsDialog` verwendet. Die verlinkten Seiten
+  sind als `SubPageLink`-Liste (Titel-, Beschreibungsschlüssel, Configurable-Klasse) hinterlegt.
 - **MavenUpVersionsConfigurable**: Unterseite **Versions and Updates**, gegliedert in die Gruppen
   **Version Lookup** (`autoSearchVersions`, `stopAfterCentralSuccess`), **Privacy** (`privateGroupIds`) und
   **Version Selection** (`offerAllVersions`, `hideUnstableVersions` mit eingerücktem, per `enabledIf`

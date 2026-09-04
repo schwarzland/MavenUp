@@ -30,7 +30,6 @@ private const val VULNERABILITY_COMMENT_MAX_IDS_LIMIT = 99
  * @param project Das Projekt, dessen Message-Bus nach dem Speichern benachrichtigt wird.
  */
 // "Pom.xml Changes" enthaelt den Dateinamen pom.xml und ist daher bewusst nicht in Title Case.
-@Suppress("DialogTitleCapitalization")
 class MavenUpPomChangesConfigurable(project: Project) :
     MavenUpSettingsPage(project, MyMessageBundle.message("settings.page.pomChanges")) {
 
