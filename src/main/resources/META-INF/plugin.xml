@@ -63,6 +63,18 @@
 
         <projectConfigurable parentId="tools" instance="de.schwarzland.mavenup.ui.MavenUpConfigurable"
                              id="de.schwarzland.mavenup.ui.MavenUpConfigurable" displayName="MavenUp"/>
+        <projectConfigurable parentId="de.schwarzland.mavenup.ui.MavenUpConfigurable"
+                             instance="de.schwarzland.mavenup.ui.MavenUpVersionsConfigurable"
+                             id="de.schwarzland.mavenup.ui.MavenUpVersionsConfigurable"
+                             bundle="messages.MyMessageBundle" key="settings.page.versions"/>
+        <projectConfigurable parentId="de.schwarzland.mavenup.ui.MavenUpConfigurable"
+                             instance="de.schwarzland.mavenup.ui.MavenUpVulnerabilityConfigurable"
+                             id="de.schwarzland.mavenup.ui.MavenUpVulnerabilityConfigurable"
+                             bundle="messages.MyMessageBundle" key="settings.page.vulnerability"/>
+        <projectConfigurable parentId="de.schwarzland.mavenup.ui.MavenUpConfigurable"
+                             instance="de.schwarzland.mavenup.ui.MavenUpPomChangesConfigurable"
+                             id="de.schwarzland.mavenup.ui.MavenUpPomChangesConfigurable"
+                             bundle="messages.MyMessageBundle" key="settings.page.pomChanges"/>
 
         <postStartupActivity implementation="de.schwarzland.mavenup.service.MavenUpStartupActivity"/>
     </extensions>

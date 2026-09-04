@@ -98,22 +98,31 @@ UI-Komponenten: [`components-ui.md`](components-ui.md) und
 - **VulnerabilityInfoPanel**: Detailbereich der Master-Detail-Ansicht. Zeigt zur selektierten Sicherheitswarnung (`showRow(coordinate, advisory)`) die betroffene Komponente inkl. **Open on ...**-Hyperlink zum konfigurierten Repository-Browser, Advisory-ID, Aliase, Schweregrad inkl. CVSS-Score, CVSS-Vektor, CWE-Kennungen, Veröffentlichungs- und Änderungsdatum, Quellen, betroffene Versionsbereiche, die Fixed-in-Versionen, die Zusammenfassung, die ausführliche Beschreibung und die Referenzen als anklickbare Hyperlinks (öffnen im Browser über `BrowserUtil`) in einem `JEditorPane` mit HTML-Inhalt (Word-Wrap-View-Factory für weichen Umbruch überlanger Zeilen, horizontaler Scrollbalken deaktiviert); ohne Selektion wird ein Platzhaltertext angezeigt.
 
 ## Settings-UI
-- **MavenUpConfigurable**: Settings-UI unter `Settings > Tools > MavenUp`.
-  Die Optionen sind in vier Gruppen (`group`) gegliedert, die dem Arbeitsablauf folgen:
-  **Appearance and Behavior**, **Versions and Updates**, **Vulnerability Check** und **Pom.xml Changes**.
-  Bietet u.a. die Checkbox für Text-Buttons in der Aktionsleiste (`toolbarShowText`) und veröffentlicht
-  beim Speichern den `MAVEN_UP_SETTINGS_TOPIC`.
-  Die Gruppe **Versions and Updates** enthält zusätzlich die Option `stopAfterCentralSuccess` zur Steuerung,
-  ob nach erfolgreicher Maven-Central-Abfrage weitere private Repositories abgefragt werden, die
-  Combobox `versionAutoSelectionMode` mit drei Zuständen für die Auto-Auswahl bei Update-Prüfungen
-  (nach den Versionsfiltern platziert, da die Vorauswahl auf der gefilterten Liste arbeitet) sowie
-  `confirmVersionReset`.
-  Die Gruppe **Pom.xml Changes** bündelt Einstellungen zum Schreibverhalten beim Anwenden von Updates:
-  `syncMavenAfterUpdate` (automatischer Maven-Sync nach dem Schreiben der `pom.xml`), die Combobox
-  `vulnerabilityCommentMode` (Auswahl der Kennungen im erklärenden XML-Kommentar beim Anlegen eines gepinnten
-  `dependencyManagement`-Eintrags zur Schwachstellenbehebung, siehe `PomUpdateService.addManagedDependency`)
-  sowie die eingerückten Felder `vulnerabilityCommentPrefix` (Kommentartext) und `vulnerabilityCommentMaxIds`
-  (Spinner `0..99`), die über `updateVulnerabilityCommentControlsEnabled` je nach Modus aktiviert werden.
-  Die OSS-Index-Sektion kennzeichnet das Token bei Aktivierung als Pflichtfeld und
-  verlinkt auf die Sonatype-Kontoeinstellungen zur Token-Erzeugung. Das Token wird außerhalb des EDT
-  aus dem Password Safe geladen und für `isModified()` im UI-Modell gecacht.
+Die Einstellungen sind gemäß den IntelliJ-UI-Guidelines als Seitenbaum unter `Settings > Tools > MavenUp`
+registriert (Registrierung über `projectConfigurable` mit `parentId` in `plugin.xml`), damit jede Seite ohne
+Scrollen lesbar bleibt. Alle Seiten binden ihre Bedienelemente über die Kotlin-UI-DSL
+(`bindSelected`/`bindText`/`bindItem`/`bindIntValue`) an `MavenUpSettings.State`; `isModified`/`apply`/`reset`
+liefert die DSL. Abhängige Felder werden über `enabledIf` gesteuert.
+- **MavenUpSettingsPage**: Abstrakte Basis aller Einstellungsseiten (erbt von `BoundConfigurable`). Stellt den
+  lazy gelesenen `state` bereit, veröffentlicht nach `apply()` den `MAVEN_UP_SETTINGS_TOPIC` und bietet die
+  Erweiterungspunkte `beforeApply()` (Pflichtfeldprüfung vor dem Schreiben) und `afterApply()` (Nachbereitung).
+  Die Datei enthält zusätzlich `settingsListCellRenderer` als gemeinsamen Renderer für Auswahlfelder.
+- **MavenUpConfigurable**: Wurzelseite (`displayName` „MavenUp"). Enthält ausschließlich Darstellung und
+  Verhalten: `repositoryBrowser`, `toolbarShowText`, `jumpOnSingleClick` und `toolWindowBadgeMode`.
+- **MavenUpVersionsConfigurable**: Unterseite **Versions and Updates**, gegliedert in die Gruppen
+  **Version Lookup** (`autoSearchVersions`, `stopAfterCentralSuccess`), **Privacy** (`privateGroupIds`) und
+  **Version Selection** (`offerAllVersions`, `hideUnstableVersions` mit eingerücktem, per `enabledIf`
+  gesteuertem `hiddenVersionQualifiers`, `versionAutoSelectionMode`, `confirmVersionReset`).
+  `applyAutoSelectionMode` schreibt die Legacy-Flags `selectLatestVersion`/`selectLatestMinorVersion` fort.
+- **MavenUpVulnerabilityConfigurable**: Unterseite **Vulnerability Check** mit `checkTransitiveDependencies`
+  und `ossIndexEnabled`. Kennzeichnet das Token bei Aktivierung als Pflichtfeld, verlinkt über
+  `OSS_INDEX_ACCOUNT_URL` auf die Sonatype-Kontoeinstellungen und lehnt ein leeres Pflichttoken in
+  `beforeApply()` mit einer `ConfigurationException` ab. Das Token ist nicht über die UI-DSL gebunden: Es wird
+  außerhalb des EDT aus dem Password Safe geladen (`OssIndexCredentialStore`), für `isModified()` gecacht und in
+  `afterApply()` gespeichert; bis zum Abschluss des Ladens bleiben Checkbox und Token-Feld deaktiviert.
+- **MavenUpPomChangesConfigurable**: Unterseite **Pom.xml Changes** mit `syncMavenAfterUpdate` und der Combobox
+  `vulnerabilityCommentMode` (Kennungen im erklärenden XML-Kommentar beim Anlegen eines gepinnten
+  `dependencyManagement`-Eintrags, siehe `PomUpdateService.addManagedDependency`) sowie den eingerückten Feldern
+  `vulnerabilityCommentPrefix` und `vulnerabilityCommentMaxIds` (Spinner `0..99`), deren Aktivierung per
+  `enabledIf` vom gewählten Modus abhängt. `applyCommentMode` schreibt das Legacy-Flag
+  `addVulnerabilityFixComment` fort.
