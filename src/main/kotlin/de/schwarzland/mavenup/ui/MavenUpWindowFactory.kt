@@ -145,8 +145,28 @@ class MavenUpWindowFactory : ToolWindowFactory {
     internal inner class MyToolWindow(private val project: Project) : Disposable {
         private val vulnerabilityApiService = VulnerabilityApiService()
         private val vulnerabilityScanService = VulnerabilityScanService(project)
-        private val dependencyVersionService = DependencyVersionService(project)
         private val dependencyApiService = DependencyApiService(project)
+        private val dependencyVersionService = DependencyVersionService(
+            project,
+            fetchAllVersions = { groupId, artifactId ->
+                dependencyApiService.fetchAllVersions(groupId, artifactId, onError = ::reportCentralApiError)
+            }
+        )
+
+        /** Erste, während des laufenden Refreshs gemeldete Fehlermeldung eines fehlgeschlagenen Maven-Central-Aufrufs, oder `null`. */
+        private var centralApiErrorMessage: String? = null
+
+        /**
+         * Merkt sich die erste qualifizierte Fehlermeldung eines Totalausfalls von Maven Central
+         * (siehe [DependencyApiService.fetchAllVersions]) während des laufenden Refreshs vor, damit
+         * sie im Anschluss über [showVulnerabilityApiError] als rotes Banner angezeigt werden kann.
+         */
+        private fun reportCentralApiError(message: String) {
+            if (centralApiErrorMessage == null) {
+                centralApiErrorMessage = message
+            }
+        }
+
         private val refreshSnapshotCollector = RefreshSnapshotCollector(project)
         private val pomUpdateService = PomUpdateService(project)
         private val pomNavigationService = PomNavigationService(project)
@@ -2758,6 +2778,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 true
             ) {
                 override fun run(indicator: ProgressIndicator) {
+                    centralApiErrorMessage = null
                     val result = dependencyVersionService.searchVersions(
                         knownDependencies,
                         dependencyToProperty,
@@ -2768,6 +2789,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         availableVersions.putAll(result.availableVersions)
                         rawAvailableVersions.putAll(result.rawVersions)
                         selectedVersions.putAll(result.selectedVersions)
+                        centralApiErrorMessage?.let(::showVulnerabilityApiError)
                         onFinished()
                     }
                 }

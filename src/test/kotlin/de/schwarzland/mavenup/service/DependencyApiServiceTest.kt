@@ -222,6 +222,36 @@ class DependencyApiServiceTest : BasePlatformTestCase() {
         assertEquals("1.2.0", collected.newestVersion)
     }
 
+    fun testCollectVersionsFromRepositoriesReportsCentralErrorReasonOnRealFailure() {
+        val service = DependencyApiService(project)
+        val repositories = listOf(
+            Pair<String?, String>("central", "https://repo1.maven.org/maven2")
+        )
+        val fetcher: (Pair<String?, String>) -> RepositoryVersions = {
+            RepositoryVersions(false, emptyList(), null, "HTTP 500 Internal Server Error")
+        }
+
+        val collected = service.collectVersionsFromRepositories(repositories, true, fetcher)
+
+        assertTrue(collected.versions.isEmpty())
+        assertEquals("HTTP 500 Internal Server Error", collected.centralErrorReason)
+    }
+
+    fun testCollectVersionsFromRepositoriesKeepsCentralErrorReasonNullOnNotFound() {
+        val service = DependencyApiService(project)
+        val repositories = listOf(
+            Pair<String?, String>("central", "https://repo1.maven.org/maven2")
+        )
+        val fetcher: (Pair<String?, String>) -> RepositoryVersions = {
+            RepositoryVersions(false, emptyList(), null, null)
+        }
+
+        val collected = service.collectVersionsFromRepositories(repositories, true, fetcher)
+
+        assertTrue(collected.versions.isEmpty())
+        assertNull(collected.centralErrorReason)
+    }
+
     fun testExtractNewestFromMetadataPrefersReleaseOverLatest() {
         val service = DependencyApiService(project)
         val doc = parseMetadata(
