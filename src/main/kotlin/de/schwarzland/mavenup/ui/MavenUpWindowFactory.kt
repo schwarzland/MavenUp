@@ -145,8 +145,28 @@ class MavenUpWindowFactory : ToolWindowFactory {
     internal inner class MyToolWindow(private val project: Project) : Disposable {
         private val vulnerabilityApiService = VulnerabilityApiService()
         private val vulnerabilityScanService = VulnerabilityScanService(project)
-        private val dependencyVersionService = DependencyVersionService(project)
         private val dependencyApiService = DependencyApiService(project)
+        private val dependencyVersionService = DependencyVersionService(
+            project,
+            fetchAllVersions = { groupId, artifactId ->
+                dependencyApiService.fetchAllVersions(groupId, artifactId, onError = ::reportCentralApiError)
+            }
+        )
+
+        /** Erste, während des laufenden Refreshs gemeldete Fehlermeldung eines fehlgeschlagenen Maven-Central-Aufrufs, oder `null`. */
+        private var centralApiErrorMessage: String? = null
+
+        /**
+         * Merkt sich die erste qualifizierte Fehlermeldung eines Totalausfalls von Maven Central
+         * (siehe [DependencyApiService.fetchAllVersions]) während des laufenden Refreshs vor, damit
+         * sie im Anschluss über [showVulnerabilityApiError] als rotes Banner angezeigt werden kann.
+         */
+        private fun reportCentralApiError(message: String) {
+            if (centralApiErrorMessage == null) {
+                centralApiErrorMessage = message
+            }
+        }
+
         private val refreshSnapshotCollector = RefreshSnapshotCollector(project)
         private val pomUpdateService = PomUpdateService(project)
         private val pomNavigationService = PomNavigationService(project)
@@ -309,6 +329,12 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
         /** Der aktuell eingeblendete Scan-Hinweis oder `null`, wenn kein Hinweis angezeigt wird. */
         private var scanHintBanner: InlineBanner? = null
+
+        /** Container des Fehlerhinweises für fehlgeschlagene Vulnerability-API-Aufrufe (OSV.dev/OSS Index) direkt oberhalb der Tabelle; leer, solange kein Fehler vorliegt. */
+        private val vulnerabilityApiErrorPanel = JBPanel<JBPanel<*>>(BorderLayout())
+
+        /** Der aktuell eingeblendete Vulnerability-API-Fehlerhinweis oder `null`, wenn kein Fehler angezeigt wird. */
+        private var vulnerabilityApiErrorBanner: InlineBanner? = null
 
         /** Anzahl der beim letzten Scan geprüften Koordinaten; speist den Text des Scan-Hinweises. */
         private var lastScannedCount = 0
@@ -722,6 +748,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     vulnerabilityScanPerformed = false
                     lastScannedCount = 0
                     hideScanHint()
+                    hideVulnerabilityApiError()
                 }
                 dependencyToProperty.clear()
                 knownDependencies.clear()
@@ -1025,6 +1052,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             }
             installToolbars()
             filterAndHintPanel.add(buildFilterPanel(), BorderLayout.NORTH)
+            filterAndHintPanel.add(vulnerabilityApiErrorPanel, BorderLayout.CENTER)
             filterAndHintPanel.add(scanHintPanel, BorderLayout.SOUTH)
             topPanel.add(filterAndHintPanel, BorderLayout.SOUTH)
             add(topPanel, BorderLayout.NORTH)
@@ -1370,6 +1398,46 @@ class MavenUpWindowFactory : ToolWindowFactory {
             scanHintPanel.remove(banner)
             scanHintPanel.revalidate()
             scanHintPanel.repaint()
+        }
+
+        /**
+         * Blendet eine qualifizierte Fehlermeldung eines fehlgeschlagenen Vulnerability-API-Aufrufs
+         * (OSV.dev, Sonatype OSS Index oder Maven Central) als rotes, schließbares [InlineBanner]
+         * direkt oberhalb der Tabelle ein.
+         *
+         * @param showSettingsAction `true`, um zusätzlich eine **Open Settings**-Aktion anzubieten, die
+         *   direkt in die Plugin-Einstellungen springt. Dies ist nur sinnvoll, wenn die Fehlermeldung
+         *   ausschließlich auf ein fehlendes/abgelehntes OSS-Index-Token zurückgeht (siehe
+         *   [de.schwarzland.mavenup.service.OssIndexScanResult.isTokenError]); bei allen anderen
+         *   Fehlern (z. B. OSV.dev, Maven Central oder ein allgemeiner OSS-Index-Fehler) gibt es keine
+         *   konfigurierbare URI, sodass ein Sprung in die Einstellungen keinen Sinn ergibt.
+         */
+        private fun showVulnerabilityApiError(errorMessage: String, showSettingsAction: Boolean = false) {
+            hideVulnerabilityApiError()
+            val newBanner = InlineBanner(errorMessage, EditorNotificationPanel.Status.Error)
+                .showCloseButton(true)
+                .setCloseAction { hideVulnerabilityApiError() }
+            if (showSettingsAction) {
+                newBanner.addAction(MyMessageBundle.message("vulnerability.api.error.openSettings")) {
+                    openVulnerabilityCheckSettings()
+                    hideVulnerabilityApiError()
+                }
+            }
+            vulnerabilityApiErrorBanner = newBanner
+            vulnerabilityApiErrorPanel.add(newBanner, BorderLayout.CENTER)
+            vulnerabilityApiErrorPanel.revalidate()
+            vulnerabilityApiErrorPanel.repaint()
+        }
+
+        /**
+         * Entfernt den Vulnerability-API-Fehlerhinweis aus dem Tab **Dependencies**, sofern einer angezeigt wird.
+         */
+        private fun hideVulnerabilityApiError() {
+            val banner = vulnerabilityApiErrorBanner ?: return
+            vulnerabilityApiErrorBanner = null
+            vulnerabilityApiErrorPanel.remove(banner)
+            vulnerabilityApiErrorPanel.revalidate()
+            vulnerabilityApiErrorPanel.repaint()
         }
 
         /**
@@ -2617,7 +2685,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     val dependencies = scanTargets.dependencies
                     LOG.info("Starting vulnerability check for ${dependencies.size} dependencies/plugins.")
 
-                    val osvResults = vulnerabilityApiService.fetchVulnerabilityAdvisories(dependencies.toList(), indicator)
+                    var osvErrorMessage: String? = null
+                    val osvResults = vulnerabilityApiService.fetchVulnerabilityAdvisories(dependencies.toList(), indicator) { message ->
+                        if (osvErrorMessage == null) osvErrorMessage = message
+                    }
                     val ossIndexScan = vulnerabilityScanService.resolveOssIndexResults(dependencies.toList(), indicator)
                     val results = VulnerabilityMerger.merge(osvResults, ossIndexScan.advisories)
                     val vulnerableEntries = results.values.count { it.isNotEmpty() }
@@ -2639,7 +2710,17 @@ class MavenUpWindowFactory : ToolWindowFactory {
                             )
                         }
                         applyVulnerabilityResults(results, scanTargets)
-                        ossIndexScan.errorMessage?.let(::showOssIndexError)
+                        val combinedErrorMessage = listOfNotNull(osvErrorMessage, ossIndexScan.errorMessage)
+                            .joinToString("\n")
+                            .ifBlank { null }
+                        if (combinedErrorMessage != null) {
+                            // Der Settings-Link ergibt nur Sinn, wenn ausschließlich ein
+                            // Token-Fehler des (konfigurierbaren) OSS-Index-Tokens vorliegt.
+                            val showSettingsAction = osvErrorMessage == null && ossIndexScan.isTokenError
+                            showVulnerabilityApiError(combinedErrorMessage, showSettingsAction)
+                        } else {
+                            hideVulnerabilityApiError()
+                        }
                         onFinished()
                     }
                 }
@@ -2696,27 +2777,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
-         * Zeigt die qualifizierte OSS-Index-Fehlermeldung an und bietet einen direkten Sprung
-         * in die Plugin-Einstellungen.
-         */
-        private fun showOssIndexError(errorMessage: String) {
-            val choice = Messages.showDialog(
-                project,
-                errorMessage,
-                MyMessageBundle.message("vulnerability.ossIndex.error.title"),
-                arrayOf(
-                    MyMessageBundle.message("vulnerability.ossIndex.error.openSettings"),
-                    MyMessageBundle.message("button.close")
-                ),
-                0,
-                Messages.getWarningIcon()
-            )
-            if (choice == 0) {
-                openSettings()
-            }
-        }
-
-        /**
          * Startet die Hintergrundaufgabe zur Suche nach verfügbaren neuen Versionen.
          */
         private fun checkForUpdates(onFinished: () -> Unit) {
@@ -2726,6 +2786,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 true
             ) {
                 override fun run(indicator: ProgressIndicator) {
+                    centralApiErrorMessage = null
                     val result = dependencyVersionService.searchVersions(
                         knownDependencies,
                         dependencyToProperty,
@@ -2736,6 +2797,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         availableVersions.putAll(result.availableVersions)
                         rawAvailableVersions.putAll(result.rawVersions)
                         selectedVersions.putAll(result.selectedVersions)
+                        centralApiErrorMessage?.let(::showVulnerabilityApiError)
                         onFinished()
                     }
                 }
@@ -2758,6 +2820,14 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private fun openSettings() {
             com.intellij.openapi.options.ShowSettingsUtil.getInstance()
                 .showSettingsDialog(project, MavenUpConfigurable::class.java)
+        }
+
+        /**
+         * Öffnet die Plugin-Einstellungen direkt auf der Unterseite **Vulnerability Check**.
+         */
+        private fun openVulnerabilityCheckSettings() {
+            com.intellij.openapi.options.ShowSettingsUtil.getInstance()
+                .showSettingsDialog(project, MavenUpVulnerabilityConfigurable::class.java)
         }
 
         /**
