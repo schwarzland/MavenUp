@@ -310,6 +310,12 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /** Der aktuell eingeblendete Scan-Hinweis oder `null`, wenn kein Hinweis angezeigt wird. */
         private var scanHintBanner: InlineBanner? = null
 
+        /** Container des OSS-Index-Fehlerhinweises direkt oberhalb der Tabelle; leer, solange kein Fehler vorliegt. */
+        private val ossIndexErrorPanel = JBPanel<JBPanel<*>>(BorderLayout())
+
+        /** Der aktuell eingeblendete OSS-Index-Fehlerhinweis oder `null`, wenn kein Fehler angezeigt wird. */
+        private var ossIndexErrorBanner: InlineBanner? = null
+
         /** Anzahl der beim letzten Scan geprüften Koordinaten; speist den Text des Scan-Hinweises. */
         private var lastScannedCount = 0
 
@@ -722,6 +728,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     vulnerabilityScanPerformed = false
                     lastScannedCount = 0
                     hideScanHint()
+                    hideOssIndexError()
                 }
                 dependencyToProperty.clear()
                 knownDependencies.clear()
@@ -1025,6 +1032,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             }
             installToolbars()
             filterAndHintPanel.add(buildFilterPanel(), BorderLayout.NORTH)
+            filterAndHintPanel.add(ossIndexErrorPanel, BorderLayout.CENTER)
             filterAndHintPanel.add(scanHintPanel, BorderLayout.SOUTH)
             topPanel.add(filterAndHintPanel, BorderLayout.SOUTH)
             add(topPanel, BorderLayout.NORTH)
@@ -1370,6 +1378,41 @@ class MavenUpWindowFactory : ToolWindowFactory {
             scanHintPanel.remove(banner)
             scanHintPanel.revalidate()
             scanHintPanel.repaint()
+        }
+
+        /**
+         * Blendet die qualifizierte OSS-Index-Fehlermeldung als rotes, schließbares [InlineBanner]
+         * direkt oberhalb der Tabelle ein und bietet über eine Aktion einen direkten Sprung in die
+         * Plugin-Einstellungen an.
+         */
+        private fun showOssIndexError(errorMessage: String) {
+            val banner = ossIndexErrorBanner
+            if (banner != null) {
+                banner.setMessage(errorMessage)
+                return
+            }
+            val newBanner = InlineBanner(errorMessage, EditorNotificationPanel.Status.Error)
+                .showCloseButton(true)
+                .setCloseAction { hideOssIndexError() }
+                .addAction(MyMessageBundle.message("vulnerability.ossIndex.error.openSettings")) {
+                    openSettings()
+                    hideOssIndexError()
+                }
+            ossIndexErrorBanner = newBanner
+            ossIndexErrorPanel.add(newBanner, BorderLayout.CENTER)
+            ossIndexErrorPanel.revalidate()
+            ossIndexErrorPanel.repaint()
+        }
+
+        /**
+         * Entfernt den OSS-Index-Fehlerhinweis aus dem Tab **Dependencies**, sofern einer angezeigt wird.
+         */
+        private fun hideOssIndexError() {
+            val banner = ossIndexErrorBanner ?: return
+            ossIndexErrorBanner = null
+            ossIndexErrorPanel.remove(banner)
+            ossIndexErrorPanel.revalidate()
+            ossIndexErrorPanel.repaint()
         }
 
         /**
@@ -2693,27 +2736,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
             vulnerabilityScanPerformed = true
             lastScannedCount = scanTargets.dependencies.size
             updateTransitiveVulnerabilitiesView()
-        }
-
-        /**
-         * Zeigt die qualifizierte OSS-Index-Fehlermeldung an und bietet einen direkten Sprung
-         * in die Plugin-Einstellungen.
-         */
-        private fun showOssIndexError(errorMessage: String) {
-            val choice = Messages.showDialog(
-                project,
-                errorMessage,
-                MyMessageBundle.message("vulnerability.ossIndex.error.title"),
-                arrayOf(
-                    MyMessageBundle.message("vulnerability.ossIndex.error.openSettings"),
-                    MyMessageBundle.message("button.close")
-                ),
-                0,
-                Messages.getWarningIcon()
-            )
-            if (choice == 0) {
-                openSettings()
-            }
         }
 
         /**

@@ -27,6 +27,7 @@
 - Split the AI agent project context: `.github/copilot-project-context.md` serves as a slim overview, while the detailed component descriptions live in `.github/context/components-ui.md`, `.github/context/components-ui-toolwindow.md`, `.github/context/components-ui-dialogs.md` and `.github/context/components-service.md`.
 - Split the feature documentation: `FEATURES.md` became a slim index, while the feature descriptions moved into `docs/features/tool-window-and-ui.md`, `docs/features/version-management.md`, `docs/features/repositories-and-authentication.md`, `docs/features/vulnerability-scanning.md`, `docs/features/settings-and-configuration.md`, and `docs/features/architecture-and-reliability.md`.
 - Restructured the tool window component reference into dedicated subsections (background processing, action toolbar, context menu, table columns, filter row, sorting, bulk version selection, transitive view behaviour) for faster lookup.
+- Replaced the modal error dialog shown when the Sonatype OSS Index check fails (e.g. an invalid or expired API token) with a closable red banner above the dependency table, offering an **Open Settings** action, so a failed external API call no longer blocks the tool window with a dialog.
 
 ### Fixed
 
