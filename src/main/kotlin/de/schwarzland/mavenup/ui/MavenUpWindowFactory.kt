@@ -1395,7 +1395,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 .showCloseButton(true)
                 .setCloseAction { hideOssIndexError() }
                 .addAction(MyMessageBundle.message("vulnerability.ossIndex.error.openSettings")) {
-                    openSettings()
+                    openVulnerabilityCheckSettings()
                     hideOssIndexError()
                 }
             ossIndexErrorBanner = newBanner
@@ -2780,6 +2780,14 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private fun openSettings() {
             com.intellij.openapi.options.ShowSettingsUtil.getInstance()
                 .showSettingsDialog(project, MavenUpConfigurable::class.java)
+        }
+
+        /**
+         * Öffnet die Plugin-Einstellungen direkt auf der Unterseite **Vulnerability Check**.
+         */
+        private fun openVulnerabilityCheckSettings() {
+            com.intellij.openapi.options.ShowSettingsUtil.getInstance()
+                .showSettingsDialog(project, MavenUpVulnerabilityConfigurable::class.java)
         }
 
         /**
