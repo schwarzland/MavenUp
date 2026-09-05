@@ -29,6 +29,7 @@
 - Restructured the tool window component reference into dedicated subsections (background processing, action toolbar, context menu, table columns, filter row, sorting, bulk version selection, transitive view behaviour) for faster lookup.
 - Replaced the modal error dialog shown when the Sonatype OSS Index check fails (e.g. an invalid or expired API token) with a closable red banner above the dependency table, offering an **Open Settings** action, so a failed external API call no longer blocks the tool window with a dialog.
 - The **Open Settings** action of that banner now jumps directly to the **MavenUp / Vulnerability Check** settings subpage instead of the general MavenUp settings root.
+- Extended that closable red banner to also report a failed OSV.dev request (non-2xx HTTP response or a network/exception error) with a qualified message and the same **Open Settings** action, instead of silently returning no results; failures from OSV.dev and Sonatype OSS Index are combined into a single banner and it is hidden again once a subsequent scan completes without errors.
 
 ### Fixed
 

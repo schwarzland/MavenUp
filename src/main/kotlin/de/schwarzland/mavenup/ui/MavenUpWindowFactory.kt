@@ -310,11 +310,11 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /** Der aktuell eingeblendete Scan-Hinweis oder `null`, wenn kein Hinweis angezeigt wird. */
         private var scanHintBanner: InlineBanner? = null
 
-        /** Container des OSS-Index-Fehlerhinweises direkt oberhalb der Tabelle; leer, solange kein Fehler vorliegt. */
-        private val ossIndexErrorPanel = JBPanel<JBPanel<*>>(BorderLayout())
+        /** Container des Fehlerhinweises für fehlgeschlagene Vulnerability-API-Aufrufe (OSV.dev/OSS Index) direkt oberhalb der Tabelle; leer, solange kein Fehler vorliegt. */
+        private val vulnerabilityApiErrorPanel = JBPanel<JBPanel<*>>(BorderLayout())
 
-        /** Der aktuell eingeblendete OSS-Index-Fehlerhinweis oder `null`, wenn kein Fehler angezeigt wird. */
-        private var ossIndexErrorBanner: InlineBanner? = null
+        /** Der aktuell eingeblendete Vulnerability-API-Fehlerhinweis oder `null`, wenn kein Fehler angezeigt wird. */
+        private var vulnerabilityApiErrorBanner: InlineBanner? = null
 
         /** Anzahl der beim letzten Scan geprüften Koordinaten; speist den Text des Scan-Hinweises. */
         private var lastScannedCount = 0
@@ -728,7 +728,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     vulnerabilityScanPerformed = false
                     lastScannedCount = 0
                     hideScanHint()
-                    hideOssIndexError()
+                    hideVulnerabilityApiError()
                 }
                 dependencyToProperty.clear()
                 knownDependencies.clear()
@@ -1032,7 +1032,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             }
             installToolbars()
             filterAndHintPanel.add(buildFilterPanel(), BorderLayout.NORTH)
-            filterAndHintPanel.add(ossIndexErrorPanel, BorderLayout.CENTER)
+            filterAndHintPanel.add(vulnerabilityApiErrorPanel, BorderLayout.CENTER)
             filterAndHintPanel.add(scanHintPanel, BorderLayout.SOUTH)
             topPanel.add(filterAndHintPanel, BorderLayout.SOUTH)
             add(topPanel, BorderLayout.NORTH)
@@ -1381,38 +1381,38 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
-         * Blendet die qualifizierte OSS-Index-Fehlermeldung als rotes, schließbares [InlineBanner]
-         * direkt oberhalb der Tabelle ein und bietet über eine Aktion einen direkten Sprung in die
-         * Plugin-Einstellungen an.
+         * Blendet eine qualifizierte Fehlermeldung eines fehlgeschlagenen Vulnerability-API-Aufrufs
+         * (OSV.dev oder Sonatype OSS Index) als rotes, schließbares [InlineBanner] direkt oberhalb der
+         * Tabelle ein und bietet über eine Aktion einen direkten Sprung in die Plugin-Einstellungen an.
          */
-        private fun showOssIndexError(errorMessage: String) {
-            val banner = ossIndexErrorBanner
+        private fun showVulnerabilityApiError(errorMessage: String) {
+            val banner = vulnerabilityApiErrorBanner
             if (banner != null) {
                 banner.setMessage(errorMessage)
                 return
             }
             val newBanner = InlineBanner(errorMessage, EditorNotificationPanel.Status.Error)
                 .showCloseButton(true)
-                .setCloseAction { hideOssIndexError() }
-                .addAction(MyMessageBundle.message("vulnerability.ossIndex.error.openSettings")) {
+                .setCloseAction { hideVulnerabilityApiError() }
+                .addAction(MyMessageBundle.message("vulnerability.api.error.openSettings")) {
                     openVulnerabilityCheckSettings()
-                    hideOssIndexError()
+                    hideVulnerabilityApiError()
                 }
-            ossIndexErrorBanner = newBanner
-            ossIndexErrorPanel.add(newBanner, BorderLayout.CENTER)
-            ossIndexErrorPanel.revalidate()
-            ossIndexErrorPanel.repaint()
+            vulnerabilityApiErrorBanner = newBanner
+            vulnerabilityApiErrorPanel.add(newBanner, BorderLayout.CENTER)
+            vulnerabilityApiErrorPanel.revalidate()
+            vulnerabilityApiErrorPanel.repaint()
         }
 
         /**
-         * Entfernt den OSS-Index-Fehlerhinweis aus dem Tab **Dependencies**, sofern einer angezeigt wird.
+         * Entfernt den Vulnerability-API-Fehlerhinweis aus dem Tab **Dependencies**, sofern einer angezeigt wird.
          */
-        private fun hideOssIndexError() {
-            val banner = ossIndexErrorBanner ?: return
-            ossIndexErrorBanner = null
-            ossIndexErrorPanel.remove(banner)
-            ossIndexErrorPanel.revalidate()
-            ossIndexErrorPanel.repaint()
+        private fun hideVulnerabilityApiError() {
+            val banner = vulnerabilityApiErrorBanner ?: return
+            vulnerabilityApiErrorBanner = null
+            vulnerabilityApiErrorPanel.remove(banner)
+            vulnerabilityApiErrorPanel.revalidate()
+            vulnerabilityApiErrorPanel.repaint()
         }
 
         /**
@@ -2660,7 +2660,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     val dependencies = scanTargets.dependencies
                     LOG.info("Starting vulnerability check for ${dependencies.size} dependencies/plugins.")
 
-                    val osvResults = vulnerabilityApiService.fetchVulnerabilityAdvisories(dependencies.toList(), indicator)
+                    var osvErrorMessage: String? = null
+                    val osvResults = vulnerabilityApiService.fetchVulnerabilityAdvisories(dependencies.toList(), indicator) { message ->
+                        if (osvErrorMessage == null) osvErrorMessage = message
+                    }
                     val ossIndexScan = vulnerabilityScanService.resolveOssIndexResults(dependencies.toList(), indicator)
                     val results = VulnerabilityMerger.merge(osvResults, ossIndexScan.advisories)
                     val vulnerableEntries = results.values.count { it.isNotEmpty() }
@@ -2682,7 +2685,14 @@ class MavenUpWindowFactory : ToolWindowFactory {
                             )
                         }
                         applyVulnerabilityResults(results, scanTargets)
-                        ossIndexScan.errorMessage?.let(::showOssIndexError)
+                        val combinedErrorMessage = listOfNotNull(osvErrorMessage, ossIndexScan.errorMessage)
+                            .joinToString("\n")
+                            .ifBlank { null }
+                        if (combinedErrorMessage != null) {
+                            showVulnerabilityApiError(combinedErrorMessage)
+                        } else {
+                            hideVulnerabilityApiError()
+                        }
                         onFinished()
                     }
                 }
