@@ -1402,22 +1402,27 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
         /**
          * Blendet eine qualifizierte Fehlermeldung eines fehlgeschlagenen Vulnerability-API-Aufrufs
-         * (OSV.dev oder Sonatype OSS Index) als rotes, schließbares [InlineBanner] direkt oberhalb der
-         * Tabelle ein und bietet über eine Aktion einen direkten Sprung in die Plugin-Einstellungen an.
+         * (OSV.dev, Sonatype OSS Index oder Maven Central) als rotes, schließbares [InlineBanner]
+         * direkt oberhalb der Tabelle ein.
+         *
+         * @param showSettingsAction `true`, um zusätzlich eine **Open Settings**-Aktion anzubieten, die
+         *   direkt in die Plugin-Einstellungen springt. Dies ist nur sinnvoll, wenn die Fehlermeldung
+         *   ausschließlich auf ein fehlendes/abgelehntes OSS-Index-Token zurückgeht (siehe
+         *   [de.schwarzland.mavenup.service.OssIndexScanResult.isTokenError]); bei allen anderen
+         *   Fehlern (z. B. OSV.dev, Maven Central oder ein allgemeiner OSS-Index-Fehler) gibt es keine
+         *   konfigurierbare URI, sodass ein Sprung in die Einstellungen keinen Sinn ergibt.
          */
-        private fun showVulnerabilityApiError(errorMessage: String) {
-            val banner = vulnerabilityApiErrorBanner
-            if (banner != null) {
-                banner.setMessage(errorMessage)
-                return
-            }
+        private fun showVulnerabilityApiError(errorMessage: String, showSettingsAction: Boolean = false) {
+            hideVulnerabilityApiError()
             val newBanner = InlineBanner(errorMessage, EditorNotificationPanel.Status.Error)
                 .showCloseButton(true)
                 .setCloseAction { hideVulnerabilityApiError() }
-                .addAction(MyMessageBundle.message("vulnerability.api.error.openSettings")) {
+            if (showSettingsAction) {
+                newBanner.addAction(MyMessageBundle.message("vulnerability.api.error.openSettings")) {
                     openVulnerabilityCheckSettings()
                     hideVulnerabilityApiError()
                 }
+            }
             vulnerabilityApiErrorBanner = newBanner
             vulnerabilityApiErrorPanel.add(newBanner, BorderLayout.CENTER)
             vulnerabilityApiErrorPanel.revalidate()
@@ -2709,7 +2714,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
                             .joinToString("\n")
                             .ifBlank { null }
                         if (combinedErrorMessage != null) {
-                            showVulnerabilityApiError(combinedErrorMessage)
+                            // Der Settings-Link ergibt nur Sinn, wenn ausschließlich ein
+                            // Token-Fehler des (konfigurierbaren) OSS-Index-Tokens vorliegt.
+                            val showSettingsAction = osvErrorMessage == null && ossIndexScan.isTokenError
+                            showVulnerabilityApiError(combinedErrorMessage, showSettingsAction)
                         } else {
                             hideVulnerabilityApiError()
                         }

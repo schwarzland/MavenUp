@@ -14,7 +14,7 @@ import javax.xml.parsers.DocumentBuilderFactory
 import org.w3c.dom.Document
 
 private const val CENTRAL_REPOSITORY_ID = "central"
-private const val CENTRAL_REPOSITORY_URL = "https://repo_1.maven.org/maven2"
+private const val CENTRAL_REPOSITORY_URL = "https://repo1.maven.org/maven2"
 private val LOG = Logger.getInstance(DependencyApiService::class.java)
 
 /** Untere Versionsgrenze, die jede vom Repository gemeldete Version einschließt. */

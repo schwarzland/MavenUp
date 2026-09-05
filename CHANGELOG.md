@@ -31,6 +31,7 @@
 - The **Open Settings** action of that banner now jumps directly to the **MavenUp / Vulnerability Check** settings subpage instead of the general MavenUp settings root.
 - Extended that closable red banner to also report a failed OSV.dev request (non-2xx HTTP response or a network/exception error) with a qualified message and the same **Open Settings** action, instead of silently returning no results; failures from OSV.dev and Sonatype OSS Index are combined into a single banner and it is hidden again once a subsequent scan completes without errors.
 - Extended the same closable red banner to also cover a total outage of Maven Central during the version search: if Maven Central fails with a real error (e.g. a 5xx response or a network/exception failure, as opposed to a normal 404 for an artifact that simply doesn't exist there) and no version could be determined from any configured repository, a qualified message including the underlying error is shown above the dependency table with the same **Open Settings** action.
+- Limited the **Open Settings** action of that banner to the case where the message is exclusively a Sonatype OSS Index token error (missing or rejected token); a non-token OSS Index error, an OSV.dev failure, or a Maven Central outage no longer show that action, since none of those requests use a configurable URI that Settings could fix.
 
 ### Fixed
 
