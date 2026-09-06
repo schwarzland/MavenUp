@@ -91,6 +91,11 @@
         dependencies and, when enabled, their resolved transitive dependencies. Results are shown in the
         <strong>Vulnerabilities</strong> column, shown directly before <strong>Current Version</strong>. If nothing is found,
         a closable banner above the table confirms the clean result and names the number of scanned coordinates.</li>
+    <li><strong>Watch for failed lookups</strong>: If a request to OSV.dev, Sonatype OSS Index, or a Maven repository
+        fails, a closable red banner appears above the table and names the reason. When it reports a missing or
+        rejected OSS Index API token, use its <strong>Open Settings</strong> action to fix the token right away. Any
+        other failure is a network or service problem — the success banner stays hidden in that case, because a scan
+        that failed cannot confirm that your project is clean.</li>
     <li><strong>Inspect the findings</strong>: Select a dependency with findings and click <strong>Vulnerability Details</strong>
         or click the populated vulnerability cell. The dialog opens a split view: the upper table lists the advisories
         (component, origin, source, advisory ID, aliases, and severity) for the direct dependency and related transitive

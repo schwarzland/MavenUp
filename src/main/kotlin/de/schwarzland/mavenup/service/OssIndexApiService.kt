@@ -42,6 +42,20 @@ internal const val OSS_INDEX_AUTH_USERNAME = "MavenUp"
 class OssIndexAuthenticationException(message: String) : IOException(message)
 
 /**
+ * Wird geworfen, wenn der Sonatype OSS Index eine Anfrage mit einem sonstigen (nicht
+ * authentifizierungsbezogenen) HTTP-Fehlerstatus beantwortet (z. B. HTTP 5xx bei einem
+ * Serverausfall).
+ *
+ * Der HTTP-Statuscode wird separat vorgehalten, damit die Benutzeroberfläche eine
+ * qualifizierte, verständliche Fehlermeldung (inklusive Statuscode) anzeigen kann, statt
+ * eine rein technische HTTP-Fehlerbeschreibung auszugeben.
+ *
+ * @param responseCode Der zurückgelieferte HTTP-Statuscode.
+ * @param message Die technische Beschreibung des fehlgeschlagenen HTTP-Aufrufs.
+ */
+class OssIndexRequestException(val responseCode: Int, message: String) : IOException(message)
+
+/**
  * Dieser Service ist für die Abfrage von Sicherheitsanfälligkeiten (Vulnerabilities)
  * über den Sonatype OSS Index zuständig.
  *
@@ -129,7 +143,8 @@ class OssIndexApiService {
                         "${connection.responseMessage}. Body: $errorBody"
                 )
             }
-            throw IOException(
+            throw OssIndexRequestException(
+                responseCode,
                 "OSS Index request failed with HTTP $responseCode ${connection.responseMessage}. Body: $errorBody"
             )
         }

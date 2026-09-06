@@ -222,6 +222,53 @@ class DependencyApiServiceTest : BasePlatformTestCase() {
         assertEquals("1.2.0", collected.newestVersion)
     }
 
+    fun testCollectVersionsFromRepositoriesReportsCentralErrorReasonOnRealFailure() {
+        val service = DependencyApiService(project)
+        val repositories = listOf(
+            Pair<String?, String>("central", "https://repo1.maven.org/maven2")
+        )
+        val fetcher: (Pair<String?, String>) -> RepositoryVersions = {
+            RepositoryVersions(false, emptyList(), null, "HTTP 500 Internal Server Error")
+        }
+
+        val collected = service.collectVersionsFromRepositories(repositories, true, fetcher)
+
+        assertTrue(collected.versions.isEmpty())
+        assertEquals("HTTP 500 Internal Server Error", collected.errorReason)
+        assertEquals("central", collected.errorRepositoryLabel)
+    }
+
+    fun testCollectVersionsFromRepositoriesKeepsCentralErrorReasonNullOnNotFound() {
+        val service = DependencyApiService(project)
+        val repositories = listOf(
+            Pair<String?, String>("central", "https://repo1.maven.org/maven2")
+        )
+        val fetcher: (Pair<String?, String>) -> RepositoryVersions = {
+            RepositoryVersions(false, emptyList(), null, null)
+        }
+
+        val collected = service.collectVersionsFromRepositories(repositories, true, fetcher)
+
+        assertTrue(collected.versions.isEmpty())
+        assertNull(collected.errorReason)
+    }
+
+    fun testCollectVersionsFromRepositoriesReportsPrivateRepositoryErrorReason() {
+        val service = DependencyApiService(project)
+        val repositories = listOf(
+            Pair<String?, String>("private-1", "https://private-1.example.invalid/maven")
+        )
+        val fetcher: (Pair<String?, String>) -> RepositoryVersions = {
+            RepositoryVersions(false, emptyList(), null, "UnknownHostException: private-1.example.invalid")
+        }
+
+        val collected = service.collectVersionsFromRepositories(repositories, false, fetcher)
+
+        assertTrue(collected.versions.isEmpty())
+        assertEquals("UnknownHostException: private-1.example.invalid", collected.errorReason)
+        assertEquals("private-1", collected.errorRepositoryLabel)
+    }
+
     fun testExtractNewestFromMetadataPrefersReleaseOverLatest() {
         val service = DependencyApiService(project)
         val doc = parseMetadata(

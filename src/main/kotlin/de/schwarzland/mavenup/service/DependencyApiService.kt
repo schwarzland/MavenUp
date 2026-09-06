@@ -2,6 +2,9 @@ package de.schwarzland.mavenup.service
 
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
+import de.schwarzland.mavenup.model.ApiError
+import de.schwarzland.mavenup.model.ApiErrorCause
+import de.schwarzland.mavenup.model.ApiErrorSource
 import org.apache.maven.artifact.versioning.ComparableVersion
 import org.jetbrains.idea.maven.project.MavenProjectsManager
 import java.io.File
@@ -29,7 +32,8 @@ private val NO_VERSION_FLOOR = ComparableVersion("")
 internal data class RepositoryVersions(
     val requestSucceeded: Boolean,
     val versions: List<String>,
-    val newestVersion: String?
+    val newestVersion: String?,
+    val errorReason: String? = null
 )
 
 /**
@@ -37,10 +41,17 @@ internal data class RepositoryVersions(
  *
  * @property versions Die zusammengeführten Versionen aller abgefragten Repositories.
  * @property newestVersion Die als neueste bestimmte Referenzversion (bevorzugt aus Maven Central), oder `null`.
+ * @property errorReason Die Fehlermeldung des ersten fehlgeschlagenen Repositories (Maven Central oder
+ *   ein beliebiges konfiguriertes Repository, z. B. bei einer falsch konfigurierten URI), oder `null`,
+ *   wenn kein Repository einen Fehler gemeldet hat.
+ * @property errorRepositoryLabel Die Bezeichnung (ID oder URL) des Repositories, zu dem [errorReason]
+ *   gehört, oder `null`.
  */
 internal data class CollectedVersions(
     val versions: Set<String>,
-    val newestVersion: String?
+    val newestVersion: String?,
+    val errorReason: String? = null,
+    val errorRepositoryLabel: String? = null
 )
 
 /**
@@ -313,7 +324,12 @@ class DependencyApiService(private val project: Project) {
                 "Failed to fetch versions for $groupId:$artifactId from $repositoryUrl. " +
                     "HTTP $responseCode ${connection.responseMessage}"
             )
-            return RepositoryVersions(false, emptyList(), null)
+            val errorReason = if (responseCode == HttpURLConnection.HTTP_NOT_FOUND) {
+                null
+            } else {
+                "HTTP $responseCode ${connection.responseMessage}"
+            }
+            return RepositoryVersions(false, emptyList(), null, errorReason)
         }
 
         val versions = mutableListOf<String>()
@@ -375,7 +391,7 @@ class DependencyApiService(private val project: Project) {
             readVersionsFromConnection(connection, currentComparable, groupId, artifactId, repositoryInfo.second)
         } catch (e: Exception) {
             LOG.warn("Failed to fetch versions for $groupId:$artifactId from ${repositoryInfo.second}", e)
-            RepositoryVersions(false, emptyList(), null)
+            RepositoryVersions(false, emptyList(), null, e.message ?: e.javaClass.simpleName)
         }
     }
 
@@ -395,31 +411,56 @@ class DependencyApiService(private val project: Project) {
         stopAfterCentralSuccess: Boolean,
         fetchVersionsForRepository: (Pair<String?, String>) -> RepositoryVersions
     ): CollectedVersions {
-        val allVersions = mutableSetOf<String>()
-        var centralNewest: String? = null
-        var fallbackNewest: String? = null
+        val accumulator = RepositoryVersionsAccumulator()
         val orderedRepositoryInfos = repositoryInfos.sortedBy { if (it.second == CENTRAL_REPOSITORY_URL) 0 else 1 }
 
         for (repoInfo in orderedRepositoryInfos) {
             val result = fetchVersionsForRepository(repoInfo)
-            allVersions.addAll(result.versions)
-            val declaredNewest = result.newestVersion?.trim()?.takeIf { it.isNotEmpty() }
-            if (declaredNewest != null) {
-                if (repoInfo.second == CENTRAL_REPOSITORY_URL) {
-                    centralNewest = declaredNewest
-                }
-                if (fallbackNewest == null ||
-                    ComparableVersion(declaredNewest) > ComparableVersion(fallbackNewest)
-                ) {
-                    fallbackNewest = declaredNewest
-                }
-            }
+            accumulator.record(repoInfo, result)
             if (stopAfterCentralSuccess && repoInfo.second == CENTRAL_REPOSITORY_URL && result.requestSucceeded) {
                 break
             }
         }
 
-        return CollectedVersions(allVersions, centralNewest ?: fallbackNewest)
+        return accumulator.toCollectedVersions()
+    }
+
+    /**
+     * Sammelt schrittweise die Versionen, die Referenzversion und die erste Fehlermeldung während
+     * der Iteration über mehrere Repositories in [collectVersionsFromRepositories]. Als eigene Klasse
+     * ausgelagert, um die zyklomatische Komplexität der Schleife gering zu halten.
+     */
+    private class RepositoryVersionsAccumulator {
+        val allVersions: MutableSet<String> = mutableSetOf()
+        private var centralNewest: String? = null
+        private var fallbackNewest: String? = null
+        private var firstErrorReason: String? = null
+        private var firstErrorRepositoryLabel: String? = null
+
+        fun record(repoInfo: Pair<String?, String>, result: RepositoryVersions) {
+            allVersions.addAll(result.versions)
+            recordNewest(repoInfo, result.newestVersion)
+            // Der Fehler jedes fehlgeschlagenen Repositories wird berücksichtigt (nicht nur Maven
+            // Central), damit z. B. eine falsch konfigurierte URI eines privaten Repositories
+            // ebenfalls gemeldet wird.
+            if (result.errorReason != null && firstErrorReason == null) {
+                firstErrorReason = result.errorReason
+                firstErrorRepositoryLabel = repoInfo.first ?: repoInfo.second
+            }
+        }
+
+        private fun recordNewest(repoInfo: Pair<String?, String>, newestVersion: String?) {
+            val declaredNewest = newestVersion?.trim()?.takeIf { it.isNotEmpty() } ?: return
+            if (repoInfo.second == CENTRAL_REPOSITORY_URL) {
+                centralNewest = declaredNewest
+            }
+            if (fallbackNewest == null || ComparableVersion(declaredNewest) > ComparableVersion(fallbackNewest)) {
+                fallbackNewest = declaredNewest
+            }
+        }
+
+        fun toCollectedVersions(): CollectedVersions =
+            CollectedVersions(allVersions, centralNewest ?: fallbackNewest, firstErrorReason, firstErrorRepositoryLabel)
     }
 
     /**
@@ -528,9 +569,15 @@ class DependencyApiService(private val project: Project) {
      *
      * @param groupId Die GroupId des Artefakts.
      * @param artifactId Die ArtifactId des Artefakts.
+     * @param onError Callback für einen strukturiert beschriebenen Repository-Fehler, der nur gemeldet
+     *   wird, wenn über kein konfiguriertes Repository eine Version ermittelt werden konnte.
      * @return Alle gefundenen Versionen, absteigend sortiert und mit der neuesten Version zuerst.
      */
-    fun fetchAllVersions(groupId: String, artifactId: String): List<String> {
+    fun fetchAllVersions(
+        groupId: String,
+        artifactId: String,
+        onError: ((ApiError) -> Unit)? = null
+    ): List<String> {
         val settings = MavenUpSettings.getInstance().state
         val repositoryInfos = excludeCentralForPrivateGroupId(getMavenRepositoryInfos(), groupId)
         val serverCredentials = getMavenServerCredentials()
@@ -539,6 +586,16 @@ class DependencyApiService(private val project: Project) {
             settings.stopAfterCentralSuccess
         ) { repoInfo ->
             fetchVersionsFromRepository(repoInfo, groupId, artifactId, NO_VERSION_FLOOR, serverCredentials)
+        }
+        val errorReason = collected.errorReason
+        if (collected.versions.isEmpty() && errorReason != null) {
+            onError?.invoke(
+                ApiError(
+                    ApiErrorSource.REPOSITORY,
+                    ApiErrorCause.Failure(errorReason),
+                    collected.errorRepositoryLabel ?: CENTRAL_REPOSITORY_URL
+                )
+            )
         }
         val sortedVersions = collected.versions.sortedWith { v1, v2 ->
             ComparableVersion(v2).compareTo(ComparableVersion(v1))
@@ -569,9 +626,20 @@ class DependencyApiService(private val project: Project) {
      *
      * Entspricht [fetchAllVersions] mit anschließend angewendeten Einstellungen
      * (siehe [applyVersionSettings]).
+     *
+     * @param groupId Die GroupId des Artefakts.
+     * @param artifactId Die ArtifactId des Artefakts.
+     * @param currentVersion Die aktuell deklarierte Version.
+     * @param onError Callback für einen strukturiert beschriebenen Repository-Fehler.
+     * @return Die gefilterten Versionen in Anzeigereihenfolge.
      */
-    fun fetchVersions(groupId: String, artifactId: String, currentVersion: String): List<String> =
-        applyVersionSettings(fetchAllVersions(groupId, artifactId), currentVersion)
+    fun fetchVersions(
+        groupId: String,
+        artifactId: String,
+        currentVersion: String,
+        onError: ((ApiError) -> Unit)? = null
+    ): List<String> =
+        applyVersionSettings(fetchAllVersions(groupId, artifactId, onError), currentVersion)
 
     /**
      * Stellt die vom Repository als neueste deklarierte Version an den Anfang der Liste, sofern sie

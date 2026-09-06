@@ -50,15 +50,19 @@ internal fun transitiveEmptyState(
  * eingeblendet werden soll.
  *
  * Der Hinweis erscheint ausschließlich nach einem abgeschlossenen Scan, der weder direkte noch
- * transitive Befunde ergeben hat; andernfalls sprechen die Befunde in der Tabelle für sich.
+ * transitive Befunde ergeben hat; andernfalls sprechen die Befunde in der Tabelle für sich. Hat der
+ * letzte Scan hingegen einen qualifizierten API-Fehler gemeldet (z. B. OSV.dev nicht erreichbar), fehlt
+ * `0` Befunde nicht aussagekräftig genug für einen Erfolgshinweis, sodass dieser unterdrückt wird.
  *
  * @param scanPerformed `true`, wenn mindestens ein Sicherheits-Scan abgeschlossen wurde.
  * @param directFindings Anzahl der betroffenen, direkt deklarierten Abhängigkeiten.
  * @param transitiveFindings Anzahl der betroffenen, transitiven Abhängigkeiten.
+ * @param lastScanHadError `true`, wenn der letzte Scan einen qualifizierten API-Fehler gemeldet hat.
  * @return `true`, wenn der Hinweis angezeigt werden soll.
  */
 internal fun isNoVulnerabilitiesHintVisible(
     scanPerformed: Boolean,
     directFindings: Int,
-    transitiveFindings: Int
-): Boolean = scanPerformed && directFindings == 0 && transitiveFindings == 0
+    transitiveFindings: Int,
+    lastScanHadError: Boolean = false
+): Boolean = scanPerformed && directFindings == 0 && transitiveFindings == 0 && !lastScanHadError
