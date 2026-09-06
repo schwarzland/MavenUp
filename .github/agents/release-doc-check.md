@@ -34,9 +34,12 @@ Nur wenn ein Release-Branch bestätigt ist, fährst du mit den Prüfungen fort.
 
 Ermittle das letzte veröffentlichte Release als Vergleichsbasis:
 
-- Der oberste `## [x.y.z]`-Block in `CHANGELOG.md` ist die **aktuelle** (in Vorbereitung
-  befindliche) Version dieses Release-Branches.
-- Das **letzte Release** ist der nächste, darunterliegende `## [x.y.z]`-Block bzw. der
+- Veröffentlichte Versionen stehen in `CHANGELOG.md` als `## x.y.z` (ohne eckige Klammern);
+  die noch nicht veröffentlichten Änderungen sammeln sich im obersten Block `## [Unreleased]`.
+- Der oberste Block ist die **aktuelle** (in Vorbereitung befindliche) Version dieses
+  Release-Branches. Heißt er noch `## [Unreleased]`, benenne ihn in die Release-Version
+  dieses Branches um (`release/x.y.z` → `## x.y.z`).
+- Das **letzte Release** ist der nächste, darunterliegende `## x.y.z`-Block bzw. der
   passende Git-Tag (`git tag --list` / `git describe --tags --abbrev=0`).
 - Ermittle über `git log <letztes-tag>..HEAD` und den Diff der Quellen (`src/main/kotlin/`)
   die tatsächlichen Änderungen seit dem letzten Release. Diese bilden die Sollmenge, gegen
@@ -49,6 +52,8 @@ Halte dich an die verbindlichen Regeln aus `.github/copilot-instructions.md`.
 
 ### 1. CHANGELOG.md – Vollständigkeit gegen das letzte Release
 - Sprache: **Englisch**.
+- Ein noch vorhandener `## [Unreleased]`-Block wird auf dem Release-Branch in die
+  Release-Version umbenannt (`## x.y.z`, ohne eckige Klammern, passend zum Branchnamen).
 - Jede seit dem letzten Release umgesetzte Änderung im Code (`src/main/kotlin/`) und in den
   Einstellungen muss im obersten Versionsblock aufgeführt sein.
 - Struktur: pro Version **genau ein** `### Added`-, `### Changed`- und `### Fixed`-Block –
@@ -113,26 +118,26 @@ Halte dich an die verbindlichen Regeln aus `.github/copilot-instructions.md`.
   - `docs/licenses.md`: eingebettete Drittanbieter-Bibliotheken mit Name, Version, Lizenz (inkl. Link)
     und Verwendungszweck – prüfe gegen `build.gradle.kts`, ob Abhängigkeiten hinzugekommen,
     aktualisiert oder entfernt wurden.
-  - `docs/presentation.md`: Sprechleitfaden für Demos – **bewusst auf Deutsch** verfasst; prüfe, ob die
-    dort beschriebene Produktdarstellung noch zur aktuellen Funktionalität passt.
   - `docs/features/`: die Feature-Beschreibungen je Bereich – siehe Abschnitt 2.
 - Ergänze fehlende Inhalte, aktualisiere geänderte Beschreibungen, entferne veraltete Abschnitte
   und veraltete Formulierungen (z. B. „now", „new").
 - Jeder Punkt gehört an **genau eine** Stelle: keine inhaltlichen Dopplungen zwischen `README.md`
   und `docs/` oder zwischen den `docs/`-Dateien untereinander.
 - Prüfe, ob die Dokumentationsliste in `README.md` alle nutzerrelevanten Dateien unter `docs/` verlinkt
-  (Ausnahmen: `docs/presentation.md` und die über `FEATURES.md` verlinkten Dateien unter
-  `docs/features/`); ergänze fehlende Verlinkungen und entferne Links auf nicht mehr
-  existierende Dateien.
+  (Ausnahme: die über `FEATURES.md` verlinkten Dateien unter `docs/features/`); ergänze fehlende
+  Verlinkungen und entferne Links auf nicht mehr existierende Dateien.
 - Neue `docs/`-Dateien, die für eine seit dem letzten Release ergänzte Funktion nötig sind, legst du an
   und verlinkst sie in `README.md`.
 
 ### 7. gradle.properties – Version gegen CHANGELOG.md
 - Vergleiche `version=` in `gradle.properties` mit der obersten Versionsnummer
-  (`## [x.y.z]`) in `CHANGELOG.md`.
+  (`## x.y.z`) in `CHANGELOG.md` – nachdem ein eventuell verbliebener
+  `## [Unreleased]`-Block gemäß Abschnitt 1 in die Release-Version umbenannt wurde.
 - Bei Abweichung ist die **CHANGELOG-Version die Quelle der Wahrheit** für dieses Release:
   korrigiere `version=` in `gradle.properties` so, dass sie exakt mit dem obersten
   CHANGELOG-Versionsblock übereinstimmt.
+- Prüfe zusätzlich, ob diese Version zum Namen des Release-Branches (`release/x.y.z`) passt,
+  und melde eine Abweichung.
 - Melde die Korrektur explizit in der Zusammenfassung.
 
 ## Arbeitsweise & Grenzen
