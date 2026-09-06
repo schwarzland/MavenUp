@@ -330,7 +330,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /** Der aktuell eingeblendete Scan-Hinweis oder `null`, wenn kein Hinweis angezeigt wird. */
         private var scanHintBanner: InlineBanner? = null
 
-        /** Container des Fehlerhinweises für fehlgeschlagene Vulnerability-API-Aufrufe (OSV.dev/OSS Index) direkt oberhalb der Tabelle; leer, solange kein Fehler vorliegt. */
+        /**
+         * Container des Fehlerhinweises für fehlgeschlagene Vulnerability-API-Aufrufe
+         * (OSV.dev/OSS Index) direkt oberhalb der Tabelle; leer, solange kein Fehler vorliegt.
+         */
         private val vulnerabilityApiErrorPanel = JBPanel<JBPanel<*>>(BorderLayout())
 
         /** Der aktuell eingeblendete Vulnerability-API-Fehlerhinweis oder `null`, wenn kein Fehler angezeigt wird. */
@@ -711,28 +714,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
             table.columnModel.getColumn(VULNERABILITIES_COLUMN).cellRenderer = vulnerabilityCellRenderer()
 
             /**
-             * Liest die Abhängigkeiten der `pom.xml`-Dateien neu ein und baut die Tabelle auf.
-             *
-             * Solange der Vorgang läuft, bleibt die Tabelle leer und zeigt stattdessen einen
-             * Hinweistext (siehe [updateTableEmptyText]). Ist [checkUpdates] gesetzt, werden die
-             * Zeilen erst nach Abschluss der Versionssuche durch den Folge-Refresh aufgebaut.
-             *
-             * @param checkUpdates Wenn `true`, wird im Anschluss online nach neuen Versionen gesucht.
-             * @param clearData Wenn `true`, werden verfügbare Versionen und Versionsauswahlen verworfen.
-             * @param clearVulnerabilities Wenn `true`, werden Scan-Ergebnisse und transitive Daten verworfen.
+             * Verwirft je nach Flags die zwischengespeicherten Versions- und Vulnerability-Daten
+             * und setzt die für einen Refresh stets zu leerenden Strukturen zurück.
              */
-            fun refreshAction(checkUpdates: Boolean, clearData: Boolean, clearVulnerabilities: Boolean) {
-                if (isUpdating) return
-
-                val generation = ++refreshGeneration
-                isRefreshing = true
-                if (checkUpdates) {
-                    isSearchingVersions = true
-                }
-                refreshToolbar()
-                cancelActiveCellEditing()
-                tableModel.setRowCount(0)
-                updateTableEmptyText()
+            fun resetRefreshState(clearData: Boolean, clearVulnerabilities: Boolean) {
                 if (clearData) {
                     availableVersions.clear()
                     rawAvailableVersions.clear()
@@ -755,6 +740,87 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 knownTypes.clear()
                 inheritedVersionDependencies.clear()
                 updateUpdateButtonState()
+            }
+
+            /**
+             * Verarbeitet das Ergebnis von [RefreshSnapshotCollector.collectRefreshSnapshot]: befüllt
+             * die Tabelle bzw. löst bei [checkUpdates] den abschließenden Versions-Refresh via
+             * [onCheckUpdatesFinished] aus.
+             */
+            fun handleRefreshSnapshot(
+                snapshot: RefreshSnapshot,
+                generation: Int,
+                checkUpdates: Boolean,
+                onCheckUpdatesFinished: () -> Unit
+            ) {
+                if (generation != refreshGeneration) {
+                    return
+                }
+
+                dependencyToProperty.putAll(snapshot.dependencyProperties)
+                val declaredCoordinates = snapshot.rows
+                    .filter { it.currentVersion.isNotEmpty() }
+                    .mapTo(linkedSetOf()) { "${it.key}:${it.currentVersion}" }
+                snapshot.rows.forEach { row ->
+                    knownDependencies[row.key] = row.currentVersion
+                    knownTypes[row.key] = row.type
+                    if (row.versionInherited) {
+                        inheritedVersionDependencies.add(row.key)
+                    }
+                    if (!checkUpdates) {
+                        addDependencyRow(row, declaredCoordinates)
+                    }
+                }
+
+                if (checkUpdates) {
+                    // Die Tabelle bleibt ausgeblendet, bis die Versionssuche abgeschlossen ist;
+                    // der abschließende Refresh baut die Zeilen mit den gefundenen Versionen auf.
+                    isRefreshing = false
+                    updateTableEmptyText()
+                    updateUpdateButtonState()
+                    updateTransitiveVulnerabilitiesView()
+                    refreshToolbar()
+                    performUpdateCheck(onCheckUpdatesFinished)
+                    return
+                }
+
+                updateUpdateButtonState()
+                updateTypeFilterOptions()
+                updateUpdatesFilterState()
+                updateVulnerabilitiesFilterState()
+                updateVersionSourceFilterState()
+                updateTransitiveVulnerabilitiesView()
+                trimColumnWidthsToContent(table)
+
+                isRefreshing = false
+                updateTableEmptyText()
+                refreshToolbar()
+            }
+
+            /**
+             * Liest die Abhängigkeiten der `pom.xml`-Dateien neu ein und baut die Tabelle auf.
+             *
+             * Solange der Vorgang läuft, bleibt die Tabelle leer und zeigt stattdessen einen
+             * Hinweistext (siehe [updateTableEmptyText]). Ist [checkUpdates] gesetzt, werden die
+             * Zeilen erst nach Abschluss der Versionssuche durch den Folge-Refresh aufgebaut.
+             *
+             * @param checkUpdates Wenn `true`, wird im Anschluss online nach neuen Versionen gesucht.
+             * @param clearData Wenn `true`, werden verfügbare Versionen und Versionsauswahlen verworfen.
+             * @param clearVulnerabilities Wenn `true`, werden Scan-Ergebnisse und transitive Daten verworfen.
+             */
+            fun refreshAction(checkUpdates: Boolean, clearData: Boolean, clearVulnerabilities: Boolean) {
+                if (isUpdating) return
+
+                val generation = ++refreshGeneration
+                isRefreshing = true
+                if (checkUpdates) {
+                    isSearchingVersions = true
+                }
+                refreshToolbar()
+                cancelActiveCellEditing()
+                tableModel.setRowCount(0)
+                updateTableEmptyText()
+                resetRefreshState(clearData, clearVulnerabilities)
 
                 val managedDependencyType =
                     MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
@@ -762,54 +828,12 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     refreshSnapshotCollector.collectRefreshSnapshot(managedDependencyType)
                 }.expireWith(this@MyToolWindow)
                     .finishOnUiThread(ModalityState.any()) { snapshot ->
-                        if (generation != refreshGeneration) {
-                            return@finishOnUiThread
+                        handleRefreshSnapshot(snapshot, generation, checkUpdates) {
+                            refreshAction(false, false, false)
                         }
-
-                        dependencyToProperty.putAll(snapshot.dependencyProperties)
-                        val declaredCoordinates = snapshot.rows
-                            .filter { it.currentVersion.isNotEmpty() }
-                            .mapTo(linkedSetOf()) { "${it.key}:${it.currentVersion}" }
-                        snapshot.rows.forEach { row ->
-                            knownDependencies[row.key] = row.currentVersion
-                            knownTypes[row.key] = row.type
-                            if (row.versionInherited) {
-                                inheritedVersionDependencies.add(row.key)
-                            }
-                            if (!checkUpdates) {
-                                addDependencyRow(row, declaredCoordinates)
-                            }
-                        }
-
-                        if (checkUpdates) {
-                            // Die Tabelle bleibt ausgeblendet, bis die Versionssuche abgeschlossen ist;
-                            // der abschließende Refresh baut die Zeilen mit den gefundenen Versionen auf.
-                            isRefreshing = false
-                            updateTableEmptyText()
-                            updateUpdateButtonState()
-                            updateTransitiveVulnerabilitiesView()
-                            refreshToolbar()
-                            performUpdateCheck {
-                                refreshAction(false, false, false)
-                            }
-                            return@finishOnUiThread
-                        }
-
-                        updateUpdateButtonState()
-                        updateTypeFilterOptions()
-                        updateUpdatesFilterState()
-                        updateVulnerabilitiesFilterState()
-                        updateVersionSourceFilterState()
-                        updateTransitiveVulnerabilitiesView()
-                        trimColumnWidthsToContent(table)
-
-                        isRefreshing = false
-                        updateTableEmptyText()
-                        refreshToolbar()
                     }
                     .submit(AppExecutorUtil.getAppExecutorService())
             }
-
 
             val updateAction = {
                 if (!isUpdating && (selectedVersions.isNotEmpty() || transitiveVulnerabilitiesView.hasPendingUpdates())) {

@@ -36,6 +36,7 @@
 ### Fixed
 
 - Fixed the order of the MavenUp sub-pages in the settings tree, which the platform sorted alphabetically (**Pom.xml Changes** first) instead of following the workflow order shown by the quick links.
+- Fixed detekt findings (`LongMethod`, `NestedBlockDepth`, `MaxLineLength`) by extracting helper functions in `MavenUpWindowFactory` and `VulnerabilityApiService` and wrapping an overlong KDoc line.
 
 ## 3.1.0
 
