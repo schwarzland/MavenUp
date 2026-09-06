@@ -2,7 +2,7 @@
 
 # MavenUp Changelog
 
-## [Unreleased]
+## 3.2.0
 
 ### Added
 
@@ -45,6 +45,7 @@
 - Fixed the red error banner of a failed repository request staying visible after a subsequent successful version search, and made a successful version search and a successful vulnerability scan each withdraw only their own message instead of the whole banner.
 - Fixed two combined error messages being rendered as a single run-on line in the red error banner, which uses an HTML-based component where a plain line feed produces no line break; messages are now separated by a line break, deduplicated, and escaped so technical details survive unaltered.
 - Fixed a failed repository request during the automatic version lookup for vulnerable transitive dependencies (which runs right after a vulnerability scan) being discarded without ever reaching the red error banner.
+- Fixed known vulnerabilities reported for the Gradle build classpath by forcing `org.jsoup:jsoup` and the Jackson modules pulled in transitively by the build plugins to patched versions; the plugin JAR itself is unaffected because these libraries are build-time only.
 - Fixed the first reported repository error being collected in a plain field that is written on a background thread and read on the UI thread; it is now held in an `AtomicReference`, which makes the hand-off visible across threads and applies "first error wins" atomically.
 
 ## 3.1.0
