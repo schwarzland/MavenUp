@@ -86,7 +86,8 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   `repo1.maven.org` überträgt, andere konfigurierte private Repositories aber weiterhin abfragt.
 - **OssIndexApiService / OssIndexCredentialService**: optionale Sonatype-Abfrage über Maven-purl
   und sichere Zugangsdatenablage; wirft `OssIndexAuthenticationException` bei ungültigem/abgelaufenem
-  Token (HTTP 401/403) für eine qualifizierte Fehlermeldung.
+  Token (HTTP 401/403) und `OssIndexRequestException` (mit HTTP-Status) bei sonstigen HTTP-Fehlern
+  (z. B. 5xx) für eine qualifizierte Fehlermeldung.
 
 ## Sicherheitsdatenmodell (`model`)
 - **MavenUpBadgeState**: Enum mit den Badge-Zuständen des Tool-Window-Icons (`NONE`, `UPDATES`,
@@ -123,6 +124,11 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   (`collectVulnerabilityScanTargets`, `collectResolvedDependencyRelations`) und kapselt die
   OSS-Index-Abfrage (`resolveOssIndexResults`, Ergebnis `OssIndexScanResult`). Zugangsdaten
   (`OssIndexCredentialStore`) und die OSS-Abfrage sind für Tests per Konstruktor injizierbar.
+  `resolveOssIndexResults` übersetzt einen fehlgeschlagenen OSS-Index-Request in eine qualifizierte
+  Fehlermeldung (`vulnerability.ossIndex.requestFailed.http` bei HTTP-Fehlern via `OssIndexRequestException`,
+  `vulnerability.ossIndex.requestFailed.exception` bei Netzwerk-/Exception-Fehlern, z. B. ein unauflösbarer
+  Host durch eine falsch konfigurierte URI), statt die rohe technische `exception.message` (nur der Hostname)
+  als Banner anzuzeigen.
   Die reine Farbzuordnung `vulnerabilityColor` liegt als Top-Level-Helfer in `VulnerabilityCellModel`.
 - **DependencyVersionService**: fragt über `searchVersions` die verfügbaren Versionen aller
   Dependencies/Plugins ab (inkl. PSI-Erfassung verwalteter Einträge und Property-Schnittmengen)
