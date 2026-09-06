@@ -47,68 +47,47 @@ Ermittle das letzte veröffentlichte Release als Vergleichsbasis:
 
 ## Prüfaufgaben
 
-Führe die folgenden Prüfungen aus und nimm notwendige Ergänzungen/Korrekturen direkt vor.
-Halte dich an die verbindlichen Regeln aus `.github/copilot-instructions.md`.
+Die **inhaltlichen Formatregeln** für alle genannten Dokumente (Sprache, Struktur, Aufteilung,
+Dopplungsfreiheit) stehen verbindlich in `.github/copilot-instructions.md` – lies sie zuerst und
+wende sie an, statt sie hier nachzuschlagen. Dieser Agent legt ausschließlich fest, **was** vor
+einem Release gegen **welche Quelle** geprüft wird. Nimm notwendige Ergänzungen und Korrekturen
+direkt vor.
 
 ### 1. CHANGELOG.md – Vollständigkeit gegen das letzte Release
-- Sprache: **Englisch**.
 - Ein noch vorhandener `## [Unreleased]`-Block wird auf dem Release-Branch in die
   Release-Version umbenannt (`## x.y.z`, ohne eckige Klammern, passend zum Branchnamen).
 - Jede seit dem letzten Release umgesetzte Änderung im Code (`src/main/kotlin/`) und in den
   Einstellungen muss im obersten Versionsblock aufgeführt sein.
-- Struktur: pro Version **genau ein** `### Added`-, `### Changed`- und `### Fixed`-Block –
-  niemals doppelte Kategorien innerhalb derselben Version.
-- Jeder Eintrag ist ein prägnanter Satz (ein Gedanke pro Zeile) und thematisch korrekt einsortiert.
 - Ergänze fehlende Einträge, korrigiere falsch einsortierte Einträge, entferne Dopplungen.
 
 ### 2. FEATURES.md und `docs/features/` – Vollständigkeit
-- Sprache: **Englisch**.
-- `FEATURES.md` ist der Index: prüfe, ob jede Datei unter `docs/features/` dort verlinkt ist
-  und keine verwaisten Links existieren.
-- Die Feature-Beschreibungen stehen in den Dateien unter `docs/features/`; jede Funktion ist
-  ein prägnanter Bullet-Point (ein Gedanke pro Zeile) in der thematisch passenden Datei.
-- Ergänze neue Features, aktualisiere geänderte Features im bestehenden Bullet-Point,
-  entferne veraltete/entfernte Funktionen. Keine Dopplungen – auch nicht zwischen den Dateien.
-- Gleiche die Listen gegen die tatsächliche Implementierung unter `src/main/kotlin/` ab.
+- Prüfe, ob jede Datei unter `docs/features/` im Index verlinkt ist und keine verwaisten Links
+  existieren.
+- Gleiche die Feature-Listen gegen die tatsächliche Implementierung unter `src/main/kotlin/` ab:
+  ergänze neue Features, aktualisiere geänderte, entferne entfernte Funktionen.
 
 ### 3. README.md – Vollständigkeit
-- Sprache: **Englisch**. Die README ist eine schlanke Landing Page und enthält ausschließlich
-  Kurzbeschreibung, Installation, Quick Start, die Dokumentationsliste und den Abschnitt
-  **AI instructions** – Detailinhalte gehören unter `docs/` bzw. `docs/features/`.
 - Prüfe, ob Kurzbeschreibung und Quick Start noch zum aktuellen Funktionsumfang passen.
 - Prüfe die Dokumentationsliste auf Vollständigkeit (siehe Abschnitt 6) und den Abschnitt
   **AI instructions** darauf, ob `AGENTS.md`, `.github/copilot-instructions.md`,
   `.github/copilot-project-context.md` sowie die Komponentenreferenzen unter `.github/context/`
   weiterhin korrekt verlinkt sind.
-- Entferne veraltete Formulierungen (z. B. „now", „new"). Keine inhaltlichen Dopplungen
-  zwischen README und den `docs/`-Dateien.
 
 ### 4. plugin.xml – Sektion `<description>`
 - Datei: `src/main/resources/META-INF/plugin.xml`.
-- Sprache: **Englisch**, für Endanwender verständlich (Marketplace / Plugin Manager).
-- Jeder `<li>`-Eintrag beschreibt **genau eine** Funktion kompakt in einem Satz.
-- Ergänze neue Funktionen als `<li>`, aktualisiere geänderte im bestehenden `<li>`, entferne
-  veraltete Einträge. Keine Dopplungen, keine produktspezifischen Hardcodierungen, die durch
-  Einstellungen variieren können.
 - Gleiche die `<description>` inhaltlich mit den Feature-Dateien unter `docs/features/` ab: jede
-  wichtige Funktion muss sinngemäß abgedeckt sein.
+  wichtige Funktion muss sinngemäß abgedeckt sein; veraltete Einträge werden entfernt.
 
 ### 5. getting_started.html – Einsteiger-Workflow
-- Datei: `getting_started.html`.
-- Sprache: **Englisch**; die Seite beschreibt die **erste Nutzung** aus Sicht eines Users.
 - Prüfe, ob die Datei die typischen ersten Schritte für Einsteiger abdeckt:
   Einstieg in den Tool Window, erste Aktualisierung, Versionssuche, Auswahl einer Zielversion,
   Update, Navigation, Sicherheitsprüfung und grundlegende Konfiguration.
-- Ergänze fehlende Workflows, aktualisiere umbenannte Aktionen oder geänderte Dialoge,
-  entferne veraltete Schritte. Keine Dopplungen; die Reihenfolge muss sinnvoll für neue Nutzer sein.
 - Gleiche die Seite mit den Feature-Dateien unter `docs/features/` und
-  `src/main/resources/META-INF/plugin.xml` ab, damit
-  keine grundlegende Funktion aus der Produktbeschreibung fehlt.
+  `src/main/resources/META-INF/plugin.xml` ab, damit keine grundlegende Funktion fehlt;
+  ergänze fehlende Workflows und aktualisiere umbenannte Aktionen oder geänderte Dialoge.
 
 ### 6. Dokumentation unter `docs/`
-- Sprache: **Englisch**.
-- `README.md` ist eine schlanke Landing Page; die Detailinhalte liegen ausschließlich in den
-  `docs/`-Dateien. Prüfe daher jede thematisch betroffene Datei einzeln:
+- Prüfe jede thematisch betroffene Datei einzeln gegen ihre jeweilige Quelle:
   - `docs/usage.md`: Bedienung des Tool-Windows, Filter, Aktionen, Kontextmenü, Navigation.
   - `docs/configuration.md`: **alle** Einstellungen – gleiche die Felder von `MavenUpSettings.State`
     mechanisch gegen diese Datei ab; jedes Feld muss dort (sowie in
@@ -129,8 +108,6 @@ Halte dich an die verbindlichen Regeln aus `.github/copilot-instructions.md`.
   - `docs/features/`: die Feature-Beschreibungen je Bereich – siehe Abschnitt 2.
 - Ergänze fehlende Inhalte, aktualisiere geänderte Beschreibungen, entferne veraltete Abschnitte
   und veraltete Formulierungen (z. B. „now", „new").
-- Jeder Punkt gehört an **genau eine** Stelle: keine inhaltlichen Dopplungen zwischen `README.md`
-  und `docs/` oder zwischen den `docs/`-Dateien untereinander.
 - Prüfe, ob die Dokumentationsliste in `README.md` alle nutzerrelevanten Dateien unter `docs/` verlinkt
   (Ausnahme: die über `FEATURES.md` verlinkten Dateien unter `docs/features/`); ergänze fehlende
   Verlinkungen und entferne Links auf nicht mehr existierende Dateien.
@@ -194,12 +171,16 @@ Halte dich an die verbindlichen Regeln aus `.github/copilot-instructions.md`.
   aktualisiere umbenannte und entferne gelöschte Klassen.
 - Prüfe die Paketstruktur in der Übersichtsdatei sowie deren Verweise auf die Kontextdateien.
 - Wächst eine Kontextdatei deutlich über ~30 KB, weise auf eine nötige Aufteilung hin.
+- Prüfe abschließend diese Agentendefinition selbst (`.github/agents/release-doc-check.md`)
+  gemäß Regel 13 der `.github/copilot-instructions.md`: Existieren alle hier genannten Dateien
+  und Verzeichnisse noch, und passen Branching-, Versionierungs- und CHANGELOG-Konvention
+  weiterhin zum Repository? Korrigiere Abweichungen.
 
 ## Arbeitsweise & Grenzen
 - Nimm nur Änderungen an den oben genannten Zielartefakten vor
   (`CHANGELOG.md`, `FEATURES.md`, `README.md`, `AGENTS.md`, `getting_started.html`, `plugin.xml`,
   den Dateien unter `docs/`, `.github/copilot-project-context.md`, den Dateien unter
-  `.github/context/` und `gradle.properties`).
+  `.github/context/`, dieser Agentendefinition und `gradle.properties`).
 - `build.gradle.kts`, `gradle/libs.versions.toml`, die Dateien unter `.github/workflows/` und
   `src/main/resources/messages/` werden ausschließlich **gelesen** und dienen als Abgleichsquelle.
 - Ändere **keinen** Produktivcode und **keine** Tests.
