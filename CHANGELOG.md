@@ -41,6 +41,8 @@
 - Fixed the closable green "no vulnerabilities found" success banner incorrectly appearing together with the red error banner when a vulnerability scan failed entirely (e.g. OSV.dev unreachable) and therefore produced zero findings; the success banner is now suppressed whenever the last scan reported a qualified API error.
 - Fixed the OSS Index error banner showing only the raw technical exception message (e.g. just the bare host name `ossindex.sonatype_.org` from an unresolvable host of a misconfigured URI) instead of a qualified, user-readable message; a non-token OSS Index failure now reports a qualified message including the HTTP status (for a 5xx response) or the underlying error, consistent with the OSV.dev error messages.
 - Fixed the red error banner for a total outage of the version search so it also covers a real error (e.g. a 5xx response, an unresolvable host from a misconfigured URI, or another network/exception failure) of any configured repository, not only Maven Central; previously, a failing private or custom repository (for example one with a wrong URI) never surfaced a banner even though no version could be determined.
+- Fixed the red error banner of a failed repository request staying visible after a subsequent successful version search, and made a successful version search and a successful vulnerability scan each withdraw only their own message instead of the whole banner.
+- Fixed two combined error messages being rendered as a single run-on line in the red error banner, which uses an HTML-based component where a plain line feed produces no line break; messages are now separated by a line break, deduplicated, and escaped so technical details survive unaltered.
 
 ## 3.1.0
 

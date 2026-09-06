@@ -353,6 +353,28 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /** Der aktuell eingeblendete Vulnerability-API-Fehlerhinweis oder `null`, wenn kein Fehler angezeigt wird. */
         private var vulnerabilityApiErrorBanner: InlineBanner? = null
 
+        /**
+         * Die qualifizierten Fehlermeldungen des letzten Vulnerability-Scans (OSV.dev und Sonatype
+         * OSS Index), oder eine leere Liste, wenn der letzte Scan fehlerfrei war.
+         */
+        private var vulnerabilityScanErrorMessages: List<String> = emptyList()
+
+        /**
+         * `true`, wenn [vulnerabilityScanErrorMessages] ausschließlich auf ein fehlendes oder
+         * abgelehntes OSS-Index-Token zurückgeht und daher eine **Open Settings**-Aktion sinnvoll ist.
+         */
+        private var vulnerabilityScanTokenErrorOnly = false
+
+        /**
+         * Die qualifizierte Fehlermeldung der letzten Versionssuche, oder `null`, wenn kein
+         * Repository-Aufruf fehlgeschlagen ist.
+         *
+         * Wird ausschließlich auf dem EDT gepflegt und getrennt von
+         * [vulnerabilityScanErrorMessages] gehalten, damit eine erfolgreiche Versionssuche einen
+         * bestehenden Scan-Fehler nicht verwirft (und umgekehrt).
+         */
+        private var repositoryApiErrorMessage: String? = null
+
         /** Anzahl der beim letzten Scan geprüften Koordinaten; speist den Text des Scan-Hinweises. */
         private var lastScannedCount = 0
 
@@ -748,7 +770,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     lastVulnerabilityScanHadError = false
                     lastScannedCount = 0
                     hideScanHint()
-                    hideVulnerabilityApiError()
+                    vulnerabilityScanErrorMessages = emptyList()
+                    vulnerabilityScanTokenErrorOnly = false
+                    refreshApiErrorBanner()
                 }
                 dependencyToProperty.clear()
                 knownDependencies.clear()
@@ -1441,32 +1465,52 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
-         * Blendet eine qualifizierte Fehlermeldung eines fehlgeschlagenen Vulnerability-API-Aufrufs
-         * (OSV.dev, Sonatype OSS Index oder Maven Central) als rotes, schließbares [InlineBanner]
-         * direkt oberhalb der Tabelle ein.
+         * Blendet die qualifizierten Fehlermeldungen fehlgeschlagener API-Aufrufe (OSV.dev, Sonatype
+         * OSS Index oder ein Maven-Repository) als rotes, schließbares [InlineBanner] direkt oberhalb
+         * der Tabelle ein und entfernt es wieder, sobald keine Meldung mehr vorliegt.
          *
-         * @param showSettingsAction `true`, um zusätzlich eine **Open Settings**-Aktion anzubieten, die
-         *   direkt in die Plugin-Einstellungen springt. Dies ist nur sinnvoll, wenn die Fehlermeldung
-         *   ausschließlich auf ein fehlendes/abgelehntes OSS-Index-Token zurückgeht (siehe
-         *   [de.schwarzland.mavenup.service.OssIndexScanResult.isTokenError]); bei allen anderen
-         *   Fehlern (z. B. OSV.dev, Maven Central oder ein allgemeiner OSS-Index-Fehler) gibt es keine
-         *   konfigurierbare URI, sodass ein Sprung in die Einstellungen keinen Sinn ergibt.
+         * Repository- und Scan-Fehler werden getrennt vorgehalten und hier zusammengeführt, sodass
+         * ein erfolgreicher Teilvorgang stets nur seine eigene Meldung zurücknimmt. Die
+         * **Open Settings**-Aktion wird nur angeboten, wenn ausschließlich ein fehlendes oder
+         * abgelehntes OSS-Index-Token vorliegt (siehe
+         * [de.schwarzland.mavenup.service.OssIndexScanResult.isTokenError]); bei allen anderen Fehlern
+         * (z. B. OSV.dev oder ein Repository) gibt es keine über die Einstellungen konfigurierbare
+         * URI, sodass ein Sprung in die Einstellungen keinen Sinn ergibt.
          */
-        private fun showVulnerabilityApiError(errorMessage: String, showSettingsAction: Boolean = false) {
+        private fun refreshApiErrorBanner() {
+            val messages = listOfNotNull(repositoryApiErrorMessage) + vulnerabilityScanErrorMessages
+            val bannerMessage = formatApiErrorBannerMessage(messages)
+            if (bannerMessage == null) {
+                hideVulnerabilityApiError()
+                return
+            }
+
             hideVulnerabilityApiError()
-            val newBanner = InlineBanner(errorMessage, EditorNotificationPanel.Status.Error)
+            val newBanner = InlineBanner(bannerMessage, EditorNotificationPanel.Status.Error)
                 .showCloseButton(true)
-                .setCloseAction { hideVulnerabilityApiError() }
-            if (showSettingsAction) {
+                .setCloseAction { clearApiErrors() }
+            if (repositoryApiErrorMessage == null && vulnerabilityScanTokenErrorOnly) {
                 newBanner.addAction(MyMessageBundle.message("vulnerability.api.error.openSettings")) {
                     openVulnerabilityCheckSettings()
-                    hideVulnerabilityApiError()
+                    clearApiErrors()
                 }
             }
             vulnerabilityApiErrorBanner = newBanner
             vulnerabilityApiErrorPanel.add(newBanner, BorderLayout.CENTER)
             vulnerabilityApiErrorPanel.revalidate()
             vulnerabilityApiErrorPanel.repaint()
+        }
+
+        /**
+         * Verwirft alle gemerkten API-Fehlermeldungen und entfernt das Banner. Wird beim manuellen
+         * Schließen des Banners genutzt, damit ein späteres [refreshApiErrorBanner] die vom Anwender
+         * weggeklickten Meldungen nicht erneut einblendet.
+         */
+        private fun clearApiErrors() {
+            repositoryApiErrorMessage = null
+            vulnerabilityScanErrorMessages = emptyList()
+            vulnerabilityScanTokenErrorOnly = false
+            hideVulnerabilityApiError()
         }
 
         /**
@@ -2749,19 +2793,14 @@ class MavenUpWindowFactory : ToolWindowFactory {
                                 transitiveCurrentVersions[key].orEmpty()
                             )
                         }
-                        val combinedErrorMessage = listOfNotNull(osvErrorMessage, ossIndexScan.errorMessage)
-                            .joinToString("\n")
-                            .ifBlank { null }
-                        lastVulnerabilityScanHadError = combinedErrorMessage != null
+                        val errorMessages = listOfNotNull(osvErrorMessage, ossIndexScan.errorMessage)
+                        lastVulnerabilityScanHadError = errorMessages.isNotEmpty()
+                        vulnerabilityScanErrorMessages = errorMessages
+                        // Der Settings-Link ergibt nur Sinn, wenn ausschließlich ein
+                        // Token-Fehler des (konfigurierbaren) OSS-Index-Tokens vorliegt.
+                        vulnerabilityScanTokenErrorOnly = osvErrorMessage == null && ossIndexScan.isTokenError
                         applyVulnerabilityResults(results, scanTargets)
-                        if (combinedErrorMessage != null) {
-                            // Der Settings-Link ergibt nur Sinn, wenn ausschließlich ein
-                            // Token-Fehler des (konfigurierbaren) OSS-Index-Tokens vorliegt.
-                            val showSettingsAction = osvErrorMessage == null && ossIndexScan.isTokenError
-                            showVulnerabilityApiError(combinedErrorMessage, showSettingsAction)
-                        } else {
-                            hideVulnerabilityApiError()
-                        }
+                        refreshApiErrorBanner()
                         onFinished()
                     }
                 }
@@ -2838,7 +2877,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         availableVersions.putAll(result.availableVersions)
                         rawAvailableVersions.putAll(result.rawVersions)
                         selectedVersions.putAll(result.selectedVersions)
-                        dependencyRepositoryApiErrorMessage?.let(::showVulnerabilityApiError)
+                        repositoryApiErrorMessage = dependencyRepositoryApiErrorMessage
+                        refreshApiErrorBanner()
                         onFinished()
                     }
                 }

@@ -22,6 +22,10 @@ Beschreibt die zustandslosen Hilfsdateien und die I18n-Anbindung in
   - `TransitiveEmptyState.kt`: Enum `TransitiveEmptyState` samt Bundle-Schlüsseln und die reinen Funktionen
     `transitiveEmptyState` (Empty State des Tabs **Transitive CVEs**) und `isNoVulnerabilitiesHintVisible`
     (Sichtbarkeit des Erfolgshinweises im Tab **Dependencies**).
+  - `ApiErrorBannerMessage.kt`: `formatApiErrorBannerMessage` und `escapeApiErrorBannerHtml` – fassen die
+    qualifizierten API-Fehlermeldungen für das rote `InlineBanner` zusammen: leere Meldungen und Dubletten
+    werden verworfen, mehrere Meldungen mit `<br>` getrennt und einzeln HTML-maskiert, da das Banner den
+    Text in einer `text/html`-Komponente darstellt.
   - `VersionStatusUi.kt`: `VersionUpdateArrowIcon`, `isVersionUpToDate`, `hasNewerVersion`,
     `versionStatusText`/`versionStatusColor`/`versionStatusTooltip`, `versionDropdownItemDisplay`
     (liefert Anzeigetext und Fettschrift-Status in einem Durchgang), `versionDropdownItemText`
