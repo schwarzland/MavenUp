@@ -15,6 +15,10 @@ Unter `.github/agents/` liegen zusätzlich Definitionen spezialisierter Agenten
 (z. B. `release-doc-check.md` für die Release-Dokumentationsprüfung); sie gelten
 nur in ihrem jeweiligen Einsatzkontext und sind bei strukturellen Änderungen
 gemäß `.github/copilot-instructions.md` mitzupflegen.
+Das Verzeichnis `.junie/` ist der herstellerspezifische Spiegel dieser
+Instruktionen für Junie (`guidelines.md` als Regelzusammenfassung, `agents/` als
+Verweis auf die Agentendefinitionen); es enthält keine eigenständigen Regeln und
+ist bei Änderungen an den oben genannten Dateien mit anzugleichen.
 Bei Widersprüchen
 gelten die jeweils höherrangigen System- und Benutzeranweisungen; ansonsten
 sind die dort beschriebenen Arbeits-, Dokumentations-, Test- und

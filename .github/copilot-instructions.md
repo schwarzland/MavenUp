@@ -16,6 +16,7 @@ Bei **jeder** Änderung im Repository sind diese Punkte immer zu berücksichtige
      - `docs/licenses.md`: eingebettete Drittanbieter-Bibliotheken und deren Lizenzen (siehe auch Punkt 9).
      - `docs/features/`: die thematisch aufgeteilten Feature-Beschreibungen (siehe Punkt 3).
    - **AGENTS.md** ist der herstellerübergreifende Agenten-Einstiegspunkt und verweist auf `.github/copilot-instructions.md` und `.github/copilot-project-context.md`; ändert sich der Speicherort oder die Rolle dieser verbindlichen Instruktionsdateien, ist AGENTS.md entsprechend anzugleichen.
+   - **`.junie/`** ist der herstellerspezifische Spiegel dieser Instruktionen für Junie: `.junie/guidelines.md` fasst die verbindlichen Regeln zusammen und verweist auf die Originaldateien, `.junie/agents/` spiegelt die Agentendefinitionen unter `.github/agents/`. Ändern sich Instruktions-, Kontext- oder Agentendateien – oder kommen Regeln hinzu bzw. entfallen –, sind die Dateien unter `.junie/` entsprechend anzugleichen; sie enthalten keine eigenständigen Regeln, sondern nur Zusammenfassungen und Verweise.
    - Der Abschnitt **AI instructions** der README verlinkt `AGENTS.md`, `.github/copilot-instructions.md` und `.github/copilot-project-context.md`; diese Linkliste ist bei Umbenennung oder Ergänzung solcher Dateien aktuell zu halten.
    - Veraltete Formulierungen (z. B. „now", „new") sind beim Bearbeiten zu entfernen.
    - Keine inhaltlichen Dopplungen zwischen README und `docs/`-Dateien oder zwischen den `docs/`-Dateien – jeder Punkt gehört genau an eine Stelle.

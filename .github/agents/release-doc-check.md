@@ -171,6 +171,11 @@ direkt vor.
   aktualisiere umbenannte und entferne gelöschte Klassen.
 - Prüfe die Paketstruktur in der Übersichtsdatei sowie deren Verweise auf die Kontextdateien.
 - Wächst eine Kontextdatei deutlich über ~30 KB, weise auf eine nötige Aufteilung hin.
+- Gleiche das Verzeichnis `.junie/` als herstellerspezifischen Spiegel ab: `.junie/guidelines.md`
+  muss die aktuellen Regeln aus `.github/copilot-instructions.md` zusammenfassen und auf die
+  tatsächlich vorhandenen Instruktions-, Kontext- und Agentendateien verweisen; `.junie/agents/`
+  muss zu den Definitionen unter `.github/agents/` passen. Korrigiere veraltete Verweise und
+  ergänze fehlende Regeln – ohne dort eigenständige Regeln einzuführen.
 - Prüfe abschließend diese Agentendefinition selbst (`.github/agents/release-doc-check.md`)
   gemäß Regel 13 der `.github/copilot-instructions.md`: Existieren alle hier genannten Dateien
   und Verzeichnisse noch, und passen Branching-, Versionierungs- und CHANGELOG-Konvention
@@ -180,7 +185,7 @@ direkt vor.
 - Nimm nur Änderungen an den oben genannten Zielartefakten vor
   (`CHANGELOG.md`, `FEATURES.md`, `README.md`, `AGENTS.md`, `getting_started.html`, `plugin.xml`,
   den Dateien unter `docs/`, `.github/copilot-project-context.md`, den Dateien unter
-  `.github/context/`, dieser Agentendefinition und `gradle.properties`).
+  `.github/context/`, den Dateien unter `.junie/`, dieser Agentendefinition und `gradle.properties`).
 - `build.gradle.kts`, `gradle/libs.versions.toml`, die Dateien unter `.github/workflows/` und
   `src/main/resources/messages/` werden ausschließlich **gelesen** und dienen als Abgleichsquelle.
 - Ändere **keinen** Produktivcode und **keine** Tests.
