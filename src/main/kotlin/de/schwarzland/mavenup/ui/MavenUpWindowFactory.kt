@@ -1,5 +1,6 @@
 package de.schwarzland.mavenup.ui
 
+import de.schwarzland.mavenup.model.ApiError
 import de.schwarzland.mavenup.model.DependencyUpdate
 import de.schwarzland.mavenup.model.VulnerabilityAdvisory
 import de.schwarzland.mavenup.model.VulnerabilitySeverity
@@ -66,6 +67,7 @@ import java.awt.FlowLayout
 import java.awt.Font
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
+import java.util.concurrent.atomic.AtomicReference
 import javax.swing.*
 import javax.swing.event.DocumentEvent
 import javax.swing.table.DefaultTableModel
@@ -149,27 +151,31 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private val dependencyVersionService = DependencyVersionService(
             project,
             fetchAllVersions = { groupId, artifactId ->
-                dependencyApiService.fetchAllVersions(groupId, artifactId, onError = ::reportDependencyRepositoryApiError)
+                dependencyApiService.fetchAllVersions(groupId, artifactId, onError = ::reportRepositoryApiError)
             }
         )
 
         /**
-         * Erste, während des laufenden Refreshs gemeldete Fehlermeldung eines fehlgeschlagenen
-         * Repository-Aufrufs (Maven Central oder ein beliebiges konfiguriertes Repository), oder `null`.
+         * Sammelt den ersten Repository-Fehler des laufenden Hintergrundvorgangs.
+         *
+         * Der Wert wird auf dem Hintergrund-Thread der Versionssuche geschrieben und auf dem EDT
+         * ausgelesen; die [AtomicReference] stellt die Sichtbarkeit zwischen beiden Threads sicher und
+         * setzt „der erste Fehler gewinnt" atomar um. Jeder Vorgang, der Versionen abruft, setzt sie
+         * zu Beginn zurück (siehe [checkForUpdates] und [performVulnerabilityCheck]).
          */
-        private var dependencyRepositoryApiErrorMessage: String? = null
+        private val reportedRepositoryApiError = AtomicReference<ApiError?>()
 
         /**
-         * Merkt sich die erste qualifizierte Fehlermeldung eines Totalausfalls der Versionssuche
-         * (siehe [DependencyApiService.fetchAllVersions]) während des laufenden Refreshs vor, damit
-         * sie im Anschluss über [showVulnerabilityApiError] als rotes Banner angezeigt werden kann.
-         * Dies betrifft nicht nur Maven Central, sondern jedes konfigurierte Repository (z. B. auch
-         * eine falsch konfigurierte URI eines privaten Repositories).
+         * Merkt den ersten Fehler eines Totalausfalls der Versionssuche
+         * (siehe [DependencyApiService.fetchAllVersions]) im laufenden Vorgang vor, damit er im
+         * Anschluss über [refreshApiErrorBanner] als rotes Banner angezeigt werden kann. Dies betrifft
+         * nicht nur Maven Central, sondern jedes konfigurierte Repository (z. B. auch eine falsch
+         * konfigurierte URI eines privaten Repositories).
+         *
+         * @param error Der gemeldete Repository-Fehler.
          */
-        private fun reportDependencyRepositoryApiError(message: String) {
-            if (dependencyRepositoryApiErrorMessage == null) {
-                dependencyRepositoryApiErrorMessage = message
-            }
+        private fun reportRepositoryApiError(error: ApiError) {
+            reportedRepositoryApiError.compareAndSet(null, error)
         }
 
         private val refreshSnapshotCollector = RefreshSnapshotCollector(project)
@@ -249,12 +255,13 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
         /**
          * `true`, wenn der letzte Vulnerability-Scan einen qualifizierten API-Fehler gemeldet hat
-         * (OSV.dev oder Sonatype OSS Index, siehe [showVulnerabilityApiError]).
+         * (OSV.dev oder Sonatype OSS Index, siehe [refreshApiErrorBanner]).
          *
          * Unterdrückt den Erfolgshinweis „keine Sicherheitslücken gefunden" (siehe [updateScanHint]),
          * da `0` Befunde nach einem fehlgeschlagenen Scan keine verlässliche Aussage ist.
          */
-        private var lastVulnerabilityScanHadError = false
+        private val lastVulnerabilityScanHadError: Boolean
+            get() = vulnerabilityScanErrors.isNotEmpty()
         private var isUpdating = false
         private var isRefreshing = false
 
@@ -345,35 +352,38 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private var scanHintBanner: InlineBanner? = null
 
         /**
-         * Container des Fehlerhinweises für fehlgeschlagene Vulnerability-API-Aufrufe
-         * (OSV.dev/OSS Index) direkt oberhalb der Tabelle; leer, solange kein Fehler vorliegt.
+         * Container des Fehlerhinweises für fehlgeschlagene API-Aufrufe (OSV.dev, Sonatype OSS Index
+         * oder ein Maven-Repository) direkt oberhalb der Tabelle; leer, solange kein Fehler vorliegt.
          */
-        private val vulnerabilityApiErrorPanel = JBPanel<JBPanel<*>>(BorderLayout())
+        private val apiErrorPanel = JBPanel<JBPanel<*>>(BorderLayout())
 
-        /** Der aktuell eingeblendete Vulnerability-API-Fehlerhinweis oder `null`, wenn kein Fehler angezeigt wird. */
-        private var vulnerabilityApiErrorBanner: InlineBanner? = null
+        /** Der aktuell eingeblendete API-Fehlerhinweis oder `null`, wenn kein Fehler angezeigt wird. */
+        private var apiErrorBanner: InlineBanner? = null
 
         /**
-         * Die qualifizierten Fehlermeldungen des letzten Vulnerability-Scans (OSV.dev und Sonatype
-         * OSS Index), oder eine leere Liste, wenn der letzte Scan fehlerfrei war.
+         * Die Fehler des letzten Vulnerability-Scans (OSV.dev und Sonatype OSS Index), oder eine leere
+         * Liste, wenn der letzte Scan fehlerfrei war.
          */
-        private var vulnerabilityScanErrorMessages: List<String> = emptyList()
+        private var vulnerabilityScanErrors: List<ApiError> = emptyList()
 
         /**
-         * `true`, wenn [vulnerabilityScanErrorMessages] ausschließlich auf ein fehlendes oder
-         * abgelehntes OSS-Index-Token zurückgeht und daher eine **Open Settings**-Aktion sinnvoll ist.
-         */
-        private var vulnerabilityScanTokenErrorOnly = false
-
-        /**
-         * Die qualifizierte Fehlermeldung der letzten Versionssuche, oder `null`, wenn kein
-         * Repository-Aufruf fehlgeschlagen ist.
+         * Der Fehler der letzten Versionssuche, oder `null`, wenn kein Repository-Aufruf
+         * fehlgeschlagen ist.
          *
-         * Wird ausschließlich auf dem EDT gepflegt und getrennt von
-         * [vulnerabilityScanErrorMessages] gehalten, damit eine erfolgreiche Versionssuche einen
-         * bestehenden Scan-Fehler nicht verwirft (und umgekehrt).
+         * Wird ausschließlich auf dem EDT gepflegt und getrennt von [vulnerabilityScanErrors]
+         * gehalten, damit eine erfolgreiche Versionssuche einen bestehenden Scan-Fehler nicht
+         * verwirft (und umgekehrt).
          */
-        private var repositoryApiErrorMessage: String? = null
+        private var versionSearchRepositoryError: ApiError? = null
+
+        /**
+         * Der Fehler des Versionsabrufs für verwundbare transitive Koordinaten, der im Anschluss an
+         * einen Vulnerability-Scan läuft, oder `null`.
+         *
+         * Wird getrennt von [versionSearchRepositoryError] geführt, weil beide Abrufe zu
+         * unterschiedlichen Vorgängen gehören und jeder nur seine eigene Meldung zurücknehmen darf.
+         */
+        private var transitiveVersionRepositoryError: ApiError? = null
 
         /** Anzahl der beim letzten Scan geprüften Koordinaten; speist den Text des Scan-Hinweises. */
         private var lastScannedCount = 0
@@ -767,11 +777,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     rawTransitiveAvailableVersions.clear()
                     transitiveCurrentVersions.clear()
                     vulnerabilityScanPerformed = false
-                    lastVulnerabilityScanHadError = false
                     lastScannedCount = 0
                     hideScanHint()
-                    vulnerabilityScanErrorMessages = emptyList()
-                    vulnerabilityScanTokenErrorOnly = false
+                    vulnerabilityScanErrors = emptyList()
+                    transitiveVersionRepositoryError = null
                     refreshApiErrorBanner()
                 }
                 dependencyToProperty.clear()
@@ -1115,7 +1124,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             }
             installToolbars()
             filterAndHintPanel.add(buildFilterPanel(), BorderLayout.NORTH)
-            filterAndHintPanel.add(vulnerabilityApiErrorPanel, BorderLayout.CENTER)
+            filterAndHintPanel.add(apiErrorPanel, BorderLayout.CENTER)
             filterAndHintPanel.add(scanHintPanel, BorderLayout.SOUTH)
             topPanel.add(filterAndHintPanel, BorderLayout.SOUTH)
             add(topPanel, BorderLayout.NORTH)
@@ -1465,6 +1474,15 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
+         * Liefert alle aktuell gemeldeten API-Fehler in Anzeigereihenfolge: zuerst die Fehler der
+         * Versionsabrufe, danach die des letzten Vulnerability-Scans.
+         *
+         * @return Die zusammengeführten Fehler, oder eine leere Liste.
+         */
+        private fun currentApiErrors(): List<ApiError> =
+            listOfNotNull(versionSearchRepositoryError, transitiveVersionRepositoryError) + vulnerabilityScanErrors
+
+        /**
          * Blendet die qualifizierten Fehlermeldungen fehlgeschlagener API-Aufrufe (OSV.dev, Sonatype
          * OSS Index oder ein Maven-Repository) als rotes, schließbares [InlineBanner] direkt oberhalb
          * der Tabelle ein und entfernt es wieder, sobald keine Meldung mehr vorliegt.
@@ -1472,56 +1490,51 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * Repository- und Scan-Fehler werden getrennt vorgehalten und hier zusammengeführt, sodass
          * ein erfolgreicher Teilvorgang stets nur seine eigene Meldung zurücknimmt. Die
          * **Open Settings**-Aktion wird nur angeboten, wenn ausschließlich ein fehlendes oder
-         * abgelehntes OSS-Index-Token vorliegt (siehe
-         * [de.schwarzland.mavenup.service.OssIndexScanResult.isTokenError]); bei allen anderen Fehlern
-         * (z. B. OSV.dev oder ein Repository) gibt es keine über die Einstellungen konfigurierbare
-         * URI, sodass ein Sprung in die Einstellungen keinen Sinn ergibt.
+         * abgelehntes OSS-Index-Token vorliegt (siehe [ApiError.isTokenError]); bei allen anderen
+         * Fehlern (z. B. OSV.dev oder ein Repository) gibt es keine über die Einstellungen
+         * konfigurierbare URI, sodass ein Sprung in die Einstellungen keinen Sinn ergibt.
          */
         private fun refreshApiErrorBanner() {
-            val messages = listOfNotNull(repositoryApiErrorMessage) + vulnerabilityScanErrorMessages
-            val bannerMessage = formatApiErrorBannerMessage(messages)
-            if (bannerMessage == null) {
-                hideVulnerabilityApiError()
-                return
-            }
+            hideApiErrorBanner()
+            val errors = currentApiErrors()
+            val bannerMessage = formatApiErrorBannerMessage(errors.map(::apiErrorMessage)) ?: return
 
-            hideVulnerabilityApiError()
             val newBanner = InlineBanner(bannerMessage, EditorNotificationPanel.Status.Error)
                 .showCloseButton(true)
                 .setCloseAction { clearApiErrors() }
-            if (repositoryApiErrorMessage == null && vulnerabilityScanTokenErrorOnly) {
+            if (errors.all { it.isTokenError }) {
                 newBanner.addAction(MyMessageBundle.message("vulnerability.api.error.openSettings")) {
                     openVulnerabilityCheckSettings()
                     clearApiErrors()
                 }
             }
-            vulnerabilityApiErrorBanner = newBanner
-            vulnerabilityApiErrorPanel.add(newBanner, BorderLayout.CENTER)
-            vulnerabilityApiErrorPanel.revalidate()
-            vulnerabilityApiErrorPanel.repaint()
+            apiErrorBanner = newBanner
+            apiErrorPanel.add(newBanner, BorderLayout.CENTER)
+            apiErrorPanel.revalidate()
+            apiErrorPanel.repaint()
         }
 
         /**
-         * Verwirft alle gemerkten API-Fehlermeldungen und entfernt das Banner. Wird beim manuellen
-         * Schließen des Banners genutzt, damit ein späteres [refreshApiErrorBanner] die vom Anwender
+         * Verwirft alle gemerkten API-Fehler und entfernt das Banner. Wird beim manuellen Schließen
+         * des Banners genutzt, damit ein späteres [refreshApiErrorBanner] die vom Anwender
          * weggeklickten Meldungen nicht erneut einblendet.
          */
         private fun clearApiErrors() {
-            repositoryApiErrorMessage = null
-            vulnerabilityScanErrorMessages = emptyList()
-            vulnerabilityScanTokenErrorOnly = false
-            hideVulnerabilityApiError()
+            versionSearchRepositoryError = null
+            transitiveVersionRepositoryError = null
+            vulnerabilityScanErrors = emptyList()
+            hideApiErrorBanner()
         }
 
         /**
-         * Entfernt den Vulnerability-API-Fehlerhinweis aus dem Tab **Dependencies**, sofern einer angezeigt wird.
+         * Entfernt den API-Fehlerhinweis aus dem Tab **Dependencies**, sofern einer angezeigt wird.
          */
-        private fun hideVulnerabilityApiError() {
-            val banner = vulnerabilityApiErrorBanner ?: return
-            vulnerabilityApiErrorBanner = null
-            vulnerabilityApiErrorPanel.remove(banner)
-            vulnerabilityApiErrorPanel.revalidate()
-            vulnerabilityApiErrorPanel.repaint()
+        private fun hideApiErrorBanner() {
+            val banner = apiErrorBanner ?: return
+            apiErrorBanner = null
+            apiErrorPanel.remove(banner)
+            apiErrorPanel.revalidate()
+            apiErrorPanel.repaint()
         }
 
         /**
@@ -2769,10 +2782,11 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     val dependencies = scanTargets.dependencies
                     LOG.info("Starting vulnerability check for ${dependencies.size} dependencies/plugins.")
 
-                    var osvErrorMessage: String? = null
-                    val osvResults = vulnerabilityApiService.fetchVulnerabilityAdvisories(dependencies.toList(), indicator) { message ->
-                        if (osvErrorMessage == null) osvErrorMessage = message
-                    }
+                    val osvError = AtomicReference<ApiError?>()
+                    val osvResults = vulnerabilityApiService.fetchVulnerabilityAdvisories(
+                        dependencies.toList(),
+                        indicator
+                    ) { error -> osvError.compareAndSet(null, error) }
                     val ossIndexScan = vulnerabilityScanService.resolveOssIndexResults(dependencies.toList(), indicator)
                     val results = VulnerabilityMerger.merge(osvResults, ossIndexScan.advisories)
                     val vulnerableEntries = results.values.count { it.isNotEmpty() }
@@ -2793,12 +2807,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
                                 transitiveCurrentVersions[key].orEmpty()
                             )
                         }
-                        val errorMessages = listOfNotNull(osvErrorMessage, ossIndexScan.errorMessage)
-                        lastVulnerabilityScanHadError = errorMessages.isNotEmpty()
-                        vulnerabilityScanErrorMessages = errorMessages
-                        // Der Settings-Link ergibt nur Sinn, wenn ausschließlich ein
-                        // Token-Fehler des (konfigurierbaren) OSS-Index-Tokens vorliegt.
-                        vulnerabilityScanTokenErrorOnly = osvErrorMessage == null && ossIndexScan.isTokenError
+                        vulnerabilityScanErrors = listOfNotNull(osvError.get(), ossIndexScan.error)
+                        transitiveVersionRepositoryError = reportedRepositoryApiError.get()
                         applyVulnerabilityResults(results, scanTargets)
                         refreshApiErrorBanner()
                         onFinished()
@@ -2824,6 +2834,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             results: Map<String, List<VulnerabilityAdvisory>>,
             indicator: ProgressIndicator
         ): Map<String, List<String>> {
+            reportedRepositoryApiError.set(null)
             val coordinates = scanTargets.transitiveCoordinates
                 .filter { results[it]?.isNotEmpty() == true }
                 .mapNotNull { coordinate ->
@@ -2866,7 +2877,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 true
             ) {
                 override fun run(indicator: ProgressIndicator) {
-                    dependencyRepositoryApiErrorMessage = null
+                    reportedRepositoryApiError.set(null)
                     val result = dependencyVersionService.searchVersions(
                         knownDependencies,
                         dependencyToProperty,
@@ -2877,7 +2888,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         availableVersions.putAll(result.availableVersions)
                         rawAvailableVersions.putAll(result.rawVersions)
                         selectedVersions.putAll(result.selectedVersions)
-                        repositoryApiErrorMessage = dependencyRepositoryApiErrorMessage
+                        versionSearchRepositoryError = reportedRepositoryApiError.get()
                         refreshApiErrorBanner()
                         onFinished()
                     }

@@ -2,7 +2,9 @@ package de.schwarzland.mavenup.service
 
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
-import de.schwarzland.mavenup.ui.MyMessageBundle
+import de.schwarzland.mavenup.model.ApiError
+import de.schwarzland.mavenup.model.ApiErrorCause
+import de.schwarzland.mavenup.model.ApiErrorSource
 import org.apache.maven.artifact.versioning.ComparableVersion
 import org.jetbrains.idea.maven.project.MavenProjectsManager
 import java.io.File
@@ -567,12 +569,14 @@ class DependencyApiService(private val project: Project) {
      *
      * @param groupId Die GroupId des Artefakts.
      * @param artifactId Die ArtifactId des Artefakts.
+     * @param onError Callback für einen strukturiert beschriebenen Repository-Fehler, der nur gemeldet
+     *   wird, wenn über kein konfiguriertes Repository eine Version ermittelt werden konnte.
      * @return Alle gefundenen Versionen, absteigend sortiert und mit der neuesten Version zuerst.
      */
     fun fetchAllVersions(
         groupId: String,
         artifactId: String,
-        onError: ((String) -> Unit)? = null
+        onError: ((ApiError) -> Unit)? = null
     ): List<String> {
         val settings = MavenUpSettings.getInstance().state
         val repositoryInfos = excludeCentralForPrivateGroupId(getMavenRepositoryInfos(), groupId)
@@ -583,12 +587,13 @@ class DependencyApiService(private val project: Project) {
         ) { repoInfo ->
             fetchVersionsFromRepository(repoInfo, groupId, artifactId, NO_VERSION_FLOOR, serverCredentials)
         }
-        if (collected.versions.isEmpty() && collected.errorReason != null) {
+        val errorReason = collected.errorReason
+        if (collected.versions.isEmpty() && errorReason != null) {
             onError?.invoke(
-                MyMessageBundle.message(
-                    "dependency.repository.requestFailed",
-                    collected.errorRepositoryLabel ?: CENTRAL_REPOSITORY_URL,
-                    collected.errorReason
+                ApiError(
+                    ApiErrorSource.REPOSITORY,
+                    ApiErrorCause.Failure(errorReason),
+                    collected.errorRepositoryLabel ?: CENTRAL_REPOSITORY_URL
                 )
             )
         }
@@ -621,12 +626,18 @@ class DependencyApiService(private val project: Project) {
      *
      * Entspricht [fetchAllVersions] mit anschließend angewendeten Einstellungen
      * (siehe [applyVersionSettings]).
+     *
+     * @param groupId Die GroupId des Artefakts.
+     * @param artifactId Die ArtifactId des Artefakts.
+     * @param currentVersion Die aktuell deklarierte Version.
+     * @param onError Callback für einen strukturiert beschriebenen Repository-Fehler.
+     * @return Die gefilterten Versionen in Anzeigereihenfolge.
      */
     fun fetchVersions(
         groupId: String,
         artifactId: String,
         currentVersion: String,
-        onError: ((String) -> Unit)? = null
+        onError: ((ApiError) -> Unit)? = null
     ): List<String> =
         applyVersionSettings(fetchAllVersions(groupId, artifactId, onError), currentVersion)
 

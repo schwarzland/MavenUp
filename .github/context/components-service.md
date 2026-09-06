@@ -59,8 +59,10 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   Sowohl die Batch-Abfrage (`fetchVulnerabilityAdvisoriesForChunk`/`handleFailedChunkResponse`) als auch die
   Detailabfrage einzelner Schwachstellen (`fetchAdvisoryJson`/`fetchAdvisoryDetails`) melden einen fehlgeschlagenen
   Request (nicht-2xx-Antwort oder Netzwerk-/Exception-Fehler, z. B. ein unauflösbarer Host durch eine falsch
-  konfigurierte URI) über einen durchgereichten `onError`-Callback, damit auch ein Fehler bei der
-  Detailanreicherung als rotes Banner sichtbar wird statt still verworfen zu werden.
+  konfigurierte URI) über einen durchgereichten `onError`-Callback als strukturierten `ApiError`
+  (Quelle `OSV`, Ursache `HttpStatus`/`Failure`), damit auch ein Fehler bei der Detailanreicherung als
+  rotes Banner sichtbar wird statt still verworfen zu werden; die Formulierung des Anzeigetexts bleibt
+  der UI überlassen (`ui/ApiErrorMessages.kt`).
 - **LogSummary**: Hilfsfunktion `summarizeForDebugLog`, die lange String-Listen (z. B. Versionslisten)
   für Debug-Logs auf maximal zehn Einträge kürzt und die Anzahl ausgelassener Elemente anhängt.
 - **DependencyApiService**: Liest Maven-Repository-Infos und Server-Credentials aus `settings.xml`,
@@ -78,7 +80,8 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   `collectVersionsFromRepositories` erfasst über die private Hilfsklasse `RepositoryVersionsAccumulator`
   den ersten echten Fehler (5xx, Netzwerk-/Exception-Fehler, z. B. eine falsch konfigurierte URI) eines
   beliebigen abgefragten Repositories – nicht nur von Maven Central – inklusive dessen Bezeichnung
-  (`errorReason`/`errorRepositoryLabel` in `CollectedVersions`); `fetchAllVersions` löst `onError` aus,
+  (`errorReason`/`errorRepositoryLabel` in `CollectedVersions`); `fetchAllVersions` löst `onError` mit
+  einem `ApiError` (Quelle `REPOSITORY`, Ursache `Failure`, Bezeichnung des Repositories) aus,
   sobald keine Version von irgendeinem Repository ermittelt werden konnte und ein solcher Fehler vorliegt.
   `isPrivateGroupId` prüft eine GroupId gegen die Einstellung `privateGroupIds` (exakter Präfix oder
   `<Präfix>.`); `excludeCentralForPrivateGroupId` entfernt Maven Central aus der Repository-Liste, wenn die
@@ -90,6 +93,12 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   (z. B. 5xx) für eine qualifizierte Fehlermeldung.
 
 ## Sicherheitsdatenmodell (`model`)
+- **ApiError / ApiErrorSource / ApiErrorCause**: strukturierte Beschreibung eines fehlgeschlagenen
+  Aufrufs eines externen Dienstes – Quelle (`OSV`, `OSS_INDEX`, `REPOSITORY`), Ursache (`HttpStatus`,
+  `Failure`, `MissingToken`, `RejectedToken`) und bei Repository-Fehlern die Bezeichnung des
+  Repositories. `isTokenError` zeigt an, ob der Fehler über die Einstellungen behebbar ist. Die
+  Services melden ausschließlich diese Struktur; die Übersetzung in Anzeigetexte übernimmt
+  `ui/ApiErrorMessages.kt`.
 - **MavenUpBadgeState**: Enum mit den Badge-Zuständen des Tool-Window-Icons (`NONE`, `UPDATES`,
   `VULNERABILITIES`, `SEVERE_VULNERABILITIES`).
 - **VulnerabilityMerger / VulnerabilityAdvisory**: normalisiertes Security-Datenmodell und
@@ -124,11 +133,12 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   (`collectVulnerabilityScanTargets`, `collectResolvedDependencyRelations`) und kapselt die
   OSS-Index-Abfrage (`resolveOssIndexResults`, Ergebnis `OssIndexScanResult`). Zugangsdaten
   (`OssIndexCredentialStore`) und die OSS-Abfrage sind für Tests per Konstruktor injizierbar.
-  `resolveOssIndexResults` übersetzt einen fehlgeschlagenen OSS-Index-Request in eine qualifizierte
-  Fehlermeldung (`vulnerability.ossIndex.requestFailed.http` bei HTTP-Fehlern via `OssIndexRequestException`,
-  `vulnerability.ossIndex.requestFailed.exception` bei Netzwerk-/Exception-Fehlern, z. B. ein unauflösbarer
-  Host durch eine falsch konfigurierte URI), statt die rohe technische `exception.message` (nur der Hostname)
-  als Banner anzuzeigen.
+  `resolveOssIndexResults` übersetzt einen fehlgeschlagenen OSS-Index-Request in einen strukturierten
+  `ApiError` (Quelle `OSS_INDEX`): `MissingToken` bei fehlendem Token, `RejectedToken` bei
+  `OssIndexAuthenticationException`, `HttpStatus` bei `OssIndexRequestException` und `Failure` bei
+  Netzwerk-/Exception-Fehlern (z. B. ein unauflösbarer Host durch eine falsch konfigurierte URI). Das
+  Feld `OssIndexScanResult.error` ersetzt die frühere Kombination aus `errorMessage`/`isTokenError`;
+  ob der Fehler über die Einstellungen behebbar ist, liefert `ApiError.isTokenError`.
   Die reine Farbzuordnung `vulnerabilityColor` liegt als Top-Level-Helfer in `VulnerabilityCellModel`.
 - **DependencyVersionService**: fragt über `searchVersions` die verfügbaren Versionen aller
   Dependencies/Plugins ab (inkl. PSI-Erfassung verwalteter Einträge und Property-Schnittmengen)

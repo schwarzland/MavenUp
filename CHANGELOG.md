@@ -32,6 +32,7 @@
 - Extended that closable red banner to also report a failed OSV.dev request (non-2xx HTTP response or a network/exception error) with a qualified message and the same **Open Settings** action, instead of silently returning no results; failures from OSV.dev and Sonatype OSS Index are combined into a single banner and it is hidden again once a subsequent scan completes without errors.
 - Extended the same closable red banner to also cover a total outage of Maven Central during the version search: if Maven Central fails with a real error (e.g. a 5xx response or a network/exception failure, as opposed to a normal 404 for an artifact that simply doesn't exist there) and no version could be determined from any configured repository, a qualified message including the underlying error is shown above the dependency table with the same **Open Settings** action.
 - Limited the **Open Settings** action of that banner to the case where the message is exclusively a Sonatype OSS Index token error (missing or rejected token); a non-token OSS Index error, an OSV.dev failure, or a Maven Central outage no longer show that action, since none of those requests use a configurable URI that Settings could fix.
+- Moved the wording of API error messages out of the service layer: `DependencyApiService`, `VulnerabilityApiService`, and `VulnerabilityScanService` report a structured `ApiError` (source, cause, affected repository) that the UI translates into the displayed text.
 
 ### Fixed
 
@@ -43,6 +44,8 @@
 - Fixed the red error banner for a total outage of the version search so it also covers a real error (e.g. a 5xx response, an unresolvable host from a misconfigured URI, or another network/exception failure) of any configured repository, not only Maven Central; previously, a failing private or custom repository (for example one with a wrong URI) never surfaced a banner even though no version could be determined.
 - Fixed the red error banner of a failed repository request staying visible after a subsequent successful version search, and made a successful version search and a successful vulnerability scan each withdraw only their own message instead of the whole banner.
 - Fixed two combined error messages being rendered as a single run-on line in the red error banner, which uses an HTML-based component where a plain line feed produces no line break; messages are now separated by a line break, deduplicated, and escaped so technical details survive unaltered.
+- Fixed a failed repository request during the automatic version lookup for vulnerable transitive dependencies (which runs right after a vulnerability scan) being discarded without ever reaching the red error banner.
+- Fixed the first reported repository error being collected in a plain field that is written on a background thread and read on the UI thread; it is now held in an `AtomicReference`, which makes the hand-off visible across threads and applies "first error wins" atomically.
 
 ## 3.1.0
 

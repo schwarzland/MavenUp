@@ -26,6 +26,9 @@ Beschreibt die zustandslosen Hilfsdateien und die I18n-Anbindung in
     qualifizierten API-Fehlermeldungen für das rote `InlineBanner` zusammen: leere Meldungen und Dubletten
     werden verworfen, mehrere Meldungen mit `<br>` getrennt und einzeln HTML-maskiert, da das Banner den
     Text in einer `text/html`-Komponente darstellt.
+  - `ApiErrorMessages.kt`: `apiErrorMessage` – übersetzt einen `ApiError` der Service-Schicht anhand von
+    Quelle und Ursache in den angezeigten Bundle-Text (OSV.dev, OSS Index, Repository), sodass die Services
+    selbst keine Oberflächentexte formulieren.
   - `VersionStatusUi.kt`: `VersionUpdateArrowIcon`, `isVersionUpToDate`, `hasNewerVersion`,
     `versionStatusText`/`versionStatusColor`/`versionStatusTooltip`, `versionDropdownItemDisplay`
     (liefert Anzeigetext und Fettschrift-Status in einem Durchgang), `versionDropdownItemText`
