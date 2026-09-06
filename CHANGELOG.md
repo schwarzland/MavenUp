@@ -37,6 +37,7 @@
 
 - Fixed the order of the MavenUp sub-pages in the settings tree, which the platform sorted alphabetically (**Pom.xml Changes** first) instead of following the workflow order shown by the quick links.
 - Fixed detekt findings (`LongMethod`, `NestedBlockDepth`, `MaxLineLength`) by extracting helper functions in `MavenUpWindowFactory` and `VulnerabilityApiService` and wrapping an overlong KDoc line.
+- Fixed the red error banner for a total outage of the version search so it also covers a real error (e.g. a 5xx response, an unresolvable host from a misconfigured URI, or another network/exception failure) of any configured repository, not only Maven Central; previously, a failing private or custom repository (for example one with a wrong URI) never surfaced a banner even though no version could be determined.
 
 ## 3.1.0
 

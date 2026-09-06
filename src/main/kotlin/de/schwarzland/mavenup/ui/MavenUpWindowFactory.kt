@@ -149,21 +149,26 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private val dependencyVersionService = DependencyVersionService(
             project,
             fetchAllVersions = { groupId, artifactId ->
-                dependencyApiService.fetchAllVersions(groupId, artifactId, onError = ::reportCentralApiError)
+                dependencyApiService.fetchAllVersions(groupId, artifactId, onError = ::reportDependencyRepositoryApiError)
             }
         )
 
-        /** Erste, während des laufenden Refreshs gemeldete Fehlermeldung eines fehlgeschlagenen Maven-Central-Aufrufs, oder `null`. */
-        private var centralApiErrorMessage: String? = null
+        /**
+         * Erste, während des laufenden Refreshs gemeldete Fehlermeldung eines fehlgeschlagenen
+         * Repository-Aufrufs (Maven Central oder ein beliebiges konfiguriertes Repository), oder `null`.
+         */
+        private var dependencyRepositoryApiErrorMessage: String? = null
 
         /**
-         * Merkt sich die erste qualifizierte Fehlermeldung eines Totalausfalls von Maven Central
+         * Merkt sich die erste qualifizierte Fehlermeldung eines Totalausfalls der Versionssuche
          * (siehe [DependencyApiService.fetchAllVersions]) während des laufenden Refreshs vor, damit
          * sie im Anschluss über [showVulnerabilityApiError] als rotes Banner angezeigt werden kann.
+         * Dies betrifft nicht nur Maven Central, sondern jedes konfigurierte Repository (z. B. auch
+         * eine falsch konfigurierte URI eines privaten Repositories).
          */
-        private fun reportCentralApiError(message: String) {
-            if (centralApiErrorMessage == null) {
-                centralApiErrorMessage = message
+        private fun reportDependencyRepositoryApiError(message: String) {
+            if (dependencyRepositoryApiErrorMessage == null) {
+                dependencyRepositoryApiErrorMessage = message
             }
         }
 
@@ -2810,7 +2815,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 true
             ) {
                 override fun run(indicator: ProgressIndicator) {
-                    centralApiErrorMessage = null
+                    dependencyRepositoryApiErrorMessage = null
                     val result = dependencyVersionService.searchVersions(
                         knownDependencies,
                         dependencyToProperty,
@@ -2821,7 +2826,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         availableVersions.putAll(result.availableVersions)
                         rawAvailableVersions.putAll(result.rawVersions)
                         selectedVersions.putAll(result.selectedVersions)
-                        centralApiErrorMessage?.let(::showVulnerabilityApiError)
+                        dependencyRepositoryApiErrorMessage?.let(::showVulnerabilityApiError)
                         onFinished()
                     }
                 }

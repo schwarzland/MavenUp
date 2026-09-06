@@ -70,6 +70,11 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   Die neueste Version wird über `extractNewestFromMetadata` aus den `<release>`/`<latest>`-Feldern bestimmt
   (Central bevorzugt) und via `orderWithNewestFirst` an den Listenanfang gestellt; Rückgabetypen sind
   `RepositoryVersions` (pro Repository) und `CollectedVersions` (aggregiert).
+  `collectVersionsFromRepositories` erfasst über die private Hilfsklasse `RepositoryVersionsAccumulator`
+  den ersten echten Fehler (5xx, Netzwerk-/Exception-Fehler, z. B. eine falsch konfigurierte URI) eines
+  beliebigen abgefragten Repositories – nicht nur von Maven Central – inklusive dessen Bezeichnung
+  (`errorReason`/`errorRepositoryLabel` in `CollectedVersions`); `fetchAllVersions` löst `onError` aus,
+  sobald keine Version von irgendeinem Repository ermittelt werden konnte und ein solcher Fehler vorliegt.
   `isPrivateGroupId` prüft eine GroupId gegen die Einstellung `privateGroupIds` (exakter Präfix oder
   `<Präfix>.`); `excludeCentralForPrivateGroupId` entfernt Maven Central aus der Repository-Liste, wenn die
   GroupId privat ist, sodass `fetchAllVersions` für private GroupIds keine Koordinaten an
