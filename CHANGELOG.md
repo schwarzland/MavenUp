@@ -20,6 +20,7 @@
 
 ### Changed
 
+- Declared the pinned jsoup and Jackson versions of the settings buildscript classpath as explicit `classpath` dependencies in addition to the existing `resolutionStrategy.force(...)`, so dependency scanners and Dependabot see the patched version instead of the vulnerable transitive one.
 - Restructured the plugin settings into a settings tree following the IntelliJ UI guidelines: the **MavenUp** root page keeps appearance and behavior, while **Versions and Updates**, **Vulnerability Check**, and **Pom.xml Changes** became sub-pages, so no page requires scrolling.
 - Grouped the **Versions and Updates** page into *Version Lookup*, *Privacy*, and *Version Selection* so the settings follow the order in which they take effect.
 - Replaced the tooltips of the settings options with explanatory comments below each control and shortened the option labels accordingly.
