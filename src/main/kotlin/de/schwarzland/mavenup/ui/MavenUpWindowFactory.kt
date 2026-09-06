@@ -246,6 +246,15 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * abgeschlossen wurde. Steuert die Aktivierung des Vulnerabilities-Filters.
          */
         private var vulnerabilityScanPerformed = false
+
+        /**
+         * `true`, wenn der letzte Vulnerability-Scan einen qualifizierten API-Fehler gemeldet hat
+         * (OSV.dev oder Sonatype OSS Index, siehe [showVulnerabilityApiError]).
+         *
+         * Unterdrückt den Erfolgshinweis „keine Sicherheitslücken gefunden" (siehe [updateScanHint]),
+         * da `0` Befunde nach einem fehlgeschlagenen Scan keine verlässliche Aussage ist.
+         */
+        private var lastVulnerabilityScanHadError = false
         private var isUpdating = false
         private var isRefreshing = false
 
@@ -736,6 +745,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     rawTransitiveAvailableVersions.clear()
                     transitiveCurrentVersions.clear()
                     vulnerabilityScanPerformed = false
+                    lastVulnerabilityScanHadError = false
                     lastScannedCount = 0
                     hideScanHint()
                     hideVulnerabilityApiError()
@@ -1394,7 +1404,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
             val visible = isNoVulnerabilitiesHintVisible(
                 vulnerabilityScanPerformed,
                 directVulnerabilityCount(),
-                transitiveVulnerabilityCount()
+                transitiveVulnerabilityCount(),
+                lastVulnerabilityScanHadError
             )
             if (!visible) {
                 hideScanHint()
@@ -2738,10 +2749,11 @@ class MavenUpWindowFactory : ToolWindowFactory {
                                 transitiveCurrentVersions[key].orEmpty()
                             )
                         }
-                        applyVulnerabilityResults(results, scanTargets)
                         val combinedErrorMessage = listOfNotNull(osvErrorMessage, ossIndexScan.errorMessage)
                             .joinToString("\n")
                             .ifBlank { null }
+                        lastVulnerabilityScanHadError = combinedErrorMessage != null
+                        applyVulnerabilityResults(results, scanTargets)
                         if (combinedErrorMessage != null) {
                             // Der Settings-Link ergibt nur Sinn, wenn ausschließlich ein
                             // Token-Fehler des (konfigurierbaren) OSS-Index-Tokens vorliegt.

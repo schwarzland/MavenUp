@@ -37,6 +37,8 @@
 
 - Fixed the order of the MavenUp sub-pages in the settings tree, which the platform sorted alphabetically (**Pom.xml Changes** first) instead of following the workflow order shown by the quick links.
 - Fixed detekt findings (`LongMethod`, `NestedBlockDepth`, `MaxLineLength`) by extracting helper functions in `MavenUpWindowFactory` and `VulnerabilityApiService` and wrapping an overlong KDoc line.
+- Fixed a failed OSV.dev advisory detail lookup (e.g. an unresolvable host from a misconfigured URI, or any other network/exception or non-2xx HTTP failure) not showing the red error banner at all, because `VulnerabilityApiService.fetchAdvisoryJson`/`fetchAdvisoryDetails` silently discarded such errors instead of reporting them like the batch query already did.
+- Fixed the closable green "no vulnerabilities found" success banner incorrectly appearing together with the red error banner when a vulnerability scan failed entirely (e.g. OSV.dev unreachable) and therefore produced zero findings; the success banner is now suppressed whenever the last scan reported a qualified API error.
 - Fixed the red error banner for a total outage of the version search so it also covers a real error (e.g. a 5xx response, an unresolvable host from a misconfigured URI, or another network/exception failure) of any configured repository, not only Maven Central; previously, a failing private or custom repository (for example one with a wrong URI) never surfaced a banner even though no version could be determined.
 
 ## 3.1.0

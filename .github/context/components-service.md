@@ -56,6 +56,11 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   einmischen; die Detailanreicherung lädt das Roh-JSON je ID einmal (`fetchAdvisoryJson`) und wertet es je
   Koordinate aus. Umfangreiche Komponenten- und Versionslisten werden nur gekürzt auf
   DEBUG-Ebene protokolliert, um starkes Wachstum der von der IDE überwachten `idea.log` zu vermeiden.
+  Sowohl die Batch-Abfrage (`fetchVulnerabilityAdvisoriesForChunk`/`handleFailedChunkResponse`) als auch die
+  Detailabfrage einzelner Schwachstellen (`fetchAdvisoryJson`/`fetchAdvisoryDetails`) melden einen fehlgeschlagenen
+  Request (nicht-2xx-Antwort oder Netzwerk-/Exception-Fehler, z. B. ein unauflösbarer Host durch eine falsch
+  konfigurierte URI) über einen durchgereichten `onError`-Callback, damit auch ein Fehler bei der
+  Detailanreicherung als rotes Banner sichtbar wird statt still verworfen zu werden.
 - **LogSummary**: Hilfsfunktion `summarizeForDebugLog`, die lange String-Listen (z. B. Versionslisten)
   für Debug-Logs auf maximal zehn Einträge kürzt und die Anzahl ausgelassener Elemente anhängt.
 - **DependencyApiService**: Liest Maven-Repository-Infos und Server-Credentials aus `settings.xml`,

@@ -87,4 +87,20 @@ class TransitiveEmptyStateTest {
     fun `hint appears for a scan without findings`() {
         assertTrue(isNoVulnerabilitiesHintVisible(scanPerformed = true, directFindings = 0, transitiveFindings = 0))
     }
+
+    /**
+     * Ein qualifizierter API-Fehler (z. B. OSV.dev nicht erreichbar) unterdrückt den Erfolgshinweis,
+     * auch wenn der Scan mangels Ergebnissen keine Befunde liefern konnte.
+     */
+    @Test
+    fun `hint stays hidden after a failed scan without findings`() {
+        assertFalse(
+            isNoVulnerabilitiesHintVisible(
+                scanPerformed = true,
+                directFindings = 0,
+                transitiveFindings = 0,
+                lastScanHadError = true
+            )
+        )
+    }
 }
