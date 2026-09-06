@@ -1,6 +1,6 @@
 ---
 name: release-doc-check
-description: Prüft im Release-Branch die Release-Dokumentation (CHANGELOG.md, FEATURES.md, README.md, getting_started.html, plugin.xml <description>, Dateien unter docs/) auf Vollständigkeit gegen das letzte Release und gleicht die Version in gradle.properties mit dem CHANGELOG ab. Läuft ausschließlich auf einem Release-Branch – auf main oder feature/** bricht er ab.
+description: Prüft im Release-Branch die Release-Dokumentation (CHANGELOG.md, FEATURES.md, README.md, AGENTS.md, getting_started.html, plugin.xml <description>, Dateien unter docs/ und .github/context/) auf Vollständigkeit gegen das letzte Release, validiert Links, Einstellungen, Endpunkte, Lizenzen und Workflows und gleicht die Version in gradle.properties mit dem CHANGELOG und dem Branchnamen ab. Läuft ausschließlich auf einem Release-Branch – auf main oder feature/** bricht er ab.
 tools: ['edit', 'view', 'create', 'grep', 'glob', 'powershell']
 ---
 
@@ -110,14 +110,22 @@ Halte dich an die verbindlichen Regeln aus `.github/copilot-instructions.md`.
 - `README.md` ist eine schlanke Landing Page; die Detailinhalte liegen ausschließlich in den
   `docs/`-Dateien. Prüfe daher jede thematisch betroffene Datei einzeln:
   - `docs/usage.md`: Bedienung des Tool-Windows, Filter, Aktionen, Kontextmenü, Navigation.
-  - `docs/configuration.md`: **alle** Einstellungen – jede neue oder geänderte Einstellung muss hier stehen.
-  - `docs/privacy-and-security.md`: übertragene Daten und externe Endpunkte.
+  - `docs/configuration.md`: **alle** Einstellungen – gleiche die Felder von `MavenUpSettings.State`
+    mechanisch gegen diese Datei ab; jedes Feld muss dort (sowie in
+    `docs/features/settings-and-configuration.md` und in der Komponentenbeschreibung von
+    **MavenUpSettings** in `.github/context/components-service.md`) namentlich beschrieben sein.
+  - `docs/privacy-and-security.md`: übertragene Daten und externe Endpunkte – suche alle im Code
+    (`src/main/kotlin/`) verwendeten URLs bzw. Hosts und prüfe, ob jeder Endpunkt hier aufgeführt
+    ist; entferne Endpunkte, die es im Code nicht mehr gibt.
   - `docs/architecture.md`: Paketstruktur, Komponenten und deren Aufgaben.
   - `docs/development.md`: Tests, Codequalität, Gradle-Proxy-Konfiguration, Troubleshooting.
-  - `docs/release-and-ci.md`: Branching, GitHub-Actions-Workflows, Dependabot, Publishing.
+  - `docs/release-and-ci.md`: Branching, GitHub-Actions-Workflows, Dependabot, Publishing – gleiche
+    die Liste gegen die tatsächlich vorhandenen Dateien unter `.github/workflows/` ab: jeder Workflow
+    muss beschrieben sein, und es darf keine Beschreibung ohne zugehörige Datei geben.
   - `docs/licenses.md`: eingebettete Drittanbieter-Bibliotheken mit Name, Version, Lizenz (inkl. Link)
-    und Verwendungszweck – prüfe gegen `build.gradle.kts`, ob Abhängigkeiten hinzugekommen,
-    aktualisiert oder entfernt wurden.
+    und Verwendungszweck – prüfe gegen `build.gradle.kts` **und** den Version Catalog
+    `gradle/libs.versions.toml` (dort stehen die Versionsnummern), ob Abhängigkeiten im
+    `implementation`-Scope hinzugekommen, aktualisiert oder entfernt wurden.
   - `docs/features/`: die Feature-Beschreibungen je Bereich – siehe Abschnitt 2.
 - Ergänze fehlende Inhalte, aktualisiere geänderte Beschreibungen, entferne veraltete Abschnitte
   und veraltete Formulierungen (z. B. „now", „new").
@@ -140,11 +148,62 @@ Halte dich an die verbindlichen Regeln aus `.github/copilot-instructions.md`.
   und melde eine Abweichung.
 - Melde die Korrektur explizit in der Zusammenfassung.
 
+### 8. Link- und Verweisprüfung
+- Löse **alle** relativen Links in `README.md`, `FEATURES.md`, `AGENTS.md` und den Dateien unter
+  `docs/` sowie `.github/` auf und prüfe, ob die Zieldatei bzw. das Zielverzeichnis existiert.
+- Prüfe ebenso referenzierte Bilder und Screenshots auf Existenz.
+- Entferne oder korrigiere tote Links; ergänze fehlende Verweise auf neu angelegte Dateien.
+- Prüfe umgekehrt, ob jede Datei unter `docs/` von mindestens einer Stelle aus verlinkt ist
+  (`README.md` bzw. `FEATURES.md`) – verwaiste Dateien meldest du.
+
+### 9. Versions- und Tag-Konsistenz
+- Prüfe mit `git tag --list <version>`, dass für die Release-Version **noch kein** Tag existiert.
+- Prüfe, dass die Release-Version nach SemVer **größer** ist als das letzte Release
+  (`git describe --tags --abbrev=0`) und dass keine Versionsnummer übersprungen oder
+  doppelt vergeben wurde.
+- Melde Abweichungen; lege **keine** Tags an.
+
+### 10. CHANGELOG-Parsebarkeit für die Release-Notes
+- Aus dem obersten CHANGELOG-Block erzeugt das Gradle-Plugin `org.jetbrains.changelog` die
+  `change-notes` des Plugins und die Notes des Draft Release. Prüfe daher:
+  - Die Überschrift des obersten Blocks entspricht dem im Repository verwendeten Schema
+    (`## x.y.z`) und ist damit parsebar.
+  - Es existiert **kein** leerer `### Added`-, `### Changed`- oder `### Fixed`-Block; leere
+    Kategorien werden entfernt.
+  - Es verbleiben keine Platzhalter- oder Link-Referenzen des `[Unreleased]`-Blocks.
+
+### 11. Kompatibilitätsangaben
+- Gleiche die in `build.gradle.kts` konfigurierte Plattformversion (`intellijIdea("…")`) sowie
+  eine eventuelle `<idea-version>`-Angabe in `src/main/resources/META-INF/plugin.xml` mit den
+  in `README.md`, `docs/development.md` und `docs/release-and-ci.md` genannten
+  IDE-Versionsanforderungen ab.
+- Korrigiere abweichende Angaben in der Dokumentation – **nicht** in der Build-Konfiguration.
+
+### 12. Internationalisierung (nur melden)
+- Prüfe `src/main/resources/messages/MyMessageBundle.properties` auf Schlüssel, die im Code
+  nicht mehr verwendet werden (verwaist), und auf im Code referenzierte Schlüssel, die im
+  Bundle fehlen.
+- Diese Datei gehört zum Produktivcode: **nimm hier keine Änderungen vor**, sondern melde die
+  Befunde in der Zusammenfassung.
+
+### 13. Kontextdateien unter `.github/`
+- Gleiche `.github/copilot-project-context.md` und die Dateien unter `.github/context/`
+  (`components-ui.md`, `components-ui-toolwindow.md`, `components-ui-dialogs.md`,
+  `components-service.md`) mit den tatsächlich vorhandenen Klassen unter `src/main/kotlin/` ab.
+- Ergänze seit dem letzten Release hinzugekommene Klassen in der thematisch passenden Datei,
+  aktualisiere umbenannte und entferne gelöschte Klassen.
+- Prüfe die Paketstruktur in der Übersichtsdatei sowie deren Verweise auf die Kontextdateien.
+- Wächst eine Kontextdatei deutlich über ~30 KB, weise auf eine nötige Aufteilung hin.
+
 ## Arbeitsweise & Grenzen
 - Nimm nur Änderungen an den oben genannten Zielartefakten vor
-  (`CHANGELOG.md`, `FEATURES.md`, `README.md`, `getting_started.html`, `plugin.xml`,
-  den Dateien unter `docs/` und `gradle.properties`).
+  (`CHANGELOG.md`, `FEATURES.md`, `README.md`, `AGENTS.md`, `getting_started.html`, `plugin.xml`,
+  den Dateien unter `docs/`, `.github/copilot-project-context.md`, den Dateien unter
+  `.github/context/` und `gradle.properties`).
+- `build.gradle.kts`, `gradle/libs.versions.toml`, die Dateien unter `.github/workflows/` und
+  `src/main/resources/messages/` werden ausschließlich **gelesen** und dienen als Abgleichsquelle.
 - Ändere **keinen** Produktivcode und **keine** Tests.
+- Lege **keine** Git-Tags an.
 - Führe **keinen** `git commit` und **kein** `git push` aus.
 - Fasse am Ende zusammen: geprüfter Branch, gefundene Lücken/Abweichungen und die
   konkret vorgenommenen Änderungen je Datei (oder „keine Änderungen nötig").
