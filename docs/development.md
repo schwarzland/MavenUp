@@ -29,6 +29,17 @@ Static analysis and test coverage are integrated via Gradle:
 
 The CI (`.github/workflows/ci.yml`) runs `build verifyPlugin detekt koverXmlReport`. In doing so, `verifyPlugin` also checks compatibility with the configured IntelliJ IDE builds and uploads the test and analysis reports as an artifact.
 
+## Build classpath dependency pinning
+
+The IntelliJ Platform Gradle Plugin pulls jsoup and Jackson transitively onto the settings buildscript classpath, and the transitive versions are reported as vulnerable. These artifacts run at build time only and are never packaged into the plugin JAR, so they do not affect users of the plugin.
+
+`settings.gradle.kts` pins them twice on purpose:
+
+- `resolutionStrategy.force(...)` guarantees the patched version wins conflict resolution.
+- An explicit `classpath("...")` declaration makes the pinned version visible to dependency scanners and to Dependabot, which do not evaluate `force(...)`.
+
+When bumping the IntelliJ Platform Gradle Plugin, verify both lists still match the version you want and drop entries whose transitive version is already patched.
+
 ## Gradle proxy configuration
 
 If access to Maven Central in a corporate network only works via a proxy, proxy settings should **not** be maintained in the project-wide `gradle.properties`.

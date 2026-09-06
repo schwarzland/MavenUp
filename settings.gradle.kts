@@ -17,6 +17,19 @@ plugins {
 }
 
 buildscript {
+    // Die IntelliJ Platform Gradle Plugin Settings-Erweiterung zieht aeltere, als verwundbar
+    // gemeldete Versionen von jsoup und Jackson transitiv auf den Settings-Buildscript-Classpath.
+    // Diese Artefakte laufen ausschliesslich zur Build-Zeit und werden nie in das Plugin-JAR
+    // gepackt. Die Versionen werden zusaetzlich explizit deklariert, damit Dependency-Scanner
+    // und Dependabot die gepinnte Version sehen - `resolutionStrategy.force` allein wird von
+    // diesen Werkzeugen nicht ausgewertet.
+    dependencies {
+        classpath("org.jsoup:jsoup:1.23.2")
+        classpath("com.fasterxml.jackson.core:jackson-core:2.22.2")
+        classpath("com.fasterxml.jackson.core:jackson-databind:2.22.2")
+        classpath("com.fasterxml.jackson.module:jackson-module-kotlin:2.22.2")
+    }
+
     configurations.classpath {
         resolutionStrategy {
             force("org.jsoup:jsoup:1.23.2")

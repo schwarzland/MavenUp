@@ -51,7 +51,8 @@ injizierte Seams/Interfaces netzwerkfrei getestet.
 ## KI-Agenten (Copilot / Junie)
 - Für KI-Agenten gelten die verbindlichen Arbeitsanweisungen in `.github/copilot-instructions.md`.
 - `AGENTS.md` im Repository-Wurzelverzeichnis ist der herstellerübergreifende Einstiegspunkt (z. B. OpenAI Codex / Codex CLI, GitHub Copilot CLI, Cursor, Aider, Jules, Zed) und verweist auf `.github/copilot-instructions.md` sowie diesen Kontext.
-- Junie nutzt zusätzlich die Datei `.junie/guidelines.md` als explizite Referenz auf diesen Kontext.
+- Junie nutzt zusätzlich die Dateien unter `.junie/` (`guidelines.md` als Regelzusammenfassung mit Verweis auf diesen Kontext, `agents/release-doc-check.md` als Verweis auf die Agentendefinition). Sie enthalten keine eigenständigen Regeln und sind bei Änderungen an den Instruktions-, Kontext- oder Agentendateien anzugleichen.
+- Spezialisierte Agentendefinitionen liegen unter `.github/agents/` (z. B. `release-doc-check.md` für die Release-Dokumentationsprüfung).
 
 ## Doku- und Prozesspflichten
 Siehe `.github/copilot-instructions.md` für die verbindliche Arbeitsanweisung

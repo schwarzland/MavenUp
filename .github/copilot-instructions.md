@@ -16,6 +16,7 @@ Bei **jeder** Änderung im Repository sind diese Punkte immer zu berücksichtige
      - `docs/licenses.md`: eingebettete Drittanbieter-Bibliotheken und deren Lizenzen (siehe auch Punkt 9).
      - `docs/features/`: die thematisch aufgeteilten Feature-Beschreibungen (siehe Punkt 3).
    - **AGENTS.md** ist der herstellerübergreifende Agenten-Einstiegspunkt und verweist auf `.github/copilot-instructions.md` und `.github/copilot-project-context.md`; ändert sich der Speicherort oder die Rolle dieser verbindlichen Instruktionsdateien, ist AGENTS.md entsprechend anzugleichen.
+   - **`.junie/`** ist der herstellerspezifische Spiegel dieser Instruktionen für Junie: `.junie/guidelines.md` fasst die verbindlichen Regeln zusammen und verweist auf die Originaldateien, `.junie/agents/` spiegelt die Agentendefinitionen unter `.github/agents/`. Ändern sich Instruktions-, Kontext- oder Agentendateien – oder kommen Regeln hinzu bzw. entfallen –, sind die Dateien unter `.junie/` entsprechend anzugleichen; sie enthalten keine eigenständigen Regeln, sondern nur Zusammenfassungen und Verweise.
    - Der Abschnitt **AI instructions** der README verlinkt `AGENTS.md`, `.github/copilot-instructions.md` und `.github/copilot-project-context.md`; diese Linkliste ist bei Umbenennung oder Ergänzung solcher Dateien aktuell zu halten.
    - Veraltete Formulierungen (z. B. „now", „new") sind beim Bearbeiten zu entfernen.
    - Keine inhaltlichen Dopplungen zwischen README und `docs/`-Dateien oder zwischen den `docs/`-Dateien – jeder Punkt gehört genau an eine Stelle.
@@ -104,6 +105,11 @@ Bei **jeder** Änderung im Repository sind diese Punkte immer zu berücksichtige
     - **Gruppierung**: Zusammengehörige Optionen werden über `group(...)` gebündelt; eine einzelne Gruppe auf einer Seite ist zu vermeiden, abhängige Unteroptionen werden per `indent` eingerückt.
     - **Read-only-Dialoge** erhalten nur einen **Close**-Button, keine OK/Cancel-Kombination.
     - Nach jeder UI-Änderung ist zu prüfen, ob Beschriftungen, Reihenfolge und Gruppierung noch zur tatsächlichen Bedienung passen, und die betroffene Dokumentation (`docs/usage.md`, `docs/configuration.md`, `getting_started.html`) anzugleichen.
-13. **kein git commit** ausführen.
+13. **Agentendefinitionen unter `.github/agents/`** – diese Dateien beschreiben spezialisierte Agenten (z. B. `release-doc-check.md` für die Release-Dokumentationsprüfung) und sind bei **strukturellen** Änderungen anzugleichen. Dabei gelten folgende Regeln:
+    - Ein Abgleich ist erforderlich, wenn eine Datei unter `docs/`, `docs/features/` oder `.github/context/` hinzukommt, entfernt oder umbenannt wird, wenn ein neues release-relevantes Artefakt entsteht oder wenn sich die Branching-, Versionierungs- oder CHANGELOG-Konvention ändert.
+    - Bei rein inhaltlichen Feature- oder Code-Änderungen ohne strukturelle Auswirkung ist **keine** Anpassung nötig.
+    - Agentendefinitionen dürfen die inhaltlichen Regeln dieser Datei **nicht duplizieren**, sondern verweisen darauf; sie beschreiben ausschließlich ihr eigenes Vorgehen (Vorbedingungen, Prüfumfang, Grenzen, Reporting).
+    - Nach jeder Änderung ist zu prüfen, ob alle in der Agentendefinition genannten Dateien und Verzeichnisse tatsächlich existieren – tote Verweise sind zu entfernen.
+14. **kein git commit** ausführen.
 
 Diese Vorgaben gelten standardmäßig für alle KI-Änderungen (GitHub Copilot, Junie, etc.) in diesem Projekt.

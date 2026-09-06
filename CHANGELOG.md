@@ -2,7 +2,7 @@
 
 # MavenUp Changelog
 
-## [Unreleased]
+## 3.2.0
 
 ### Added
 
@@ -20,11 +20,13 @@
 
 ### Changed
 
+- Declared the pinned jsoup and Jackson versions of the settings buildscript classpath as explicit `classpath` dependencies in addition to the existing `resolutionStrategy.force(...)`, so dependency scanners and Dependabot see the patched version instead of the vulnerable transitive one.
 - Restructured the plugin settings into a settings tree following the IntelliJ UI guidelines: the **MavenUp** root page keeps appearance and behavior, while **Versions and Updates**, **Vulnerability Check**, and **Pom.xml Changes** became sub-pages, so no page requires scrolling.
 - Grouped the **Versions and Updates** page into *Version Lookup*, *Privacy*, and *Version Selection* so the settings follow the order in which they take effect.
 - Replaced the tooltips of the settings options with explanatory comments below each control and shortened the option labels accordingly.
 - The **Hide unstable versions** and **Offer all versions** settings take effect on the **New Version** column immediately after they are changed, without requiring another version search.
 - Split the AI agent project context: `.github/copilot-project-context.md` serves as a slim overview, while the detailed component descriptions live in `.github/context/components-ui.md`, `.github/context/components-ui-toolwindow.md`, `.github/context/components-ui-dialogs.md` and `.github/context/components-service.md`.
+- Declared the files under `.junie/` a vendor-specific mirror of the binding agent instructions and made keeping them in sync a documented obligation in `.github/copilot-instructions.md`, `AGENTS.md`, and the release documentation check; `.junie/guidelines.md` now summarizes all binding rules instead of a subset.
 - Split the feature documentation: `FEATURES.md` became a slim index, while the feature descriptions moved into `docs/features/tool-window-and-ui.md`, `docs/features/version-management.md`, `docs/features/repositories-and-authentication.md`, `docs/features/vulnerability-scanning.md`, `docs/features/settings-and-configuration.md`, and `docs/features/architecture-and-reliability.md`.
 - Restructured the tool window component reference into dedicated subsections (background processing, action toolbar, context menu, table columns, filter row, sorting, bulk version selection, transitive view behaviour) for faster lookup.
 - Replaced the modal error dialog shown when the Sonatype OSS Index check fails (e.g. an invalid or expired API token) with a closable red banner above the dependency table, offering an **Open Settings** action, so a failed external API call no longer blocks the tool window with a dialog.
@@ -45,6 +47,7 @@
 - Fixed the red error banner of a failed repository request staying visible after a subsequent successful version search, and made a successful version search and a successful vulnerability scan each withdraw only their own message instead of the whole banner.
 - Fixed two combined error messages being rendered as a single run-on line in the red error banner, which uses an HTML-based component where a plain line feed produces no line break; messages are now separated by a line break, deduplicated, and escaped so technical details survive unaltered.
 - Fixed a failed repository request during the automatic version lookup for vulnerable transitive dependencies (which runs right after a vulnerability scan) being discarded without ever reaching the red error banner.
+- Fixed known vulnerabilities reported for the Gradle build classpath by forcing `org.jsoup:jsoup` and the Jackson modules pulled in transitively by the build plugins to patched versions; the plugin JAR itself is unaffected because these libraries are build-time only.
 - Fixed the first reported repository error being collected in a plain field that is written on a background thread and read on the UI thread; it is now held in an `AtomicReference`, which makes the hand-off visible across threads and applies "first error wins" atomically.
 
 ## 3.1.0
