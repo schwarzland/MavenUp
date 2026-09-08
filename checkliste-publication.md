@@ -6,7 +6,7 @@ Für die Publikation des Plugins wurden bereits wichtige Vorbereitungen getroffe
 - **Plugin-Beschreibung**: Die `plugin.xml` enthält nun eine detaillierte Beschreibung aller Kernfunktionen (Update-Checks, Property-Support, Navigation etc.).
 - **Technische Validierung**: Die Plugin-Struktur und die Projektkonfiguration werden über `verifyPlugin` geprüft; dabei wird auch die Kompatibilität mit den unterstützten IntelliJ-IDE-Builds über den IntelliJ Plugin Verifier validiert.
 - **CI-Schutz**: Alle Workflow-Jobs sind auf 30 Minuten begrenzt. Der Marketplace-Publish besitzt eine Concurrency-Gruppe gegen parallele Doppel-Uploads; bei einem fehlgeschlagenen Plugin-Verifier wird der Report sieben Tage als Artifact aufbewahrt.
-- **Icon**: Ein Plugin-Icon (`pluginIcon.svg`) ist bereits im Projekt vorhanden.
+- **Icon**: Ein Plugin-Icon (`pluginIcon.svg` sowie `pluginIcon_dark.svg`) ist bereits im Projekt vorhanden.
 
 ### 📋 Checkliste für die Publikation (JetBrains Marketplace)
 Um das Plugin nun offiziell zu veröffentlichen, sind folgende Schritte erforderlich:
