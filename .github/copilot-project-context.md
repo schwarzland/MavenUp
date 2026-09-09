@@ -21,6 +21,7 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   `.github/workflows/dependency-review.yml` prüft Pull Requests mit
   `actions/dependency-review-action` gegen die GitHub Advisory Database.
 - Plugin-Descriptor: `src/main/resources/META-INF/plugin.xml`
+- Plugin-Icon (Marketplace/Plugin Manager): `src/main/resources/META-INF/pluginIcon.svg` (Light) und `pluginIcon_dark.svg` (Dark).
 - Tool-Window-Icon: `src/main/resources/icons/mavenUpToolWindow.svg` (Light) und `mavenUpToolWindow_dark.svg` (Dark), in `plugin.xml` über das `icon`-Attribut des `<toolWindow>` referenziert.
 
 ## Kernkomponenten (`src/main/kotlin/de/schwarzland/mavenup/`)
