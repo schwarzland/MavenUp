@@ -11,6 +11,7 @@
 ### Changed
 
 - Updated the JetBrains Marketplace plugin icon (`pluginIcon.svg`) to match the IntelliJ sidebar tool window icon layout while incorporating Apache Maven's distinctive "m" mark.
+- Enlarged the tool window icons (`mavenUpToolWindow.svg`, `mavenUpToolWindow_dark.svg`) so their frame and arrow fill the available 13x13 canvas.
 
 ## 3.2.0
 
