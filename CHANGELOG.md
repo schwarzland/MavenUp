@@ -6,11 +6,12 @@
 
 ### Added
 
-- Added a dedicated dark theme plugin icon (`pluginIcon_dark.svg`) for the JetBrains Marketplace and IDE Plugin Manager.
+- Added a dedicated dark theme plugin icon for the JetBrains Marketplace and IDE Plugin Manager.
 
 ### Changed
 
-- Updated the JetBrains Marketplace plugin icon (`pluginIcon.svg`) to match the IntelliJ sidebar tool window icon layout while incorporating Apache Maven's distinctive "m" mark.
+- Reworked the Marketplace plugin icon to match the tool window icon layout while incorporating Apache Maven's distinctive "m" mark.
+- Enlarged the Marketplace and tool window icons so their artwork fills the available canvas.
 
 ## 3.2.0
 
