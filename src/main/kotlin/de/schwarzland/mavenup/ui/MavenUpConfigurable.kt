@@ -30,6 +30,28 @@ private data class SubPageLink(
     val configurableClass: Class<out Configurable>
 )
 
+/** Anzeigename der Wurzelseite im Einstellungsbaum. */
+private const val DISPLAY_NAME = "Maven Up"
+
+/** Die verlinkten Unterseiten in der Reihenfolge des Einstellungsbaums. */
+private val SUB_PAGES = listOf(
+    SubPageLink(
+        "settings.page.versions",
+        "settings.page.versions.description",
+        MavenUpVersionsConfigurable::class.java
+    ),
+    SubPageLink(
+        "settings.page.vulnerability",
+        "settings.page.vulnerability.description",
+        MavenUpVulnerabilityConfigurable::class.java
+    ),
+    SubPageLink(
+        "settings.page.pomChanges",
+        "settings.page.pomChanges.description",
+        MavenUpPomChangesConfigurable::class.java
+    )
+)
+
 /**
  * Wurzelseite der MavenUp-Einstellungen unter `Settings > Tools > Maven Up`.
  *
@@ -157,29 +179,5 @@ class MavenUpConfigurable(private val project: Project) : MavenUpSettingsPage(pr
         toolWindowBadgeModeComboBox = null
         subPageLinkComponents.clear()
         super.disposeUIResources()
-    }
-
-    private companion object {
-        /** Anzeigename der Wurzelseite im Einstellungsbaum. */
-        const val DISPLAY_NAME = "Maven Up"
-
-        /** Die verlinkten Unterseiten in der Reihenfolge des Einstellungsbaums. */
-        val SUB_PAGES = listOf(
-            SubPageLink(
-                "settings.page.versions",
-                "settings.page.versions.description",
-                MavenUpVersionsConfigurable::class.java
-            ),
-            SubPageLink(
-                "settings.page.vulnerability",
-                "settings.page.vulnerability.description",
-                MavenUpVulnerabilityConfigurable::class.java
-            ),
-            SubPageLink(
-                "settings.page.pomChanges",
-                "settings.page.pomChanges.description",
-                MavenUpPomChangesConfigurable::class.java
-            )
-        )
     }
 }

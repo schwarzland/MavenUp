@@ -15,6 +15,10 @@
 - Reworked the Marketplace plugin icon to match the tool window icon layout while incorporating Apache Maven's distinctive "m" mark.
 - Enlarged the Marketplace and tool window icons so their artwork fills the available canvas.
 
+### Fixed
+
+- Fixed an IntelliJ platform inspection warning in `MavenUpConfigurable` by moving the sub-page link definitions and display name from a companion object to top-level declarations.
+
 ## 3.2.0
 
 ### Added
