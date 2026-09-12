@@ -20,6 +20,7 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   `MyToolWindow.dispose()`). Die zustandslose Funktion `determineBadgeState` leitet aus höchstem
   Schweregrad, verfügbaren Updates und `toolWindowBadgeMode` den `MavenUpBadgeState` ab; ein
   „alles in Ordnung"-Badge gibt es bewusst nicht.
+  * `MAVEN_UP_TOOL_WINDOW_ID = "Maven Up"`: Konstante für die registrierte Tool-Window-ID.
 
 ## Einstellungen und Message-Bus
 - **MavenUpSettings**: `PersistentStateComponent` auf Anwendungsebene (`Service.Level.APP`), global für alle Projekte gespeichert in `mavenup_settings.xml`
@@ -48,7 +49,7 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
 - **ToolWindowBadgeMode**: Enum in `service` mit den Anzeigeoptionen des Tool-Window-Badges
   (`OFF`, `VULNERABILITIES`, `VULNERABILITIES_AND_UPDATES`).
 - **MavenUpNotifications**: kapselt den Versand von IDE-Benachrichtigungen über die in `plugin.xml`
-  registrierte `notificationGroup` „MavenUp". `notifyVersionsFound` meldet nach einer Versionssuche die
+  registrierte `notificationGroup` „Maven Up". `notifyVersionsFound` meldet nach einer Versionssuche die
   Anzahl gefundener Versionen für die betroffenen Abhängigkeiten, `notifyVulnerabilitiesFound` meldet
   nach einem Scan die Anzahl direkter/indirekter (transitiver) Sicherheitswarnungen und die Gesamtzahl
   betroffener Abhängigkeiten; beide unterdrücken die Meldung, wenn nichts gefunden wurde.

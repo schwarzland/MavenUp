@@ -56,7 +56,7 @@
     <!-- Extensions defined by the plugin.
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
     <extensions defaultExtensionNs="com.intellij">
-        <toolWindow id="MavenUp" factoryClass="de.schwarzland.mavenup.ui.MavenUpWindowFactory"
+        <toolWindow id="Maven Up" factoryClass="de.schwarzland.mavenup.ui.MavenUpWindowFactory"
                     icon="/icons/mavenUpToolWindow.svg"
                     anchor="bottom"
                     secondary="false"
@@ -84,7 +84,7 @@
 
         <postStartupActivity implementation="de.schwarzland.mavenup.service.MavenUpStartupActivity"/>
 
-        <notificationGroup id="MavenUp" displayType="BALLOON"
+        <notificationGroup id="Maven Up" displayType="BALLOON"
                             bundle="messages.MyMessageBundle" key="notification.group.name"/>
     </extensions>
 

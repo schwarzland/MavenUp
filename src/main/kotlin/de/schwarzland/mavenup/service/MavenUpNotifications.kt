@@ -13,7 +13,7 @@ import de.schwarzland.mavenup.ui.MyMessageBundle
  */
 internal object MavenUpNotifications {
 
-    private const val NOTIFICATION_GROUP_ID = "MavenUp"
+    private const val NOTIFICATION_GROUP_ID = "Maven Up"
 
     /**
      * Meldet das Ergebnis einer Versionssuche: die Anzahl gefundener Versionen für die
