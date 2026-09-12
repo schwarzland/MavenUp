@@ -2,17 +2,17 @@
 
 ## Settings
 
-Under `Settings > Tools > MavenUp`, the following options can be configured. The settings are stored globally at the application level and therefore apply to all projects. Following the IntelliJ Platform UI guidelines, they are split across a root page and three sub-pages in the settings tree, so every page stays readable without scrolling:
+Under `Settings > Tools > Maven Up`, the following options can be configured. The settings are stored globally at the application level and therefore apply to all projects. Following the IntelliJ Platform UI guidelines, they are split across a root page and three sub-pages in the settings tree, so every page stays readable without scrolling:
 
 ```
 Tools
-└─ MavenUp                  Appearance and behavior
+└─ Maven Up                  Appearance and behavior
    ├─ Versions and Updates  Version lookup, privacy, version selection
    ├─ Vulnerability Check   Scan scope and Sonatype OSS Index credentials
    └─ Pom.xml Changes       Maven sync and explanatory XML comment
 ```
 
-### MavenUp (root page)
+### Maven Up (root page)
 
 - **Maven repository browser**: Selects the browser for artifact version pages — **MVN Repository** (default, `mvnrepository.com`) or **Sonatype Central** (`central.sonatype.com`). The selection applies to the right-click context menu in the main window and the right-click context menu in the vulnerability details dialog (all columns except **References**).
 - **Show text labels on toolbar buttons**: Renders the actions in the top action bar of the tool window and the vulnerability details dialog as buttons with text labels instead of icon-only buttons (default: on); the labels are shortened (the full text remains as a tooltip) so the action bar also fits on low screen resolutions. The change is applied to the open tool window immediately.

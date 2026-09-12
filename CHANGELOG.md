@@ -11,6 +11,7 @@
 
 ### Changed
 
+- Changed the public plugin and settings display name from "MavenUp" to "Maven Up".
 - Reworked the Marketplace plugin icon to match the tool window icon layout while incorporating Apache Maven's distinctive "m" mark.
 - Enlarged the Marketplace and tool window icons so their artwork fills the available canvas.
 

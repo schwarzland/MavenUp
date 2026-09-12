@@ -31,7 +31,7 @@ private data class SubPageLink(
 )
 
 /**
- * Wurzelseite der MavenUp-Einstellungen unter `Settings > Tools > MavenUp`.
+ * Wurzelseite der MavenUp-Einstellungen unter `Settings > Tools > Maven Up`.
  *
  * Die Seite enthält ausschließlich die Einstellungen zu Darstellung und Verhalten
  * (Repository-Browser, Beschriftung der Aktionsleiste, Klickverhalten, Tool-Window-Badge).
@@ -161,7 +161,7 @@ class MavenUpConfigurable(private val project: Project) : MavenUpSettingsPage(pr
 
     private companion object {
         /** Anzeigename der Wurzelseite im Einstellungsbaum. */
-        const val DISPLAY_NAME = "MavenUp"
+        const val DISPLAY_NAME = "Maven Up"
 
         /** Die verlinkten Unterseiten in der Reihenfolge des Einstellungsbaums. */
         val SUB_PAGES = listOf(
