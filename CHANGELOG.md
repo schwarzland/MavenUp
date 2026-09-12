@@ -102,7 +102,7 @@
 - Added an "Open on ..." hyperlink in the detail pane that opens the selected component in the configured Maven repository browser.
 - Added the CVSS vector and the fixed-in versions of the selected finding to the detail pane when available.
 - Added the detailed description, CWE identifiers, publish/last-modified dates, and affected version ranges of the selected finding to the detail pane when available.
-- Added **Own vulnerability** and **Transitive vulnerability** options to the dependency table's **Vulnerabilities** filter so rows can be narrowed to findings in the dependency itself or in its transitive dependencies.
+- Added **Direct vulnerability** and **Transitive vulnerability** options to the dependency table's **Vulnerabilities** filter so rows can be narrowed to findings in the dependency itself or in its transitive dependencies.
 - Added a **Set Recommended Version** entry to the dependency table's row context menu that selects the recommended fix version for a dependency, plugin, or managed entry affected by security findings of its own.
 - Added support for the toolbar's **Select Recommended Version** action in the dependency table, applying the recommended fix version to every visible entry that has security findings of its own.
 - Added a bold *(recommended)* marker for the recommended fix version in the dependency table's **New Version** dropdown, matching the transitive vulnerabilities view.

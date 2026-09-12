@@ -482,9 +482,9 @@ class RowMatchesFilterTest {
     fun testVulnerabilityFilterEnumLabels() {
         assertEquals("All", VulnerabilityFilter.ALL.label)
         assertEquals("Any", VulnerabilityFilter.VULNERABLE.label)
-        assertEquals("Own", VulnerabilityFilter.SELF_VULNERABLE.label)
+        assertEquals("Direct", VulnerabilityFilter.SELF_VULNERABLE.label)
         assertEquals("Transitive", VulnerabilityFilter.TRANSITIVE_VULNERABLE.label)
         assertEquals("None", VulnerabilityFilter.NOT_VULNERABLE.label)
-        assertEquals("Own", VulnerabilityFilter.SELF_VULNERABLE.toString())
+        assertEquals("Direct", VulnerabilityFilter.SELF_VULNERABLE.toString())
     }
 }
