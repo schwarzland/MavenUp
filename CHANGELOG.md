@@ -7,6 +7,7 @@
 ### Added
 
 - Added a dedicated dark theme plugin icon for the JetBrains Marketplace and IDE Plugin Manager.
+- Added IDE notifications reporting the number of versions found for the checked dependencies after a version search, and the number of direct/indirect vulnerabilities found after a vulnerability scan.
 
 ### Changed
 

@@ -83,6 +83,9 @@
                              bundle="messages.MyMessageBundle" key="settings.page.pomChanges"/>
 
         <postStartupActivity implementation="de.schwarzland.mavenup.service.MavenUpStartupActivity"/>
+
+        <notificationGroup id="MavenUp" displayType="BALLOON"
+                            bundle="messages.MyMessageBundle" key="notification.group.name"/>
     </extensions>
 
     <!-- Projektgebundene Listener. Deklarativ registriert, damit sie beim Entladen des Plugins

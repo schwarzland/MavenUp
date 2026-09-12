@@ -47,6 +47,11 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   Versions-URL für groupId/artifactId/version.
 - **ToolWindowBadgeMode**: Enum in `service` mit den Anzeigeoptionen des Tool-Window-Badges
   (`OFF`, `VULNERABILITIES`, `VULNERABILITIES_AND_UPDATES`).
+- **MavenUpNotifications**: kapselt den Versand von IDE-Benachrichtigungen über die in `plugin.xml`
+  registrierte `notificationGroup` „MavenUp". `notifyVersionsFound` meldet nach einer Versionssuche die
+  Anzahl gefundener Versionen für die betroffenen Abhängigkeiten, `notifyVulnerabilitiesFound` meldet
+  nach einem Scan die Anzahl direkter/indirekter (transitiver) Sicherheitswarnungen und die Gesamtzahl
+  betroffener Abhängigkeiten; beide unterdrücken die Meldung, wenn nichts gefunden wurde.
 
 ## API- und Sicherheitsservices
 - **VulnerabilityApiService**: OSV-Batchabfrage plus Detailanreicherung und Filterung

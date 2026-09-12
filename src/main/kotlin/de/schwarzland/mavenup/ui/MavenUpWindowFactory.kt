@@ -17,6 +17,7 @@ import de.schwarzland.mavenup.service.VulnerabilityScanService
 import de.schwarzland.mavenup.service.VersionAutoSelectionMode
 import de.schwarzland.mavenup.service.VulnerabilityApiService
 import de.schwarzland.mavenup.service.VulnerabilityMerger
+import de.schwarzland.mavenup.service.MavenUpNotifications
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.ActionToolbar
 import com.intellij.openapi.actionSystem.ActionUpdateThread
@@ -2811,6 +2812,11 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         transitiveVersionRepositoryError = reportedRepositoryApiError.get()
                         applyVulnerabilityResults(results, scanTargets)
                         refreshApiErrorBanner()
+                        MavenUpNotifications.notifyVulnerabilitiesFound(
+                            project,
+                            directVulnerabilityCount(),
+                            transitiveVulnerabilityCount()
+                        )
                         onFinished()
                     }
                 }
@@ -2890,6 +2896,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         selectedVersions.putAll(result.selectedVersions)
                         versionSearchRepositoryError = reportedRepositoryApiError.get()
                         refreshApiErrorBanner()
+                        val dependenciesWithVersions = result.availableVersions.values.count { it.isNotEmpty() }
+                        val versionCount = result.availableVersions.values.sumOf { it.size }
+                        MavenUpNotifications.notifyVersionsFound(project, versionCount, dependenciesWithVersions)
                         onFinished()
                     }
                 }
