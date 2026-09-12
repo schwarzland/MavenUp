@@ -12,7 +12,7 @@ import com.intellij.ui.BadgeIconSupplier
 import javax.swing.Icon
 
 /** Registrierte ID des MavenUp-Tool-Windows aus der `plugin.xml`. */
-const val MAVEN_UP_TOOL_WINDOW_ID = "MavenUp"
+const val MAVEN_UP_TOOL_WINDOW_ID = "Maven Up"
 
 /** Ressourcenpfad des Basis-Icons des Tool-Windows. */
 private const val TOOL_WINDOW_ICON_PATH = "/icons/mavenUpToolWindow.svg"

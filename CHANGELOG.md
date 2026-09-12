@@ -7,11 +7,17 @@
 ### Added
 
 - Added a dedicated dark theme plugin icon for the JetBrains Marketplace and IDE Plugin Manager.
+- Added IDE notifications reporting the number of versions found for the checked dependencies after a version search, and the number of direct/indirect vulnerabilities found after a vulnerability scan.
 
 ### Changed
 
+- Changed the public plugin and settings display name from "MavenUp" to "Maven Up".
 - Reworked the Marketplace plugin icon to match the tool window icon layout while incorporating Apache Maven's distinctive "m" mark.
 - Enlarged the Marketplace and tool window icons so their artwork fills the available canvas.
+
+### Fixed
+
+- Fixed an IntelliJ platform inspection warning in `MavenUpConfigurable` by moving the sub-page link definitions and display name from a companion object to top-level declarations.
 
 ## 3.2.0
 
@@ -100,7 +106,7 @@
 - Added an "Open on ..." hyperlink in the detail pane that opens the selected component in the configured Maven repository browser.
 - Added the CVSS vector and the fixed-in versions of the selected finding to the detail pane when available.
 - Added the detailed description, CWE identifiers, publish/last-modified dates, and affected version ranges of the selected finding to the detail pane when available.
-- Added **Own vulnerability** and **Transitive vulnerability** options to the dependency table's **Vulnerabilities** filter so rows can be narrowed to findings in the dependency itself or in its transitive dependencies.
+- Added **Direct vulnerability** and **Transitive vulnerability** options to the dependency table's **Vulnerabilities** filter so rows can be narrowed to findings in the dependency itself or in its transitive dependencies.
 - Added a **Set Recommended Version** entry to the dependency table's row context menu that selects the recommended fix version for a dependency, plugin, or managed entry affected by security findings of its own.
 - Added support for the toolbar's **Select Recommended Version** action in the dependency table, applying the recommended fix version to every visible entry that has security findings of its own.
 - Added a bold *(recommended)* marker for the recommended fix version in the dependency table's **New Version** dropdown, matching the transitive vulnerabilities view.

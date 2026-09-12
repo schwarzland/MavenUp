@@ -139,16 +139,16 @@ class MavenUpStartupActivityTest : BasePlatformTestCase() {
     }
 
     /**
-     * Test: Tool Window ID sollte "MavenUp" sein.
+     * Test: Tool Window ID sollte "Maven Up" sein.
      */
     fun testMavenUpToolWindowIdIsCorrect() {
         val toolWindowManager = ToolWindowManager.getInstance(project)
-        val toolWindow = toolWindowManager.getToolWindow("MavenUp")
+        val toolWindow = toolWindowManager.getToolWindow("Maven Up")
 
         // Tool Window kann null sein, wenn es nicht registriert ist
         // Das ist OK für diesen Test
         if (toolWindow != null) {
-            assertEquals("Tool Window ID sollte 'MavenUp' sein", "MavenUp", toolWindow.id)
+            assertEquals("Tool Window ID sollte 'Maven Up' sein", "Maven Up", toolWindow.id)
         }
     }
 

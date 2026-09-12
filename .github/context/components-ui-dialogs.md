@@ -110,7 +110,7 @@ liefert die DSL. Abhängige Felder werden über `enabledIf` gesteuert.
   lazy gelesenen `state` bereit, veröffentlicht nach `apply()` den `MAVEN_UP_SETTINGS_TOPIC` und bietet die
   Erweiterungspunkte `beforeApply()` (Pflichtfeldprüfung vor dem Schreiben) und `afterApply()` (Nachbereitung).
   Die Datei enthält zusätzlich `settingsListCellRenderer` als gemeinsamen Renderer für Auswahlfelder.
-- **MavenUpConfigurable**: Wurzelseite (`displayName` „MavenUp"). Enthält ausschließlich Darstellung und
+- **MavenUpConfigurable**: Wurzelseite (`displayName` „Maven Up"). Enthält ausschließlich Darstellung und
   Verhalten: `repositoryBrowser`, `toolbarShowText`, `jumpOnSingleClick` und `toolWindowBadgeMode`. Am Seitenende
   steht die Gruppe **More Settings** mit Quick-Links (`ActionLink` über `Row.link`) auf die drei Unterseiten,
   jeweils mit Kurzbeschreibung als `rowComment`. `navigateToSubPage` ermittelt über
