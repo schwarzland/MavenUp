@@ -1086,7 +1086,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     "toolwindow.MyToolWindow.checkVulnerabilities.button",
                     AllIcons.General.InspectionsEye,
                     { isCheckVulnerabilitiesEnabled() },
-                    shortLabelKey = "toolwindow.MyToolWindow.checkVulnerabilities.button.short"
+                    shortLabelKey = "toolwindow.MyToolWindow.checkVulnerabilities.button.short",
+                    descriptionProvider = { checkVulnerabilitiesTooltip() }
                 ) { checkVulnerabilitiesAction() })
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.update.button",
