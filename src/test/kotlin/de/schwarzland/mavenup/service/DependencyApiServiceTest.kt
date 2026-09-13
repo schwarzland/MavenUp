@@ -560,12 +560,34 @@ class DependencyApiServiceTest : BasePlatformTestCase() {
 
         val service = DependencyApiService(project)
         try {
-            assertTrue(service.isPrivateGroupId("com.mycompany"))
+            assertTrue(service.isPrivateGroupId("com.myCompany"))
             assertTrue(service.isPrivateGroupId("com.myCompany"))
             assertTrue(service.isPrivateGroupId("com.myCompany.internal"))
             assertTrue(service.isPrivateGroupId("de.meineFirma.produkt"))
             assertTrue(service.isPrivateGroupId("de.meineFirma.produkt.core"))
-            assertFalse(service.isPrivateGroupId("com.mycompanyOther"))
+            assertFalse(service.isPrivateGroupId("com.myCompanyOther"))
+            assertFalse(service.isPrivateGroupId("org.apache.commons"))
+        } finally {
+            settings.state.privateGroupIds = previous
+        }
+    }
+
+    fun testIsPrivateGroupIdIsCaseInsensitive() {
+        val settings = MavenUpSettings.getInstance()
+        val previous = settings.state.privateGroupIds
+        settings.state.privateGroupIds = "COM.MYCOMPANY, de.meineFirma.PRODUKT"
+
+        val service = DependencyApiService(project)
+        try {
+            assertTrue(service.isPrivateGroupId("com.mycompany"))
+            assertTrue(service.isPrivateGroupId("com.myCompany"))
+            assertTrue(service.isPrivateGroupId("COM.MYCOMPANY"))
+            assertTrue(service.isPrivateGroupId("com.mycompany.internal"))
+            assertTrue(service.isPrivateGroupId("COM.MYCOMPANY.INTERNAL"))
+            assertTrue(service.isPrivateGroupId("de.meinefirma.produkt"))
+            assertTrue(service.isPrivateGroupId("DE.MEINEFIRMA.PRODUKT"))
+            assertTrue(service.isPrivateGroupId("De.MeineFirma.Produkt.Core"))
+            assertFalse(service.isPrivateGroupId("COM.MYCOMPANYOTHER"))
             assertFalse(service.isPrivateGroupId("org.apache.commons"))
         } finally {
             settings.state.privateGroupIds = previous

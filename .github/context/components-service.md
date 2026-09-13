@@ -89,7 +89,7 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   (`errorReason`/`errorRepositoryLabel` in `CollectedVersions`); `fetchAllVersions` löst `onError` mit
   einem `ApiError` (Quelle `REPOSITORY`, Ursache `Failure`, Bezeichnung des Repositories) aus,
   sobald keine Version von irgendeinem Repository ermittelt werden konnte und ein solcher Fehler vorliegt.
-  `isPrivateGroupId` prüft eine GroupId gegen die Einstellung `privateGroupIds` (exakter Präfix oder
+  `isPrivateGroupId` prüft eine GroupId gegen die Einstellung `privateGroupIds` (case-insensitiv, exakter Präfix oder
   `<Präfix>.`, bereinigt um die Zeichen `*` und `$`); `excludeCentralForPrivateGroupId` entfernt Maven Central aus der Repository-Liste, wenn die
   GroupId privat ist, sodass `fetchAllVersions` für private GroupIds keine Koordinaten an
   `repo1.maven.org` überträgt, andere konfigurierte private Repositories aber weiterhin abfragt.

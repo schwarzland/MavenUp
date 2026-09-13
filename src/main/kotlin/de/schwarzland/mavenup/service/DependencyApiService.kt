@@ -520,6 +520,7 @@ class DependencyApiService(private val project: Project) {
      * Eine GroupId gilt als privat, wenn sie exakt einem konfigurierten Präfix entspricht oder mit
      * `<Präfix>.` beginnt, damit z. B. der Präfix `com.myCompany` auch `com.myCompany.produkt`
      * abdeckt, ohne unbeabsichtigt unabhängige GroupIds wie `com.myCompanyOther` zu erfassen.
+     * Der Abgleich erfolgt unabhängig von Groß- und Kleinschreibung (case-insensitiv).
      * Zeichen wie `*` und `$` in den konfigurierten Einträgen werden vor dem Abgleich entfernt.
      *
      * @param groupId Die zu prüfende GroupId.
