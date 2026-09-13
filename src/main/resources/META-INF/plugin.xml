@@ -5,7 +5,7 @@
 
     <!-- Public plugin name should be written in Title Case.
      Guidelines: https://plugins.jetbrains.com/docs/marketplace/best-practices-for-listing.html#plugin-name -->
-    <name>MavenUp</name>
+    <name>Maven Up</name>
 
     <!-- A displayed Vendor name or Organization ID displayed on the Plugins Page. -->
     <vendor url="https://www.schwarzland.de">Michael Schwarz</vendor>
@@ -38,7 +38,7 @@
             <li><b>Safe Update Workflow:</b> Review every planned change in a sortable confirmation dialog before it is written to the <code>pom.xml</code> files, and optionally trigger the IDE's Maven sync right afterwards.</li>
             <li><b>Transitive Vulnerabilities View:</b> A dedicated <i>Transitive CVEs</i> tool window tab lists all transitive dependencies with known vulnerabilities, including type, vulnerability count, and an editable new-version column that highlights the recommended fix in the dropdown; narrow the list with its own filter row, select the highest major, highest minor, or recommended fix version—for all visible coordinates via the toolbar or a single one via its row context menu—and reset selections.</li>
             <li><b>Secure Token Storage:</b> API tokens are stored safely in IntelliJ Password Safe.</li>
-            <li><b>Global Settings:</b> Configure behavior, filters, and integrations under <b>Settings | Tools | MavenUp</b> to apply across all projects.</li>
+            <li><b>Global Settings:</b> Configure behavior, filters, and integrations under <b>Settings | Tools | Maven Up</b> to apply across all projects.</li>
             <li><b>Responsive UI & Restart-Free:</b> Background processing and dynamic loading ensure smooth operation and updates without IDE restart.</li>
             <li><b>Privacy-First Design:</b> Only Maven coordinates are transmitted for version checks and vulnerability scans—your source code remains private.</li>
         </ul>
@@ -56,14 +56,14 @@
     <!-- Extensions defined by the plugin.
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
     <extensions defaultExtensionNs="com.intellij">
-        <toolWindow id="MavenUp" factoryClass="de.schwarzland.mavenup.ui.MavenUpWindowFactory"
+        <toolWindow id="Maven Up" factoryClass="de.schwarzland.mavenup.ui.MavenUpWindowFactory"
                     icon="/icons/mavenUpToolWindow.svg"
                     anchor="bottom"
                     secondary="false"
                     doNotActivateOnStart="true"/>
 
         <projectConfigurable parentId="tools" instance="de.schwarzland.mavenup.ui.MavenUpConfigurable"
-                             id="de.schwarzland.mavenup.ui.MavenUpConfigurable" displayName="MavenUp"/>
+                             id="de.schwarzland.mavenup.ui.MavenUpConfigurable" displayName="Maven Up"/>
         <!-- groupWeight steuert die Reihenfolge im Einstellungsbaum (hoeherer Wert zuerst);
              ohne diese Angabe sortiert die Plattform die Unterseiten alphabetisch. -->
         <projectConfigurable parentId="de.schwarzland.mavenup.ui.MavenUpConfigurable"
@@ -83,6 +83,9 @@
                              bundle="messages.MyMessageBundle" key="settings.page.pomChanges"/>
 
         <postStartupActivity implementation="de.schwarzland.mavenup.service.MavenUpStartupActivity"/>
+
+        <notificationGroup id="Maven Up" displayType="BALLOON"
+                            bundle="messages.MyMessageBundle" key="notification.group.name"/>
     </extensions>
 
     <!-- Projektgebundene Listener. Deklarativ registriert, damit sie beim Entladen des Plugins

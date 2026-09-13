@@ -89,7 +89,7 @@ enum class ToolWindowBadgeMode(val messageKey: String) {
 }
 
 /** Standardpräfix des erklärenden XML-Kommentars vor den aufgelisteten Kennungen. */
-const val DEFAULT_VULNERABILITY_COMMENT_PREFIX = "Pinned by MavenUp to fix:"
+const val DEFAULT_VULNERABILITY_COMMENT_PREFIX = "Pinned by Maven Up to fix:"
 
 /** Standardanzahl der höchstens aufgelisteten Kennungen; `0` bedeutet „unbegrenzt". */
 const val DEFAULT_VULNERABILITY_COMMENT_MAX_IDS = 3

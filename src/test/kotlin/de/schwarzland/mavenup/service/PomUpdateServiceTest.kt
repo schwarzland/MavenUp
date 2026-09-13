@@ -116,7 +116,7 @@ class PomUpdateServiceTest : BasePlatformTestCase() {
         val comment = PsiTreeUtil.findChildOfType(managed, XmlComment::class.java)
         assertNotNull("A MavenUp comment should be added inside the dependency", comment)
         val commentText = comment!!.text
-        assertTrue("Comment mentions MavenUp", commentText.contains("MavenUp"))
+        assertTrue("Comment mentions Maven Up", commentText.contains("Maven Up"))
         assertTrue("Comment lists CVE-1", commentText.contains("CVE-1"))
         assertTrue("Comment lists GHSA-2", commentText.contains("GHSA-2"))
         val groupIdTag = managed!!.findFirstSubTag("groupId")
@@ -199,7 +199,7 @@ class PomUpdateServiceTest : BasePlatformTestCase() {
                 DependencyUpdate("org.trans", "lib", "managed dependency", "1.2.3", "1.2.4", listOf("GHSA-2"))
             )
             assertNotNull("A generic comment should be added when no aliases are known", commentText)
-            assertTrue("Comment mentions MavenUp", commentText!!.contains("MavenUp"))
+            assertTrue("Comment mentions Maven Up", commentText!!.contains("Maven Up"))
             assertFalse("Comment does not list any advisory id", commentText.contains("GHSA-2"))
         } finally {
             settings.state.vulnerabilityCommentMode = previousValue
@@ -225,7 +225,7 @@ class PomUpdateServiceTest : BasePlatformTestCase() {
             DEFAULT_VULNERABILITY_COMMENT_PREFIX,
             3
         )
-        assertEquals("Pinned by MavenUp to fix", text)
+        assertEquals("Pinned by Maven Up to fix", text)
     }
 
     fun testManagedDependencyCommentTextFallsBackWhenPrefixIsBlank() {
@@ -236,7 +236,7 @@ class PomUpdateServiceTest : BasePlatformTestCase() {
             "   ",
             3
         )
-        assertEquals("Added by MavenUp", text)
+        assertEquals("Added by Maven Up", text)
     }
 
     fun testManagedDependencyCommentTextTruncatesIdsBeyondMaximum() {

@@ -76,7 +76,7 @@ class MavenUpPomChangesConfigurableTest : BasePlatformTestCase() {
 
     fun testVulnerabilityCommentPrefixAndMaxIdsDefaults() {
         val state = MavenUpSettings.State()
-        assertEquals("Pinned by MavenUp to fix:", state.vulnerabilityCommentPrefix)
+        assertEquals("Pinned by Maven Up to fix:", state.vulnerabilityCommentPrefix)
         assertEquals(3, state.vulnerabilityCommentMaxIds)
     }
 

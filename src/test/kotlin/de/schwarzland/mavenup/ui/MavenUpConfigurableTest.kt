@@ -28,7 +28,7 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
     }
 
     fun testGetDisplayNameReturnsPluginName() {
-        assertEquals("MavenUp", MavenUpConfigurable(project).displayName)
+        assertEquals("Maven Up", MavenUpConfigurable(project).displayName)
     }
 
     fun testResetLoadsCurrentSettingsIntoComponent() {
