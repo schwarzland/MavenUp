@@ -123,8 +123,9 @@ liefert die DSL. Abhängige Felder werden über `enabledIf` gesteuert.
   gesteuertem `hiddenVersionQualifiers`, `versionAutoSelectionMode`, `confirmVersionReset`).
   `isValidPrivateGroupIds` prüft über den regulären Ausdruck `PRIVATE_GROUP_ID_REGEX` (`^[a-z0-9._-]+$`),
   dass alle durch Komma getrennten GroupId-Präfixe ausschließlich aus Kleinbuchstaben, Ziffern, Punkten,
-  Bindestrichen und Unterstrichen bestehen; `validationOnApply` und `beforeApply` weisen ungültige Eingaben
-  mit einer Fehlermeldung (`settings.privateGroupIds.invalid`) ab.
+  Bindestrichen und Unterstrichen bestehen; `validationOnInput`, `validationOnApply` und `beforeApply` weisen ungültige Eingaben
+  mit einer Fehlermeldung (`settings.privateGroupIds.invalid`) ab und heben das Eingabefeld über `OUTLINE_PROPERTY`/`OUTLINE_ERROR`
+  (`JComponent.outline`) rot hervor.
   `applyAutoSelectionMode` schreibt die Legacy-Flags `selectLatestVersion`/`selectLatestMinorVersion` fort.
 - **MavenUpVulnerabilityConfigurable**: Unterseite **Vulnerability Check** mit `checkTransitiveDependencies`
   und `ossIndexEnabled`. Kennzeichnet das Token bei Aktivierung als Pflichtfeld, verlinkt über

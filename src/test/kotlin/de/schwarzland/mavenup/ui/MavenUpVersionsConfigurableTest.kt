@@ -226,6 +226,25 @@ class MavenUpVersionsConfigurableTest : BasePlatformTestCase() {
         }
 
         assertEquals("Einstellung darf bei Validierungsfehler nicht übernommen werden", "com.mycompany", settings.state.privateGroupIds)
+        assertEquals(OUTLINE_ERROR, configurable.privateGroupIdsField!!.getClientProperty(OUTLINE_PROPERTY))
+    }
+
+    fun testPrivateGroupIdsInvalidInputSetsAndClearsErrorOutline() {
+        val configurable = createConfigurable()
+        val field = configurable.privateGroupIdsField!!
+        field.text = "invalid:group"
+
+        try {
+            configurable.apply()
+            fail("apply() muss bei ungültigen Zeichen fehlschlagen")
+        } catch (_: Exception) {
+        }
+
+        assertEquals(OUTLINE_ERROR, field.getClientProperty(OUTLINE_PROPERTY))
+
+        field.text = "com.mycompany"
+        configurable.apply()
+        assertNull(field.getClientProperty(OUTLINE_PROPERTY))
     }
 
     fun testPrivateGroupIdsValidationCallbackReturnsErrorForInvalidInput() {
