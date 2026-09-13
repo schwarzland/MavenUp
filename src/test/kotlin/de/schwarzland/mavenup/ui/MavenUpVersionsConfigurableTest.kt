@@ -1,5 +1,6 @@
 package de.schwarzland.mavenup.ui
 
+import com.intellij.openapi.ui.DialogPanel
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.schwarzland.mavenup.service.MavenUpSettings
 import de.schwarzland.mavenup.service.VersionAutoSelectionMode
@@ -181,12 +182,85 @@ class MavenUpVersionsConfigurableTest : BasePlatformTestCase() {
         settings.state.privateGroupIds = ""
 
         val configurable = createConfigurable()
-        configurable.privateGroupIdsField!!.text = " com.myCompany, de.meineFirma.produkt "
+        configurable.privateGroupIdsField!!.text = " com.mycompany, de.meinefirma.produkt "
         assertTrue("Änderung des Felds sollte isModified() true machen", configurable.isModified)
 
         configurable.apply()
 
-        assertEquals("com.myCompany, de.meineFirma.produkt", settings.state.privateGroupIds)
+        assertEquals("com.mycompany, de.meinefirma.produkt", settings.state.privateGroupIds)
+    }
+
+    fun testPrivateGroupIdsValidationAcceptsValidInputs() {
+        assertTrue(isValidPrivateGroupIds(""))
+        assertTrue(isValidPrivateGroupIds("   "))
+        assertTrue(isValidPrivateGroupIds("com.mycompany"))
+        assertTrue(isValidPrivateGroupIds("com.mycompany, de.meinefirma.produkt"))
+        assertTrue(isValidPrivateGroupIds("  com.mycompany  ,  de.meinefirma.produkt  "))
+        assertTrue(isValidPrivateGroupIds("com.my-company.service_123, org.example-456_test"))
+        assertTrue(isValidPrivateGroupIds(",,com.mycompany,,,de.meinefirma,,"))
+    }
+
+    fun testPrivateGroupIdsValidationRejectsInvalidCharacters() {
+        assertFalse("Großbuchstaben sind nicht erlaubt", isValidPrivateGroupIds("com.myCompany"))
+        assertFalse("Wildcard-Stern ist nicht erlaubt", isValidPrivateGroupIds("com.mycompany*"))
+        assertFalse("Dollar-Zeichen ist nicht erlaubt", isValidPrivateGroupIds("${'$'}de.meinefirma"))
+        assertFalse("Leerzeichen innerhalb eines Eintrags sind nicht erlaubt", isValidPrivateGroupIds("com .mycompany"))
+        assertFalse("Sonderzeichen wie Schrägstrich sind nicht erlaubt", isValidPrivateGroupIds("com/mycompany"))
+        assertFalse("Sonderzeichen wie Doppelpunkt sind nicht erlaubt", isValidPrivateGroupIds("com:mycompany"))
+        assertFalse("Sonderzeichen wie At-Zeichen sind nicht erlaubt", isValidPrivateGroupIds("@mycompany"))
+    }
+
+    fun testPrivateGroupIdsInvalidInputPreventsApply() {
+        val settings = MavenUpSettings.getInstance()
+        settings.state.privateGroupIds = "com.mycompany"
+
+        val configurable = createConfigurable()
+        configurable.privateGroupIdsField!!.text = "com.myCompany"
+
+        try {
+            configurable.apply()
+            fail("apply() muss bei ungültigen Zeichen fehlschlagen")
+        } catch (e: Exception) {
+            val expectedMessage = MyMessageBundle.message("settings.privateGroupIds.invalid")
+            assertTrue("Fehlermeldung muss erlaubte Zeichen enthalten: ${e.message}", e.message?.contains(expectedMessage) == true)
+        }
+
+        assertEquals("Einstellung darf bei Validierungsfehler nicht übernommen werden", "com.mycompany", settings.state.privateGroupIds)
+        assertEquals(OUTLINE_ERROR, configurable.privateGroupIdsField!!.getClientProperty(OUTLINE_PROPERTY))
+    }
+
+    fun testPrivateGroupIdsInvalidInputSetsAndClearsErrorOutline() {
+        val configurable = createConfigurable()
+        val field = configurable.privateGroupIdsField!!
+        field.text = "invalid:group"
+
+        try {
+            configurable.apply()
+            fail("apply() muss bei ungültigen Zeichen fehlschlagen")
+        } catch (_: Exception) {
+        }
+
+        assertEquals(OUTLINE_ERROR, field.getClientProperty(OUTLINE_PROPERTY))
+
+        field.text = "com.mycompany"
+        configurable.apply()
+        assertNull(field.getClientProperty(OUTLINE_PROPERTY))
+    }
+
+    fun testPrivateGroupIdsValidationCallbackReturnsErrorForInvalidInput() {
+        val configurable = MavenUpVersionsConfigurable(project)
+        val panel = configurable.createComponent() as DialogPanel
+        configurable.reset()
+
+        configurable.privateGroupIdsField!!.text = "com.myCompany"
+        val validations = panel.validateAll()
+        assertEquals(1, validations.size)
+        assertEquals(MyMessageBundle.message("settings.privateGroupIds.invalid"), validations.first().message)
+        assertEquals(configurable.privateGroupIdsField, validations.first().component)
+
+        configurable.privateGroupIdsField!!.text = "com.mycompany, de.meinefirma.produkt"
+        val validValidations = panel.validateAll()
+        assertTrue("Bei gültigen GroupIds darf kein Validierungsfehler vorliegen", validValidations.isEmpty())
     }
 
     fun testDisposeUiResourcesReleasesComponents() {

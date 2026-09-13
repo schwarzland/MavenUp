@@ -29,7 +29,7 @@ Tools
 
 #### Privacy
 
-- **Private GroupId prefixes (comma-separated)**: List of GroupId prefixes considered private/internal, e.g. `com.myCompany, de.meineFirma.produkt`. Any dependency, plugin, managed dependency, managed plugin, or parent POM whose GroupId equals one of these prefixes or starts with `<prefix>.` is excluded from queries to Maven Central (`repo1.maven.org`), so no company information is transmitted to that external server. Other configured private repositories are still queried for matching GroupIds. See [privacy-and-security.md](privacy-and-security.md) for details on transmitted data.
+- **Private GroupId prefixes (comma-separated)**: List of GroupId prefixes considered private/internal, e.g. `com.mycompany, de.meinefirma.produkt`. Any dependency, plugin, managed dependency, managed plugin, or parent POM whose GroupId equals one of these prefixes or starts with `<prefix>.` (evaluated case-insensitively, with `*` and `$` characters stripped) is excluded from queries to Maven Central (`repo1.maven.org`), so no company information is transmitted to that external server. Other configured private repositories are still queried for matching GroupIds. Input validation on OK/Apply verifies that each comma-separated prefix only contains lowercase letters, numbers, dots, hyphens, and underscores (`[a-z0-9._-]`), highlighting the field in red and displaying an error message below the field otherwise. See [privacy-and-security.md](privacy-and-security.md) for details on transmitted data.
 
 #### Version Selection
 

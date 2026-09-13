@@ -8,12 +8,14 @@
 
 - Added a dedicated dark theme plugin icon for the JetBrains Marketplace and IDE Plugin Manager.
 - Added IDE notifications reporting the number of versions found for the checked dependencies after a version search, and the number of direct/indirect vulnerabilities found after a vulnerability scan.
+- Added input validation on OK and Apply for the private GroupId prefixes field in the settings dialog, verifying that comma-separated entries only contain lowercase letters, numbers, dots, hyphens, and underscores (`[a-z0-9._-]`), highlighting the field with a red error outline, and showing a red error message below the field otherwise.
 
 ### Changed
 
 - Changed the public plugin and settings display name from "MavenUp" to "Maven Up".
 - Reworked the Marketplace plugin icon to match the tool window icon layout while incorporating Apache Maven's distinctive "m" mark.
 - Enlarged the Marketplace and tool window icons so their artwork fills the available canvas.
+- Stripped `*` and `$` characters from configured private GroupId prefixes and evaluated private GroupIds case-insensitively when determining whether a GroupId is private.
 
 ### Fixed
 
