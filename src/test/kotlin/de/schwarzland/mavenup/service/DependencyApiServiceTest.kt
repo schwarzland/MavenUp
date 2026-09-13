@@ -556,7 +556,26 @@ class DependencyApiServiceTest : BasePlatformTestCase() {
     fun testIsPrivateGroupIdMatchesExactAndSubGroupIds() {
         val settings = MavenUpSettings.getInstance()
         val previous = settings.state.privateGroupIds
-        settings.state.privateGroupIds = "com.myCompany, de.meineFirma.produkt"
+        settings.state.privateGroupIds = "com.myCompany, de.meineFirma.Produkt"
+
+        val service = DependencyApiService(project)
+        try {
+            assertTrue(service.isPrivateGroupId("com.mycompany"))
+            assertTrue(service.isPrivateGroupId("com.myCompany"))
+            assertTrue(service.isPrivateGroupId("com.myCompany.internal"))
+            assertTrue(service.isPrivateGroupId("de.meineFirma.produkt"))
+            assertTrue(service.isPrivateGroupId("de.meineFirma.produkt.core"))
+            assertFalse(service.isPrivateGroupId("com.mycompanyOther"))
+            assertFalse(service.isPrivateGroupId("org.apache.commons"))
+        } finally {
+            settings.state.privateGroupIds = previous
+        }
+    }
+
+    fun testIsPrivateGroupIdRemovesWildcardAndDollarCharacters() {
+        val settings = MavenUpSettings.getInstance()
+        val previous = settings.state.privateGroupIds
+        settings.state.privateGroupIds = " *com.myCompany* , ${'$'}de.meineFirma.produkt${'$'} , *${'$'}org.example.service*${'$'} "
 
         val service = DependencyApiService(project)
         try {
@@ -564,7 +583,23 @@ class DependencyApiServiceTest : BasePlatformTestCase() {
             assertTrue(service.isPrivateGroupId("com.myCompany.internal"))
             assertTrue(service.isPrivateGroupId("de.meineFirma.produkt"))
             assertTrue(service.isPrivateGroupId("de.meineFirma.produkt.core"))
+            assertTrue(service.isPrivateGroupId("org.example.service"))
+            assertTrue(service.isPrivateGroupId("org.example.service.api"))
             assertFalse(service.isPrivateGroupId("com.myCompanyOther"))
+            assertFalse(service.isPrivateGroupId("org.apache.commons"))
+        } finally {
+            settings.state.privateGroupIds = previous
+        }
+    }
+
+    fun testIsPrivateGroupIdWithOnlyWildcardAndDollarReturnsFalse() {
+        val settings = MavenUpSettings.getInstance()
+        val previous = settings.state.privateGroupIds
+        settings.state.privateGroupIds = " * , $ , *$ , * $ * "
+
+        val service = DependencyApiService(project)
+        try {
+            assertFalse(service.isPrivateGroupId("com.myCompany"))
             assertFalse(service.isPrivateGroupId("org.apache.commons"))
         } finally {
             settings.state.privateGroupIds = previous
@@ -595,7 +630,7 @@ class DependencyApiServiceTest : BasePlatformTestCase() {
             Pair<String?, String>("private-1", "https://private-1.example.org/maven")
         )
         try {
-            val filtered = service.excludeCentralForPrivateGroupId(repositories, "com.myCompany.module")
+            val filtered = service.excludeCentralForPrivateGroupId(repositories, "com.mycompany.module")
             assertEquals(listOf(repositories[1]), filtered)
         } finally {
             settings.state.privateGroupIds = previous

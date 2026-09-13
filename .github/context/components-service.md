@@ -90,7 +90,7 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   einem `ApiError` (Quelle `REPOSITORY`, Ursache `Failure`, Bezeichnung des Repositories) aus,
   sobald keine Version von irgendeinem Repository ermittelt werden konnte und ein solcher Fehler vorliegt.
   `isPrivateGroupId` prüft eine GroupId gegen die Einstellung `privateGroupIds` (exakter Präfix oder
-  `<Präfix>.`); `excludeCentralForPrivateGroupId` entfernt Maven Central aus der Repository-Liste, wenn die
+  `<Präfix>.`, bereinigt um die Zeichen `*` und `$`); `excludeCentralForPrivateGroupId` entfernt Maven Central aus der Repository-Liste, wenn die
   GroupId privat ist, sodass `fetchAllVersions` für private GroupIds keine Koordinaten an
   `repo1.maven.org` überträgt, andere konfigurierte private Repositories aber weiterhin abfragt.
 - **OssIndexApiService / OssIndexCredentialService**: optionale Sonatype-Abfrage über Maven-purl
