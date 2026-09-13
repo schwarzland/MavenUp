@@ -1,5 +1,6 @@
 package de.schwarzland.mavenup.ui
 
+import com.intellij.openapi.options.ConfigurationException
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.ComboBox
 import com.intellij.openapi.ui.DialogPanel
@@ -15,6 +16,25 @@ import com.intellij.ui.dsl.builder.columns
 import com.intellij.ui.dsl.builder.panel
 import com.intellij.ui.dsl.builder.selected
 import de.schwarzland.mavenup.service.VersionAutoSelectionMode
+
+/**
+ * Regulärer Ausdruck für zulässige private GroupId-Präfixe.
+ * Erlaubt sind ausschließlich Kleinbuchstaben, Ziffern, Punkte, Bindestriche und Unterstriche.
+ */
+internal val PRIVATE_GROUP_ID_REGEX = Regex("^[a-z0-9._-]+$")
+
+/**
+ * Prüft, ob die eingegebenen, durch Komma getrennten GroupId-Präfixe ausschließlich aus
+ * Kleinbuchstaben, Ziffern, Punkten, Bindestrichen und Unterstrichen bestehen.
+ * Leere Eingaben oder leere Segmente zwischen Kommas gelten als gültig.
+ *
+ * @param input Der zu prüfende Text aus dem Eingabefeld.
+ * @return `true`, wenn alle nicht-leeren Segmente dem erlaubten Format entsprechen.
+ */
+internal fun isValidPrivateGroupIds(input: String): Boolean {
+    val tokens = input.split(",").map { it.trim() }.filter { it.isNotEmpty() }
+    return tokens.all { it.matches(PRIVATE_GROUP_ID_REGEX) }
+}
 
 /**
  * Einstellungsseite **Versions and Updates** unterhalb der MavenUp-Wurzelseite.
@@ -88,6 +108,13 @@ class MavenUpVersionsConfigurable(project: Project) :
                     .resizableColumn()
                     .columns(COLUMNS_MEDIUM)
                     .bindText({ state.privateGroupIds }, { state.privateGroupIds = it.trim() })
+                    .validationOnApply { field ->
+                        if (isValidPrivateGroupIds(field.text)) {
+                            null
+                        } else {
+                            error(MyMessageBundle.message("settings.privateGroupIds.invalid"))
+                        }
+                    }
                     .component
             }.rowComment(MyMessageBundle.message("settings.privateGroupIds.comment"))
         }
@@ -128,6 +155,18 @@ class MavenUpVersionsConfigurable(project: Project) :
                     .bindSelected({ state.confirmVersionReset }, { state.confirmVersionReset = it })
                     .component
             }.rowComment(MyMessageBundle.message("settings.confirmVersionReset.comment"))
+        }
+    }
+
+    /**
+     * Stellt vor dem Speichern sicher, dass die eingegebenen privaten GroupIds nur zulässige Zeichen enthalten.
+     *
+     * @throws ConfigurationException wenn ungültige Zeichen enthalten sind.
+     */
+    override fun beforeApply() {
+        val text = privateGroupIdsField?.text.orEmpty()
+        if (!isValidPrivateGroupIds(text)) {
+            throw ConfigurationException(MyMessageBundle.message("settings.privateGroupIds.invalid"))
         }
     }
 

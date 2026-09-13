@@ -8,6 +8,7 @@
 
 - Added a dedicated dark theme plugin icon for the JetBrains Marketplace and IDE Plugin Manager.
 - Added IDE notifications reporting the number of versions found for the checked dependencies after a version search, and the number of direct/indirect vulnerabilities found after a vulnerability scan.
+- Added input validation on OK and Apply for the private GroupId prefixes field in the settings dialog, verifying that comma-separated entries only contain lowercase letters, numbers, dots, hyphens, and underscores (`[a-z0-9._-]`), and showing a red error message below the field otherwise.
 
 ### Changed
 
