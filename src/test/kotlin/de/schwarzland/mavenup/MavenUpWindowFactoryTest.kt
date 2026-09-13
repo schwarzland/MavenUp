@@ -20,6 +20,10 @@ import de.schwarzland.mavenup.ui.RefreshSnapshot
 import de.schwarzland.mavenup.ui.VulnerabilityOrigin
 import de.schwarzland.mavenup.ui.buildVulnerabilityCell
 import de.schwarzland.mavenup.ui.canCheckVulnerabilities
+import de.schwarzland.mavenup.ui.CHECK_VULNERABILITIES_TOOLTIP_DIRECT_ALL_SOURCES_KEY
+import de.schwarzland.mavenup.ui.CHECK_VULNERABILITIES_TOOLTIP_DIRECT_OSV_ONLY_KEY
+import de.schwarzland.mavenup.ui.CHECK_VULNERABILITIES_TOOLTIP_TRANSITIVE_ALL_SOURCES_KEY
+import de.schwarzland.mavenup.ui.CHECK_VULNERABILITIES_TOOLTIP_TRANSITIVE_OSV_ONLY_KEY
 import de.schwarzland.mavenup.ui.EMPTY_TEXT_KEY_NO_DEPENDENCIES
 import de.schwarzland.mavenup.ui.EMPTY_TEXT_KEY_NO_MATCHES
 import de.schwarzland.mavenup.ui.EMPTY_TEXT_KEY_REFRESHING
@@ -1113,6 +1117,61 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         )
 
         settings.state.toolbarShowText = false
+    }
+
+    @Suppress("UnstableApiUsage", "OverrideOnly")
+    fun testCheckVulnerabilitiesToolbarTooltipReflectsSettings() {
+        val settings = MavenUpSettings.getInstance()
+        val originalTransitive = settings.state.checkTransitiveDependencies
+        val originalOssIndex = settings.state.ossIndexEnabled
+
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        val scanAction = toolWindow.topToolbarActions()
+            .first { it.templatePresentation.text == MyMessageBundle.message("toolwindow.MyToolWindow.checkVulnerabilities.button") }
+
+        fun currentTooltip(): String? {
+            val event = com.intellij.testFramework.TestActionEvent.createTestEvent(scanAction)
+            scanAction.update(event)
+            val custom = event.presentation.getClientProperty(
+                com.intellij.openapi.actionSystem.impl.ActionButton.CUSTOM_HELP_TOOLTIP
+            )
+            return custom?.description
+        }
+
+        try {
+            settings.state.checkTransitiveDependencies = true
+            settings.state.ossIndexEnabled = true
+            assertEquals(
+                MyMessageBundle.message(CHECK_VULNERABILITIES_TOOLTIP_TRANSITIVE_ALL_SOURCES_KEY),
+                currentTooltip()
+            )
+
+            settings.state.checkTransitiveDependencies = true
+            settings.state.ossIndexEnabled = false
+            assertEquals(
+                MyMessageBundle.message(CHECK_VULNERABILITIES_TOOLTIP_TRANSITIVE_OSV_ONLY_KEY),
+                currentTooltip()
+            )
+
+            settings.state.checkTransitiveDependencies = false
+            settings.state.ossIndexEnabled = true
+            assertEquals(
+                MyMessageBundle.message(CHECK_VULNERABILITIES_TOOLTIP_DIRECT_ALL_SOURCES_KEY),
+                currentTooltip()
+            )
+
+            settings.state.checkTransitiveDependencies = false
+            settings.state.ossIndexEnabled = false
+            assertEquals(
+                MyMessageBundle.message(CHECK_VULNERABILITIES_TOOLTIP_DIRECT_OSV_ONLY_KEY),
+                currentTooltip()
+            )
+        } finally {
+            settings.state.checkTransitiveDependencies = originalTransitive
+            settings.state.ossIndexEnabled = originalOssIndex
+        }
     }
 
     fun testVulnerabilityDetailsActionReflectsSelection() {

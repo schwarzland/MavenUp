@@ -48,7 +48,8 @@ Beschreibt die zustandslosen Hilfsdateien und die I18n-Anbindung in
     `TRANSITIVE_DECLARED`), `buildVulnerabilityCell`,
     `vulnerabilitySummary`, `worstSeverity`, `canCheckVulnerabilities`, `vulnerabilityColor`,
     `vulnerabilityCellRenderer` (geteilter Zell-Renderer von Haupttabelle und transitiver Ansicht),
-    `VulnerabilityScanTargets`, `artifactNodeCoordinate`, `coordinateString`.
+    `VulnerabilityScanTargets`, `artifactNodeCoordinate`, `coordinateString`,
+    `checkVulnerabilitiesTooltipKey`, `checkVulnerabilitiesTooltip` samt den `CHECK_VULNERABILITIES_TOOLTIP_*`-Konstanten.
   - `RefreshSnapshot.kt`: `RefreshRow` (inkl. `versionInherited`), `RefreshSnapshot`.
   - `InheritedVersionUi.kt`: `inheritedVersionCellText`, `inheritedVersionTooltip`,
     `createCurrentVersionRenderer` samt `INHERITED_VERSION_MARKER_KEY`/`INHERITED_VERSION_TOOLTIP_KEY` –
