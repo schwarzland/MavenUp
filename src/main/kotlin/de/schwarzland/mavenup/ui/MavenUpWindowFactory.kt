@@ -1134,14 +1134,14 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     e.presentation.text = MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.group.button")
                     e.presentation.description = tooltip
                     e.presentation.putClientProperty(ActionButton.CUSTOM_HELP_TOOLTIP, HelpTooltip().withWrappingDescription(tooltip))
-                    e.presentation.icon = AllIcons.Actions.DeleteTag
+                    e.presentation.icon = AllIcons.Actions.GroupBy
                     e.presentation.putClientProperty(ActionUtil.SHOW_TEXT_IN_TOOLBAR, showText)
                 }
             }.apply {
-                templatePresentation.icon = AllIcons.Actions.DeleteTag
+                templatePresentation.icon = AllIcons.Actions.GroupBy
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.managedEntries.removeManagedDependencies.button",
-                    AllIcons.Actions.DeleteTag,
+                    AllIcons.Actions.GroupBy,
                     { !showingTransitiveView && hasManagedEntriesToRemoveForType(MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)) },
                     descriptionProvider = {
                         bulkSelectionActionDescription(
@@ -1156,7 +1156,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 })
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.managedEntries.removeManagedPlugins.button",
-                    AllIcons.Actions.DeleteTag,
+                    AllIcons.Actions.GroupBy,
                     { !showingTransitiveView && hasManagedEntriesToRemoveForType(MANAGED_PLUGIN) },
                     descriptionProvider = {
                         bulkSelectionActionDescription(
