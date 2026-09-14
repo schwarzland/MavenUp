@@ -82,6 +82,14 @@ private val MANAGED_ENTRIES_ICON = IconLoader.getIcon("/icons/managedEntries.svg
 
 private const val TOOLWINDOW_MY_TOOL_WINDOW_RESET_VERSIONS_CONFIRM_TITLE = "toolwindow.MyToolWindow.resetVersions.confirm.title"
 
+private const val TOOLWINDOW_MY_TOOL_WINDOW_SELECT_RECOMMENDED_BUTTON = "toolwindow.MyToolWindow.selectRecommended.button"
+
+private const val TOOLWINDOW_MY_TOOL_WINDOW_SELECT_HIGHEST_MINOR_BUTTON = "toolwindow.MyToolWindow.selectHighestMinor.button"
+
+private const val TOOLWINDOW_MY_TOOL_WINDOW_SELECT_HIGHEST_MAJOR_BUTTON = "toolwindow.MyToolWindow.selectHighestMajor.button"
+
+private const val TOOLWINDOW_MY_TOOL_WINDOW_MANAGED_ENTRIES_GROUP_BUTTON = "toolwindow.MyToolWindow.managedEntries.group.button"
+
 /**
  * -----------------------------------------------------------------------------------------------
  * Factory-Klasse zur Erstellung und Initialisierung des MavenUp Tool Windows in der IntelliJ-IDE.
@@ -1065,55 +1073,55 @@ class MavenUpWindowFactory : ToolWindowFactory {
             }.apply {
                 templatePresentation.icon = VersionUpdateArrowIcon
                 add(toolbarAction(
-                    "toolwindow.MyToolWindow.selectHighestMajor.button",
+                    TOOLWINDOW_MY_TOOL_WINDOW_SELECT_HIGHEST_MAJOR_BUTTON,
                     AllIcons.Actions.Play_last,
                     { isBulkVersionSelectionEnabledForCurrentView() },
                     descriptionProvider = {
                         bulkSelectionActionDescription(
-                            MyMessageBundle.message("toolwindow.MyToolWindow.selectHighestMajor.button")
+                            MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_SELECT_HIGHEST_MAJOR_BUTTON)
                         )
                     },
                     isMenuItem = true
                 ) {
                     if (showingTransitiveView) transitiveVulnerabilitiesView.selectHighestMajorVersionForAll()
                     else confirmAndApplyBulkVersionSelection(
-                        "toolwindow.MyToolWindow.selectHighestMajor.button",
+                        TOOLWINDOW_MY_TOOL_WINDOW_SELECT_HIGHEST_MAJOR_BUTTON,
                         applyVisible = { selectHighestMajorVersionForAll(visibleOnly = true) },
                         applyAll = { selectHighestMajorVersionForAll(visibleOnly = false) }
                     )
                 })
                 add(toolbarAction(
-                    "toolwindow.MyToolWindow.selectHighestMinor.button",
+                    TOOLWINDOW_MY_TOOL_WINDOW_SELECT_HIGHEST_MINOR_BUTTON,
                     AllIcons.Actions.Play_forward,
                     { isBulkVersionSelectionEnabledForCurrentView() },
                     descriptionProvider = {
                         bulkSelectionActionDescription(
-                            MyMessageBundle.message("toolwindow.MyToolWindow.selectHighestMinor.button")
+                            MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_SELECT_HIGHEST_MINOR_BUTTON)
                         )
                     },
                     isMenuItem = true
                 ) {
                     if (showingTransitiveView) transitiveVulnerabilitiesView.selectHighestMinorVersionForAll()
                     else confirmAndApplyBulkVersionSelection(
-                        "toolwindow.MyToolWindow.selectHighestMinor.button",
+                        TOOLWINDOW_MY_TOOL_WINDOW_SELECT_HIGHEST_MINOR_BUTTON,
                         applyVisible = { selectHighestMinorVersionForAll(visibleOnly = true) },
                         applyAll = { selectHighestMinorVersionForAll(visibleOnly = false) }
                     )
                 })
                 add(toolbarAction(
-                    "toolwindow.MyToolWindow.selectRecommended.button",
+                    TOOLWINDOW_MY_TOOL_WINDOW_SELECT_RECOMMENDED_BUTTON,
                     AllIcons.Actions.Checked,
                     { isRecommendedSelectionEnabledForCurrentView() },
                     descriptionProvider = {
                         bulkSelectionActionDescription(
-                            MyMessageBundle.message("toolwindow.MyToolWindow.selectRecommended.button")
+                            MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_SELECT_RECOMMENDED_BUTTON)
                         )
                     },
                     isMenuItem = true
                 ) {
                     if (showingTransitiveView) transitiveVulnerabilitiesView.selectRecommendedVersionForAll()
                     else confirmAndApplyBulkVersionSelection(
-                        "toolwindow.MyToolWindow.selectRecommended.button",
+                        TOOLWINDOW_MY_TOOL_WINDOW_SELECT_RECOMMENDED_BUTTON,
                         applyVisible = { selectRecommendedVersionForAll(visibleOnly = true) },
                         applyAll = { selectRecommendedVersionForAll(visibleOnly = false) }
                     )
@@ -1121,7 +1129,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             }
 
             val managedEntriesActionGroup = object : DefaultActionGroup(
-                MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.group.button"),
+                MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_MANAGED_ENTRIES_GROUP_BUTTON),
                 true
             ) {
                 override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
@@ -1132,7 +1140,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         hasManagedEntriesToRemoveForType(MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)) ||
                             hasManagedEntriesToRemoveForType(MANAGED_PLUGIN)
                         )
-                    e.presentation.text = MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.group.button")
+                    e.presentation.text = MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_MANAGED_ENTRIES_GROUP_BUTTON)
                     e.presentation.description = tooltip
                     e.presentation.putClientProperty(ActionButton.CUSTOM_HELP_TOOLTIP, HelpTooltip().withWrappingDescription(tooltip))
                     e.presentation.icon = MANAGED_ENTRIES_ICON
@@ -1142,7 +1150,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 templatePresentation.icon = MANAGED_ENTRIES_ICON
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.managedEntries.removeManagedDependencies.button",
-                    AllIcons.Actions.Close,
+                    AllIcons.Actions.Cancel,
                     { !showingTransitiveView && hasManagedEntriesToRemoveForType(MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)) },
                     descriptionProvider = {
                         bulkSelectionActionDescription(
@@ -1157,7 +1165,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 })
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.managedEntries.removeManagedPlugins.button",
-                    AllIcons.Actions.Close,
+                    AllIcons.Actions.Cancel,
                     { !showingTransitiveView && hasManagedEntriesToRemoveForType(MANAGED_PLUGIN) },
                     descriptionProvider = {
                         bulkSelectionActionDescription(
@@ -2699,7 +2707,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
            return Messages.showDialog(
                project,
                MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.filtered.message"),
-               MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.group.button"),
+               MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_MANAGED_ENTRIES_GROUP_BUTTON),
                options,
                0,
                Messages.getWarningIcon()
