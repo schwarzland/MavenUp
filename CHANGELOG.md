@@ -14,6 +14,7 @@
 
 ### Changed
 
+- Removed the redundant Keep in pom.xml context-menu action and preserved property-linked version selections when marking a managed entry for removal.
 - Extended the main-table Pending filter with All Changes and Will be removed options for pending managed-entry removals.
 - Changed each single-entry version-selection action to cancel a pending managed-entry removal before selecting its target version.
 - Changed the public plugin and settings display name from "MavenUp" to "Maven Up".

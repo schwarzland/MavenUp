@@ -2478,7 +2478,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         model.addRow(arrayOf("com.example", "reset-other", "", "dependency", null, "8.0.0", availableVersions[other]))
         toolWindow.applyRowFilter()
 
-        assertTrue(toolWindow.isVersionResetEnabledForDependency(key))
+        assertTrue(toolWindow.isVersionResetEnabledForDependency(key, "dependency"))
         toolWindow.resetVersionForDependency(key, "dependency")
 
         assertNull("Die angeklickte Dependency muss zurückgesetzt werden.", selectedVersions[key])
@@ -2487,7 +2487,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
             "9.0.0",
             selectedVersions[other]
         )
-        assertFalse(toolWindow.isVersionResetEnabledForDependency(key))
+        assertFalse(toolWindow.isVersionResetEnabledForDependency(key, "dependency"))
     }
 
     fun testResetVersionForDependencyClearsPropertyLinkedEntries() {
@@ -2528,13 +2528,13 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         knownDependencies[key] = "1.0.0"
         assertFalse(
             "Ohne Auswahl darf das Zurücksetzen nicht verfügbar sein.",
-            toolWindow.isVersionResetEnabledForDependency(key)
+            toolWindow.isVersionResetEnabledForDependency(key, "dependency")
         )
 
         selectedVersions[key] = "1.0.0"
         assertFalse(
             "Wenn die Auswahl der aktuellen Version entspricht, ist kein Zurücksetzen nötig.",
-            toolWindow.isVersionResetEnabledForDependency(key)
+            toolWindow.isVersionResetEnabledForDependency(key, "dependency")
         )
     }
 
@@ -2757,6 +2757,51 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         assertFalse(toolWindow.isManagedEntryMarkedForRemoval(key, managedDependency))
         assertEquals("2.0.0", selectedVersions[key])
+    }
+
+    fun testMarkingManagedEntryForRemovalPreservesPropertyLinkedVersionSelections() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+        val managedDependency = MyMessageBundle.message("toolwindow.MyToolWindow.type.managedDependency")
+        val (availableVersions, selectedVersions, knownDependencies) = versionMaps(toolWindow)
+        @Suppress("UNCHECKED_CAST")
+        val dependencyToProperty = toolWindow.javaClass.getDeclaredField("dependencyToProperty")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, String>
+        @Suppress("UNCHECKED_CAST")
+        val knownTypes = toolWindow.javaClass.getDeclaredField("knownTypes")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, String>
+        val removalKey = "com.example:managed-removal"
+        val linkedKey = "com.example:managed-linked"
+        availableVersions[removalKey] = listOf("2.0.0", "1.0.0")
+        availableVersions[linkedKey] = listOf("2.0.0", "1.0.0")
+        knownDependencies[removalKey] = "1.0.0"
+        knownDependencies[linkedKey] = "1.0.0"
+        knownTypes[removalKey] = managedDependency
+        knownTypes[linkedKey] = managedDependency
+        dependencyToProperty[removalKey] = "shared.version"
+        dependencyToProperty[linkedKey] = "shared.version"
+        selectedVersions[removalKey] = "2.0.0"
+        selectedVersions[linkedKey] = "2.0.0"
+
+        toolWindow.markManagedEntryForRemoval(removalKey, managedDependency, "1.0.0")
+
+        assertNull(selectedVersions[removalKey])
+        assertEquals("2.0.0", selectedVersions[linkedKey])
+        assertTrue(
+            toolWindow.collectSelectedUpdates().any {
+                it.artifactId == "managed-linked" && !it.removeFromPom && it.newVersion == "2.0.0"
+            }
+        )
+
+        // A synchronized property selection may reintroduce the marked coordinate.
+        selectedVersions[removalKey] = "2.0.0"
+        assertFalse(
+            toolWindow.collectSelectedUpdates().any {
+                it.artifactId == "managed-removal" && !it.removeFromPom
+            }
+        )
     }
 
     fun testManagedEntryRemovalShowsWillBeRemovedInNewVersionColumn() {

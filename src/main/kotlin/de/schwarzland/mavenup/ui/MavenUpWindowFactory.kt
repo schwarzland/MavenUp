@@ -575,30 +575,19 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         selectRecommendedVersionForDependency(dependencyKey)
                     }
                     addAction(MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.resetToCurrent"),
-                        isVersionResetEnabledForDependency(dependencyKey)) {
+                        isVersionResetEnabledForDependency(dependencyKey, type)) {
                         resetVersionForDependency(dependencyKey, type)
                     }
-                    if (isManagedEntryType(type)) {
-                        val markedForRemoval = isManagedEntryMarkedForRemoval(dependencyKey, type)
+                    if (isManagedEntryType(type) && !isManagedEntryMarkedForRemoval(dependencyKey, type)) {
                         addAction(
-                            MyMessageBundle.message(
-                                if (markedForRemoval) {
-                                    "toolwindow.MyToolWindow.contextMenu.keepInPom"
-                                } else {
-                                    "toolwindow.MyToolWindow.contextMenu.removeFromPom"
-                                }
-                            ),
+                            MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.removeFromPom"),
                             !isUpdating
                         ) {
-                            if (markedForRemoval) {
-                                unmarkManagedEntryForRemoval(dependencyKey, type)
-                            } else {
-                                markManagedEntryForRemoval(
-                                    dependencyKey,
-                                    type,
-                                    currentVersion
-                                )
-                            }
+                            markManagedEntryForRemoval(
+                                dependencyKey,
+                                type,
+                                currentVersion
+                            )
                         }
                     }
                     val hasVulnerabilities = vulnerabilityCell != null && vulnerabilityCell.allAdvisories.isNotEmpty()
@@ -2234,12 +2223,13 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * wurde, die zurückgesetzt werden kann.
          *
          * @param key Der Schlüssel (`groupId:artifactId`) der Abhängigkeit.
+         * @param type Der Typ des Eintrags.
          * @return `true`, wenn keine Aktualisierung läuft und die ausgewählte Version von der aktuell
-         *   verwendeten Version abweicht.
+         *   verwendeten Version abweicht oder der Eintrag zur Entfernung vorgemerkt ist.
          */
-        internal fun isVersionResetEnabledForDependency(key: String): Boolean {
+        internal fun isVersionResetEnabledForDependency(key: String, type: String): Boolean {
             if (isUpdating) return false
-            if (pendingManagedRemovalUpdates.keys.any { it.endsWith("|$key") }) return true
+            if (isManagedEntryMarkedForRemoval(key, type)) return true
             val selected = selectedVersions[key] ?: return false
             return selected != (knownDependencies[key] ?: "")
         }
@@ -2247,8 +2237,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /**
          * Markiert einen verwalteten Eintrag zur Entfernung beim nächsten Update.
          *
-         * Eine eventuell gewählte Version wird verworfen, da das Update den Eintrag statt einer
-         * Versionsänderung vollständig aus der `pom.xml` entfernt.
+         * Eine Auswahl derselben Koordinate wird verworfen, damit der markierte Eintrag nicht zugleich
+         * aktualisiert und entfernt wird. Auswahlen anderer Einträge mit derselben Maven-Property bleiben
+         * bestehen und werden beim Update weiterhin angewendet.
          *
          * @param key Der Schlüssel (`groupId:artifactId`) des verwalteten Eintrags.
          * @param type Der Typ des Eintrags.
@@ -2256,7 +2247,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
          */
         internal fun markManagedEntryForRemoval(key: String, type: String, currentVersion: String) {
             if (isUpdating || !isManagedEntryType(type)) return
-            clearVersionSelection(key)
+            selectedVersions.remove(key)
             val update = DependencyUpdate(
                 groupId = key.substringBefore(":"),
                 artifactId = key.substringAfter(":"),
@@ -2267,19 +2258,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
             )
             pendingManagedRemovalUpdates[managedRemovalKey(key, type)] = update
             cancelActiveCellEditing()
-            table.repaint()
-            updateUpdateButtonState()
-            applyRowFilter()
-        }
-
-        /**
-         * Nimmt die vorgemerkte Entfernung eines verwalteten Eintrags zurück.
-         *
-         * @param key Der Schlüssel (`groupId:artifactId`) des verwalteten Eintrags.
-         * @param type Der Typ des Eintrags.
-         */
-        internal fun unmarkManagedEntryForRemoval(key: String, type: String) {
-            pendingManagedRemovalUpdates.remove(managedRemovalKey(key, type))
             table.repaint()
             updateUpdateButtonState()
             applyRowFilter()
@@ -2857,13 +2835,15 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * Sammelt alle in der UI ausgewählten Updates, für die eine neue Version gewählt wurde.
          *
          * Enthält sowohl die Auswahlen der Haupttabelle als auch die in der transitiven Ansicht
-         * gepinnten Versionen (als verwaltete Abhängigkeiten).
+         * gepinnten Versionen (als verwaltete Abhängigkeiten). Eine Versionsauswahl wird ausgelassen,
+         * wenn derselbe Eintrag zur Entfernung vorgemerkt ist.
          */
         internal fun collectSelectedUpdates(): List<DependencyUpdate> {
             val mainUpdates = selectedVersions.mapNotNull { (key, newVersion) ->
                 val currentVersion = knownDependencies[key] ?: return@mapNotNull null
                 val type = knownTypes[key] ?: return@mapNotNull null
                 if (newVersion == currentVersion) return@mapNotNull null
+                if (isManagedEntryMarkedForRemoval(key, type)) return@mapNotNull null
 
                 DependencyUpdate(
                     key.substringBefore(":"),
