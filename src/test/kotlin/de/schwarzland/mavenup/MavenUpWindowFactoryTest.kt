@@ -37,6 +37,7 @@ import de.schwarzland.mavenup.ui.TriStateFilter
 import de.schwarzland.mavenup.ui.PendingChangesFilter
 import de.schwarzland.mavenup.ui.VulnerabilityFilter
 import de.schwarzland.mavenup.ui.sortableHeaderIcon
+import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.wm.RegisterToolWindowTask
 import com.intellij.openapi.wm.ToolWindowAnchor
 import com.intellij.openapi.wm.ToolWindowManager
@@ -355,6 +356,26 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         withToolWindowContents { contentManager ->
             assertTrue("Content sollte zum ToolWindow hinzugefügt worden sein", contentManager.contentCount > 0)
         }
+    }
+
+    fun testManagedEntriesBulkMenuIsPresentInToolbar() {
+        val toolWindowInstance = MavenUpWindowFactory().MyToolWindow(project)
+        val managedEntriesGroup = toolWindowInstance.topToolbarActions()
+            .firstOrNull { it.templatePresentation.text == MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.group.button") }
+            as? DefaultActionGroup
+
+        assertNotNull("Das \"Managed Entries\"-Untermenü sollte vorhanden sein", managedEntriesGroup)
+        assertTrue(
+            "Das Untermenü sollte die beiden Managed-Entries-Aktionen enthalten",
+            managedEntriesGroup!!.childActionsOrStubs
+                .map { it.templatePresentation.text }
+                .containsAll(
+                    listOf(
+                        MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.removeManagedDependencies.button"),
+                        MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.removeManagedPlugins.button")
+                    )
+                )
+        )
     }
 
     fun testRefreshSnapshotCollectionRunsOutsideEdt() {

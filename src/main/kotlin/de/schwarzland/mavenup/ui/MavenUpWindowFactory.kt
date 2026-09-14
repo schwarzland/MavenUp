@@ -1107,6 +1107,56 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 })
             }
 
+            val managedEntriesActionGroup = object : DefaultActionGroup(
+                MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.group.button"),
+                true
+            ) {
+                override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
+                override fun update(e: AnActionEvent) {
+                    val showText = isToolbarTextEnabled()
+                    val tooltip = MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.group.tooltip")
+                    e.presentation.isEnabled = !showingTransitiveView && (
+                        hasManagedEntriesToRemoveForType(MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)) ||
+                            hasManagedEntriesToRemoveForType(MANAGED_PLUGIN)
+                        )
+                    e.presentation.text = MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.group.button")
+                    e.presentation.description = tooltip
+                    e.presentation.putClientProperty(ActionButton.CUSTOM_HELP_TOOLTIP, HelpTooltip().withWrappingDescription(tooltip))
+                    e.presentation.icon = AllIcons.Actions.DeleteTag
+                    e.presentation.putClientProperty(ActionUtil.SHOW_TEXT_IN_TOOLBAR, showText)
+                }
+            }.apply {
+                templatePresentation.icon = AllIcons.Actions.DeleteTag
+                add(toolbarAction(
+                    "toolwindow.MyToolWindow.managedEntries.removeManagedDependencies.button",
+                    AllIcons.Actions.DeleteTag,
+                    { !showingTransitiveView && hasManagedEntriesToRemoveForType(MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)) },
+                    descriptionProvider = {
+                        bulkSelectionActionDescription(
+                            MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.removeManagedDependencies.button")
+                        )
+                    },
+                    isMenuItem = true
+                ) {
+                    if (!showingTransitiveView) confirmAndRemoveManagedEntries(
+                        MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
+                    )
+                })
+                add(toolbarAction(
+                    "toolwindow.MyToolWindow.managedEntries.removeManagedPlugins.button",
+                    AllIcons.Actions.DeleteTag,
+                    { !showingTransitiveView && hasManagedEntriesToRemoveForType(MANAGED_PLUGIN) },
+                    descriptionProvider = {
+                        bulkSelectionActionDescription(
+                            MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.removeManagedPlugins.button")
+                        )
+                    },
+                    isMenuItem = true
+                ) {
+                    if (!showingTransitiveView) confirmAndRemoveManagedEntries(MANAGED_PLUGIN)
+                })
+            }
+
             toolbarGroup.apply {
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.refresh.button",
@@ -1132,6 +1182,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 ) { updateAction() })
                 addSeparator()
                 add(versionActionsGroup)
+                add(managedEntriesActionGroup)
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.resetVersions.button",
                     AllIcons.Actions.Undo,
@@ -2537,6 +2588,54 @@ class MavenUpWindowFactory : ToolWindowFactory {
             } else {
                 baseLabel
             }
+
+        private fun hasManagedEntriesToRemoveForType(type: String): Boolean =
+           !isUpdating && knownTypes.values.any { it == type }
+
+        private fun collectManagedEntryKeysForType(type: String, visibleOnly: Boolean): Set<String> {
+           val allKeys = if (visibleOnly) collectVisibleDependencyKeys() else knownTypes.keys
+           return allKeys.filterTo(mutableSetOf()) { key -> knownTypes[key] == type }
+        }
+
+        private fun removeManagedEntriesOfType(type: String, visibleOnly: Boolean) {
+           val keys = collectManagedEntryKeysForType(type, visibleOnly)
+           if (keys.isEmpty()) return
+           for (key in keys) {
+               val currentVersion = knownDependencies[key] ?: ""
+               markManagedEntryForRemoval(key, type, currentVersion)
+           }
+           table.repaint()
+           updateUpdateButtonState()
+           applyRowFilter()
+        }
+
+        private fun confirmAndRemoveManagedEntries(type: String) {
+           if (isRowFilterHidingEntries()) {
+               when (askManagedEntriesScopeWithActiveFilter()) {
+                   0 -> removeManagedEntriesOfType(type, false)
+                   1 -> removeManagedEntriesOfType(type, true)
+                   else -> return
+               }
+               return
+           }
+           removeManagedEntriesOfType(type, false)
+        }
+
+        private fun askManagedEntriesScopeWithActiveFilter(): Int {
+           val options = arrayOf(
+               MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.filtered.option.all"),
+               MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.filtered.option.filtered"),
+               MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.filtered.option.cancel")
+           )
+           return Messages.showDialog(
+               project,
+               MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.filtered.message"),
+               MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.group.button"),
+               options,
+               0,
+               Messages.getWarningIcon()
+           )
+        }
 
         /**
          * Prüft, ob die Sammelaktionen zur Versionsauswahl ausführbar sind.
