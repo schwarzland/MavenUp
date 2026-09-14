@@ -34,6 +34,7 @@ import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.Disposable
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.ide.BrowserUtil
+import com.intellij.openapi.util.IconLoader
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
 import com.intellij.openapi.progress.Task
@@ -77,7 +78,7 @@ import javax.swing.table.TableRowSorter
 
 
 private val LOG = Logger.getInstance(MavenUpWindowFactory::class.java)
-
+private val MANAGED_ENTRIES_ICON = IconLoader.getIcon("/icons/managedEntries.svg", MavenUpWindowFactory::class.java)
 
 private const val TOOLWINDOW_MY_TOOL_WINDOW_RESET_VERSIONS_CONFIRM_TITLE = "toolwindow.MyToolWindow.resetVersions.confirm.title"
 
@@ -1134,14 +1135,14 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     e.presentation.text = MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.group.button")
                     e.presentation.description = tooltip
                     e.presentation.putClientProperty(ActionButton.CUSTOM_HELP_TOOLTIP, HelpTooltip().withWrappingDescription(tooltip))
-                    e.presentation.icon = AllIcons.Actions.GroupBy
+                    e.presentation.icon = MANAGED_ENTRIES_ICON
                     e.presentation.putClientProperty(ActionUtil.SHOW_TEXT_IN_TOOLBAR, showText)
                 }
             }.apply {
-                templatePresentation.icon = AllIcons.Actions.GroupBy
+                templatePresentation.icon = MANAGED_ENTRIES_ICON
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.managedEntries.removeManagedDependencies.button",
-                    AllIcons.Actions.GroupBy,
+                    MANAGED_ENTRIES_ICON,
                     { !showingTransitiveView && hasManagedEntriesToRemoveForType(MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)) },
                     descriptionProvider = {
                         bulkSelectionActionDescription(
@@ -1156,7 +1157,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 })
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.managedEntries.removeManagedPlugins.button",
-                    AllIcons.Actions.GroupBy,
+                    MANAGED_ENTRIES_ICON,
                     { !showingTransitiveView && hasManagedEntriesToRemoveForType(MANAGED_PLUGIN) },
                     descriptionProvider = {
                         bulkSelectionActionDescription(
