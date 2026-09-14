@@ -6,33 +6,9 @@
    fill="none"
    version="1.1"
    id="svg15"
-   sodipodi:docname="mavenUpToolWindow.svg"
-   inkscape:version="1.2.1 (9c6d41e, 2022-07-14)"
-   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
-   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
-   xmlns="http://www.w3.org/2000/svg"
-   xmlns:svg="http://www.w3.org/2000/svg">
+   xmlns="http://www.w3.org/2000/svg">
   <defs
      id="defs19" />
-  <sodipodi:namedview
-     id="namedview17"
-     pagecolor="#ffffff"
-     bordercolor="#999999"
-     borderopacity="1"
-     inkscape:showpageshadow="0"
-     inkscape:pageopacity="0"
-     inkscape:pagecheckerboard="0"
-     inkscape:deskcolor="#d1d1d1"
-     showgrid="false"
-     inkscape:zoom="79"
-     inkscape:cx="4.0379747"
-     inkscape:cy="6.5759494"
-     inkscape:window-width="2095"
-     inkscape:window-height="1205"
-     inkscape:window-x="1486"
-     inkscape:window-y="30"
-     inkscape:window-maximized="0"
-     inkscape:current-layer="svg15" />
   <path
      d="M 6.5063291,0.68787588 11.727479,2.8829942 v 3.6585295 c 0,2.6341432 -2.3495198,4.5365773 -5.2211499,5.7073103 C 3.6346984,11.078101 1.2851819,9.1756669 1.2851819,6.5415237 V 2.8829942 Z"
      stroke="#6c707e"
