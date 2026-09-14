@@ -1142,7 +1142,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 templatePresentation.icon = MANAGED_ENTRIES_ICON
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.managedEntries.removeManagedDependencies.button",
-                    MANAGED_ENTRIES_ICON,
+                    AllIcons.Actions.Close,
                     { !showingTransitiveView && hasManagedEntriesToRemoveForType(MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)) },
                     descriptionProvider = {
                         bulkSelectionActionDescription(
@@ -1157,7 +1157,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 })
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.managedEntries.removeManagedPlugins.button",
-                    MANAGED_ENTRIES_ICON,
+                    AllIcons.Actions.Close,
                     { !showingTransitiveView && hasManagedEntriesToRemoveForType(MANAGED_PLUGIN) },
                     descriptionProvider = {
                         bulkSelectionActionDescription(
