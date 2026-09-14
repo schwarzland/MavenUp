@@ -1075,7 +1075,11 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     isMenuItem = true
                 ) {
                     if (showingTransitiveView) transitiveVulnerabilitiesView.selectHighestMajorVersionForAll()
-                    else selectHighestMajorVersionForAll()
+                    else confirmAndApplyBulkVersionSelection(
+                        "toolwindow.MyToolWindow.selectHighestMajor.button",
+                        applyVisible = { selectHighestMajorVersionForAll(visibleOnly = true) },
+                        applyAll = { selectHighestMajorVersionForAll(visibleOnly = false) }
+                    )
                 })
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.selectHighestMinor.button",
@@ -1089,7 +1093,11 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     isMenuItem = true
                 ) {
                     if (showingTransitiveView) transitiveVulnerabilitiesView.selectHighestMinorVersionForAll()
-                    else selectHighestMinorVersionForAll()
+                    else confirmAndApplyBulkVersionSelection(
+                        "toolwindow.MyToolWindow.selectHighestMinor.button",
+                        applyVisible = { selectHighestMinorVersionForAll(visibleOnly = true) },
+                        applyAll = { selectHighestMinorVersionForAll(visibleOnly = false) }
+                    )
                 })
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.selectRecommended.button",
@@ -1103,7 +1111,11 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     isMenuItem = true
                 ) {
                     if (showingTransitiveView) transitiveVulnerabilitiesView.selectRecommendedVersionForAll()
-                    else selectRecommendedVersionForAll()
+                    else confirmAndApplyBulkVersionSelection(
+                        "toolwindow.MyToolWindow.selectRecommended.button",
+                        applyVisible = { selectRecommendedVersionForAll(visibleOnly = true) },
+                        applyAll = { selectRecommendedVersionForAll(visibleOnly = false) }
+                    )
                 })
             }
 
@@ -2118,24 +2130,29 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * Wählt für alle aktuell in der Tabelle sichtbaren Abhängigkeiten die höchste verfügbare Version
          * (über alle Major-Linien hinweg) aus.
          *
-         * Ist ein Filter aktiv, werden ausgeblendete Einträge bewusst nicht verändert. Die neueste Version
-         * steht jeweils an erster Stelle der von [de.schwarzland.mavenup.service.DependencyApiService.fetchVersions] gelieferten Liste.
+         * Die neueste Version steht jeweils an erster Stelle der von
+         * [de.schwarzland.mavenup.service.DependencyApiService.fetchVersions] gelieferten Liste.
+         *
+         * @param visibleOnly Wenn `true`, werden nur aktuell sichtbare (nicht ausgefilterte) Einträge
+         *   berücksichtigt; andernfalls wirkt die Auswahl auf alle geladenen Abhängigkeiten.
          */
-        internal fun selectHighestMajorVersionForAll() {
-            applyBulkVersionSelection(visibleOnly = true) { _, _, versions -> versions.firstOrNull().orEmpty() }
+        internal fun selectHighestMajorVersionForAll(visibleOnly: Boolean = true) {
+           applyBulkVersionSelection(visibleOnly = visibleOnly) { _, _, versions -> versions.firstOrNull().orEmpty() }
         }
 
         /**
          * Wählt für alle aktuell in der Tabelle sichtbaren Abhängigkeiten die höchste Version innerhalb
          * derselben Major-Linie wie die aktuell verwendete Version aus.
          *
-         * Ist ein Filter aktiv, werden ausgeblendete Einträge bewusst nicht verändert. Existiert keine
-         * passende Version derselben Major-Linie, bleibt die aktuelle Version erhalten.
+         * Existiert keine passende Version derselben Major-Linie, bleibt die aktuelle Version erhalten.
+         *
+         * @param visibleOnly Wenn `true`, werden nur aktuell sichtbare (nicht ausgefilterte) Einträge
+         *   berücksichtigt; andernfalls wirkt die Auswahl auf alle geladenen Abhängigkeiten.
          */
-        internal fun selectHighestMinorVersionForAll() {
-            applyBulkVersionSelection(visibleOnly = true) { _, current, versions ->
-                latestVersionWithinSameMajor(current, versions) ?: current
-            }
+        internal fun selectHighestMinorVersionForAll(visibleOnly: Boolean = true) {
+           applyBulkVersionSelection(visibleOnly = visibleOnly) { _, current, versions ->
+               latestVersionWithinSameMajor(current, versions) ?: current
+           }
         }
 
         /**
@@ -2143,12 +2160,63 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * Sicherheitswarnungen die empfohlene Fix-Version aus.
          *
          * Abhängigkeiten ohne eigene Warnungen oder ohne auswählbare Empfehlung bleiben unverändert.
-         * Ist ein Filter aktiv, werden ausgeblendete Einträge bewusst nicht verändert.
+         *
+         * @param visibleOnly Wenn `true`, werden nur aktuell sichtbare (nicht ausgefilterte) Einträge
+         *   berücksichtigt; andernfalls wirkt die Auswahl auf alle geladenen Abhängigkeiten.
          */
-        internal fun selectRecommendedVersionForAll() {
-            applyBulkVersionSelection(visibleOnly = true) { key, current, _ ->
-                recommendedVersionForDependency(key).ifEmpty { current }
-            }
+        internal fun selectRecommendedVersionForAll(visibleOnly: Boolean = true) {
+           applyBulkVersionSelection(visibleOnly = visibleOnly) { key, current, _ ->
+               recommendedVersionForDependency(key).ifEmpty { current }
+           }
+        }
+
+        /**
+         * Führt eine Sammelauswahl mit aktivem Filter über einen konsistenten Scope-Dialog aus.
+         *
+         * Der Nutzer kann zwischen allen geladenen Einträgen und nur den aktuell sichtbaren (gefilterten)
+         * Einträgen wählen; bei Abbruch bleibt die bisherige Auswahl unverändert.
+         *
+         * @param actionTitleKey Der Schlüssel der Aktion, der im Dialog als Titel erscheint.
+         * @param applyVisible Die Aktion für den sichtbaren Geltungsbereich.
+         * @param applyAll Die Aktion für den kompletten Geltungsbereich.
+         */
+        private fun confirmAndApplyBulkVersionSelection(
+           actionTitleKey: String,
+           applyVisible: () -> Unit,
+           applyAll: () -> Unit
+        ) {
+           if (!isRowFilterHidingEntries()) {
+               applyAll()
+               return
+           }
+           when (askBulkSelectionScopeWithActiveFilter(actionTitleKey)) {
+               0 -> applyAll()
+               1 -> applyVisible()
+               else -> return
+           }
+        }
+
+        /**
+         * Zeigt den Auswahldialog für den Geltungsbereich einer Sammelauswahl bei aktivem Filter an.
+         *
+         * @param actionTitleKey Der Schlüssel der Aktion, die als Dialog-Überschrift verwendet wird.
+         * @return `0` für alle, `1` für nur die gefilterten Einträge, ein anderer Wert bei Abbruch.
+         */
+        private fun askBulkSelectionScopeWithActiveFilter(actionTitleKey: String): Int {
+           val actionTitle = MyMessageBundle.message(actionTitleKey)
+           val options = arrayOf(
+               MyMessageBundle.message("toolwindow.MyToolWindow.bulkSelection.filtered.option.all"),
+               MyMessageBundle.message("toolwindow.MyToolWindow.bulkSelection.filtered.option.filtered"),
+               MyMessageBundle.message("toolwindow.MyToolWindow.bulkSelection.filtered.option.cancel")
+           )
+           return Messages.showDialog(
+               project,
+               MyMessageBundle.message("toolwindow.MyToolWindow.bulkSelection.filtered.message", actionTitle),
+               actionTitle,
+               options,
+               0,
+               Messages.getWarningIcon()
+           )
         }
 
         /**

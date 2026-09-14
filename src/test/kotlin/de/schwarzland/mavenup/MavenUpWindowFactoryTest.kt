@@ -2340,7 +2340,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         model.addRow(arrayOf("com.example", "major-all", "", "dependency", null, "2.5.0", availableVersions[key]))
         toolWindow.applyRowFilter()
 
-        toolWindow.selectHighestMajorVersionForAll()
+        toolWindow.selectHighestMajorVersionForAll(visibleOnly = true)
 
         assertEquals("3.1.0", selectedVersions[key])
     }
@@ -2357,7 +2357,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         model.addRow(arrayOf("com.example", "minor-all", "", "dependency", null, "2.5.0", availableVersions[key]))
         toolWindow.applyRowFilter()
 
-        toolWindow.selectHighestMinorVersionForAll()
+        toolWindow.selectHighestMinorVersionForAll(visibleOnly = true)
 
         assertEquals("2.9.9", selectedVersions[key])
     }
@@ -2374,7 +2374,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         model.addRow(arrayOf("com.example", "minor-none", "", "dependency", null, "2.8.0", availableVersions[key]))
         toolWindow.applyRowFilter()
 
-        toolWindow.selectHighestMinorVersionForAll()
+        toolWindow.selectHighestMinorVersionForAll(visibleOnly = true)
 
         assertNull(
             "Ohne Version derselben Major-Linie darf keine abweichende Auswahl gesetzt werden.",
@@ -2580,7 +2580,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         toolWindow.applyRowFilter()
         assertTrue(toolWindow.isRowFilterHidingEntries())
 
-        toolWindow.selectHighestMajorVersionForAll()
+        toolWindow.selectHighestMajorVersionForAll(visibleOnly = true)
 
         assertEquals("2.0.0", selectedVersions[visibleKey])
         assertNull(
@@ -2725,8 +2725,8 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         selectedVersions["com.example:existing"] = "1.0.0"
 
-        toolWindow.selectHighestMajorVersionForAll()
-        toolWindow.selectHighestMinorVersionForAll()
+        toolWindow.selectHighestMajorVersionForAll(visibleOnly = true)
+        toolWindow.selectHighestMinorVersionForAll(visibleOnly = true)
 
         assertEquals("1.0.0", selectedVersions["com.example:existing"])
     }
