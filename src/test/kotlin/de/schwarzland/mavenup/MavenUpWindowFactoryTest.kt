@@ -2479,7 +2479,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         toolWindow.applyRowFilter()
 
         assertTrue(toolWindow.isVersionResetEnabledForDependency(key))
-        toolWindow.resetVersionForDependency(key)
+        toolWindow.resetVersionForDependency(key, "dependency")
 
         assertNull("Die angeklickte Dependency muss zurückgesetzt werden.", selectedVersions[key])
         assertEquals(
@@ -2510,7 +2510,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         selectedVersions[keyA] = "2.0.0"
         selectedVersions[keyB] = "2.0.0"
 
-        toolWindow.resetVersionForDependency(keyA)
+        toolWindow.resetVersionForDependency(keyA, "dependency")
 
         assertNull(selectedVersions[keyA])
         assertNull(
@@ -2824,6 +2824,20 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertFalse(toolWindow.isManagedEntryMarkedForRemoval(dependencyKey, managedDependency))
         assertFalse(toolWindow.isManagedEntryMarkedForRemoval(pluginKey, MANAGED_PLUGIN))
         assertFalse(toolWindow.hasSelectedUpdates())
+    }
+
+    fun testContextMenuResetKeepsRemovalMarkOfDifferentManagedEntryType() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+        val managedDependency = MyMessageBundle.message("toolwindow.MyToolWindow.type.managedDependency")
+        val key = "com.example:shared-artifact"
+
+        toolWindow.markManagedEntryForRemoval(key, managedDependency, "1.0.0")
+        toolWindow.markManagedEntryForRemoval(key, MANAGED_PLUGIN, "1.0.0")
+        toolWindow.resetVersionForDependency(key, managedDependency)
+
+        assertFalse(toolWindow.isManagedEntryMarkedForRemoval(key, managedDependency))
+        assertTrue(toolWindow.isManagedEntryMarkedForRemoval(key, MANAGED_PLUGIN))
     }
 
     /**

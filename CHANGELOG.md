@@ -23,6 +23,7 @@
 
 ### Fixed
 
+- Fixed Reset to Current Version in a row context menu so it only cancels the pending removal of that selected managed entry.
 - Fixed an IntelliJ platform inspection warning in `MavenUpConfigurable` by moving the sub-page link definitions and display name from a companion object to top-level declarations.
 
 ## 3.2.0

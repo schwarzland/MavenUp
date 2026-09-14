@@ -576,7 +576,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     }
                     addAction(MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.resetToCurrent"),
                         isVersionResetEnabledForDependency(dependencyKey)) {
-                        resetVersionForDependency(dependencyKey)
+                        resetVersionForDependency(dependencyKey, type)
                     }
                     if (isManagedEntryType(type)) {
                         val markedForRemoval = isManagedEntryMarkedForRemoval(dependencyKey, type)
@@ -2218,10 +2218,11 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * Maven-Property, werden deren Auswahlen gemeinsam entfernt.
          *
          * @param key Der Schlüssel (`groupId:artifactId`) der Abhängigkeit.
+         * @param type Der Typ des zurückzusetzenden Eintrags, dessen Entfernungsmarkierung aufgehoben wird.
          */
-        internal fun resetVersionForDependency(key: String) {
+        internal fun resetVersionForDependency(key: String, type: String) {
             clearVersionSelection(key)
-            pendingManagedRemovalUpdates.keys.removeAll { it.endsWith("|$key") }
+            pendingManagedRemovalUpdates.remove(managedRemovalKey(key, type))
             cancelActiveCellEditing()
             table.repaint()
             updateUpdateButtonState()
