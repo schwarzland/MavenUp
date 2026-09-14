@@ -974,7 +974,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         toolWindow.getContent()
 
         val group = toolWindow.topToolbarActions()
-            .filterIsInstance<com.intellij.openapi.actionSystem.DefaultActionGroup>()
+            .filterIsInstance<DefaultActionGroup>()
             .firstOrNull { it.isPopup }
         assertNotNull("Die \"Select Highest\"-Aktionen sollten in einem Aufklappmenü gebündelt sein", group)
         assertEquals(
@@ -1035,7 +1035,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         toolWindow.getContent()
 
         val hasGroup = toolWindow.topToolbarActions()
-            .filterIsInstance<com.intellij.openapi.actionSystem.DefaultActionGroup>()
+            .filterIsInstance<DefaultActionGroup>()
             .any { it.isPopup }
         assertTrue("Das \"Select Highest\"-Untermenü sollte vorhanden sein", hasGroup)
 
