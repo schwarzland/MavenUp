@@ -313,7 +313,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
         internal val typeFilterComboBox = ComboBox<String>()
 
         /** Auswahlfeld für den Filter nach anstehenden Änderungen (Ja/Nein/Alle). */
-        internal val changesFilterComboBox = ComboBox(TriStateFilter.entries.toTypedArray())
+        internal val changesFilterComboBox = ComboBox(PendingChangesFilter.entries.toTypedArray())
 
         /**
          * Auswahlfeld für den Filter nach verfügbaren Updates (Ja/Nein/Alle).
@@ -1330,9 +1330,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
             filterControlsPanel.add(updatesFilterComboBox)
 
             filterControlsPanel.add(JLabel(MyMessageBundle.message("toolwindow.MyToolWindow.filter.changes.label")))
-            changesFilterComboBox.model = DefaultComboBoxModel(TriStateFilter.entries.toTypedArray())
-            changesFilterComboBox.selectedItem = TriStateFilter.ALL
-            changesFilterComboBox.renderer = triStateFilterRenderer(CHANGES_FILTER_LABELS)
+            changesFilterComboBox.model = DefaultComboBoxModel(PendingChangesFilter.entries.toTypedArray())
+            changesFilterComboBox.selectedItem = PendingChangesFilter.ALL
+            changesFilterComboBox.renderer = pendingChangesFilterRenderer()
             changesFilterComboBox.toolTipText = MyMessageBundle.message("toolwindow.MyToolWindow.filter.changes.tooltip")
             changesFilterComboBox.isEnabled = isChangesFilterAvailable()
             changesFilterComboBox.addActionListener { applyRowFilter() }
@@ -1401,7 +1401,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
         internal fun isResetFiltersEnabled(): Boolean {
             val searchActive = searchTextField.text.isNotEmpty()
             val typeActive = (typeFilterComboBox.selectedItem as? String ?: allTypesFilterLabel) != allTypesFilterLabel
-            val changesActive = (changesFilterComboBox.selectedItem as? TriStateFilter ?: TriStateFilter.ALL) != TriStateFilter.ALL
+            val changesActive =
+                (changesFilterComboBox.selectedItem as? PendingChangesFilter ?: PendingChangesFilter.ALL) !=
+                    PendingChangesFilter.ALL
             val updatesActive =
                 (updatesFilterComboBox.selectedItem as? TriStateFilter ?: TriStateFilter.ALL) != TriStateFilter.ALL
             val vulnerabilitiesActive =
@@ -1438,7 +1440,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
         internal fun resetAllFilters() {
             searchTextField.text = ""
             typeFilterComboBox.selectedItem = allTypesFilterLabel
-            changesFilterComboBox.selectedItem = TriStateFilter.ALL
+            changesFilterComboBox.selectedItem = PendingChangesFilter.ALL
             updatesFilterComboBox.selectedItem = TriStateFilter.ALL
             vulnerabilitiesFilterComboBox.selectedItem = VulnerabilityFilter.ALL
             versionSourceFilterComboBox.selectedItem = TriStateFilter.ALL
@@ -1717,7 +1719,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
             val searchText = searchTextField.text
             val selectedType = typeFilterComboBox.selectedItem as? String ?: allTypesFilterLabel
             val typeFilter = if (selectedType == allTypesFilterLabel) "" else selectedType
-            val changesFilter = changesFilterComboBox.selectedItem as? TriStateFilter ?: TriStateFilter.ALL
+            val pendingChangesFilter =
+                changesFilterComboBox.selectedItem as? PendingChangesFilter ?: PendingChangesFilter.ALL
             val updatesFilter = updatesFilterComboBox.selectedItem as? TriStateFilter ?: TriStateFilter.ALL
             val vulnerabilitiesFilter =
                 vulnerabilitiesFilterComboBox.selectedItem as? VulnerabilityFilter ?: VulnerabilityFilter.ALL
@@ -1747,6 +1750,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                             property = property,
                             type = type,
                             hasChange = hasChange,
+                            hasRemoval = isManagedEntryMarkedForRemoval(key, type),
                             hasUpdate = hasUpdate,
                             hasDirectVulnerabilities = cell?.hasDirectAdvisories == true,
                             hasTransitiveVulnerabilities = cell?.hasTransitiveAdvisories == true,
@@ -1755,7 +1759,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         FilterCriteria(
                             searchText = searchText,
                             typeFilter = typeFilter,
-                            changesFilter = changesFilter,
+                            pendingChangesFilter = pendingChangesFilter,
                             updatesFilter = updatesFilter,
                             vulnerabilitiesFilter = vulnerabilitiesFilter,
                             versionSourceFilter = versionSourceFilter
@@ -1851,8 +1855,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
         internal fun updateChangesFilterState() {
             val available = isChangesFilterAvailable()
             changesFilterComboBox.isEnabled = available
-            if (!available && changesFilterComboBox.selectedItem != TriStateFilter.ALL) {
-                changesFilterComboBox.selectedItem = TriStateFilter.ALL
+            if (!available && changesFilterComboBox.selectedItem != PendingChangesFilter.ALL) {
+                changesFilterComboBox.selectedItem = PendingChangesFilter.ALL
             }
         }
 

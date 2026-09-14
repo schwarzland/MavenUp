@@ -180,6 +180,24 @@ class RowMatchesFilterTest {
         )
     }
 
+    @Test
+    fun testPendingChangesFilterDistinguishesUpdatesRemovalsAndUnchangedRows() {
+        val updateRow = FilterRow("org.a", "update", "p", "dependency", hasChange = true)
+        val removalRow = FilterRow("org.a", "remove", "p", "dependency", hasRemoval = true)
+        val unchangedRow = FilterRow("org.a", "unchanged", "p", "dependency")
+
+        assertTrue(rowMatchesFilter(updateRow, FilterCriteria("", "", pendingChangesFilter = PendingChangesFilter.ALL_CHANGES)))
+        assertTrue(rowMatchesFilter(removalRow, FilterCriteria("", "", pendingChangesFilter = PendingChangesFilter.ALL_CHANGES)))
+        assertFalse(rowMatchesFilter(unchangedRow, FilterCriteria("", "", pendingChangesFilter = PendingChangesFilter.ALL_CHANGES)))
+        assertTrue(rowMatchesFilter(updateRow, FilterCriteria("", "", pendingChangesFilter = PendingChangesFilter.WILL_UPDATE)))
+        assertFalse(rowMatchesFilter(removalRow, FilterCriteria("", "", pendingChangesFilter = PendingChangesFilter.WILL_UPDATE)))
+        assertTrue(rowMatchesFilter(removalRow, FilterCriteria("", "", pendingChangesFilter = PendingChangesFilter.WILL_REMOVE)))
+        assertFalse(rowMatchesFilter(updateRow, FilterCriteria("", "", pendingChangesFilter = PendingChangesFilter.WILL_REMOVE)))
+        assertTrue(rowMatchesFilter(unchangedRow, FilterCriteria("", "", pendingChangesFilter = PendingChangesFilter.UNCHANGED)))
+        assertFalse(rowMatchesFilter(updateRow, FilterCriteria("", "", pendingChangesFilter = PendingChangesFilter.UNCHANGED)))
+        assertFalse(rowMatchesFilter(removalRow, FilterCriteria("", "", pendingChangesFilter = PendingChangesFilter.UNCHANGED)))
+    }
+
     private fun vulnerabilityRow(direct: Boolean, transitive: Boolean) = FilterRow(
         "org.a",
         "lib",

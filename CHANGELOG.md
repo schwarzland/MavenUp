@@ -14,6 +14,7 @@
 
 ### Changed
 
+- Extended the main-table Pending filter with All Changes and Will be removed options for pending managed-entry removals.
 - Changed each single-entry version-selection action to cancel a pending managed-entry removal before selecting its target version.
 - Changed the public plugin and settings display name from "MavenUp" to "Maven Up".
 - Reworked the Marketplace plugin icon to match the tool window icon layout while incorporating Apache Maven's distinctive "m" mark.

@@ -34,6 +34,7 @@ import de.schwarzland.mavenup.ui.vulnerabilitySummary
 import de.schwarzland.mavenup.ui.vulnerabilityCellComparator
 import de.schwarzland.mavenup.ui.VersionUpdateArrowIcon
 import de.schwarzland.mavenup.ui.TriStateFilter
+import de.schwarzland.mavenup.ui.PendingChangesFilter
 import de.schwarzland.mavenup.ui.VulnerabilityFilter
 import de.schwarzland.mavenup.ui.sortableHeaderIcon
 import com.intellij.openapi.wm.RegisterToolWindowTask
@@ -564,13 +565,13 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         knownDependencies["com.example:lib"] = "1.0.0"
         selectedVersions["com.example:lib"] = "2.0.0"
         toolWindowInstance.updateChangesFilterState()
-        toolWindowInstance.changesFilterComboBox.selectedItem = TriStateFilter.YES
+        toolWindowInstance.changesFilterComboBox.selectedItem = PendingChangesFilter.WILL_UPDATE
 
         selectedVersions.clear()
         toolWindowInstance.updateChangesFilterState()
 
         assertFalse(toolWindowInstance.changesFilterComboBox.isEnabled)
-        assertEquals(TriStateFilter.ALL, toolWindowInstance.changesFilterComboBox.selectedItem)
+        assertEquals(PendingChangesFilter.ALL, toolWindowInstance.changesFilterComboBox.selectedItem)
     }
 
     fun testLatestMinorSelectionIgnoresOtherMajorLinesAndKeepsCurrentVersion() {
@@ -1994,13 +1995,15 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         toolWindow.getContent()
 
-        assertEquals(TriStateFilter.ALL, toolWindow.changesFilterComboBox.selectedItem)
+        assertEquals(PendingChangesFilter.ALL, toolWindow.changesFilterComboBox.selectedItem)
         assertEquals(VulnerabilityFilter.ALL, toolWindow.vulnerabilitiesFilterComboBox.selectedItem)
-        assertEquals(3, toolWindow.changesFilterComboBox.model.size)
+        assertEquals(5, toolWindow.changesFilterComboBox.model.size)
         assertEquals(5, toolWindow.vulnerabilitiesFilterComboBox.model.size)
-        assertEquals(TriStateFilter.ALL, toolWindow.changesFilterComboBox.model.getElementAt(0))
-        assertEquals(TriStateFilter.YES, toolWindow.changesFilterComboBox.model.getElementAt(1))
-        assertEquals(TriStateFilter.NO, toolWindow.changesFilterComboBox.model.getElementAt(2))
+        assertEquals(PendingChangesFilter.ALL, toolWindow.changesFilterComboBox.model.getElementAt(0))
+        assertEquals(PendingChangesFilter.ALL_CHANGES, toolWindow.changesFilterComboBox.model.getElementAt(1))
+        assertEquals(PendingChangesFilter.WILL_UPDATE, toolWindow.changesFilterComboBox.model.getElementAt(2))
+        assertEquals(PendingChangesFilter.WILL_REMOVE, toolWindow.changesFilterComboBox.model.getElementAt(3))
+        assertEquals(PendingChangesFilter.UNCHANGED, toolWindow.changesFilterComboBox.model.getElementAt(4))
         assertEquals(VulnerabilityFilter.ALL, toolWindow.vulnerabilitiesFilterComboBox.model.getElementAt(0))
         assertEquals(VulnerabilityFilter.VULNERABLE, toolWindow.vulnerabilitiesFilterComboBox.model.getElementAt(1))
         assertEquals(VulnerabilityFilter.SELF_VULNERABLE, toolWindow.vulnerabilitiesFilterComboBox.model.getElementAt(2))
@@ -2043,20 +2046,20 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         toolWindow.applyRowFilter()
         assertEquals(2, table.rowCount)
 
-        // Changes filter: YES -> only vuln-lib visible
-        toolWindow.changesFilterComboBox.selectedItem = TriStateFilter.YES
+        // Changes filter: WILL_UPDATE -> only vuln-lib visible
+        toolWindow.changesFilterComboBox.selectedItem = PendingChangesFilter.WILL_UPDATE
         toolWindow.applyRowFilter()
         assertEquals(1, table.rowCount)
         assertEquals("vuln-lib", table.getValueAt(0, 1))
 
-        // Changes filter: NO -> only clean-lib visible
-        toolWindow.changesFilterComboBox.selectedItem = TriStateFilter.NO
+        // Changes filter: UNCHANGED -> only clean-lib visible
+        toolWindow.changesFilterComboBox.selectedItem = PendingChangesFilter.UNCHANGED
         toolWindow.applyRowFilter()
         assertEquals(1, table.rowCount)
         assertEquals("clean-lib", table.getValueAt(0, 1))
 
         // Reset changes filter to ALL, filter vulnerabilities: YES -> only vuln-lib visible
-        toolWindow.changesFilterComboBox.selectedItem = TriStateFilter.ALL
+        toolWindow.changesFilterComboBox.selectedItem = PendingChangesFilter.ALL
         toolWindow.vulnerabilitiesFilterComboBox.selectedItem = VulnerabilityFilter.VULNERABLE
         toolWindow.applyRowFilter()
         assertEquals(1, table.rowCount)
@@ -2162,9 +2165,9 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         toolWindow.searchTextField.text = ""
         assertFalse(toolWindow.isResetFiltersEnabled())
 
-        toolWindow.changesFilterComboBox.selectedItem = TriStateFilter.YES
+        toolWindow.changesFilterComboBox.selectedItem = PendingChangesFilter.WILL_UPDATE
         assertTrue(toolWindow.isResetFiltersEnabled())
-        toolWindow.changesFilterComboBox.selectedItem = TriStateFilter.ALL
+        toolWindow.changesFilterComboBox.selectedItem = PendingChangesFilter.ALL
         assertFalse(toolWindow.isResetFiltersEnabled())
 
         toolWindow.vulnerabilitiesFilterComboBox.selectedItem = VulnerabilityFilter.NOT_VULNERABLE
@@ -2268,7 +2271,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         toolWindow.updateVersionSourceFilterState()
         toolWindow.searchTextField.text = "lib-a"
         toolWindow.typeFilterComboBox.selectedItem = "dependency"
-        toolWindow.changesFilterComboBox.selectedItem = TriStateFilter.NO
+        toolWindow.changesFilterComboBox.selectedItem = PendingChangesFilter.UNCHANGED
         toolWindow.vulnerabilitiesFilterComboBox.selectedItem = VulnerabilityFilter.NOT_VULNERABLE
         toolWindow.versionSourceFilterComboBox.selectedItem = TriStateFilter.YES
         toolWindow.applyRowFilter()
@@ -2277,7 +2280,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         toolWindow.resetAllFilters()
 
         assertEquals("", toolWindow.searchTextField.text)
-        assertEquals(TriStateFilter.ALL, toolWindow.changesFilterComboBox.selectedItem)
+        assertEquals(PendingChangesFilter.ALL, toolWindow.changesFilterComboBox.selectedItem)
         assertEquals(VulnerabilityFilter.ALL, toolWindow.vulnerabilitiesFilterComboBox.selectedItem)
         assertEquals(TriStateFilter.ALL, toolWindow.versionSourceFilterComboBox.selectedItem)
         assertFalse(toolWindow.isResetFiltersEnabled())
@@ -2775,6 +2778,36 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
             table, model.getValueAt(0, 6), false, false, 0, 6
         ) as JLabel
         assertEquals(MyMessageBundle.message("toolwindow.MyToolWindow.version.willRemove"), component.text)
+    }
+
+    fun testPendingFilterDistinguishesManagedEntryRemovalFromVersionUpdate() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val table = findTable(toolWindow.getContent())!!
+        val model = table.model as javax.swing.table.DefaultTableModel
+        val managedDependency = MyMessageBundle.message("toolwindow.MyToolWindow.type.managedDependency")
+        val removalKey = "com.example:managed-library"
+        val updateKey = "com.example:regular-library"
+        model.addRow(arrayOf("com.example", "managed-library", "", managedDependency, null, "1.0.0", listOf("1.0.0")))
+        model.addRow(arrayOf("com.example", "regular-library", "", "dependency", null, "1.0.0", listOf("2.0.0", "1.0.0")))
+        val (_, selectedVersions, knownDependencies) = versionMaps(toolWindow)
+        knownDependencies[removalKey] = "1.0.0"
+        knownDependencies[updateKey] = "1.0.0"
+        selectedVersions[updateKey] = "2.0.0"
+        toolWindow.markManagedEntryForRemoval(removalKey, managedDependency, "1.0.0")
+
+        toolWindow.changesFilterComboBox.selectedItem = PendingChangesFilter.ALL_CHANGES
+        toolWindow.applyRowFilter()
+        assertEquals(2, table.rowCount)
+
+        toolWindow.changesFilterComboBox.selectedItem = PendingChangesFilter.WILL_REMOVE
+        toolWindow.applyRowFilter()
+        assertEquals(1, table.rowCount)
+        assertEquals("managed-library", table.getValueAt(0, ARTIFACT_ID_COLUMN))
+
+        toolWindow.changesFilterComboBox.selectedItem = PendingChangesFilter.WILL_UPDATE
+        toolWindow.applyRowFilter()
+        assertEquals(1, table.rowCount)
+        assertEquals("regular-library", table.getValueAt(0, ARTIFACT_ID_COLUMN))
     }
 
     fun testResetAllVersionsAlsoClearsManagedEntryRemovalMarks() {
