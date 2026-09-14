@@ -2740,6 +2740,9 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         toolWindow.getContent()
         val key = "com.example:managed-library"
         val managedDependency = MyMessageBundle.message("toolwindow.MyToolWindow.type.managedDependency")
+        val (availableVersions, selectedVersions, knownDependencies) = versionMaps(toolWindow)
+        availableVersions[key] = listOf("2.0.0", "1.0.0")
+        knownDependencies[key] = "1.0.0"
 
         toolWindow.markManagedEntryForRemoval(key, managedDependency, "1.0.0")
 
@@ -2747,10 +2750,10 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertTrue(toolWindow.isUpdateActionEnabled())
         assertTrue(toolWindow.collectSelectedUpdates().single().removeFromPom)
 
-        toolWindow.unmarkManagedEntryForRemoval(key, managedDependency)
+        toolWindow.selectHighestMajorVersionForDependency(key)
 
         assertFalse(toolWindow.isManagedEntryMarkedForRemoval(key, managedDependency))
-        assertFalse(toolWindow.hasSelectedUpdates())
+        assertEquals("2.0.0", selectedVersions[key])
     }
 
     fun testManagedEntryRemovalShowsWillBeRemovedInNewVersionColumn() {

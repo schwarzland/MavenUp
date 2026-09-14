@@ -2317,7 +2317,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
          *
          * Sind für die Abhängigkeit noch keine Versionen abgerufen, geschieht nichts. Entspricht die
          * ermittelte Zielversion der aktuellen Version (oder ist leer), wird die Auswahl entfernt, sodass
-         * keine Änderung angezeigt wird.
+         * keine Änderung angezeigt wird. Eine bestehende Entfernungsmarkierung desselben Eintrags wird
+         * aufgehoben, damit eine Versionsauswahl und eine Entfernung niemals gemeinsam vorgemerkt sind.
          *
          * @param key Der Schlüssel (`groupId:artifactId`) der Abhängigkeit.
          * @param chooser Funktion, die aus der aktuellen Version und den verfügbaren Versionen die Zielversion ermittelt.
@@ -2325,6 +2326,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private fun applySingleVersionSelection(key: String, chooser: (String, List<String>) -> String) {
             val versions = availableVersions[key] ?: return
             if (versions.isEmpty()) return
+            pendingManagedRemovalUpdates.keys.removeAll { it.endsWith("|$key") }
             val currentVersion = knownDependencies[key] ?: ""
             val chosen = chooser(currentVersion, versions)
             if (chosen.isNotEmpty() && chosen != currentVersion) {
