@@ -30,6 +30,56 @@ internal enum class TriStateFilter(val labelKey: String) {
 }
 
 /**
+ * Filteroption für ausstehende Änderungen der Haupttabelle.
+ *
+ * @property labelKey Der Schlüssel des lokalisierten Anzeigetextes im Message-Bundle.
+ */
+internal enum class PendingChangesFilter(val labelKey: String) {
+    /** Alle Einträge unabhängig von ihrem Änderungszustand anzeigen. */
+    ALL("toolwindow.MyToolWindow.filter.changes.option.all"),
+
+    /** Alle Einträge mit einer Versionsänderung oder vorgemerkten Entfernung anzeigen. */
+    ALL_CHANGES("toolwindow.MyToolWindow.filter.changes.option.allChanges"),
+
+    /** Nur Einträge mit einer vorgemerkten Versionsänderung anzeigen. */
+    WILL_UPDATE("toolwindow.MyToolWindow.filter.changes.option.willUpdate"),
+
+    /** Nur Einträge mit einer vorgemerkten Entfernung anzeigen. */
+    WILL_REMOVE("toolwindow.MyToolWindow.filter.changes.option.willRemove"),
+
+    /** Nur unveränderte Einträge anzeigen. */
+    UNCHANGED("toolwindow.MyToolWindow.filter.changes.option.unchanged");
+
+    /** Liefert die lokalisierte Bezeichnung der Filteroption. */
+    val label: String
+        get() = MyMessageBundle.message(labelKey)
+
+    override fun toString(): String = label
+}
+
+/**
+ * Erzeugt einen Renderer für die Optionen des Pending-Filters der Haupttabelle.
+ *
+ * @return Ein [ListCellRenderer] für die Pending-Filter-Combobox.
+ */
+internal fun pendingChangesFilterRenderer(): ListCellRenderer<in PendingChangesFilter> =
+    object : DefaultListCellRenderer() {
+        override fun getListCellRendererComponent(
+            list: JList<*>?,
+            value: Any?,
+            index: Int,
+            isSelected: Boolean,
+            cellHasFocus: Boolean
+        ): Component = super.getListCellRendererComponent(
+            list,
+            (value as? PendingChangesFilter)?.label ?: value?.toString(),
+            index,
+            isSelected,
+            cellHasFocus
+        )
+    }
+
+/**
  * Bündelt die Message-Bundle-Schlüssel der kontextspezifischen Optionstexte eines
  * dreiwertigen Filters.
  *
@@ -165,6 +215,7 @@ internal fun vulnerabilityFilterRenderer(): ListCellRenderer<in VulnerabilityFil
  * @property property Der Property-Name der Zeile.
  * @property type Der Typ der Zeile.
  * @property hasChange `true`, wenn für die Zeile eine Versionsänderung vorliegt.
+ * @property hasRemoval `true`, wenn die Zeile zur Entfernung aus der `pom.xml` vorgemerkt ist.
  * @property hasUpdate `true`, wenn für die Zeile eine neuere Version verfügbar ist.
  * @property hasDirectVulnerabilities `true`, wenn die Abhängigkeit der Zeile selbst betroffen ist.
  * @property hasTransitiveVulnerabilities `true`, wenn mindestens eine transitive Abhängigkeit der Zeile betroffen ist.
@@ -177,6 +228,7 @@ internal data class FilterRow(
     val property: String,
     val type: String,
     val hasChange: Boolean = false,
+    val hasRemoval: Boolean = false,
     val hasUpdate: Boolean = false,
     val hasDirectVulnerabilities: Boolean = false,
     val hasTransitiveVulnerabilities: Boolean = false,
@@ -192,7 +244,10 @@ internal data class FilterRow(
  *
  * @property searchText Der eingegebene Suchtext (wird getrimmt und case-insensitiv verglichen).
  * @property typeFilter Der ausgewählte Typ oder ein leerer String für "alle Typen".
- * @property changesFilter Die ausgewählte Filteroption für Änderungen (Alle, Ja, Nein).
+ * @property changesFilter Die ausgewählte Drei-Zustands-Filteroption für Änderungen der transitive
+ * Sicherheitslückenansicht.
+ * @property pendingChangesFilter Die ausgewählte Filteroption für Versionsänderungen und vorgemerkte
+ * Entfernungen der Haupttabelle.
  * @property updatesFilter Die ausgewählte Filteroption für verfügbare Updates (Alle, Ja, Nein).
  * @property vulnerabilitiesFilter Die ausgewählte Filteroption für Sicherheitslücken.
  * @property versionSourceFilter Die ausgewählte Filteroption für die Herkunft der Version
@@ -202,6 +257,7 @@ internal data class FilterCriteria(
     val searchText: String,
     val typeFilter: String,
     val changesFilter: TriStateFilter = TriStateFilter.ALL,
+    val pendingChangesFilter: PendingChangesFilter = PendingChangesFilter.ALL,
     val updatesFilter: TriStateFilter = TriStateFilter.ALL,
     val vulnerabilitiesFilter: VulnerabilityFilter = VulnerabilityFilter.ALL,
     val versionSourceFilter: TriStateFilter = TriStateFilter.ALL
@@ -213,7 +269,8 @@ internal data class FilterCriteria(
  * Der Textfilter wird case-insensitiv gegen GroupId, ArtifactId und Property geprüft;
  * die Zeile passt, sobald einer dieser Werte den Suchtext enthält. Ein leerer Suchtext
  * lässt alle Zeilen zu. Der Typfilter passt bei leerem Wert auf jeden Typ, sonst nur bei
- * exakter Übereinstimmung des Typs. Der Änderungs- und Updates-Filter prüfen,
+ * exakter Übereinstimmung des Typs. Der Pending-Filter unterscheidet zwischen Versionsänderungen,
+ * vorgemerkten Entfernungen, beiden Änderungsarten und unveränderten Zeilen. Der Änderungs- und Updates-Filter prüfen,
  * ob Änderungen bzw. verfügbare Updates vorliegen (`YES`), nicht vorliegen (`NO`) oder
  * der Filter inaktiv ist (`ALL`). Der Sicherheitslücken-Filter unterscheidet zusätzlich zwischen
  * beliebigen, eigenen und transitiven Befunden. Der Filter nach der Herkunft der Version zeigt
@@ -236,6 +293,13 @@ internal fun rowMatchesFilter(row: FilterRow, criteria: FilterCriteria): Boolean
         TriStateFilter.YES -> row.hasChange
         TriStateFilter.NO -> !row.hasChange
     }
+    val pendingChangesMatches = when (criteria.pendingChangesFilter) {
+        PendingChangesFilter.ALL -> true
+        PendingChangesFilter.ALL_CHANGES -> row.hasChange || row.hasRemoval
+        PendingChangesFilter.WILL_UPDATE -> row.hasChange
+        PendingChangesFilter.WILL_REMOVE -> row.hasRemoval
+        PendingChangesFilter.UNCHANGED -> !row.hasChange && !row.hasRemoval
+    }
     val updatesMatches = when (criteria.updatesFilter) {
         TriStateFilter.ALL -> true
         TriStateFilter.YES -> row.hasUpdate
@@ -253,6 +317,6 @@ internal fun rowMatchesFilter(row: FilterRow, criteria: FilterCriteria): Boolean
         TriStateFilter.YES -> row.versionInherited
         TriStateFilter.NO -> !row.versionInherited
     }
-    return textMatches && typeMatches && changesMatches && updatesMatches &&
+    return textMatches && typeMatches && changesMatches && pendingChangesMatches && updatesMatches &&
         vulnerabilitiesMatches && versionSourceMatches
 }

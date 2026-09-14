@@ -6,6 +6,7 @@
 
 ### Added
 
+- Added a context-menu action that marks managed dependencies and managed plugins for removal from `pom.xml` when the shared Update action is confirmed.
 - Added a dedicated dark theme plugin icon for the JetBrains Marketplace and IDE Plugin Manager.
 - Added IDE notifications reporting the number of versions found for the checked dependencies after a version search, and the number of direct/indirect vulnerabilities found after a vulnerability scan.
 - Added input validation on OK and Apply for the private GroupId prefixes field in the settings dialog, verifying that comma-separated entries only contain lowercase letters, numbers, dots, hyphens, and underscores (`[a-z0-9._-]`), highlighting the field with a red error outline, and showing a red error message below the field otherwise.
@@ -13,6 +14,10 @@
 
 ### Changed
 
+- Removed the redundant Keep in pom.xml context-menu action and preserved property-linked version selections when marking a managed entry for removal.
+- Extended the main-table Pending filter with All Changes and Will be removed options for pending managed-entry removals.
+- Changed each single-entry version-selection action to cancel a pending managed-entry removal before selecting its target version.
+- Updated the **Select Highest Version** toolbar tooltip to clarify that an active filter offers a choice between applying the action to all dependencies or only the visible subset.
 - Changed the public plugin and settings display name from "MavenUp" to "Maven Up".
 - Reworked the Marketplace plugin icon to match the tool window icon layout while incorporating Apache Maven's distinctive "m" mark.
 - Enlarged the Marketplace and tool window icons so their artwork fills the available canvas.
@@ -20,6 +25,8 @@
 
 ### Fixed
 
+- Refactored dependency-table tooltips and context-menu construction to satisfy detekt method-length and return-count limits without changing their behavior.
+- Fixed Reset to Current Version in a row context menu so it only cancels the pending removal of that selected managed entry.
 - Fixed an IntelliJ platform inspection warning in `MavenUpConfigurable` by moving the sub-page link definitions and display name from a companion object to top-level declarations.
 
 ## 3.2.0

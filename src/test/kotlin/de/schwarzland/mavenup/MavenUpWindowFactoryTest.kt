@@ -12,6 +12,7 @@ import de.schwarzland.mavenup.ui.buildMavenRepositoryUrl
 import de.schwarzland.mavenup.ui.GROUP_ID_COLUMN
 import de.schwarzland.mavenup.ui.ARTIFACT_ID_COLUMN
 import de.schwarzland.mavenup.ui.MavenUpWindowFactory
+import de.schwarzland.mavenup.ui.MANAGED_PLUGIN
 import de.schwarzland.mavenup.ui.TransitiveVulnerabilitiesView
 import de.schwarzland.mavenup.ui.UpdateConfirmationDialog
 import de.schwarzland.mavenup.service.RefreshSnapshotCollector
@@ -33,8 +34,10 @@ import de.schwarzland.mavenup.ui.vulnerabilitySummary
 import de.schwarzland.mavenup.ui.vulnerabilityCellComparator
 import de.schwarzland.mavenup.ui.VersionUpdateArrowIcon
 import de.schwarzland.mavenup.ui.TriStateFilter
+import de.schwarzland.mavenup.ui.PendingChangesFilter
 import de.schwarzland.mavenup.ui.VulnerabilityFilter
 import de.schwarzland.mavenup.ui.sortableHeaderIcon
+import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.wm.RegisterToolWindowTask
 import com.intellij.openapi.wm.ToolWindowAnchor
 import com.intellij.openapi.wm.ToolWindowManager
@@ -46,6 +49,7 @@ import com.intellij.ui.content.Content
 import com.intellij.ui.content.ContentFactory
 import com.intellij.ui.content.ContentManager
 import java.awt.Container
+import javax.swing.JLabel
 import java.util.concurrent.TimeUnit
 
 class MavenUpWindowFactoryTest : BasePlatformTestCase() {
@@ -354,6 +358,26 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         }
     }
 
+    fun testManagedEntriesBulkMenuIsPresentInToolbar() {
+        val toolWindowInstance = MavenUpWindowFactory().MyToolWindow(project)
+        val managedEntriesGroup = toolWindowInstance.topToolbarActions()
+            .firstOrNull { it.templatePresentation.text == MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.group.button") }
+            as? DefaultActionGroup
+
+        assertNotNull("Das \"Managed Entries\"-Untermenü sollte vorhanden sein", managedEntriesGroup)
+        assertTrue(
+            "Das Untermenü sollte die beiden Managed-Entries-Aktionen enthalten",
+            managedEntriesGroup!!.childActionsOrStubs
+                .map { it.templatePresentation.text }
+                .containsAll(
+                    listOf(
+                        MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.removeManagedDependencies.button"),
+                        MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.removeManagedPlugins.button")
+                    )
+                )
+        )
+    }
+
     fun testRefreshSnapshotCollectionRunsOutsideEdt() {
         val collector = RefreshSnapshotCollector(project)
 
@@ -562,13 +586,13 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         knownDependencies["com.example:lib"] = "1.0.0"
         selectedVersions["com.example:lib"] = "2.0.0"
         toolWindowInstance.updateChangesFilterState()
-        toolWindowInstance.changesFilterComboBox.selectedItem = TriStateFilter.YES
+        toolWindowInstance.changesFilterComboBox.selectedItem = PendingChangesFilter.WILL_UPDATE
 
         selectedVersions.clear()
         toolWindowInstance.updateChangesFilterState()
 
         assertFalse(toolWindowInstance.changesFilterComboBox.isEnabled)
-        assertEquals(TriStateFilter.ALL, toolWindowInstance.changesFilterComboBox.selectedItem)
+        assertEquals(PendingChangesFilter.ALL, toolWindowInstance.changesFilterComboBox.selectedItem)
     }
 
     fun testLatestMinorSelectionIgnoresOtherMajorLinesAndKeepsCurrentVersion() {
@@ -950,7 +974,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         toolWindow.getContent()
 
         val group = toolWindow.topToolbarActions()
-            .filterIsInstance<com.intellij.openapi.actionSystem.DefaultActionGroup>()
+            .filterIsInstance<DefaultActionGroup>()
             .firstOrNull { it.isPopup }
         assertNotNull("Die \"Select Highest\"-Aktionen sollten in einem Aufklappmenü gebündelt sein", group)
         assertEquals(
@@ -1011,7 +1035,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         toolWindow.getContent()
 
         val hasGroup = toolWindow.topToolbarActions()
-            .filterIsInstance<com.intellij.openapi.actionSystem.DefaultActionGroup>()
+            .filterIsInstance<DefaultActionGroup>()
             .any { it.isPopup }
         assertTrue("Das \"Select Highest\"-Untermenü sollte vorhanden sein", hasGroup)
 
@@ -1053,10 +1077,15 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
     fun testHighestVersionGroupHasLabelAndTooltip() {
         assertEquals("Select Highest Version", MyMessageBundle.message("toolwindow.MyToolWindow.versionActions.group.button"))
         assertEquals("Highest", MyMessageBundle.message("toolwindow.MyToolWindow.versionActions.group.button.short"))
+        val tooltip = MyMessageBundle.message("toolwindow.MyToolWindow.versionActions.group.tooltip")
         assertTrue(
-            "Der Tooltip sollte auf die nur sichtbaren Dependencies hinweisen",
-            MyMessageBundle.message("toolwindow.MyToolWindow.versionActions.group.tooltip")
-                .contains("visible", ignoreCase = true)
+            "Der Tooltip sollte den Fall eines aktiven Filters benennen",
+            tooltip.contains("filter", ignoreCase = true)
+        )
+        assertTrue(
+            "Der Tooltip sollte die Wahl zwischen allen und sichtbaren Dependencies benennen",
+            tooltip.contains("all dependencies", ignoreCase = true) &&
+                tooltip.contains("visible", ignoreCase = true)
         )
     }
 
@@ -1992,13 +2021,15 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         toolWindow.getContent()
 
-        assertEquals(TriStateFilter.ALL, toolWindow.changesFilterComboBox.selectedItem)
+        assertEquals(PendingChangesFilter.ALL, toolWindow.changesFilterComboBox.selectedItem)
         assertEquals(VulnerabilityFilter.ALL, toolWindow.vulnerabilitiesFilterComboBox.selectedItem)
-        assertEquals(3, toolWindow.changesFilterComboBox.model.size)
+        assertEquals(5, toolWindow.changesFilterComboBox.model.size)
         assertEquals(5, toolWindow.vulnerabilitiesFilterComboBox.model.size)
-        assertEquals(TriStateFilter.ALL, toolWindow.changesFilterComboBox.model.getElementAt(0))
-        assertEquals(TriStateFilter.YES, toolWindow.changesFilterComboBox.model.getElementAt(1))
-        assertEquals(TriStateFilter.NO, toolWindow.changesFilterComboBox.model.getElementAt(2))
+        assertEquals(PendingChangesFilter.ALL, toolWindow.changesFilterComboBox.model.getElementAt(0))
+        assertEquals(PendingChangesFilter.ALL_CHANGES, toolWindow.changesFilterComboBox.model.getElementAt(1))
+        assertEquals(PendingChangesFilter.WILL_UPDATE, toolWindow.changesFilterComboBox.model.getElementAt(2))
+        assertEquals(PendingChangesFilter.WILL_REMOVE, toolWindow.changesFilterComboBox.model.getElementAt(3))
+        assertEquals(PendingChangesFilter.UNCHANGED, toolWindow.changesFilterComboBox.model.getElementAt(4))
         assertEquals(VulnerabilityFilter.ALL, toolWindow.vulnerabilitiesFilterComboBox.model.getElementAt(0))
         assertEquals(VulnerabilityFilter.VULNERABLE, toolWindow.vulnerabilitiesFilterComboBox.model.getElementAt(1))
         assertEquals(VulnerabilityFilter.SELF_VULNERABLE, toolWindow.vulnerabilitiesFilterComboBox.model.getElementAt(2))
@@ -2041,20 +2072,20 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         toolWindow.applyRowFilter()
         assertEquals(2, table.rowCount)
 
-        // Changes filter: YES -> only vuln-lib visible
-        toolWindow.changesFilterComboBox.selectedItem = TriStateFilter.YES
+        // Changes filter: WILL_UPDATE -> only vuln-lib visible
+        toolWindow.changesFilterComboBox.selectedItem = PendingChangesFilter.WILL_UPDATE
         toolWindow.applyRowFilter()
         assertEquals(1, table.rowCount)
         assertEquals("vuln-lib", table.getValueAt(0, 1))
 
-        // Changes filter: NO -> only clean-lib visible
-        toolWindow.changesFilterComboBox.selectedItem = TriStateFilter.NO
+        // Changes filter: UNCHANGED -> only clean-lib visible
+        toolWindow.changesFilterComboBox.selectedItem = PendingChangesFilter.UNCHANGED
         toolWindow.applyRowFilter()
         assertEquals(1, table.rowCount)
         assertEquals("clean-lib", table.getValueAt(0, 1))
 
         // Reset changes filter to ALL, filter vulnerabilities: YES -> only vuln-lib visible
-        toolWindow.changesFilterComboBox.selectedItem = TriStateFilter.ALL
+        toolWindow.changesFilterComboBox.selectedItem = PendingChangesFilter.ALL
         toolWindow.vulnerabilitiesFilterComboBox.selectedItem = VulnerabilityFilter.VULNERABLE
         toolWindow.applyRowFilter()
         assertEquals(1, table.rowCount)
@@ -2160,9 +2191,9 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         toolWindow.searchTextField.text = ""
         assertFalse(toolWindow.isResetFiltersEnabled())
 
-        toolWindow.changesFilterComboBox.selectedItem = TriStateFilter.YES
+        toolWindow.changesFilterComboBox.selectedItem = PendingChangesFilter.WILL_UPDATE
         assertTrue(toolWindow.isResetFiltersEnabled())
-        toolWindow.changesFilterComboBox.selectedItem = TriStateFilter.ALL
+        toolWindow.changesFilterComboBox.selectedItem = PendingChangesFilter.ALL
         assertFalse(toolWindow.isResetFiltersEnabled())
 
         toolWindow.vulnerabilitiesFilterComboBox.selectedItem = VulnerabilityFilter.NOT_VULNERABLE
@@ -2266,7 +2297,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         toolWindow.updateVersionSourceFilterState()
         toolWindow.searchTextField.text = "lib-a"
         toolWindow.typeFilterComboBox.selectedItem = "dependency"
-        toolWindow.changesFilterComboBox.selectedItem = TriStateFilter.NO
+        toolWindow.changesFilterComboBox.selectedItem = PendingChangesFilter.UNCHANGED
         toolWindow.vulnerabilitiesFilterComboBox.selectedItem = VulnerabilityFilter.NOT_VULNERABLE
         toolWindow.versionSourceFilterComboBox.selectedItem = TriStateFilter.YES
         toolWindow.applyRowFilter()
@@ -2275,7 +2306,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         toolWindow.resetAllFilters()
 
         assertEquals("", toolWindow.searchTextField.text)
-        assertEquals(TriStateFilter.ALL, toolWindow.changesFilterComboBox.selectedItem)
+        assertEquals(PendingChangesFilter.ALL, toolWindow.changesFilterComboBox.selectedItem)
         assertEquals(VulnerabilityFilter.ALL, toolWindow.vulnerabilitiesFilterComboBox.selectedItem)
         assertEquals(TriStateFilter.ALL, toolWindow.versionSourceFilterComboBox.selectedItem)
         assertFalse(toolWindow.isResetFiltersEnabled())
@@ -2314,7 +2345,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         model.addRow(arrayOf("com.example", "major-all", "", "dependency", null, "2.5.0", availableVersions[key]))
         toolWindow.applyRowFilter()
 
-        toolWindow.selectHighestMajorVersionForAll()
+        toolWindow.selectHighestMajorVersionForAll(visibleOnly = true)
 
         assertEquals("3.1.0", selectedVersions[key])
     }
@@ -2331,7 +2362,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         model.addRow(arrayOf("com.example", "minor-all", "", "dependency", null, "2.5.0", availableVersions[key]))
         toolWindow.applyRowFilter()
 
-        toolWindow.selectHighestMinorVersionForAll()
+        toolWindow.selectHighestMinorVersionForAll(visibleOnly = true)
 
         assertEquals("2.9.9", selectedVersions[key])
     }
@@ -2348,7 +2379,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         model.addRow(arrayOf("com.example", "minor-none", "", "dependency", null, "2.8.0", availableVersions[key]))
         toolWindow.applyRowFilter()
 
-        toolWindow.selectHighestMinorVersionForAll()
+        toolWindow.selectHighestMinorVersionForAll(visibleOnly = true)
 
         assertNull(
             "Ohne Version derselben Major-Linie darf keine abweichende Auswahl gesetzt werden.",
@@ -2473,8 +2504,8 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         model.addRow(arrayOf("com.example", "reset-other", "", "dependency", null, "8.0.0", availableVersions[other]))
         toolWindow.applyRowFilter()
 
-        assertTrue(toolWindow.isVersionResetEnabledForDependency(key))
-        toolWindow.resetVersionForDependency(key)
+        assertTrue(toolWindow.isVersionResetEnabledForDependency(key, "dependency"))
+        toolWindow.resetVersionForDependency(key, "dependency")
 
         assertNull("Die angeklickte Dependency muss zurückgesetzt werden.", selectedVersions[key])
         assertEquals(
@@ -2482,7 +2513,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
             "9.0.0",
             selectedVersions[other]
         )
-        assertFalse(toolWindow.isVersionResetEnabledForDependency(key))
+        assertFalse(toolWindow.isVersionResetEnabledForDependency(key, "dependency"))
     }
 
     fun testResetVersionForDependencyClearsPropertyLinkedEntries() {
@@ -2505,7 +2536,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         selectedVersions[keyA] = "2.0.0"
         selectedVersions[keyB] = "2.0.0"
 
-        toolWindow.resetVersionForDependency(keyA)
+        toolWindow.resetVersionForDependency(keyA, "dependency")
 
         assertNull(selectedVersions[keyA])
         assertNull(
@@ -2523,13 +2554,13 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         knownDependencies[key] = "1.0.0"
         assertFalse(
             "Ohne Auswahl darf das Zurücksetzen nicht verfügbar sein.",
-            toolWindow.isVersionResetEnabledForDependency(key)
+            toolWindow.isVersionResetEnabledForDependency(key, "dependency")
         )
 
         selectedVersions[key] = "1.0.0"
         assertFalse(
             "Wenn die Auswahl der aktuellen Version entspricht, ist kein Zurücksetzen nötig.",
-            toolWindow.isVersionResetEnabledForDependency(key)
+            toolWindow.isVersionResetEnabledForDependency(key, "dependency")
         )
     }
 
@@ -2554,7 +2585,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         toolWindow.applyRowFilter()
         assertTrue(toolWindow.isRowFilterHidingEntries())
 
-        toolWindow.selectHighestMajorVersionForAll()
+        toolWindow.selectHighestMajorVersionForAll(visibleOnly = true)
 
         assertEquals("2.0.0", selectedVersions[visibleKey])
         assertNull(
@@ -2699,8 +2730,8 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         selectedVersions["com.example:existing"] = "1.0.0"
 
-        toolWindow.selectHighestMajorVersionForAll()
-        toolWindow.selectHighestMinorVersionForAll()
+        toolWindow.selectHighestMajorVersionForAll(visibleOnly = true)
+        toolWindow.selectHighestMinorVersionForAll(visibleOnly = true)
 
         assertEquals("1.0.0", selectedVersions["com.example:existing"])
     }
@@ -2731,6 +2762,153 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         selectedVersions[key] = "2.0.0"
 
         assertTrue(toolWindow.isResetVersionsEnabled())
+    }
+
+    fun testManagedEntryRemovalIsCollectedAndCanBeUndone() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+        val key = "com.example:managed-library"
+        val managedDependency = MyMessageBundle.message("toolwindow.MyToolWindow.type.managedDependency")
+        val (availableVersions, selectedVersions, knownDependencies) = versionMaps(toolWindow)
+        availableVersions[key] = listOf("2.0.0", "1.0.0")
+        knownDependencies[key] = "1.0.0"
+
+        toolWindow.markManagedEntryForRemoval(key, managedDependency, "1.0.0")
+
+        assertTrue(toolWindow.isManagedEntryMarkedForRemoval(key, managedDependency))
+        assertTrue(toolWindow.isUpdateActionEnabled())
+        assertTrue(toolWindow.collectSelectedUpdates().single().removeFromPom)
+
+        toolWindow.selectHighestMajorVersionForDependency(key)
+
+        assertFalse(toolWindow.isManagedEntryMarkedForRemoval(key, managedDependency))
+        assertEquals("2.0.0", selectedVersions[key])
+    }
+
+    fun testMarkingManagedEntryForRemovalPreservesPropertyLinkedVersionSelections() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+        val managedDependency = MyMessageBundle.message("toolwindow.MyToolWindow.type.managedDependency")
+        val (availableVersions, selectedVersions, knownDependencies) = versionMaps(toolWindow)
+        @Suppress("UNCHECKED_CAST")
+        val dependencyToProperty = toolWindow.javaClass.getDeclaredField("dependencyToProperty")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, String>
+        @Suppress("UNCHECKED_CAST")
+        val knownTypes = toolWindow.javaClass.getDeclaredField("knownTypes")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, String>
+        val removalKey = "com.example:managed-removal"
+        val linkedKey = "com.example:managed-linked"
+        availableVersions[removalKey] = listOf("2.0.0", "1.0.0")
+        availableVersions[linkedKey] = listOf("2.0.0", "1.0.0")
+        knownDependencies[removalKey] = "1.0.0"
+        knownDependencies[linkedKey] = "1.0.0"
+        knownTypes[removalKey] = managedDependency
+        knownTypes[linkedKey] = managedDependency
+        dependencyToProperty[removalKey] = "shared.version"
+        dependencyToProperty[linkedKey] = "shared.version"
+        selectedVersions[removalKey] = "2.0.0"
+        selectedVersions[linkedKey] = "2.0.0"
+
+        toolWindow.markManagedEntryForRemoval(removalKey, managedDependency, "1.0.0")
+
+        assertNull(selectedVersions[removalKey])
+        assertEquals("2.0.0", selectedVersions[linkedKey])
+        assertTrue(
+            toolWindow.collectSelectedUpdates().any {
+                it.artifactId == "managed-linked" && !it.removeFromPom && it.newVersion == "2.0.0"
+            }
+        )
+
+        // A synchronized property selection may reintroduce the marked coordinate.
+        selectedVersions[removalKey] = "2.0.0"
+        assertFalse(
+            toolWindow.collectSelectedUpdates().any {
+                it.artifactId == "managed-removal" && !it.removeFromPom
+            }
+        )
+    }
+
+    fun testManagedEntryRemovalShowsWillBeRemovedInNewVersionColumn() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val table = findTable(toolWindow.getContent())!!
+        val model = table.model as javax.swing.table.DefaultTableModel
+        val key = "com.example:managed-library"
+        val managedDependency = MyMessageBundle.message("toolwindow.MyToolWindow.type.managedDependency")
+        model.addRow(
+            arrayOf(
+                "com.example", "managed-library", "", managedDependency, null, "1.0.0", listOf("1.0.0")
+            )
+        )
+
+        toolWindow.markManagedEntryForRemoval(key, managedDependency, "1.0.0")
+
+        val renderer = table.columnModel.getColumn(6).cellRenderer
+        val component = renderer.getTableCellRendererComponent(
+            table, model.getValueAt(0, 6), false, false, 0, 6
+        ) as JLabel
+        assertEquals(MyMessageBundle.message("toolwindow.MyToolWindow.version.willRemove"), component.text)
+    }
+
+    fun testPendingFilterDistinguishesManagedEntryRemovalFromVersionUpdate() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val table = findTable(toolWindow.getContent())!!
+        val model = table.model as javax.swing.table.DefaultTableModel
+        val managedDependency = MyMessageBundle.message("toolwindow.MyToolWindow.type.managedDependency")
+        val removalKey = "com.example:managed-library"
+        val updateKey = "com.example:regular-library"
+        model.addRow(arrayOf("com.example", "managed-library", "", managedDependency, null, "1.0.0", listOf("1.0.0")))
+        model.addRow(arrayOf("com.example", "regular-library", "", "dependency", null, "1.0.0", listOf("2.0.0", "1.0.0")))
+        val (_, selectedVersions, knownDependencies) = versionMaps(toolWindow)
+        knownDependencies[removalKey] = "1.0.0"
+        knownDependencies[updateKey] = "1.0.0"
+        selectedVersions[updateKey] = "2.0.0"
+        toolWindow.markManagedEntryForRemoval(removalKey, managedDependency, "1.0.0")
+
+        toolWindow.changesFilterComboBox.selectedItem = PendingChangesFilter.ALL_CHANGES
+        toolWindow.applyRowFilter()
+        assertEquals(2, table.rowCount)
+
+        toolWindow.changesFilterComboBox.selectedItem = PendingChangesFilter.WILL_REMOVE
+        toolWindow.applyRowFilter()
+        assertEquals(1, table.rowCount)
+        assertEquals("managed-library", table.getValueAt(0, ARTIFACT_ID_COLUMN))
+
+        toolWindow.changesFilterComboBox.selectedItem = PendingChangesFilter.WILL_UPDATE
+        toolWindow.applyRowFilter()
+        assertEquals(1, table.rowCount)
+        assertEquals("regular-library", table.getValueAt(0, ARTIFACT_ID_COLUMN))
+    }
+
+    fun testResetAllVersionsAlsoClearsManagedEntryRemovalMarks() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+        val managedDependency = MyMessageBundle.message("toolwindow.MyToolWindow.type.managedDependency")
+        val dependencyKey = "com.example:managed-dependency"
+        val pluginKey = "com.example:managed-plugin"
+
+        toolWindow.markManagedEntryForRemoval(dependencyKey, managedDependency, "1.0.0")
+        toolWindow.markManagedEntryForRemoval(pluginKey, MANAGED_PLUGIN, "2.0.0")
+        toolWindow.resetAllVersionsToCurrent()
+
+        assertFalse(toolWindow.isManagedEntryMarkedForRemoval(dependencyKey, managedDependency))
+        assertFalse(toolWindow.isManagedEntryMarkedForRemoval(pluginKey, MANAGED_PLUGIN))
+        assertFalse(toolWindow.hasSelectedUpdates())
+    }
+
+    fun testContextMenuResetKeepsRemovalMarkOfDifferentManagedEntryType() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+        val managedDependency = MyMessageBundle.message("toolwindow.MyToolWindow.type.managedDependency")
+        val key = "com.example:shared-artifact"
+
+        toolWindow.markManagedEntryForRemoval(key, managedDependency, "1.0.0")
+        toolWindow.markManagedEntryForRemoval(key, MANAGED_PLUGIN, "1.0.0")
+        toolWindow.resetVersionForDependency(key, managedDependency)
+
+        assertFalse(toolWindow.isManagedEntryMarkedForRemoval(key, managedDependency))
+        assertTrue(toolWindow.isManagedEntryMarkedForRemoval(key, MANAGED_PLUGIN))
     }
 
     /**

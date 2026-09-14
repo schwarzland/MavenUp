@@ -94,7 +94,11 @@ class UpdateConfirmationDialog(
                     update.artifactId,
                     typeLabel(update),
                     update.oldVersion,
-                    update.newVersion
+                    if (update.removeFromPom) {
+                        MyMessageBundle.message("toolwindow.MyToolWindow.version.willRemove")
+                    } else {
+                        update.newVersion
+                    }
                 )
             )
         }

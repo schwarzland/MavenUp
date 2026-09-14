@@ -421,4 +421,45 @@ class PomUpdateServiceTest : BasePlatformTestCase() {
         val added = dependencies?.find { it.findFirstSubTag("artifactId")?.value?.text == "lib" }
         assertEquals("2.0.1", added?.findFirstSubTag("version")?.value?.text)
     }
+
+    fun testRemoveManagedEntryRemovesOnlyMatchingDependencyAndPlugin() {
+        val pomContent = """
+            <project>
+                <dependencyManagement><dependencies>
+                    <dependency><groupId>org.example</groupId><artifactId>remove-dependency</artifactId><version>1.0.0</version></dependency>
+                    <dependency><groupId>org.example</groupId><artifactId>keep-dependency</artifactId><version>1.0.0</version></dependency>
+                </dependencies></dependencyManagement>
+                <build><pluginManagement><plugins>
+                    <plugin><groupId>org.example</groupId><artifactId>remove-plugin</artifactId><version>1.0.0</version></plugin>
+                    <plugin><groupId>org.example</groupId><artifactId>keep-plugin</artifactId><version>1.0.0</version></plugin>
+                </plugins></pluginManagement></build>
+            </project>
+        """.trimIndent()
+        val rootTag = (myFixture.configureByText("pom.xml", pomContent) as XmlFile).document!!.rootTag!!
+        val service = PomUpdateService(project)
+
+        WriteCommandAction.runWriteCommandAction(project) {
+            service.removeManagedEntry(
+                rootTag,
+                DependencyUpdate("org.example", "remove-dependency", "managed dependency", "1.0.0", "1.0.0", removeFromPom = true),
+                "managed dependency"
+            )
+            service.removeManagedEntry(
+                rootTag,
+                DependencyUpdate("org.example", "remove-plugin", "managed plugin", "1.0.0", "1.0.0", removeFromPom = true),
+                "managed dependency"
+            )
+        }
+
+        val dependencies = rootTag.findFirstSubTag("dependencyManagement")
+            ?.findFirstSubTag("dependencies")?.findSubTags("dependency")?.mapNotNull {
+                it.findFirstSubTag("artifactId")?.value?.text
+            }
+        val plugins = rootTag.findFirstSubTag("build")?.findFirstSubTag("pluginManagement")
+            ?.findFirstSubTag("plugins")?.findSubTags("plugin")?.mapNotNull {
+                it.findFirstSubTag("artifactId")?.value?.text
+            }
+        assertEquals(listOf("keep-dependency"), dependencies)
+        assertEquals(listOf("keep-plugin"), plugins)
+    }
 }
