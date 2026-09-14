@@ -1077,10 +1077,15 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
     fun testHighestVersionGroupHasLabelAndTooltip() {
         assertEquals("Select Highest Version", MyMessageBundle.message("toolwindow.MyToolWindow.versionActions.group.button"))
         assertEquals("Highest", MyMessageBundle.message("toolwindow.MyToolWindow.versionActions.group.button.short"))
+        val tooltip = MyMessageBundle.message("toolwindow.MyToolWindow.versionActions.group.tooltip")
         assertTrue(
-            "Der Tooltip sollte auf die nur sichtbaren Dependencies hinweisen",
-            MyMessageBundle.message("toolwindow.MyToolWindow.versionActions.group.tooltip")
-                .contains("visible", ignoreCase = true)
+            "Der Tooltip sollte den Fall eines aktiven Filters benennen",
+            tooltip.contains("filter", ignoreCase = true)
+        )
+        assertTrue(
+            "Der Tooltip sollte die Wahl zwischen allen und sichtbaren Dependencies benennen",
+            tooltip.contains("all dependencies", ignoreCase = true) &&
+                tooltip.contains("visible", ignoreCase = true)
         )
     }
 
