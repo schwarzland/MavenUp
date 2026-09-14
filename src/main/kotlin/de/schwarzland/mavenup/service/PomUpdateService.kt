@@ -57,6 +57,10 @@ internal class PomUpdateService(private val project: Project) {
                 val managedDependencyType = MyMessageBundle.message(
                     TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY
                 )
+                if (update.removeFromPom) {
+                    removeManagedEntry(documentElement, update, managedDependencyType)
+                    return@forEach
+                }
                 when (update.type) {
                     PARENT_TYPE -> {
                         updateParent(documentElement, update, propertiesTag)
@@ -70,12 +74,41 @@ internal class PomUpdateService(private val project: Project) {
                             addManagedDependency(documentElement, update)
                         }
                     }
+
                     "plugin", MANAGED_PLUGIN -> {
                         updatePlugins(documentElement, update, propertiesTag)
                     }
                 }
             }
         }
+    }
+
+    /**
+     * Entfernt einen verwalteten Eintrag aus dem passenden Management-Bereich der `pom.xml`.
+     *
+     * @param documentElement Das Root-Tag der `pom.xml`.
+     * @param update Der als Entfernung markierte verwaltete Eintrag.
+     * @param managedDependencyType Der lokalisierte Typname für verwaltete Abhängigkeiten.
+     */
+    internal fun removeManagedEntry(
+        documentElement: XmlTag,
+        update: DependencyUpdate,
+        managedDependencyType: String
+    ) {
+        val entries = when (update.type) {
+            managedDependencyType -> documentElement.findFirstSubTag("dependencyManagement")
+                ?.findFirstSubTag("dependencies")
+                ?.findSubTags("dependency")
+            MANAGED_PLUGIN -> documentElement.findFirstSubTag("build")
+                ?.findFirstSubTag("pluginManagement")
+                ?.findFirstSubTag("plugins")
+                ?.findSubTags("plugin")
+            else -> emptyArray()
+        }
+        entries?.firstOrNull { entry ->
+            entry.findFirstSubTag("groupId")?.value?.text == update.groupId &&
+                entry.findFirstSubTag("artifactId")?.value?.text == update.artifactId
+        }?.delete()
     }
 
     /**

@@ -12,6 +12,7 @@ import de.schwarzland.mavenup.ui.buildMavenRepositoryUrl
 import de.schwarzland.mavenup.ui.GROUP_ID_COLUMN
 import de.schwarzland.mavenup.ui.ARTIFACT_ID_COLUMN
 import de.schwarzland.mavenup.ui.MavenUpWindowFactory
+import de.schwarzland.mavenup.ui.MANAGED_PLUGIN
 import de.schwarzland.mavenup.ui.TransitiveVulnerabilitiesView
 import de.schwarzland.mavenup.ui.UpdateConfirmationDialog
 import de.schwarzland.mavenup.service.RefreshSnapshotCollector
@@ -46,6 +47,7 @@ import com.intellij.ui.content.Content
 import com.intellij.ui.content.ContentFactory
 import com.intellij.ui.content.ContentManager
 import java.awt.Container
+import javax.swing.JLabel
 import java.util.concurrent.TimeUnit
 
 class MavenUpWindowFactoryTest : BasePlatformTestCase() {
@@ -2731,6 +2733,61 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         selectedVersions[key] = "2.0.0"
 
         assertTrue(toolWindow.isResetVersionsEnabled())
+    }
+
+    fun testManagedEntryRemovalIsCollectedAndCanBeUndone() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+        val key = "com.example:managed-library"
+        val managedDependency = MyMessageBundle.message("toolwindow.MyToolWindow.type.managedDependency")
+
+        toolWindow.markManagedEntryForRemoval(key, managedDependency, "1.0.0")
+
+        assertTrue(toolWindow.isManagedEntryMarkedForRemoval(key, managedDependency))
+        assertTrue(toolWindow.isUpdateActionEnabled())
+        assertTrue(toolWindow.collectSelectedUpdates().single().removeFromPom)
+
+        toolWindow.unmarkManagedEntryForRemoval(key, managedDependency)
+
+        assertFalse(toolWindow.isManagedEntryMarkedForRemoval(key, managedDependency))
+        assertFalse(toolWindow.hasSelectedUpdates())
+    }
+
+    fun testManagedEntryRemovalShowsWillBeRemovedInNewVersionColumn() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val table = findTable(toolWindow.getContent())!!
+        val model = table.model as javax.swing.table.DefaultTableModel
+        val key = "com.example:managed-library"
+        val managedDependency = MyMessageBundle.message("toolwindow.MyToolWindow.type.managedDependency")
+        model.addRow(
+            arrayOf(
+                "com.example", "managed-library", "", managedDependency, null, "1.0.0", listOf("1.0.0")
+            )
+        )
+
+        toolWindow.markManagedEntryForRemoval(key, managedDependency, "1.0.0")
+
+        val renderer = table.columnModel.getColumn(6).cellRenderer
+        val component = renderer.getTableCellRendererComponent(
+            table, model.getValueAt(0, 6), false, false, 0, 6
+        ) as JLabel
+        assertEquals(MyMessageBundle.message("toolwindow.MyToolWindow.version.willRemove"), component.text)
+    }
+
+    fun testResetAllVersionsAlsoClearsManagedEntryRemovalMarks() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+        val managedDependency = MyMessageBundle.message("toolwindow.MyToolWindow.type.managedDependency")
+        val dependencyKey = "com.example:managed-dependency"
+        val pluginKey = "com.example:managed-plugin"
+
+        toolWindow.markManagedEntryForRemoval(dependencyKey, managedDependency, "1.0.0")
+        toolWindow.markManagedEntryForRemoval(pluginKey, MANAGED_PLUGIN, "2.0.0")
+        toolWindow.resetAllVersionsToCurrent()
+
+        assertFalse(toolWindow.isManagedEntryMarkedForRemoval(dependencyKey, managedDependency))
+        assertFalse(toolWindow.isManagedEntryMarkedForRemoval(pluginKey, MANAGED_PLUGIN))
+        assertFalse(toolWindow.hasSelectedUpdates())
     }
 
     /**

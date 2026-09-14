@@ -185,6 +185,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private val toolWindowBadgeService = ToolWindowBadgeService.getInstance(project)
         private val availableVersions = mutableMapOf<String, List<String>>()
         private val selectedVersions = mutableMapOf<String, String>()
+        private val pendingManagedRemovalUpdates = mutableMapOf<String, DependencyUpdate>()
         private val dependencyToProperty = mutableMapOf<String, String>()
         private val knownDependencies = mutableMapOf<String, String>() // key to current version
         private val knownTypes = mutableMapOf<String, String>()
@@ -400,7 +401,14 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
         private val content = JBPanel<JBPanel<*>>(BorderLayout()).apply {
             val tableModel = object : DefaultTableModel() {
-                override fun isCellEditable(row: Int, column: Int): Boolean = column == NEW_VERSION_COLUMN
+                override fun isCellEditable(row: Int, column: Int): Boolean {
+                    if (column != NEW_VERSION_COLUMN) return false
+                    if (row !in 0 until rowCount) return true
+                    val groupId = getValueAt(row, GROUP_ID_COLUMN)?.toString().orEmpty()
+                    val artifactId = getValueAt(row, ARTIFACT_ID_COLUMN)?.toString().orEmpty()
+                    val type = getValueAt(row, TYPE_COLUMN)?.toString().orEmpty()
+                    return !isManagedEntryMarkedForRemoval("$groupId:$artifactId", type)
+                }
             }.apply {
                 addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.groupId"))
                 addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.artifactId"))
@@ -429,6 +437,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         val groupId = getValueAt(row, GROUP_ID_COLUMN) as? String ?: ""
                         val artifactId = getValueAt(row, ARTIFACT_ID_COLUMN) as? String ?: ""
                         val currentVersion = getValueAt(row, CURRENT_VERSION_COLUMN) as? String ?: ""
+                        val type = getValueAt(row, TYPE_COLUMN) as? String ?: ""
+                        if (isManagedEntryMarkedForRemoval("$groupId:$artifactId", type)) {
+                            return MyMessageBundle.message("toolwindow.MyToolWindow.version.willRemoveTooltip")
+                        }
                         val newestVersion = versions.firstOrNull() ?: ""
                         val effectiveVersion = selectedVersions["$groupId:$artifactId"] ?: currentVersion
                         return versionStatusTooltip(currentVersion, effectiveVersion, newestVersion)
@@ -566,6 +578,29 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         isVersionResetEnabledForDependency(dependencyKey)) {
                         resetVersionForDependency(dependencyKey)
                     }
+                    if (isManagedEntryType(type)) {
+                        val markedForRemoval = isManagedEntryMarkedForRemoval(dependencyKey, type)
+                        addAction(
+                            MyMessageBundle.message(
+                                if (markedForRemoval) {
+                                    "toolwindow.MyToolWindow.contextMenu.keepInPom"
+                                } else {
+                                    "toolwindow.MyToolWindow.contextMenu.removeFromPom"
+                                }
+                            ),
+                            !isUpdating
+                        ) {
+                            if (markedForRemoval) {
+                                unmarkManagedEntryForRemoval(dependencyKey, type)
+                            } else {
+                                markManagedEntryForRemoval(
+                                    dependencyKey,
+                                    type,
+                                    currentVersion
+                                )
+                            }
+                        }
+                    }
                     val hasVulnerabilities = vulnerabilityCell != null && vulnerabilityCell.allAdvisories.isNotEmpty()
                     group.addSeparator()
                     addAction(MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.showVulnerabilityDetails"), hasVulnerabilities) {
@@ -653,6 +688,15 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
                     @Suppress("UNCHECKED_CAST")
                     val versions = value as? List<String> ?: emptyList()
+                    val type = table?.getValueAt(row, TYPE_COLUMN) as? String ?: ""
+                    if (isManagedEntryMarkedForRemoval(key, type)) {
+                        return@TableCellRenderer JLabel(
+                            MyMessageBundle.message("toolwindow.MyToolWindow.version.willRemove")
+                        ).apply {
+                            foreground = versionStatusColor(false)
+                            font = font.deriveFont(Font.BOLD)
+                        }
+                    }
                     if (versions.isEmpty()) return@TableCellRenderer JLabel("")
 
                     val selectedVersion = selectedVersions[key]
@@ -769,6 +813,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     availableVersions.clear()
                     rawAvailableVersions.clear()
                     selectedVersions.clear()
+                    pendingManagedRemovalUpdates.clear()
                 }
                 if (clearVulnerabilities) {
                     vulnerabilityAdvisories.clear()
@@ -885,7 +930,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             }
 
             val updateAction = {
-                if (!isUpdating && (selectedVersions.isNotEmpty() || transitiveVulnerabilitiesView.hasPendingUpdates())) {
+                if (!isUpdating && (hasSelectedUpdates() || transitiveVulnerabilitiesView.hasPendingUpdates())) {
                     val updates = collectSelectedUpdates()
 
                     if (updates.isNotEmpty()) {
@@ -912,6 +957,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
                                     ApplicationManager.getApplication().invokeLater {
                                         selectedVersions.clear()
+                                        pendingManagedRemovalUpdates.clear()
                                         availableVersions.clear()
                                         rawAvailableVersions.clear()
                                         transitiveVulnerabilitiesView.resetSelections()
@@ -2171,6 +2217,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
          */
         internal fun resetVersionForDependency(key: String) {
             clearVersionSelection(key)
+            pendingManagedRemovalUpdates.keys.removeAll { it.endsWith("|$key") }
             cancelActiveCellEditing()
             table.repaint()
             updateUpdateButtonState()
@@ -2187,9 +2234,83 @@ class MavenUpWindowFactory : ToolWindowFactory {
          */
         internal fun isVersionResetEnabledForDependency(key: String): Boolean {
             if (isUpdating) return false
+            if (pendingManagedRemovalUpdates.keys.any { it.endsWith("|$key") }) return true
             val selected = selectedVersions[key] ?: return false
             return selected != (knownDependencies[key] ?: "")
         }
+
+        /**
+         * Markiert einen verwalteten Eintrag zur Entfernung beim nächsten Update.
+         *
+         * Eine eventuell gewählte Version wird verworfen, da das Update den Eintrag statt einer
+         * Versionsänderung vollständig aus der `pom.xml` entfernt.
+         *
+         * @param key Der Schlüssel (`groupId:artifactId`) des verwalteten Eintrags.
+         * @param type Der Typ des Eintrags.
+         * @param currentVersion Die aktuell in der Tabelle angezeigte Version.
+         */
+        internal fun markManagedEntryForRemoval(key: String, type: String, currentVersion: String) {
+            if (isUpdating || !isManagedEntryType(type)) return
+            clearVersionSelection(key)
+            val update = DependencyUpdate(
+                groupId = key.substringBefore(":"),
+                artifactId = key.substringAfter(":"),
+                type = type,
+                oldVersion = currentVersion,
+                newVersion = currentVersion,
+                removeFromPom = true
+            )
+            pendingManagedRemovalUpdates[managedRemovalKey(key, type)] = update
+            cancelActiveCellEditing()
+            table.repaint()
+            updateUpdateButtonState()
+            applyRowFilter()
+        }
+
+        /**
+         * Nimmt die vorgemerkte Entfernung eines verwalteten Eintrags zurück.
+         *
+         * @param key Der Schlüssel (`groupId:artifactId`) des verwalteten Eintrags.
+         * @param type Der Typ des Eintrags.
+         */
+        internal fun unmarkManagedEntryForRemoval(key: String, type: String) {
+            pendingManagedRemovalUpdates.remove(managedRemovalKey(key, type))
+            table.repaint()
+            updateUpdateButtonState()
+            applyRowFilter()
+        }
+
+        /**
+         * Prüft, ob ein Eintrag ein verwaltetes Maven-Element ist.
+         *
+         * @param type Der in der Tabelle angezeigte Typ.
+         * @return `true` für verwaltete Abhängigkeiten und Plugins.
+         */
+        internal fun isManagedEntryType(type: String): Boolean =
+            type == MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY) ||
+                type == MANAGED_PLUGIN
+
+        /**
+         * Prüft, ob ein verwalteter Eintrag zur Entfernung vorgemerkt wurde.
+         *
+         * @param key Der Schlüssel (`groupId:artifactId`) des verwalteten Eintrags.
+         * @param type Der Typ des Eintrags.
+         * @return `true`, wenn der Eintrag beim nächsten Update entfernt wird.
+         */
+        internal fun isManagedEntryMarkedForRemoval(key: String, type: String): Boolean =
+            pendingManagedRemovalUpdates.containsKey(managedRemovalKey(key, type))
+
+        /**
+         * Erzeugt einen eindeutigen Schlüssel für eine verwaltete Entfernungsmarkierung.
+         *
+         * Der Typ gehört zum Schlüssel, damit eine verwaltete Abhängigkeit und ein verwaltetes Plugin
+         * mit derselben Maven-Koordinate unabhängig voneinander markiert werden können.
+         *
+         * @param key Der Schlüssel (`groupId:artifactId`) des Eintrags.
+         * @param type Der Typ des Eintrags.
+         * @return Der interne Schlüssel der Entfernungsmarkierung.
+         */
+        private fun managedRemovalKey(key: String, type: String): String = "$type|$key"
 
         /**
          * Wendet eine Auswahlstrategie auf eine einzelne Abhängigkeit an und aktualisiert die Tabelle.
@@ -2246,6 +2367,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
          */
         internal fun resetAllVersionsToCurrent() {
             applyBulkVersionSelection(visibleOnly = false) { _, current, _ -> current }
+            pendingManagedRemovalUpdates.clear()
+            table.repaint()
+            updateUpdateButtonState()
+            applyRowFilter()
         }
 
         /**
@@ -2257,6 +2382,13 @@ class MavenUpWindowFactory : ToolWindowFactory {
          */
         internal fun resetVisibleVersionsToCurrent() {
             applyBulkVersionSelection(visibleOnly = true) { _, current, _ -> current }
+            val visibleKeys = collectVisibleDependencyKeys()
+            pendingManagedRemovalUpdates.keys.removeAll { removalKey ->
+                visibleKeys.any { key -> removalKey.endsWith("|$key") }
+            }
+            table.repaint()
+            updateUpdateButtonState()
+            applyRowFilter()
         }
 
         /**
@@ -2613,7 +2745,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             return knownDependencies.any { (key, currentVersion) ->
                 val newVersion = selectedVersions[key]
                 newVersion != null && newVersion != currentVersion
-            } || transitiveVulnerabilitiesView.hasPendingUpdates()
+            } || pendingManagedRemovalUpdates.isNotEmpty() || transitiveVulnerabilitiesView.hasPendingUpdates()
         }
 
         /**
@@ -2734,7 +2866,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     newVersion
                 )
             }
-            return mainUpdates + transitiveVulnerabilitiesView.collectPendingUpdates()
+            return mainUpdates + pendingManagedRemovalUpdates.values + transitiveVulnerabilitiesView.collectPendingUpdates()
         }
 
         /**

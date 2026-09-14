@@ -17,6 +17,8 @@ package de.schwarzland.mavenup.model
  * @property fixedVulnerabilityAliases Aliase (z. B. `CVE-…`) der durch dieses Update behobenen
  * Sicherheitswarnungen; enthält je Warnung deren Aliase oder – falls keine vorhanden sind – ersatzweise
  * deren primäre ID.
+ * @property removeFromPom `true`, wenn der verwaltete Eintrag beim Anwenden aus der `pom.xml` entfernt
+ * werden soll, statt seine Version zu aktualisieren.
  */
 data class DependencyUpdate(
     val groupId: String,
@@ -26,5 +28,6 @@ data class DependencyUpdate(
     val newVersion: String,
     val fixedVulnerabilities: List<String> = emptyList(),
     val transitive: Boolean = false,
-    val fixedVulnerabilityAliases: List<String> = emptyList()
+    val fixedVulnerabilityAliases: List<String> = emptyList(),
+    val removeFromPom: Boolean = false
 )

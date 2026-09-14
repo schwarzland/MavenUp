@@ -19,6 +19,17 @@ class DependencyUpdateTest {
         assertEquals("dependency", update.type)
         assertEquals("1.0.0", update.oldVersion)
         assertEquals("1.1.0", update.newVersion)
+        assertEquals(false, update.removeFromPom)
+    }
+
+    @Test
+    fun testDependencyUpdateStoresRemovalFlag() {
+        val update = DependencyUpdate(
+            "org.example", "demo-artifact", "managed dependency", "1.0.0", "1.0.0",
+            removeFromPom = true
+        )
+
+        assertEquals(true, update.removeFromPom)
     }
 
     @Test
