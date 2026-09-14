@@ -14,6 +14,7 @@
 
 ### Changed
 
+- Updated the Marketplace plugin icons with a shield and checkmark motif for vulnerability checks.
 - Removed the redundant Keep in pom.xml context-menu action and preserved property-linked version selections when marking a managed entry for removal.
 - Extended the main-table Pending filter with All Changes and Will be removed options for pending managed-entry removals.
 - Changed each single-entry version-selection action to cancel a pending managed-entry removal before selecting its target version.
