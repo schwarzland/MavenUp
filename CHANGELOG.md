@@ -6,6 +6,7 @@
 
 ### Added
 
+- Added a modal **Show Dependency Hierarchy** dialog and context-menu action in both the main dependencies table and the transitive CVEs table for managed dependencies and managed plugins, visualizing the full resolution and inclusion paths, parent POMs, BOM imports, and intervening dependencies in an interactive tree with double-click navigation to the POM.
 - Added a context-menu action that marks managed dependencies and managed plugins for removal from `pom.xml` when the shared Update action is confirmed.
 - Added a dedicated dark theme plugin icon for the JetBrains Marketplace and IDE Plugin Manager.
 - Added IDE notifications reporting the number of versions found for the checked dependencies after a version search, and the number of direct/indirect vulnerabilities found after a vulnerability scan.

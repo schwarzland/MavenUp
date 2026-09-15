@@ -3110,4 +3110,19 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertTrue(settings.first)
         assertTrue(settings.third)
     }
+
+    /**
+     * Stellt sicher, dass [MavenUpWindowFactory.MyToolWindow.isManagedEntryType] sowohl
+     * Managed Dependencies als auch Managed Plugins korrekt identifiziert.
+     */
+    fun testIsManagedEntryTypeRecognizesManagedEntries() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val managedDepType = MyMessageBundle.message("toolwindow.MyToolWindow.type.managedDependency")
+
+        assertTrue(toolWindow.isManagedEntryType(managedDepType))
+        assertTrue(toolWindow.isManagedEntryType(MANAGED_PLUGIN))
+        assertFalse(toolWindow.isManagedEntryType("dependency"))
+        assertFalse(toolWindow.isManagedEntryType("plugin"))
+        assertFalse(toolWindow.isManagedEntryType("parent"))
+    }
 }

@@ -1321,6 +1321,14 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     target.type
                 )
             }
+            if (isManagedEntryType(target.type)) {
+                addContextMenuAction(
+                    group,
+                    MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.showDependencyHierarchy")
+                ) {
+                    showDependencyHierarchy(target.groupId, target.artifactId, target.type == MANAGED_PLUGIN)
+                }
+            }
             val browserName = MavenUpSettings.getInstance().state.repositoryBrowser.displayName
             addContextMenuAction(
                 group,
@@ -3377,6 +3385,17 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private fun openInMavenRepository(groupId: String, artifactId: String, version: String) {
             val browser = MavenUpSettings.getInstance().state.repositoryBrowser
             BrowserUtil.browse(buildMavenRepositoryUrl(groupId, artifactId, version, browser))
+        }
+
+        /**
+         * Öffnet den Hierarchiebaum-Dialog für eine Managed Dependency oder ein Managed Plugin.
+         *
+         * @param groupId Group-ID der Komponente.
+         * @param artifactId Artefakt-ID der Komponente.
+         * @param isPlugin `true` für Managed Plugins, `false` für Managed Dependencies.
+         */
+        internal fun showDependencyHierarchy(groupId: String, artifactId: String, isPlugin: Boolean = false) {
+            DependencyHierarchyDialog(project, groupId, artifactId, isPlugin).show()
         }
     }
 }
