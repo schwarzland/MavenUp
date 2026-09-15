@@ -1321,14 +1321,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     target.type
                 )
             }
-            if (isManagedEntryType(target.type)) {
-                addContextMenuAction(
-                    group,
-                    MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.showDependencyHierarchy")
-                ) {
-                    showDependencyHierarchy(target.groupId, target.artifactId, target.type == MANAGED_PLUGIN)
-                }
-            }
             val browserName = MavenUpSettings.getInstance().state.repositoryBrowser.displayName
             addContextMenuAction(
                 group,
@@ -1380,7 +1372,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
-         * Fügt die Aktion zum Anzeigen der Sicherheitslücken der Zielzeile hinzu.
+         * Fügt die Aktionen zum Anzeigen der Abhängigkeitshierarchie und der Sicherheitslücken der Zielzeile hinzu.
          *
          * @param group Aktionsgruppe des Kontextmenüs.
          * @param target Daten der angeklickten Tabellenzeile.
@@ -1388,6 +1380,14 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private fun addContextVulnerabilityAction(group: DefaultActionGroup, target: DependencyContextMenuTarget) {
             val hasVulnerabilities = target.vulnerabilityCell?.allAdvisories?.isNotEmpty() == true
             group.addSeparator()
+            if (isManagedEntryType(target.type)) {
+                addContextMenuAction(
+                    group,
+                    MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.showDependencyHierarchy")
+                ) {
+                    showDependencyHierarchy(target.groupId, target.artifactId, target.type == MANAGED_PLUGIN)
+                }
+            }
             addContextMenuAction(
                 group,
                 MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.showVulnerabilityDetails"),
