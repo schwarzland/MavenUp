@@ -38,6 +38,9 @@ internal const val TRANSITIVE_GROUP_ID_COLUMN = 0
 /** Spaltenindex der ArtifactId in der Tabelle der transitiven Sicherheitslücken. */
 internal const val TRANSITIVE_ARTIFACT_ID_COLUMN = 1
 
+/** Spaltenindex des Typs in der Tabelle der transitiven Sicherheitslücken. */
+internal const val TRANSITIVE_TYPE_COLUMN = 2
+
 /** Spaltenindex der Sicherheitslücken-Zelle in der Tabelle der transitiven Sicherheitslücken. */
 internal const val TRANSITIVE_VULNERABILITIES_COLUMN = 3
 
@@ -876,6 +879,11 @@ internal class TransitiveVulnerabilitiesView(
         val hasVulnerabilities = cell != null && cell.allAdvisories.isNotEmpty()
         group.addSeparator()
         addAction(
+            MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.showDependencyHierarchy")
+        ) {
+            openDependencyHierarchy(viewRow)
+        }
+        addAction(
             MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.showVulnerabilityDetails"),
             hasVulnerabilities
         ) {
@@ -920,6 +928,15 @@ internal class TransitiveVulnerabilitiesView(
         val viewRow = table.selectedRow
         if (viewRow < 0) return
         openVulnerabilityDetails(viewRow)
+    }
+
+    /**
+     * Öffnet den Hierarchiebaum-Dialog für die aktuell selektierte Zeile.
+     */
+    internal fun openSelectedDependencyHierarchy() {
+        val viewRow = table.selectedRow
+        if (viewRow < 0) return
+        openDependencyHierarchy(viewRow)
     }
 
     /**
@@ -1049,6 +1066,18 @@ internal class TransitiveVulnerabilitiesView(
                 SimpleTextAttributes.LINK_PLAIN_ATTRIBUTES
             ) { onShowDirectVulnerabilities() }
         }
+    }
+
+    /**
+     * Öffnet den Hierarchiebaum-Dialog für die Koordinate der angegebenen Sichtzeile.
+     *
+     * @param viewRow Der Zeilenindex in der (ggf. sortierten) Sicht.
+     */
+    internal fun openDependencyHierarchy(viewRow: Int) {
+        val modelRow = table.convertRowIndexToModel(viewRow)
+        val groupId = tableModel.getValueAt(modelRow, TRANSITIVE_GROUP_ID_COLUMN) as? String ?: ""
+        val artifactId = tableModel.getValueAt(modelRow, TRANSITIVE_ARTIFACT_ID_COLUMN) as? String ?: ""
+        DependencyHierarchyDialog(project, groupId, artifactId, false).show()
     }
 
     /**

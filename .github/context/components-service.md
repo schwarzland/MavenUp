@@ -162,4 +162,14 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   `<properties>`-Blöcke innerhalb von `<profiles><profile>` und akzeptiert den Property-Namen auch in
   der Platzhalter-Schreibweise `${name}`. `navigateToProperty` fällt auf `navigateToDependency` zurück,
   wenn die Property in keiner `pom.xml` des Projekts definiert ist.
+- **DependencyHierarchyService**: analysiert die Maven-Projekte im Workspace (`buildHierarchy`, `buildProjectHierarchy`),
+  deren `<parent>`-Hierarchie, `<dependencyManagement>`- bzw. `<pluginManagement>`-Deklarationen, BOM-Imports
+  und den aufgelösten Abhängigkeitsbaum (`MavenArtifactNode`, `collectTransitiveDependencyPaths`, `findPathsToTarget`,
+  `attachPathToHierarchy`), um alle Einbindungs- und Management-Pfade einer Managed Dependency bzw. eines
+  Managed Plugins als `DependencyHierarchyNode`-Baum aufzubereiten.
+- **DependencyHierarchyNode / DependencyHierarchyNodeType**: Datenmodell für den Abhängigkeitshierarchie-Baum.
+  `DependencyHierarchyNodeType` unterscheidet die Knotentypen `ROOT`, `PROJECT`, `PARENT_POM`, `BOM_IMPORT`,
+  `DEPENDENCY_MANAGEMENT`, `PLUGIN_MANAGEMENT`, `DIRECT_DEPENDENCY`, `DIRECT_PLUGIN` und `TRANSITIVE_DEPENDENCY`.
+  `DependencyHierarchyNode` hält Typ, GroupId, ArtifactId, aufgelöste und rohe Version, Property-Namen, Scope,
+  Management-Status (`isManaged`), VirtualFile der `pom.xml` und das deklarierende `XmlTag`.
 

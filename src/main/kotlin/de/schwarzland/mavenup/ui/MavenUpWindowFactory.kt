@@ -1127,6 +1127,15 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 addSeparator()
                 add(openInRepositoryAction)
                 add(toolbarAction(
+                    "toolwindow.MyToolWindow.dependencyHierarchy.button",
+                    AllIcons.Actions.ShowAsTree,
+                    { isDependencyHierarchyEnabled() },
+                    shortLabelKey = "toolwindow.MyToolWindow.dependencyHierarchy.button.short",
+                    descriptionProvider = {
+                        MyMessageBundle.message("toolwindow.MyToolWindow.dependencyHierarchy.tooltip")
+                    }
+                ) { openDependencyHierarchyForSelectedRow() })
+                add(toolbarAction(
                     "toolwindow.MyToolWindow.vulnerabilityDetails.button",
                     AllIcons.General.BalloonWarning,
                     { isVulnerabilityDetailsEnabled() },
@@ -1372,7 +1381,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
-         * Fügt die Aktion zum Anzeigen der Sicherheitslücken der Zielzeile hinzu.
+         * Fügt die Aktionen zum Anzeigen der Abhängigkeitshierarchie und der Sicherheitslücken der Zielzeile hinzu.
          *
          * @param group Aktionsgruppe des Kontextmenüs.
          * @param target Daten der angeklickten Tabellenzeile.
@@ -1380,6 +1389,14 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private fun addContextVulnerabilityAction(group: DefaultActionGroup, target: DependencyContextMenuTarget) {
             val hasVulnerabilities = target.vulnerabilityCell?.allAdvisories?.isNotEmpty() == true
             group.addSeparator()
+            if (isManagedEntryType(target.type)) {
+                addContextMenuAction(
+                    group,
+                    MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.showDependencyHierarchy")
+                ) {
+                    showDependencyHierarchy(target.groupId, target.artifactId, target.type == MANAGED_PLUGIN)
+                }
+            }
             addContextMenuAction(
                 group,
                 MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.showVulnerabilityDetails"),
@@ -3079,6 +3096,23 @@ class MavenUpWindowFactory : ToolWindowFactory {
             else table.selectedRow >= 0
 
         /**
+         * Prüft, ob für die aktuell selektierte Zeile die Abhängigkeitshierarchie-Aktion verfügbar ist.
+         *
+         * In der Haupttabelle ist die Aktion für verwaltete Abhängigkeiten und verwaltete Plugins aktiv;
+         * in der transitiven Sicherheitslücken-Ansicht ist sie für alle selektierten Zeilen verfügbar.
+         *
+         * @return `true`, wenn eine passende Zeile selektiert ist.
+         */
+        internal fun isDependencyHierarchyEnabled(): Boolean {
+            if (isUpdating) return false
+            if (showingTransitiveView) return transitiveVulnerabilitiesView.hasSelectedRow()
+            val row = table.selectedRow
+            if (row < 0) return false
+            val type = table.getValueAt(row, TYPE_COLUMN) as? String ?: return false
+            return isManagedEntryType(type)
+        }
+
+        /**
          * Prüft, ob für die aktuell selektierte Zeile Vulnerability-Details angezeigt werden können.
          *
          * Wirkt je nach aktiver Ansicht auf die Haupttabelle oder die transitive Sicherheitslücken-Ansicht.
@@ -3122,6 +3156,27 @@ class MavenUpWindowFactory : ToolWindowFactory {
             val artifactId = table.getValueAt(row, ARTIFACT_ID_COLUMN)?.toString().orEmpty()
             val currentVersion = table.getValueAt(row, CURRENT_VERSION_COLUMN)?.toString().orEmpty()
             openInMavenRepository(groupId, artifactId, currentVersion)
+        }
+
+        /**
+         * Öffnet den Abhängigkeitshierarchie-Dialog für die aktuell selektierte Zeile.
+         *
+         * Wirkt je nach aktiver Ansicht auf die Haupttabelle (für verwaltete Einträge) oder
+         * die transitive Sicherheitslücken-Ansicht.
+         */
+        internal fun openDependencyHierarchyForSelectedRow() {
+            if (showingTransitiveView) {
+                transitiveVulnerabilitiesView.openSelectedDependencyHierarchy()
+                return
+            }
+            val row = table.selectedRow
+            if (row < 0) return
+            val groupId = table.getValueAt(row, GROUP_ID_COLUMN)?.toString().orEmpty()
+            val artifactId = table.getValueAt(row, ARTIFACT_ID_COLUMN)?.toString().orEmpty()
+            val type = table.getValueAt(row, TYPE_COLUMN) as? String ?: ""
+            if (isManagedEntryType(type) && groupId.isNotBlank() && artifactId.isNotBlank()) {
+                showDependencyHierarchy(groupId, artifactId, type == MANAGED_PLUGIN)
+            }
         }
 
         /**
@@ -3377,6 +3432,17 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private fun openInMavenRepository(groupId: String, artifactId: String, version: String) {
             val browser = MavenUpSettings.getInstance().state.repositoryBrowser
             BrowserUtil.browse(buildMavenRepositoryUrl(groupId, artifactId, version, browser))
+        }
+
+        /**
+         * Öffnet den Hierarchiebaum-Dialog für eine Managed Dependency oder ein Managed Plugin.
+         *
+         * @param groupId Group-ID der Komponente.
+         * @param artifactId Artefakt-ID der Komponente.
+         * @param isPlugin `true` für Managed Plugins, `false` für Managed Dependencies.
+         */
+        internal fun showDependencyHierarchy(groupId: String, artifactId: String, isPlugin: Boolean = false) {
+            DependencyHierarchyDialog(project, groupId, artifactId, isPlugin).show()
         }
     }
 }
