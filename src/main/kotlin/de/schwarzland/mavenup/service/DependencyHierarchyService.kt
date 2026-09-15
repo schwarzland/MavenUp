@@ -84,9 +84,10 @@ class DependencyHierarchyService(private val project: Project) {
             PsiManager.getInstance(project).findFile(mavenProject.file) as? XmlFile
         }
 
+        var rootTag: XmlTag? = null
         if (psiFile != null) {
             ApplicationManager.getApplication().runReadAction {
-                val rootTag = psiFile.document?.rootTag
+                rootTag = psiFile.document?.rootTag
 
                 if (isPlugin) {
                     collectPluginManagementAndDirect(
@@ -111,7 +112,15 @@ class DependencyHierarchyService(private val project: Project) {
         }
 
         if (!isPlugin) {
-            collectTransitiveDependencyPaths(mavenProject, targetGroupId, targetArtifactId, projectNode)
+            ApplicationManager.getApplication().runReadAction {
+                collectTransitiveDependencyPaths(
+                    mavenProject,
+                    targetGroupId,
+                    targetArtifactId,
+                    projectNode,
+                    rootTag
+                )
+            }
         }
 
         return projectNode
@@ -370,12 +379,15 @@ class DependencyHierarchyService(private val project: Project) {
      * @param targetGroupId Die gesuchte Group-ID.
      * @param targetArtifactId Die gesuchte Artefakt-ID.
      * @param projectNode Der übergeordnete Projekt-Knoten.
+     * @param rootTag Das optionale Root-Tag der `pom.xml` zur Zuordnung von XML-Tags.
      */
+    @JvmOverloads
     internal fun collectTransitiveDependencyPaths(
         mavenProject: MavenProject,
         targetGroupId: String,
         targetArtifactId: String,
-        projectNode: DependencyHierarchyNode
+        projectNode: DependencyHierarchyNode,
+        rootTag: XmlTag? = null
     ) {
         val paths = mutableListOf<List<MavenArtifactNode>>()
         for (rootNode in mavenProject.dependencyTree) {
@@ -391,22 +403,32 @@ class DependencyHierarchyService(private val project: Project) {
                     it.type == DependencyHierarchyNodeType.DIRECT_DEPENDENCY && it.groupId == g && it.artifactId == a
                 }
                 if (!alreadyAdded) {
+                    val directTag = rootTag?.findFirstSubTag("dependencies")?.findSubTags("dependency")?.find { tag ->
+                        val depG = tag.findFirstSubTag("groupId")?.value?.text?.trim().orEmpty()
+                        val depA = tag.findFirstSubTag("artifactId")?.value?.text?.trim().orEmpty()
+                        depG == g && depA == a
+                    }
+                    val rawVersion = directTag?.findFirstSubTag("version")?.value?.trimmedText
+                    val propName = extractPropertyName(rawVersion)
                     projectNode.children.add(
                         DependencyHierarchyNode(
                             type = DependencyHierarchyNodeType.DIRECT_DEPENDENCY,
                             groupId = g,
                             artifactId = a,
                             version = directNode.artifact.version,
-                            scope = directNode.artifact.scope,
+                            rawVersion = rawVersion,
+                            propertyName = propName,
+                            scope = directTag?.findFirstSubTag("scope")?.value?.text?.trim() ?: directNode.artifact.scope,
                             isManaged = true,
-                            pomFile = mavenProject.file
+                            pomFile = mavenProject.file,
+                            xmlTag = directTag
                         )
                     )
                 }
                 continue
             }
 
-            attachPathToHierarchy(projectNode, path, mavenProject.file)
+            attachPathToHierarchy(projectNode, path, mavenProject.file, rootTag)
         }
     }
 
@@ -448,11 +470,14 @@ class DependencyHierarchyService(private val project: Project) {
      * @param projectNode Der übergeordnete Projekt-Knoten.
      * @param path Der gefundene Abhängigkeitspfad von der direkten Abhängigkeit bis zum Ziel.
      * @param pomFile Die `pom.xml` des Projekts.
+     * @param rootTag Das optionale Root-Tag der `pom.xml` zur Zuordnung von XML-Tags.
      */
+    @JvmOverloads
     internal fun attachPathToHierarchy(
         projectNode: DependencyHierarchyNode,
         path: List<MavenArtifactNode>,
-        pomFile: VirtualFile
+        pomFile: VirtualFile,
+        rootTag: XmlTag? = null
     ) {
         if (path.isEmpty()) return
 
@@ -462,14 +487,26 @@ class DependencyHierarchyService(private val project: Project) {
 
         var currentParent: DependencyHierarchyNode = projectNode.children.firstOrNull {
             it.type == DependencyHierarchyNodeType.DIRECT_DEPENDENCY && it.groupId == rootG && it.artifactId == rootA
-        } ?: DependencyHierarchyNode(
-            type = DependencyHierarchyNodeType.DIRECT_DEPENDENCY,
-            groupId = rootG,
-            artifactId = rootA,
-            version = rootArtifactNode.artifact.version,
-            scope = rootArtifactNode.artifact.scope,
-            pomFile = pomFile
-        ).also { projectNode.children.add(it) }
+        } ?: run {
+            val directTag = rootTag?.findFirstSubTag("dependencies")?.findSubTags("dependency")?.find { tag ->
+                val depG = tag.findFirstSubTag("groupId")?.value?.text?.trim().orEmpty()
+                val depA = tag.findFirstSubTag("artifactId")?.value?.text?.trim().orEmpty()
+                depG == rootG && depA == rootA
+            }
+            val rawVersion = directTag?.findFirstSubTag("version")?.value?.trimmedText
+            val propName = extractPropertyName(rawVersion)
+            DependencyHierarchyNode(
+                type = DependencyHierarchyNodeType.DIRECT_DEPENDENCY,
+                groupId = rootG,
+                artifactId = rootA,
+                version = rootArtifactNode.artifact.version,
+                rawVersion = rawVersion,
+                propertyName = propName,
+                scope = directTag?.findFirstSubTag("scope")?.value?.text?.trim() ?: rootArtifactNode.artifact.scope,
+                pomFile = pomFile,
+                xmlTag = directTag
+            ).also { projectNode.children.add(it) }
+        }
 
         for (i in 1 until path.size) {
             val node = path[i]

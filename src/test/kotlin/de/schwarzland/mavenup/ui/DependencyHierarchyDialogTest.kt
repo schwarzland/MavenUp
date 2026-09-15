@@ -132,6 +132,59 @@ class DependencyHierarchyDialogTest : BasePlatformTestCase() {
         dialog.navigateToSelectedNode(tree)
     }
 
+    fun testNavigateToSelectedNodeWithoutTagWithPomFile() {
+        val psiFile = myFixture.configureByText(
+            "pom.xml",
+            """
+            <project>
+                <dependencies>
+                    <dependency>
+                        <groupId>com.example</groupId>
+                        <artifactId>demo</artifactId>
+                        <version>1.0.0</version>
+                    </dependency>
+                </dependencies>
+            </project>
+            """.trimIndent()
+        ) as XmlFile
+
+        val node = DependencyHierarchyNode(
+            type = DependencyHierarchyNodeType.DIRECT_DEPENDENCY,
+            groupId = "com.example",
+            artifactId = "demo",
+            version = "1.0.0",
+            pomFile = psiFile.virtualFile,
+            xmlTag = null
+        )
+
+        val dialog = DependencyHierarchyDialog(project, "com.example", "demo")
+        val treeModel = dialog.buildTreeModel(node)
+        val tree = Tree(treeModel)
+        tree.setSelectionRow(0)
+
+        // Findet das Tag in der übergebenen pomFile und öffnet den Editor
+        dialog.navigateToSelectedNode(tree)
+    }
+
+    fun testNavigateToSelectedNodeWithoutPomFileFallsBackToNavigationService() {
+        val node = DependencyHierarchyNode(
+            type = DependencyHierarchyNodeType.DIRECT_DEPENDENCY,
+            groupId = "com.example",
+            artifactId = "demo",
+            version = "1.0.0",
+            pomFile = null,
+            xmlTag = null
+        )
+
+        val dialog = DependencyHierarchyDialog(project, "com.example", "demo")
+        val treeModel = dialog.buildTreeModel(node)
+        val tree = Tree(treeModel)
+        tree.setSelectionRow(0)
+
+        // Nutzt PomNavigationService Fallback
+        dialog.navigateToSelectedNode(tree)
+    }
+
     fun testCreateContextMenuGroupContainsNavigateAction() {
         val dialog = DependencyHierarchyDialog(project, "com.example", "demo")
         val tree = Tree()

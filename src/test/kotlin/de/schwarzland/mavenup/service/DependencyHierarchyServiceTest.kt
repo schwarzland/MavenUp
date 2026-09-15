@@ -212,7 +212,19 @@ class DependencyHierarchyServiceTest : BasePlatformTestCase() {
         assertEquals(1, paths.size)
         assertEquals(3, paths[0].size)
 
-        val psiFile = myFixture.configureByText("pom.xml", "<project/>")
+        val pomContent = """
+            <project>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.springframework.boot</groupId>
+                        <artifactId>spring-boot-starter-web</artifactId>
+                        <version>${'$'}{spring.version}</version>
+                    </dependency>
+                </dependencies>
+            </project>
+        """.trimIndent()
+        val psiFile = myFixture.configureByText("pom.xml", pomContent) as XmlFile
+        val rootTag = psiFile.document?.rootTag
         val projectNode = DependencyHierarchyNode(
             type = DependencyHierarchyNodeType.PROJECT,
             groupId = "com.example",
@@ -220,13 +232,15 @@ class DependencyHierarchyServiceTest : BasePlatformTestCase() {
             pomFile = psiFile.virtualFile
         )
 
-        service.attachPathToHierarchy(projectNode, paths[0], psiFile.virtualFile)
+        service.attachPathToHierarchy(projectNode, paths[0], psiFile.virtualFile, rootTag)
 
         assertEquals(1, projectNode.children.size)
         val directDep = projectNode.children[0]
         assertEquals(DependencyHierarchyNodeType.DIRECT_DEPENDENCY, directDep.type)
         assertEquals("org.springframework.boot", directDep.groupId)
         assertEquals("spring-boot-starter-web", directDep.artifactId)
+        assertNotNull(directDep.xmlTag)
+        assertEquals("spring.version", directDep.propertyName)
 
         assertEquals(1, directDep.children.size)
         val intermediateDep = directDep.children[0]

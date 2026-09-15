@@ -12,6 +12,8 @@ import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.openapi.vfs.VirtualFile
+import com.intellij.psi.PsiManager
+import com.intellij.psi.xml.XmlFile
 import com.intellij.psi.xml.XmlTag
 import com.intellij.ui.ColoredTreeCellRenderer
 import com.intellij.ui.SimpleTextAttributes
@@ -223,9 +225,9 @@ class DependencyHierarchyDialog(
         val treeNode = selectedPath.lastPathComponent as? DefaultMutableTreeNode ?: return
         val node = treeNode.userObject as? DependencyHierarchyNode ?: return
 
-        if (node.xmlTag != null && node.pomFile != null) {
+        if (node.xmlTag != null && node.pomFile != null && node.xmlTag.isValid) {
             openInEditor(node.pomFile, node.xmlTag)
-        } else if (node.pomFile != null) {
+        } else if (node.type == DependencyHierarchyNodeType.PROJECT && node.pomFile != null) {
             val descriptor = OpenFileDescriptor(project, node.pomFile)
             FileEditorManager.getInstance(project).openTextEditor(descriptor, true)
         } else if (node.groupId.isNotBlank() && node.artifactId.isNotBlank()) {
@@ -233,9 +235,43 @@ class DependencyHierarchyDialog(
                 DependencyHierarchyNodeType.PARENT_POM -> PARENT_TYPE
                 DependencyHierarchyNodeType.PLUGIN_MANAGEMENT,
                 DependencyHierarchyNodeType.DIRECT_PLUGIN -> "plugin"
+                DependencyHierarchyNodeType.ROOT -> if (isPlugin) "plugin" else "dependency"
                 else -> "dependency"
             }
+            if (node.pomFile != null) {
+                val targetTag = ApplicationManager.getApplication().runReadAction<XmlTag?> {
+                    val psiFile = PsiManager.getInstance(project).findFile(node.pomFile) as? XmlFile
+                    val rootTag = psiFile?.document?.rootTag
+                    when (node.type) {
+                        DependencyHierarchyNodeType.PARENT_POM ->
+                            PomNavigationService(project).findParent(rootTag, node.groupId, node.artifactId)
+                        DependencyHierarchyNodeType.DIRECT_PLUGIN ->
+                            PomNavigationService(project).findPlugin(rootTag, node.groupId, node.artifactId, isManaged = false)
+                        DependencyHierarchyNodeType.PLUGIN_MANAGEMENT ->
+                            PomNavigationService(project).findPlugin(rootTag, node.groupId, node.artifactId, isManaged = true)
+                        DependencyHierarchyNodeType.DEPENDENCY_MANAGEMENT,
+                        DependencyHierarchyNodeType.BOM_IMPORT ->
+                            PomNavigationService(project).findDependency(rootTag, node.groupId, node.artifactId, isManaged = true)
+                        DependencyHierarchyNodeType.ROOT ->
+                            if (isPlugin) {
+                                PomNavigationService(project).findPlugin(rootTag, node.groupId, node.artifactId, isManaged = false)
+                                    ?: PomNavigationService(project).findPlugin(rootTag, node.groupId, node.artifactId, isManaged = true)
+                            } else {
+                                PomNavigationService(project).findDependency(rootTag, node.groupId, node.artifactId, isManaged = false)
+                            }
+                        else ->
+                            PomNavigationService(project).findDependency(rootTag, node.groupId, node.artifactId, isManaged = false)
+                    }
+                }
+                if (targetTag != null) {
+                    openInEditor(node.pomFile, targetTag)
+                    return
+                }
+            }
             PomNavigationService(project).navigateToDependency(node.groupId, node.artifactId, navType)
+        } else if (node.pomFile != null) {
+            val descriptor = OpenFileDescriptor(project, node.pomFile)
+            FileEditorManager.getInstance(project).openTextEditor(descriptor, true)
         }
     }
 
@@ -246,7 +282,9 @@ class DependencyHierarchyDialog(
      * @param targetTag Das Ziel-XML-Tag.
      */
     private fun openInEditor(pomFile: VirtualFile, targetTag: XmlTag) {
-        val offset = ApplicationManager.getApplication().runReadAction<Int> { targetTag.textOffset }
+        val offset = ApplicationManager.getApplication().runReadAction<Int> {
+            if (targetTag.isValid) targetTag.textOffset else 0
+        }
         ApplicationManager.getApplication().invokeLater {
             val descriptor = OpenFileDescriptor(project, pomFile, offset)
             FileEditorManager.getInstance(project).openTextEditor(descriptor, true)
