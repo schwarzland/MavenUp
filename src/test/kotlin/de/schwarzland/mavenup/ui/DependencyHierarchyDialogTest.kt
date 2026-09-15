@@ -132,6 +132,62 @@ class DependencyHierarchyDialogTest : BasePlatformTestCase() {
         dialog.navigateToSelectedNode(tree)
     }
 
+    fun testCreateContextMenuGroupContainsNavigateAction() {
+        val dialog = DependencyHierarchyDialog(project, "com.example", "demo")
+        val tree = Tree()
+        val group = dialog.createContextMenuGroup(tree)
+        val actions = group.getChildren(null)
+        assertEquals(1, actions.size)
+        assertEquals(
+            MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.navigateToPom"),
+            actions[0].templatePresentation.text
+        )
+    }
+
+    fun testContextMenuActionPerformsNavigation() {
+        val psiFile = myFixture.configureByText(
+            "pom.xml",
+            """
+            <project>
+                <dependencies>
+                    <dependency>
+                        <groupId>com.example</groupId>
+                        <artifactId>demo</artifactId>
+                        <version>1.0.0</version>
+                    </dependency>
+                </dependencies>
+            </project>
+            """.trimIndent()
+        ) as XmlFile
+
+        val tag = psiFile.document?.rootTag?.findFirstSubTag("dependencies")?.findFirstSubTag("dependency")
+
+        val node = DependencyHierarchyNode(
+            type = DependencyHierarchyNodeType.DIRECT_DEPENDENCY,
+            groupId = "com.example",
+            artifactId = "demo",
+            version = "1.0.0",
+            pomFile = psiFile.virtualFile,
+            xmlTag = tag
+        )
+
+        val dialog = DependencyHierarchyDialog(project, "com.example", "demo")
+        val treeModel = dialog.buildTreeModel(node)
+        val tree = Tree(treeModel)
+        tree.setSelectionRow(0)
+
+        val group = dialog.createContextMenuGroup(tree)
+        val action = group.getChildren(null)[0]
+        val event = com.intellij.testFramework.TestActionEvent.createTestEvent(action)
+        action.actionPerformed(event)
+    }
+
+    fun testCreateCenterPanelBuildsUI() {
+        val dialog = DependencyHierarchyDialog(project, "com.example", "demo")
+        val panel = dialog.createCenterPanel()
+        assertNotNull(panel)
+    }
+
     private val DependencyHierarchyTreeCellRenderer.renderedItems: List<String>
         get() = (0 until iterator().asSequence().count()).map {
             iterator().asSequence().toList()[it]

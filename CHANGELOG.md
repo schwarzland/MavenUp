@@ -6,7 +6,7 @@
 
 ### Added
 
-- Added a modal **Show Dependency Hierarchy** dialog and context-menu action in both the main dependencies table and the transitive CVEs table for managed dependencies and managed plugins, visualizing the full resolution and inclusion paths, parent POMs, BOM imports, and intervening dependencies in an interactive tree with double-click navigation to the POM.
+- Added a modal **Show Dependency Hierarchy** dialog and context-menu action in both the main dependencies table and the transitive CVEs table for managed dependencies and managed plugins, visualizing the full resolution and inclusion paths, parent POMs, BOM imports, and intervening dependencies in an interactive tree with right-click context menu (**Navigate to pom.xml**) and `Enter` / `F4` keyboard navigation to the POM.
 - Added a context-menu action that marks managed dependencies and managed plugins for removal from `pom.xml` when the shared Update action is confirmed.
 - Added a dedicated dark theme plugin icon for the JetBrains Marketplace and IDE Plugin Manager.
 - Added IDE notifications reporting the number of versions found for the checked dependencies after a version search, and the number of direct/indirect vulnerabilities found after a vulnerability scan.
@@ -15,6 +15,7 @@
 
 ### Changed
 
+- Changed navigation in the **Dependency Hierarchy** dialog to use a right-click context menu (**Navigate to pom.xml**) and `Enter` / `F4` shortcuts, removing the conflicting double-click mouse handler and the hint text.
 - Reordered the main table row context menu so that **Show Dependency Hierarchy** is positioned directly above **Show Vulnerability Details**, consistent with the transitive CVEs table context menu.
 - Updated the Marketplace plugin icons with a shield and checkmark motif for vulnerability checks.
 - Removed the redundant Keep in pom.xml context-menu action and preserved property-linked version selections when marking a managed entry for removal.

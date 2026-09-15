@@ -1,6 +1,11 @@
 package de.schwarzland.mavenup.ui
 
 import com.intellij.icons.AllIcons
+import com.intellij.openapi.actionSystem.ActionManager
+import com.intellij.openapi.actionSystem.ActionUpdateThread
+import com.intellij.openapi.actionSystem.AnAction
+import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileEditor.OpenFileDescriptor
@@ -40,7 +45,8 @@ import javax.swing.tree.DefaultTreeModel
  * eine verwaltete Abhängigkeit bzw. ein Plugin im Projekt eingebunden wird, welche direkten
  * und transitiven Abhängigkeiten dazwischen liegen und welche Versionen bzw. Properties greifen.
  *
- * Ein Doppelklick auf einen Knoten springt per PSI-Navigation direkt zur Deklaration in der `pom.xml`.
+ * Ein Rechtsklick öffnet ein Kontextmenü zur Navigation in die `pom.xml` (`Navigate to pom.xml`),
+ * zusätzlich kann per `Enter` oder `F4` direkt zur Deklaration gesprungen werden.
  *
  * @property project Das zugehörige IntelliJ-Projekt.
  * @property groupId Group-ID der anzuzeigenden Komponente.
@@ -68,7 +74,7 @@ class DependencyHierarchyDialog(
     /**
      * Erstellt den Haupt-Inhaltsbereich des Dialogs mittels Kotlin UI DSL v2.
      */
-    override fun createCenterPanel(): JComponent {
+    public override fun createCenterPanel(): JComponent {
         val hierarchyService = DependencyHierarchyService(project)
         val rootData = hierarchyService.buildHierarchy(groupId, artifactId, isPlugin)
 
@@ -97,9 +103,15 @@ class DependencyHierarchyDialog(
         expandAllNodes(tree)
 
         tree.addMouseListener(object : MouseAdapter() {
-            override fun mouseClicked(e: MouseEvent) {
-                if (e.clickCount == 2 && SwingUtilities.isLeftMouseButton(e)) {
-                    navigateToSelectedNode(tree)
+            override fun mousePressed(e: MouseEvent) {
+                if (e.isPopupTrigger) {
+                    showContextMenu(tree, e)
+                }
+            }
+
+            override fun mouseReleased(e: MouseEvent) {
+                if (e.isPopupTrigger) {
+                    showContextMenu(tree, e)
                 }
             }
         })
@@ -109,14 +121,16 @@ class DependencyHierarchyDialog(
             KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0),
             JComponent.WHEN_FOCUSED
         )
+        tree.registerKeyboardAction(
+            { navigateToSelectedNode(tree) },
+            KeyStroke.getKeyStroke(KeyEvent.VK_F4, 0),
+            JComponent.WHEN_FOCUSED
+        )
 
         return panel {
             row {
                 label(MyMessageBundle.message("dependency.hierarchy.dialog.header", "$groupId:$artifactId"))
                     .bold()
-            }
-            row {
-                comment(MyMessageBundle.message("dependency.hierarchy.dialog.hint"))
             }
             row {
                 cell(JBScrollPane(tree))
@@ -125,6 +139,39 @@ class DependencyHierarchyDialog(
         }.apply {
             preferredSize = Dimension(850, 520)
         }
+    }
+
+    /**
+     * Erstellt die Aktionsgruppe für das Kontextmenü des Hierarchiebaums.
+     *
+     * @param tree Der zugehörige Baum.
+     * @return Die Aktionsgruppe mit der Navigationsaktion.
+     */
+    internal fun createContextMenuGroup(tree: JTree): DefaultActionGroup =
+        DefaultActionGroup().apply {
+            add(object : AnAction(MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.navigateToPom")) {
+                override fun getActionUpdateThread() = ActionUpdateThread.BGT
+                override fun actionPerformed(event: AnActionEvent) {
+                    navigateToSelectedNode(tree)
+                }
+            })
+        }
+
+    /**
+     * Zeigt das Kontextmenü für den angeklickten Baumknoten an.
+     *
+     * @param tree Der zugehörige Baum.
+     * @param e Das auslösende Maus-Ereignis.
+     */
+    internal fun showContextMenu(tree: JTree, e: MouseEvent) {
+        val path = tree.getPathForLocation(e.x, e.y) ?: return
+        if (!tree.isPathSelected(path)) {
+            tree.selectionPath = path
+        }
+        val group = createContextMenuGroup(tree)
+        ActionManager.getInstance().createActionPopupMenu(
+            "MavenUp.DependencyHierarchyTree", group
+        ).component.show(e.component, e.x, e.y)
     }
 
     /**
