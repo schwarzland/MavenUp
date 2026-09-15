@@ -37,6 +37,7 @@ import de.schwarzland.mavenup.ui.TriStateFilter
 import de.schwarzland.mavenup.ui.PendingChangesFilter
 import de.schwarzland.mavenup.ui.VulnerabilityFilter
 import de.schwarzland.mavenup.ui.sortableHeaderIcon
+import com.intellij.icons.AllIcons
 import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.wm.RegisterToolWindowTask
 import com.intellij.openapi.wm.ToolWindowAnchor
@@ -961,6 +962,141 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         settings.state.repositoryBrowser = MavenRepositoryBrowser.MVN_REPOSITORY
     }
 
+    @Suppress("OverrideOnly")
+    fun testDependencyHierarchyToolbarActionPropertiesAndPosition() {
+        val settings = MavenUpSettings.getInstance()
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        val allActions = toolWindow.topToolbarActions()
+        val hierarchyIndex = allActions.indexOfFirst {
+            it.templatePresentation.text == "Show Dependency Hierarchy"
+        }
+        val detailsIndex = allActions.indexOfFirst {
+            it.templatePresentation.text == "Vulnerability Details..."
+        }
+
+        assertTrue("Hierarchy-Aktion sollte in der Toolbar vorhanden sein", hierarchyIndex > 0)
+        assertTrue("Details-Aktion sollte in der Toolbar vorhanden sein", detailsIndex > 0)
+        assertEquals(
+            "Details-Aktion muss direkt nach Hierarchy stehen",
+            hierarchyIndex + 1,
+            detailsIndex
+        )
+
+        val openIndex = hierarchyIndex - 1
+        val openAction = allActions[openIndex]
+        val openEvent = com.intellij.testFramework.TestActionEvent.createTestEvent(openAction)
+        openAction.update(openEvent)
+        assertEquals(
+            "Die Aktion direkt vor Hierarchy muss die Open-In-Repository-Aktion sein",
+            "Open",
+            openEvent.presentation.text
+        )
+        assertSame(
+            "Die Open-Aktion sollte das Web-Icon verwenden",
+            AllIcons.General.Web,
+            openEvent.presentation.icon
+        )
+
+        val hierarchyAction = allActions[hierarchyIndex]
+        assertSame(
+            "Hierarchy-Aktion sollte AllIcons.Actions.ShowAsTree als Symbol verwenden",
+            AllIcons.Actions.ShowAsTree,
+            hierarchyAction.templatePresentation.icon
+        )
+
+        val expectedTooltip = MyMessageBundle.message("toolwindow.MyToolWindow.dependencyHierarchy.tooltip")
+
+        settings.state.toolbarShowText = false
+        val iconEvent = com.intellij.testFramework.TestActionEvent.createTestEvent(hierarchyAction)
+        hierarchyAction.update(iconEvent)
+        assertEquals(
+            "Im Icon-Modus muss der lange Text in der Beschreibung stehen",
+            expectedTooltip,
+            iconEvent.presentation.description
+        )
+
+        settings.state.toolbarShowText = true
+        val textEvent = com.intellij.testFramework.TestActionEvent.createTestEvent(hierarchyAction)
+        hierarchyAction.update(textEvent)
+        assertEquals(
+            "Bei aktiven Textbeschriftungen zeigt der Button die Kurzform 'Hierarchy'",
+            "Hierarchy",
+            textEvent.presentation.text
+        )
+        assertEquals(
+            "Der Tooltip bleibt in der Beschreibung erhalten",
+            expectedTooltip,
+            textEvent.presentation.description
+        )
+
+        settings.state.toolbarShowText = false
+    }
+
+    fun testDependencyHierarchyActionEnabledOnlyForManagedEntriesInMainTable() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val content = toolWindow.getContent()
+        val table = findTable(content)
+        assertNotNull(table)
+
+        val model = table!!.model as javax.swing.table.DefaultTableModel
+
+        // Ohne Zeilen
+        assertFalse(
+            "Abhängigkeitshierarchie sollte ohne Selektion deaktiviert sein",
+            toolWindow.isDependencyHierarchyEnabled()
+        )
+
+        // Direkte Dependency (nicht managed)
+        model.addRow(arrayOf("com.example", "direct-lib", "", "dependency", null, "1.0.0", emptyList<String>()))
+        table.setRowSelectionInterval(0, 0)
+        assertFalse(
+            "Abhängigkeitshierarchie sollte für normale direkte Abhängigkeiten deaktiviert sein",
+            toolWindow.isDependencyHierarchyEnabled()
+        )
+
+        // Direktes Plugin (nicht managed)
+        model.addRow(arrayOf("com.example", "direct-plugin", "", "plugin", null, "1.0.0", emptyList<String>()))
+        table.setRowSelectionInterval(1, 1)
+        assertFalse(
+            "Abhängigkeitshierarchie sollte für normale Plugins deaktiviert sein",
+            toolWindow.isDependencyHierarchyEnabled()
+        )
+
+        // Managed Dependency
+        model.addRow(arrayOf("com.example", "managed-lib", "", "managed dependency", null, "1.0.0", emptyList<String>()))
+        table.setRowSelectionInterval(2, 2)
+        assertTrue(
+            "Abhängigkeitshierarchie sollte für verwaltete Abhängigkeiten aktiviert sein",
+            toolWindow.isDependencyHierarchyEnabled()
+        )
+
+        // Managed Plugin
+        model.addRow(arrayOf("com.example", "managed-plugin", "", "managed plugin", null, "1.0.0", emptyList<String>()))
+        table.setRowSelectionInterval(3, 3)
+        assertTrue(
+            "Abhängigkeitshierarchie sollte für verwaltete Plugins aktiviert sein",
+            toolWindow.isDependencyHierarchyEnabled()
+        )
+
+        // Deaktiviert während isUpdating
+        val updatingField = toolWindow.javaClass.getDeclaredField("isUpdating").apply { isAccessible = true }
+        updatingField.setBoolean(toolWindow, true)
+        assertFalse(
+            "Abhängigkeitshierarchie sollte während laufender Aktualisierung deaktiviert sein",
+            toolWindow.isDependencyHierarchyEnabled()
+        )
+        updatingField.setBoolean(toolWindow, false)
+
+        // Selektion aufheben
+        table.clearSelection()
+        assertFalse(
+            "Abhängigkeitshierarchie sollte ohne Selektion wieder deaktiviert sein",
+            toolWindow.isDependencyHierarchyEnabled()
+        )
+    }
+
     fun testActionToolbarIsPresentAtTop() {
         val content = MavenUpWindowFactory().MyToolWindow(project).getContent()
 
@@ -1053,6 +1189,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertEquals("Scan", MyMessageBundle.message("toolwindow.MyToolWindow.checkVulnerabilities.button.short"))
         assertEquals("Update", MyMessageBundle.message("toolwindow.MyToolWindow.update.button.short"))
         assertEquals("Open", MyMessageBundle.message("toolwindow.MyToolWindow.openInRepository.button.short"))
+        assertEquals("Hierarchy", MyMessageBundle.message("toolwindow.MyToolWindow.dependencyHierarchy.button.short"))
         assertEquals("Details", MyMessageBundle.message("toolwindow.MyToolWindow.vulnerabilityDetails.button.short"))
         assertEquals("Reset", MyMessageBundle.message("toolwindow.MyToolWindow.resetVersions.button.short"))
         assertEquals("Transitive CVEs", MyMessageBundle.message("toolwindow.MyToolWindow.tab.transitiveView"))
@@ -1569,6 +1706,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         // Without a selection in the transitive view the actions are disabled.
         assertFalse(toolWindow.isOpenInRepositoryEnabled())
         assertFalse(toolWindow.isVulnerabilityDetailsEnabled())
+        assertFalse(toolWindow.isDependencyHierarchyEnabled())
 
         val view = toolWindow.javaClass.getDeclaredField("transitiveVulnerabilitiesView")
             .apply { isAccessible = true }.get(toolWindow) as TransitiveVulnerabilitiesView
@@ -1577,6 +1715,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         // With a vulnerable transitive row selected both actions become available.
         assertTrue(toolWindow.isOpenInRepositoryEnabled())
         assertTrue(toolWindow.isVulnerabilityDetailsEnabled())
+        assertTrue(toolWindow.isDependencyHierarchyEnabled())
     }
 
     fun testBulkAndResetActionsTargetTransitiveViewWhenActive() {

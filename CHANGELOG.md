@@ -6,6 +6,7 @@
 
 ### Added
 
+- Added a **Show Dependency Hierarchy** toolbar action (with short label "Hierarchy" and abstract tree icon `AllIcons.Actions.ShowAsTree`) positioned between **Open on [Browser]** and **Vulnerability Details**, allowing inspection of the dependency hierarchy for a selected managed dependency or managed plugin in the main table, as well as any selected coordinate in the transitive CVEs table.
 - Added a modal **Show Dependency Hierarchy** dialog and context-menu action in both the main dependencies table and the transitive CVEs table for managed dependencies and managed plugins, visualizing the full resolution and inclusion paths, parent POMs, BOM imports, and intervening dependencies in an interactive tree with right-click context menu (**Navigate to pom.xml**) and `Enter` / `F4` keyboard navigation to the POM.
 - Added a context-menu action that marks managed dependencies and managed plugins for removal from `pom.xml` when the shared Update action is confirmed.
 - Added a dedicated dark theme plugin icon for the JetBrains Marketplace and IDE Plugin Manager.

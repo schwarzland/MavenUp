@@ -931,6 +931,15 @@ internal class TransitiveVulnerabilitiesView(
     }
 
     /**
+     * Öffnet den Hierarchiebaum-Dialog für die aktuell selektierte Zeile.
+     */
+    internal fun openSelectedDependencyHierarchy() {
+        val viewRow = table.selectedRow
+        if (viewRow < 0) return
+        openDependencyHierarchy(viewRow)
+    }
+
+    /**
      * Liefert die Sicherheitslücken-Zelle der aktuell selektierten Zeile.
      *
      * @return Die [VulnerabilityCell] der selektierten Zeile oder `null`, wenn keine Zeile selektiert ist.
