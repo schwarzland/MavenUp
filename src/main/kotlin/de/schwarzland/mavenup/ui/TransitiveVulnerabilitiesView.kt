@@ -878,14 +878,10 @@ internal class TransitiveVulnerabilitiesView(
         }
         val hasVulnerabilities = cell != null && cell.allAdvisories.isNotEmpty()
         group.addSeparator()
-        val isManagedDep = tableModel.getValueAt(modelRow, TRANSITIVE_TYPE_COLUMN) ==
-            MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
-        if (isManagedDep) {
-            addAction(
-                MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.showDependencyHierarchy")
-            ) {
-                openDependencyHierarchy(viewRow)
-            }
+        addAction(
+            MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.showDependencyHierarchy")
+        ) {
+            openDependencyHierarchy(viewRow)
         }
         addAction(
             MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.showVulnerabilityDetails"),
@@ -1064,7 +1060,7 @@ internal class TransitiveVulnerabilitiesView(
     }
 
     /**
-     * Öffnet den Hierarchiebaum-Dialog für eine Managed Dependency der angegebenen Sichtzeile.
+     * Öffnet den Hierarchiebaum-Dialog für die Koordinate der angegebenen Sichtzeile.
      *
      * @param viewRow Der Zeilenindex in der (ggf. sortierten) Sicht.
      */

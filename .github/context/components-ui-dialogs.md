@@ -76,7 +76,8 @@ UI-Komponenten: [`components-ui.md`](components-ui.md) und
   **Set Highest Minor Version** und **Set Recommended Version** (`selectHighestMajorVersionForDependency`/
   `selectHighestMinorVersionForDependency`/`selectRecommendedVersionForDependency`, aktiv über
   `hasSelectableVersionsForDependency`/`hasRecommendedVersionForDependency`), **Reset to Current Version**
-  (`resetVersionForDependency`/`isVersionResetEnabledForDependency`) und **Show Vulnerability Details** (nur bei Funden aktiv).
+  (`resetVersionForDependency`/`isVersionResetEnabledForDependency`), **Show Dependency Hierarchy**
+  (`openDependencyHierarchy`) und **Show Vulnerability Details** (nur bei Funden aktiv).
   Für die Sammelauswahl über die Toolbar wirken `selectHighestMajorVersionForAll`/`selectHighestMinorVersionForAll`/
   `selectRecommendedVersionForAll` auf die aktuell sichtbaren (nicht ausgefilterten) Koordinaten; ihre Aktivierung steuern
   `isBulkVersionSelectionEnabled`/`hasRecommendedVersions`, das Zurücksetzen erfolgt über `resetSelections`
