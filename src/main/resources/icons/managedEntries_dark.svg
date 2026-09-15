@@ -1,8 +1,52 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none">
-  <path d="M2.5 3.75H7.4" stroke="#CED0D6" stroke-width="1.2" stroke-linecap="round"/>
-  <path d="M2.5 7.75H7.4" stroke="#CED0D6" stroke-width="1.2" stroke-linecap="round"/>
-  <path d="M2.5 11.75H6.05" stroke="#CED0D6" stroke-width="1.2" stroke-linecap="round"/>
-  <path d="M8.7 2.5H13.1C13.6 2.5 14 2.9 14 3.4V8.11L11.9 10.2L9.8 8.11V3.4C9.8 2.9 10.2 2.5 10.7 2.5H8.7Z" stroke="#CED0D6" stroke-width="1.1" stroke-linejoin="round"/>
-  <path d="M10.8 5.2H12.55" stroke="#CED0D6" stroke-width="1.1" stroke-linecap="round"/>
-  <path d="M10.8 7.1H12.05" stroke="#CED0D6" stroke-width="1.1" stroke-linecap="round"/>
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+        width="16"
+        height="16"
+        viewBox="0 0 16 16"
+        fill="none"
+        version="1.1"
+        id="svg21"
+        xmlns="http://www.w3.org/2000/svg">
+  <defs
+          id="defs25" />
+  <path
+          d="M2.5 3.75H7.4"
+          stroke="#CED0D6"
+          stroke-width="1.2"
+          stroke-linecap="round"
+          id="path9" />
+  <path
+          d="M2.5 7.75H7.4"
+          stroke="#CED0D6"
+          stroke-width="1.2"
+          stroke-linecap="round"
+          id="path11" />
+  <path
+          d="M2.5 11.75H6.05"
+          stroke="#CED0D6"
+          stroke-width="1.2"
+          stroke-linecap="round"
+          id="path13" />
+  <text
+          xml:space="preserve"
+          style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:5.22163px;font-family:sans-serif;-inkscape-font-specification:'sans-serif, Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#CED0D6;fill-opacity:1;stroke-width:0.393798"
+          x="8.7276068"
+          y="9.6362801"
+          id="text176"
+          transform="scale(1.0385448,0.96288576)"><tspan
+       id="tspan174"
+       x="8.7276068"
+       y="9.6362801"
+       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:5.22163px;font-family:sans-serif;-inkscape-font-specification:'sans-serif, Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#CED0D6;fill-opacity:1;stroke-width:0.393798">x</tspan></text>
+  <text
+          xml:space="preserve"
+          style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:5.22163px;font-family:sans-serif;-inkscape-font-specification:'sans-serif, Bold';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#CED0D6;fill-opacity:1;stroke-width:0.393798"
+          x="8.6915026"
+          y="5.1708288"
+          id="text176-8"
+          transform="scale(1.0385448,0.96288576)"><tspan
+       id="tspan309"
+       x="8.6915026"
+       y="5.1708288"
+       style="stroke-width:0.393798">o</tspan></text>
 </svg>
