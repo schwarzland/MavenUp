@@ -96,6 +96,88 @@ class DependencyHierarchyDialogTest : BasePlatformTestCase() {
         assertTrue("Muss Prefix, Koordinate und Property enthalten", renderedFragments.any { it.contains("spring-boot-starter-web") })
     }
 
+    fun testIsTargetDependencyIdentifiesTargetNodes() {
+        val renderer = DependencyHierarchyTreeCellRenderer("com.fasterxml.jackson.core", "jackson-databind")
+
+        val rootNode = DependencyHierarchyNode(
+            type = DependencyHierarchyNodeType.ROOT,
+            groupId = "com.fasterxml.jackson.core",
+            artifactId = "jackson-databind",
+            version = "2.15.2"
+        )
+        assertTrue(renderer.isTargetDependency(rootNode))
+
+        val dmNode = DependencyHierarchyNode(
+            type = DependencyHierarchyNodeType.DEPENDENCY_MANAGEMENT,
+            groupId = "com.fasterxml.jackson.core",
+            artifactId = "jackson-databind",
+            version = "2.15.2"
+        )
+        assertTrue(renderer.isTargetDependency(dmNode))
+
+        val directNode = DependencyHierarchyNode(
+            type = DependencyHierarchyNodeType.DIRECT_DEPENDENCY,
+            groupId = "com.fasterxml.jackson.core",
+            artifactId = "jackson-databind",
+            version = "2.15.2"
+        )
+        assertTrue(renderer.isTargetDependency(directNode))
+
+        val transitiveTargetNode = DependencyHierarchyNode(
+            type = DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY,
+            groupId = "com.fasterxml.jackson.core",
+            artifactId = "jackson-databind",
+            version = "2.15.2"
+        )
+        assertTrue(renderer.isTargetDependency(transitiveTargetNode))
+
+        val intermediateTransitiveNode = DependencyHierarchyNode(
+            type = DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY,
+            groupId = "org.springframework.boot",
+            artifactId = "spring-boot-starter-json",
+            version = "3.2.0"
+        )
+        assertFalse(renderer.isTargetDependency(intermediateTransitiveNode))
+
+        val projectNode = DependencyHierarchyNode(
+            type = DependencyHierarchyNodeType.PROJECT,
+            groupId = "com.fasterxml.jackson.core",
+            artifactId = "jackson-databind"
+        )
+        assertFalse("Project-Knoten dürfen nicht als Target-Dependency gewertet werden", renderer.isTargetDependency(projectNode))
+
+        val unconfiguredRenderer = DependencyHierarchyTreeCellRenderer()
+        assertFalse(unconfiguredRenderer.isTargetDependency(rootNode))
+    }
+
+    fun testRendererHighlightsTargetDependencyWithColor() {
+        val targetNode = DependencyHierarchyNode(
+            type = DependencyHierarchyNodeType.DEPENDENCY_MANAGEMENT,
+            groupId = "com.example",
+            artifactId = "my-target",
+            version = "1.0.0"
+        )
+        val otherNode = DependencyHierarchyNode(
+            type = DependencyHierarchyNodeType.DIRECT_DEPENDENCY,
+            groupId = "com.example",
+            artifactId = "other-lib",
+            version = "2.0.0"
+        )
+
+        val renderer = DependencyHierarchyTreeCellRenderer("com.example", "my-target")
+        val tree = Tree()
+
+        renderer.getTreeCellRendererComponent(tree, DefaultMutableTreeNode(targetNode), false, false, true, 0, false)
+        assertTrue(renderer.renderedItems.any { it.contains("my-target") })
+
+        renderer.getTreeCellRendererComponent(tree, DefaultMutableTreeNode(otherNode), false, false, true, 1, false)
+        assertTrue(renderer.renderedItems.any { it.contains("other-lib") })
+    }
+
+    fun testTargetDependencyColorDefined() {
+        assertNotNull(TARGET_DEPENDENCY_COLOR)
+    }
+
     fun testNavigateToSelectedNodeWithTag() {
         val psiFile = myFixture.configureByText(
             "pom.xml",

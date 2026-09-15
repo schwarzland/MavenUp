@@ -16,6 +16,7 @@ import com.intellij.psi.PsiManager
 import com.intellij.psi.xml.XmlFile
 import com.intellij.psi.xml.XmlTag
 import com.intellij.ui.ColoredTreeCellRenderer
+import com.intellij.ui.JBColor
 import com.intellij.ui.SimpleTextAttributes
 import com.intellij.ui.TreeSpeedSearch
 import com.intellij.ui.components.JBLabel
@@ -27,6 +28,7 @@ import de.schwarzland.mavenup.model.DependencyHierarchyNode
 import de.schwarzland.mavenup.model.DependencyHierarchyNodeType
 import de.schwarzland.mavenup.service.DependencyHierarchyService
 import de.schwarzland.mavenup.service.PomNavigationService
+import java.awt.Color
 import java.awt.Dimension
 import java.awt.event.KeyEvent
 import java.awt.event.MouseAdapter
@@ -94,7 +96,7 @@ class DependencyHierarchyDialog(
         val tree = Tree(treeModel).apply {
             isRootVisible = true
             showsRootHandles = true
-            cellRenderer = DependencyHierarchyTreeCellRenderer()
+            cellRenderer = DependencyHierarchyTreeCellRenderer(groupId, artifactId)
         }
 
         TreeSpeedSearch.installOn(tree, false) { path ->
@@ -231,37 +233,11 @@ class DependencyHierarchyDialog(
             val descriptor = OpenFileDescriptor(project, node.pomFile)
             FileEditorManager.getInstance(project).openTextEditor(descriptor, true)
         } else if (node.groupId.isNotBlank() && node.artifactId.isNotBlank()) {
-            val navType = when (node.type) {
-                DependencyHierarchyNodeType.PARENT_POM -> PARENT_TYPE
-                DependencyHierarchyNodeType.PLUGIN_MANAGEMENT,
-                DependencyHierarchyNodeType.DIRECT_PLUGIN -> "plugin"
-                DependencyHierarchyNodeType.ROOT -> if (isPlugin) "plugin" else "dependency"
-                else -> "dependency"
-            }
+            val navType = resolveNavType(node.type)
             if (node.pomFile != null) {
                 val targetTag = ApplicationManager.getApplication().runReadAction<XmlTag?> {
                     val psiFile = PsiManager.getInstance(project).findFile(node.pomFile) as? XmlFile
-                    val rootTag = psiFile?.document?.rootTag
-                    when (node.type) {
-                        DependencyHierarchyNodeType.PARENT_POM ->
-                            PomNavigationService(project).findParent(rootTag, node.groupId, node.artifactId)
-                        DependencyHierarchyNodeType.DIRECT_PLUGIN ->
-                            PomNavigationService(project).findPlugin(rootTag, node.groupId, node.artifactId, isManaged = false)
-                        DependencyHierarchyNodeType.PLUGIN_MANAGEMENT ->
-                            PomNavigationService(project).findPlugin(rootTag, node.groupId, node.artifactId, isManaged = true)
-                        DependencyHierarchyNodeType.DEPENDENCY_MANAGEMENT,
-                        DependencyHierarchyNodeType.BOM_IMPORT ->
-                            PomNavigationService(project).findDependency(rootTag, node.groupId, node.artifactId, isManaged = true)
-                        DependencyHierarchyNodeType.ROOT ->
-                            if (isPlugin) {
-                                PomNavigationService(project).findPlugin(rootTag, node.groupId, node.artifactId, isManaged = false)
-                                    ?: PomNavigationService(project).findPlugin(rootTag, node.groupId, node.artifactId, isManaged = true)
-                            } else {
-                                PomNavigationService(project).findDependency(rootTag, node.groupId, node.artifactId, isManaged = false)
-                            }
-                        else ->
-                            PomNavigationService(project).findDependency(rootTag, node.groupId, node.artifactId, isManaged = false)
-                    }
+                    findTargetTag(psiFile?.document?.rootTag, node)
                 }
                 if (targetTag != null) {
                     openInEditor(node.pomFile, targetTag)
@@ -272,6 +248,38 @@ class DependencyHierarchyDialog(
         } else if (node.pomFile != null) {
             val descriptor = OpenFileDescriptor(project, node.pomFile)
             FileEditorManager.getInstance(project).openTextEditor(descriptor, true)
+        }
+    }
+
+    private fun resolveNavType(type: DependencyHierarchyNodeType): String = when (type) {
+        DependencyHierarchyNodeType.PARENT_POM -> PARENT_TYPE
+        DependencyHierarchyNodeType.PLUGIN_MANAGEMENT,
+        DependencyHierarchyNodeType.DIRECT_PLUGIN -> "plugin"
+        DependencyHierarchyNodeType.ROOT -> if (isPlugin) "plugin" else "dependency"
+        else -> "dependency"
+    }
+
+    private fun findTargetTag(rootTag: XmlTag?, node: DependencyHierarchyNode): XmlTag? {
+        val navService = PomNavigationService(project)
+        return when (node.type) {
+            DependencyHierarchyNodeType.PARENT_POM ->
+                navService.findParent(rootTag, node.groupId, node.artifactId)
+            DependencyHierarchyNodeType.DIRECT_PLUGIN ->
+                navService.findPlugin(rootTag, node.groupId, node.artifactId, isManaged = false)
+            DependencyHierarchyNodeType.PLUGIN_MANAGEMENT ->
+                navService.findPlugin(rootTag, node.groupId, node.artifactId, isManaged = true)
+            DependencyHierarchyNodeType.DEPENDENCY_MANAGEMENT,
+            DependencyHierarchyNodeType.BOM_IMPORT ->
+                navService.findDependency(rootTag, node.groupId, node.artifactId, isManaged = true)
+            DependencyHierarchyNodeType.ROOT ->
+                if (isPlugin) {
+                    navService.findPlugin(rootTag, node.groupId, node.artifactId, isManaged = false)
+                        ?: navService.findPlugin(rootTag, node.groupId, node.artifactId, isManaged = true)
+                } else {
+                    navService.findDependency(rootTag, node.groupId, node.artifactId, isManaged = false)
+                }
+            else ->
+                navService.findDependency(rootTag, node.groupId, node.artifactId, isManaged = false)
         }
     }
 
@@ -292,10 +300,21 @@ class DependencyHierarchyDialog(
     }
 }
 
+/** Farbe zur Hervorhebung der Ziel-Abhängigkeit im Hierarchiebaum (Light-/Dark-Mode). */
+internal val TARGET_DEPENDENCY_COLOR = JBColor(Color(10, 95, 185), Color(88, 157, 246))
+
 /**
  * Renderer für die Knoten des Abhängigkeitshierarchie-Baums mit Icons und Formatierungen.
+ *
+ * Hebt die Ziel-Abhängigkeit bzw. das Ziel-Plugin im Baum farblich hervor ([TARGET_DEPENDENCY_COLOR]).
+ *
+ * @param targetGroupId Group-ID der Zielkomponente zur farblichen Hervorhebung.
+ * @param targetArtifactId Artefakt-ID der Zielkomponente zur farblichen Hervorhebung.
  */
-class DependencyHierarchyTreeCellRenderer : ColoredTreeCellRenderer() {
+class DependencyHierarchyTreeCellRenderer(
+    private val targetGroupId: String? = null,
+    private val targetArtifactId: String? = null
+) : ColoredTreeCellRenderer() {
 
     override fun customizeCellRenderer(
         tree: JTree,
@@ -315,10 +334,22 @@ class DependencyHierarchyTreeCellRenderer : ColoredTreeCellRenderer() {
                 append("$prefix ", SimpleTextAttributes.GRAYED_ATTRIBUTES)
             }
 
-            append("${userObject.groupId}:${userObject.artifactId}", SimpleTextAttributes.REGULAR_ATTRIBUTES)
+            val isTarget = isTargetDependency(userObject)
+            val coordAttributes = if (isTarget) {
+                SimpleTextAttributes(SimpleTextAttributes.STYLE_PLAIN, TARGET_DEPENDENCY_COLOR)
+            } else {
+                SimpleTextAttributes.REGULAR_ATTRIBUTES
+            }
+            val versionAttributes = if (isTarget) {
+                SimpleTextAttributes(SimpleTextAttributes.STYLE_BOLD, TARGET_DEPENDENCY_COLOR)
+            } else {
+                SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES
+            }
+
+            append("${userObject.groupId}:${userObject.artifactId}", coordAttributes)
 
             if (!userObject.version.isNullOrBlank()) {
-                append(":${userObject.version}", SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES)
+                append(":${userObject.version}", versionAttributes)
             }
 
             val details = formatNodeDetails(userObject)
@@ -328,6 +359,19 @@ class DependencyHierarchyTreeCellRenderer : ColoredTreeCellRenderer() {
         } else if (userObject != null) {
             append(userObject.toString(), SimpleTextAttributes.REGULAR_ATTRIBUTES)
         }
+    }
+
+    /**
+     * Prüft, ob der angegebene Knoten die Ziel-Abhängigkeit bzw. das Ziel-Plugin repräsentiert.
+     *
+     * @param node Der zu prüfende Hierarchieknoten.
+     * @return `true`, wenn der Knoten nicht vom Typ [DependencyHierarchyNodeType.PROJECT] ist
+     *         und seine Koordinaten mit der Zielkomponente übereinstimmen.
+     */
+    internal fun isTargetDependency(node: DependencyHierarchyNode): Boolean {
+        if (targetGroupId.isNullOrBlank() || targetArtifactId.isNullOrBlank()) return false
+        if (node.type == DependencyHierarchyNodeType.PROJECT) return false
+        return node.groupId == targetGroupId && node.artifactId == targetArtifactId
     }
 
     private fun nodeIcon(type: DependencyHierarchyNodeType): javax.swing.Icon = when (type) {
