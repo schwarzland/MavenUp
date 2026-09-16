@@ -9,7 +9,7 @@ Tools
 └─ Maven Up                  Appearance and behavior
    ├─ Versions and Updates  Version lookup, privacy, version selection
    ├─ Vulnerability Check   Scan scope and Sonatype OSS Index credentials
-   └─ Pom.xml Changes       Maven sync and explanatory XML comment
+   └─ pom.xml Changes       Maven sync and explanatory XML comment
 ```
 
 ### Maven Up (root page)
@@ -44,7 +44,7 @@ Tools
 - **Include resolved transitive dependencies**: By default, includes the resolved Maven dependency tree in the vulnerability check.
 - **Use Sonatype OSS Index as an additional source**: Enables the optional second data source. Sonatype authenticates requests exclusively via the API token; therefore only the token is required and is shown as a mandatory field when the option is enabled. The token is stored exclusively in the IntelliJ Password Safe, loaded off the Event Dispatch Thread, and not written to `mavenup_settings.xml`. Until the token has been loaded, the option and the token field stay disabled. If the token is missing for an already saved configuration, the OSS Index query is skipped; OSV.dev is still queried. If the token is invalid or expired, a qualified error message is shown. A link opens the Sonatype account settings for creating or copying a token.
 
-### Pom.xml Changes
+### pom.xml Changes
 
 - **Sync Maven changes after update**: Determines whether the IDE's Maven sync is triggered automatically after writing the `pom.xml` (default: on). This setting is synchronized with the identically named checkbox in the **Confirm Changes** confirmation dialog; the last choice made there is saved.
 - **Explanatory comment when pinning a dependency**: Combo box that controls the explanatory XML comment written into newly pinned `dependencyManagement` entries created from vulnerability fixes, with five states: **No comment**, **Comment text only (no identifiers)**, **Comment with advisory IDs (e.g. GHSA)** (default), **Comment with aliases (e.g. CVE)**, and **Comment with all identifiers (GHSA and CVE)**.

@@ -22,7 +22,7 @@ class MavenUpPomChangesConfigurableTest : BasePlatformTestCase() {
     }
 
     fun testDisplayNameMatchesPageTitle() {
-        assertEquals("Pom.xml Changes", MavenUpPomChangesConfigurable(project).displayName)
+        assertEquals("pom.xml Changes", MavenUpPomChangesConfigurable(project).displayName)
     }
 
     fun testSyncMavenAfterUpdateDefaultIsTrue() {

@@ -119,7 +119,7 @@ class MavenUpConfigurableTest : BasePlatformTestCase() {
         val linkTexts = configurable.subPageLinks.map { it.text }
 
         assertEquals(
-            listOf("Versions and Updates", "Vulnerability Check", "Pom.xml Changes"),
+            listOf("Versions and Updates", "Vulnerability Check", "pom.xml Changes"),
             linkTexts
         )
     }

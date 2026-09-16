@@ -21,7 +21,7 @@ import de.schwarzland.mavenup.service.VulnerabilityCommentMode
 private const val VULNERABILITY_COMMENT_MAX_IDS_LIMIT = 99
 
 /**
- * Einstellungsseite **Pom.xml Changes** unterhalb der MavenUp-Wurzelseite.
+ * Einstellungsseite **pom.xml Changes** unterhalb der MavenUp-Wurzelseite.
  *
  * Die Seite steuert, was beim Schreiben der `pom.xml` passiert: den anschließenden Maven-Sync und
  * den erklärenden XML-Kommentar, der beim Pinnen einer Abhängigkeit zur Behebung einer Sicherheitslücke
@@ -29,7 +29,7 @@ private const val VULNERABILITY_COMMENT_MAX_IDS_LIMIT = 99
  *
  * @param project Das Projekt, dessen Message-Bus nach dem Speichern benachrichtigt wird.
  */
-// "Pom.xml Changes" enthaelt den Dateinamen pom.xml und ist daher bewusst nicht in Title Case.
+// "pom.xml Changes" enthaelt den Dateinamen pom.xml und ist daher bewusst nicht in Title Case.
 class MavenUpPomChangesConfigurable(project: Project) :
     MavenUpSettingsPage(project, MyMessageBundle.message("settings.page.pomChanges")) {
 
