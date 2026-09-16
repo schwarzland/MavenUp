@@ -38,9 +38,6 @@ internal const val TRANSITIVE_GROUP_ID_COLUMN = 0
 /** Spaltenindex der ArtifactId in der Tabelle der transitiven Sicherheitslücken. */
 internal const val TRANSITIVE_ARTIFACT_ID_COLUMN = 1
 
-/** Spaltenindex des Typs in der Tabelle der transitiven Sicherheitslücken. */
-internal const val TRANSITIVE_TYPE_COLUMN = 2
-
 /** Spaltenindex der Sicherheitslücken-Zelle in der Tabelle der transitiven Sicherheitslücken. */
 internal const val TRANSITIVE_VULNERABILITIES_COLUMN = 3
 

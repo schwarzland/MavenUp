@@ -383,7 +383,6 @@ class DependencyHierarchyDialog(
      * Öffnet die angegebene Datei im Editor an der Position des XML-Tags.
      *
      * @param pomFile Die zu öffnende Datei.
-     * @param targetTag Das Ziel-XML-Tag.
      */
     private fun openFileInEditor(pomFile: VirtualFile) {
         val descriptor = OpenFileDescriptor(project, pomFile)

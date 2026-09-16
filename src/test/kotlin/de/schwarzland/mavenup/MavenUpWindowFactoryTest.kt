@@ -241,11 +241,11 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         // Aktive Sortierung zeigt die passenden Richtungspfeile.
         assertSame(
-            com.intellij.icons.AllIcons.General.ArrowUp,
+            AllIcons.General.ArrowUp,
             sortableHeaderIcon(sortable = true, sortOrder = javax.swing.SortOrder.ASCENDING)
         )
         assertSame(
-            com.intellij.icons.AllIcons.General.ArrowDown,
+            AllIcons.General.ArrowDown,
             sortableHeaderIcon(sortable = true, sortOrder = javax.swing.SortOrder.DESCENDING)
         )
     }
