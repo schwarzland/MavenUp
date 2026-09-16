@@ -1,9 +1,8 @@
-Für die Publikation des Plugins wurden bereits wichtige Vorbereitungen getroffen. Hier ist eine Zusammenfassung der erledigten Aufgaben sowie eine Checkliste für die finalen Schritte im JetBrains Marketplace.
+Für die Publikation des Plugins sind wichtige Vorbereitungen im Repository vorhanden. Diese Checkliste beschreibt die finalen Schritte für den JetBrains Marketplace.
 
 ### ✅ Erledigte Aufgaben (Vorbereitung)
-- **Versionsnummer aktualisiert**: Die Version wurde in der `gradle.properties` von `1.0.0-SNAPSHOT` auf `1.0.0` gesetzt.
-- **Changelog befüllt**: Die Datei `CHANGELOG.md` wurde mit den Features des initialen Release ergänzt.
-- **Plugin-Beschreibung**: Die `plugin.xml` enthält nun eine detaillierte Beschreibung aller Kernfunktionen (Update-Checks, Property-Support, Navigation etc.).
+- **Version und Changelog**: `gradle.properties` und der oberste veröffentlichungsrelevante Block in `CHANGELOG.md` müssen dieselbe Version enthalten.
+- **Plugin-Beschreibung**: Die `plugin.xml` enthält die Marketplace-Beschreibung der aktuellen Kern- und erweiterten Funktionen.
 - **Technische Validierung**: Die Plugin-Struktur und die Projektkonfiguration werden über `verifyPlugin` geprüft; dabei wird auch die Kompatibilität mit den unterstützten IntelliJ-IDE-Builds über den IntelliJ Plugin Verifier validiert.
 - **CI-Schutz**: Alle Workflow-Jobs sind auf 30 Minuten begrenzt. Der Marketplace-Publish besitzt eine Concurrency-Gruppe gegen parallele Doppel-Uploads; bei einem fehlgeschlagenen Plugin-Verifier wird der Report sieben Tage als Artifact aufbewahrt.
 - **Icon**: Ein Plugin-Icon (`pluginIcon.svg` sowie `pluginIcon_dark.svg`) ist bereits im Projekt vorhanden.
@@ -12,7 +11,7 @@ Für die Publikation des Plugins wurden bereits wichtige Vorbereitungen getroffe
 Um das Plugin nun offiziell zu veröffentlichen, sind folgende Schritte erforderlich:
 
 1.  **Plugin-Archiv erstellen**:
-    Führen Sie den Befehl `./gradlew buildPlugin` aus. Das fertige ZIP-Archiv finden Sie anschließend unter `build/distributions/MavenUp-1.0.0.zip`.
+    Führen Sie den Befehl `./gradlew buildPlugin` aus. Das fertige ZIP-Archiv finden Sie anschließend unter `build/distributions/MavenUp-<version>.zip`.
 2.  **Marketplace-Account**:
     Falls noch nicht geschehen, erstellen Sie einen Account auf [JetBrains Marketplace](https://plugins.jetbrains.com/) und legen Sie ein Vendor-Profil an.
 3.  **Upload**:
