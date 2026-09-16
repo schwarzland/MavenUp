@@ -50,7 +50,7 @@ import javax.swing.tree.DefaultTreeModel
  * eine verwaltete Abhängigkeit bzw. ein Plugin im Projekt eingebunden wird, welche direkten
  * und transitiven Abhängigkeiten dazwischen liegen und welche Versionen bzw. Properties greifen.
  *
- * Ein Rechtsklick öffnet ein Kontextmenü zur Navigation in die `pom.xml` (`Navigate to pom.xml`),
+ * Ein Rechtsklick öffnet ein Kontextmenü zur Navigation in die `pom.xml` (`Navigate to POM.xml`),
  * zusätzlich kann per `Enter` oder `F4` direkt zur Deklaration gesprungen werden.
  *
  * @property project Das zugehörige IntelliJ-Projekt.

@@ -8,9 +8,9 @@
 
 - Added project-wide background version checks after Maven project load and every completed Maven import or resync, independent of whether the MavenUp tool window has been opened.
 - Added color highlighting for the target dependency across the tree in the **Dependency Hierarchy** dialog with automatic adaptation to Light and Dark themes.
-- Added a toolbar in the **Dependency Hierarchy** dialog with **Expand all**, **Collapse all**, and **Navigate to pom.xml** actions for quick tree navigation.
+- Added a toolbar in the **Dependency Hierarchy** dialog with **Expand All**, **Collapse All**, and **Navigate to POM.xml** actions for quick tree navigation.
 - Added a **Show Dependency Hierarchy** toolbar action (with short label "Hierarchy" and abstract tree icon `AllIcons.Actions.ShowAsTree`) positioned between **Open on [Browser]** and **Vulnerability Details**, allowing inspection of the dependency hierarchy for a selected managed dependency or managed plugin in the main table, as well as any selected coordinate in the transitive CVEs table.
-- Added a modal **Show Dependency Hierarchy** dialog and context-menu action for managed dependencies and managed plugins in the main dependencies table and for every coordinate in the transitive CVEs table, visualizing the full resolution and inclusion paths, parent POMs, BOM imports, and intervening dependencies in an interactive tree with right-click context menu (**Navigate to pom.xml**) and `Enter` / `F4` keyboard navigation to the POM.
+- Added a modal **Show Dependency Hierarchy** dialog and context-menu action for managed dependencies and managed plugins in the main dependencies table and for every coordinate in the transitive CVEs table, visualizing the full resolution and inclusion paths, parent POMs, BOM imports, and intervening dependencies in an interactive tree with right-click context menu (**Navigate to POM.xml**) and `Enter` / `F4` keyboard navigation to the POM.
 - Added a context-menu action that marks managed dependencies and managed plugins for removal from `pom.xml` when the shared Update action is confirmed.
 - Added a dedicated dark theme plugin icon for the JetBrains Marketplace and IDE Plugin Manager.
 - Added IDE notifications reporting the number of versions found for the checked dependencies after a version search, and the number of direct/indirect vulnerabilities found after a vulnerability scan.
@@ -19,8 +19,9 @@
 
 ### Changed
 
+- Capitalized the **Dependency Hierarchy** toolbar and navigation action labels in accordance with IntelliJ action naming conventions.
 - Standardized all filter options to Sentence case, including dependency type labels while preserving their technical filter values.
-- Changed navigation in the **Dependency Hierarchy** dialog to use a right-click context menu (**Navigate to pom.xml**) and `Enter` / `F4` shortcuts, removing the conflicting double-click mouse handler and the hint text.
+- Changed navigation in the **Dependency Hierarchy** dialog to use a right-click context menu (**Navigate to POM.xml**) and `Enter` / `F4` shortcuts, removing the conflicting double-click mouse handler and the hint text.
 - Reordered the main table row context menu so that **Show Dependency Hierarchy** is positioned directly above **Show Vulnerability Details**, consistent with the transitive CVEs table context menu.
 - Updated the Marketplace plugin icons with a shield and checkmark motif for vulnerability checks.
 - Removed the redundant Keep in pom.xml context-menu action and preserved property-linked version selections when marking a managed entry for removal.
@@ -352,7 +353,7 @@
 
 ### Added
 
-- Right-click context menu on dependency rows with two actions: **Navigate to pom.xml** (jumps to the entry in the editor) and **Open in Maven Repository** (opens the matching version page in the configured repository browser).
+- Right-click context menu on dependency rows with two actions: **Navigate to POM.xml** (jumps to the entry in the editor) and **Open in Maven Repository** (opens the matching version page in the configured repository browser).
 - Configurable Maven Repository Browser: users can choose between **MVN Repository** (default, `mvnrepository.com`) and **Sonatype Central** (`central.sonatype.com`) under **Settings > Tools > MavenUp**. The selection applies to both the context menu in the main table and the Component column link in the Vulnerability Details dialog.
 - Added a tooltip on dependency rows in the main table indicating whether a single or double click will open the entry in pom.xml (adapts to the "jump on single click" setting).
 - Added a link in the OSS Index settings that opens the Sonatype account page for creating or copying an API token.
