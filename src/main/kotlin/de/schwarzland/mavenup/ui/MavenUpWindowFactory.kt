@@ -1182,10 +1182,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
             project.messageBus.connect(this@MyToolWindow).subscribe(
                 AUTOMATIC_VERSION_SEARCH_TOPIC,
-                object : AutomaticVersionSearchListener {
-                    override fun automaticVersionSearchCompleted(state: AutomaticVersionSearchState) {
-                        applyAutomaticVersionSearchState(state)
-                    }
+                AutomaticVersionSearchListener { state ->
+                    applyAutomaticVersionSearchState(state)
                 }
             )
 

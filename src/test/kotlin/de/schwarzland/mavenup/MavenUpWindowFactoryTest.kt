@@ -55,6 +55,7 @@ import java.awt.Container
 import javax.swing.JLabel
 import javax.swing.table.DefaultTableModel
 import java.util.concurrent.TimeUnit
+import javax.swing.table.TableRowSorter
 
 class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
@@ -139,12 +140,12 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val table = findTable(MavenUpWindowFactory().MyToolWindow(project).getContent())
         assertNotNull(table)
 
-        val model = table!!.model as javax.swing.table.DefaultTableModel
+        val model = table!!.model as DefaultTableModel
         model.addRow(arrayOf<Any?>("org.b", "b-lib", null, "dependency", null, "1.0.0", emptyList<String>()))
         model.addRow(arrayOf<Any?>("org.a", "a-lib", null, "dependency", null, "2.0.0", emptyList<String>()))
 
         @Suppress("UNCHECKED_CAST")
-        val sorter = table.rowSorter as javax.swing.table.TableRowSorter<javax.swing.table.DefaultTableModel>
+        val sorter = table.rowSorter as TableRowSorter<DefaultTableModel>
 
         // Current-Version- und New-Version-Spalte sind nicht sortierbar; die Vulnerabilities-Spalte ist sortierbar.
         assertTrue(sorter.isSortable(4))
@@ -205,12 +206,12 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val table = findTable(MavenUpWindowFactory().MyToolWindow(project).getContent())
         assertNotNull(table)
 
-        val model = table!!.model as javax.swing.table.DefaultTableModel
+        val model = table!!.model as DefaultTableModel
         model.addRow(arrayOf<Any?>("org.x", "x-lib", null, "dependency", null, "1.9.0", emptyList<String>()))
         model.addRow(arrayOf<Any?>("org.y", "y-lib", null, "dependency", null, "1.10.0", emptyList<String>()))
 
         @Suppress("UNCHECKED_CAST")
-        val sorter = table.rowSorter as javax.swing.table.TableRowSorter<javax.swing.table.DefaultTableModel>
+        val sorter = table.rowSorter as TableRowSorter<DefaultTableModel>
         assertFalse(sorter.isSortable(5))
 
         // Ein Klick auf die Kopfzeile ändert die Reihenfolge nicht.
@@ -719,7 +720,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val table = findTable(content)
         assertNotNull("Die Haupttabelle sollte vorhanden sein", table)
 
-        val model = table!!.model as javax.swing.table.DefaultTableModel
+        val model = table!!.model as DefaultTableModel
         // Versionen wie vom Fetch geliefert: absteigend nach ComparableVersion sortiert,
         // wodurch datumsbasierte Versionen (Major 2023/2025) vor der aktuellen 24.0 stehen.
         val versions = listOf("2025-1234", "2023-1234", "24.0")
@@ -761,7 +762,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val table = findTable(content)
         assertNotNull("Die Haupttabelle sollte vorhanden sein", table)
 
-        val model = table!!.model as javax.swing.table.DefaultTableModel
+        val model = table!!.model as DefaultTableModel
         model.addRow(
             arrayOf("com.example", "my-lib", "", "dependency", null, "1.0.0", listOf("1.1.0", "1.0.0"))
         )
@@ -818,7 +819,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
             DependencyUpdate("com.example", "demo-lib", "dependency", "1.0.0", "1.1.0")
         )
         val table = UpdateConfirmationDialog(project, updates).buildTable()
-        val sorter = table.rowSorter as javax.swing.table.TableRowSorter<*>
+        val sorter = table.rowSorter as TableRowSorter<*>
         for (column in 0 until UpdateConfirmationDialog.CONFIRM_CURRENT_VERSION_COLUMN) {
             assertTrue("Spalte $column sollte sortierbar sein", sorter.isSortable(column))
         }
@@ -958,7 +959,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         )
 
         // Eine Zeile hinzufügen und selektieren
-        (table!!.model as? javax.swing.table.DefaultTableModel)?.addRow(
+        (table!!.model as? DefaultTableModel)?.addRow(
             arrayOf("com.example", "my-lib", "", "dependency", null, "1.0.0", emptyList<String>())
         )
         table.setRowSelectionInterval(0, 0)
@@ -1002,7 +1003,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
             toolWindow.isNavigateToPomEnabled()
         )
 
-        (table!!.model as? javax.swing.table.DefaultTableModel)?.addRow(
+        (table!!.model as? DefaultTableModel)?.addRow(
             arrayOf("com.example", "my-lib", "", "dependency", null, "1.0.0", emptyList<String>())
         )
         table.setRowSelectionInterval(0, 0)
@@ -1135,7 +1136,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val table = findTable(content)
         assertNotNull(table)
 
-        val model = table!!.model as javax.swing.table.DefaultTableModel
+        val model = table!!.model as DefaultTableModel
 
         // Ohne Zeilen
         assertFalse(
@@ -1457,7 +1458,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
             mapOf("com.example:my-lib:1.0.0" to listOf(advisory)),
             emptySet()
         )
-        (table!!.model as? javax.swing.table.DefaultTableModel)?.addRow(
+        (table!!.model as? DefaultTableModel)?.addRow(
             arrayOf("com.example", "my-lib", "", "dependency", cell, "1.0.0", emptyList<String>())
         )
         table.setRowSelectionInterval(0, 0)
@@ -2278,7 +2279,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         val content = toolWindow.getContent()
         val table = findTable(content)!!
-        val model = table.model as javax.swing.table.DefaultTableModel
+        val model = table.model as DefaultTableModel
 
         val advisory = VulnerabilityAdvisory(
             id = "CVE-TEST",
@@ -2336,7 +2337,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         val content = toolWindow.getContent()
         val table = findTable(content)!!
-        val model = table.model as javax.swing.table.DefaultTableModel
+        val model = table.model as DefaultTableModel
 
         val advisory = VulnerabilityAdvisory(
             id = "CVE-TEST",
@@ -2474,7 +2475,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         val content = toolWindow.getContent()
         val table = findTable(content)!!
-        val model = table.model as javax.swing.table.DefaultTableModel
+        val model = table.model as DefaultTableModel
 
         model.addRow(arrayOf("com.example", "inherited", "", "dependency", null, "1.0.0", listOf("1.0.0")))
         model.addRow(arrayOf("com.example", "declared", "", "dependency", null, "2.0.0", listOf("2.0.0")))
@@ -2500,7 +2501,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         val content = toolWindow.getContent()
         val table = findTable(content)!!
-        val model = table.model as javax.swing.table.DefaultTableModel
+        val model = table.model as DefaultTableModel
 
         model.addRow(arrayOf("com.example", "lib-a", "", "dependency", null, "1.0.0", listOf("1.0.0")))
         model.addRow(arrayOf("org.other", "lib-b", "", "dependency", null, "1.0.0", listOf("1.0.0")))
@@ -2521,7 +2522,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         val content = toolWindow.getContent()
         val table = findTable(content)!!
-        val model = table.model as javax.swing.table.DefaultTableModel
+        val model = table.model as DefaultTableModel
 
         model.addRow(arrayOf("com.example", "lib-a", "", "dependency", null, "1.0.0", listOf("1.0.0")))
         model.addRow(arrayOf("com.example", "lib-b", "", "plugin", null, "1.0.0", listOf("1.0.0")))
@@ -2570,7 +2571,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
     fun testSelectHighestMajorVersionForAllSelectsNewestOverall() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         val content = toolWindow.getContent()
-        val model = findTable(content)!!.model as javax.swing.table.DefaultTableModel
+        val model = findTable(content)!!.model as DefaultTableModel
         val (availableVersions, selectedVersions, knownDependencies) = versionMaps(toolWindow)
 
         val key = "com.example:major-all"
@@ -2587,7 +2588,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
     fun testSelectHighestMinorVersionForAllStaysWithinCurrentMajor() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         val content = toolWindow.getContent()
-        val model = findTable(content)!!.model as javax.swing.table.DefaultTableModel
+        val model = findTable(content)!!.model as DefaultTableModel
         val (availableVersions, selectedVersions, knownDependencies) = versionMaps(toolWindow)
 
         val key = "com.example:minor-all"
@@ -2604,7 +2605,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
     fun testSelectHighestMinorVersionForAllKeepsCurrentWhenNoSameMajorExists() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         val content = toolWindow.getContent()
-        val model = findTable(content)!!.model as javax.swing.table.DefaultTableModel
+        val model = findTable(content)!!.model as DefaultTableModel
         val (availableVersions, selectedVersions, knownDependencies) = versionMaps(toolWindow)
 
         val key = "com.example:minor-none"
@@ -2624,7 +2625,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
     fun testSelectHighestMajorVersionForDependencySelectsNewestOverall() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         val content = toolWindow.getContent()
-        val model = findTable(content)!!.model as javax.swing.table.DefaultTableModel
+        val model = findTable(content)!!.model as DefaultTableModel
         val (availableVersions, selectedVersions, knownDependencies) = versionMaps(toolWindow)
 
         val key = "com.example:major-row"
@@ -2649,7 +2650,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
     fun testSelectHighestMinorVersionForDependencyStaysWithinCurrentMajor() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         val content = toolWindow.getContent()
-        val model = findTable(content)!!.model as javax.swing.table.DefaultTableModel
+        val model = findTable(content)!!.model as DefaultTableModel
         val (availableVersions, selectedVersions, knownDependencies) = versionMaps(toolWindow)
 
         val key = "com.example:minor-row"
@@ -2666,7 +2667,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
     fun testSelectHighestMinorVersionForDependencyKeepsCurrentWhenNoSameMajorExists() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         val content = toolWindow.getContent()
-        val model = findTable(content)!!.model as javax.swing.table.DefaultTableModel
+        val model = findTable(content)!!.model as DefaultTableModel
         val (availableVersions, selectedVersions, knownDependencies) = versionMaps(toolWindow)
 
         val key = "com.example:minor-row-none"
@@ -2686,7 +2687,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
     fun testSelectHighestVersionForDependencyDoesNothingWithoutFetchedVersions() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         val content = toolWindow.getContent()
-        val model = findTable(content)!!.model as javax.swing.table.DefaultTableModel
+        val model = findTable(content)!!.model as DefaultTableModel
         val (_, selectedVersions, knownDependencies) = versionMaps(toolWindow)
 
         val key = "com.example:no-versions"
@@ -2723,7 +2724,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
     fun testResetVersionForDependencyRestoresCurrentForRowOnly() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         val content = toolWindow.getContent()
-        val model = findTable(content)!!.model as javax.swing.table.DefaultTableModel
+        val model = findTable(content)!!.model as DefaultTableModel
         val (availableVersions, selectedVersions, knownDependencies) = versionMaps(toolWindow)
 
         val key = "com.example:reset-row"
@@ -2801,7 +2802,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
     fun testBulkSelectionSkipsRowsHiddenByFilter() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         val content = toolWindow.getContent()
-        val model = findTable(content)!!.model as javax.swing.table.DefaultTableModel
+        val model = findTable(content)!!.model as DefaultTableModel
         val (availableVersions, selectedVersions, knownDependencies) = versionMaps(toolWindow)
 
         val visibleKey = "com.example:visible-lib"
@@ -2831,7 +2832,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
     fun testResetAllVersionsToCurrentClearsHiddenSelections() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         val content = toolWindow.getContent()
-        val model = findTable(content)!!.model as javax.swing.table.DefaultTableModel
+        val model = findTable(content)!!.model as DefaultTableModel
         val (availableVersions, selectedVersions, knownDependencies) = versionMaps(toolWindow)
 
         val visibleKey = "com.example:reset-visible"
@@ -2861,7 +2862,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
     fun testResetVisibleVersionsToCurrentKeepsHiddenSelections() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         val content = toolWindow.getContent()
-        val model = findTable(content)!!.model as javax.swing.table.DefaultTableModel
+        val model = findTable(content)!!.model as DefaultTableModel
         val (availableVersions, selectedVersions, knownDependencies) = versionMaps(toolWindow)
 
         val visibleKey = "com.example:reset-visible"
@@ -2895,7 +2896,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
     fun testBulkSelectionActionDescriptionAppendsHintWhenFilterHidesRows() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         val content = toolWindow.getContent()
-        val model = findTable(content)!!.model as javax.swing.table.DefaultTableModel
+        val model = findTable(content)!!.model as DefaultTableModel
 
         model.addRow(arrayOf("com.example", "lib-a", "", "dependency", null, "1.0.0", listOf("1.0.0")))
         model.addRow(arrayOf("com.example", "lib-b", "", "plugin", null, "1.0.0", listOf("1.0.0")))
@@ -3067,7 +3068,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
     fun testManagedEntryRemovalShowsWillBeRemovedInNewVersionColumn() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         val table = findTable(toolWindow.getContent())!!
-        val model = table.model as javax.swing.table.DefaultTableModel
+        val model = table.model as DefaultTableModel
         val key = "com.example:managed-library"
         val managedDependency = MyMessageBundle.message("toolwindow.MyToolWindow.type.managedDependency")
         model.addRow(
@@ -3088,7 +3089,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
     fun testPendingFilterDistinguishesManagedEntryRemovalFromVersionUpdate() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         val table = findTable(toolWindow.getContent())!!
-        val model = table.model as javax.swing.table.DefaultTableModel
+        val model = table.model as DefaultTableModel
         val managedDependency = MyMessageBundle.message("toolwindow.MyToolWindow.type.managedDependency")
         val removalKey = "com.example:managed-library"
         val updateKey = "com.example:regular-library"
@@ -3237,7 +3238,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
      */
     fun testApplyVersionVisibilitySettingsHidesUnstableVersionsImmediately() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
-        val model = findTable(toolWindow.getContent())!!.model as javax.swing.table.DefaultTableModel
+        val model = findTable(toolWindow.getContent())!!.model as DefaultTableModel
         val (availableVersions, _, knownDependencies) = versionMaps(toolWindow)
         val raw = rawVersionMap(toolWindow)
 
@@ -3260,7 +3261,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
      */
     fun testApplyVersionVisibilitySettingsTogglesOlderVersions() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
-        val model = findTable(toolWindow.getContent())!!.model as javax.swing.table.DefaultTableModel
+        val model = findTable(toolWindow.getContent())!!.model as DefaultTableModel
         val (availableVersions, _, knownDependencies) = versionMaps(toolWindow)
         val raw = rawVersionMap(toolWindow)
 
@@ -3287,7 +3288,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
      */
     fun testApplyVersionVisibilitySettingsDropsUnavailableSelection() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
-        val model = findTable(toolWindow.getContent())!!.model as javax.swing.table.DefaultTableModel
+        val model = findTable(toolWindow.getContent())!!.model as DefaultTableModel
         val (availableVersions, selectedVersions, knownDependencies) = versionMaps(toolWindow)
         val raw = rawVersionMap(toolWindow)
 
