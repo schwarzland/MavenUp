@@ -145,16 +145,19 @@ internal class AutomaticVersionSearchCoordinator(private val project: Project) {
     fun latestState(): AutomaticVersionSearchState? = latestState
 
     /**
-     * Erfasst die aktuellen Maven-Daten und führt abhängig von der Einstellung die Versionssuche aus.
+     * Erfasst die aktuellen Maven-Daten in einer Read Action und führt abhängig von der Einstellung
+     * die Versionssuche aus.
      *
      * @param indicator Fortschrittsindikator der Hintergrundaufgabe.
      * @return Den Aktualisierungszustand oder `null`, wenn der Vorgang abgebrochen wurde.
      */
     private fun collectState(indicator: ProgressIndicator): AutomaticVersionSearchState? {
         if (indicator.isCanceled) return null
-        val snapshot = refreshSnapshotCollector.collectRefreshSnapshot(
-            MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
-        )
+        val snapshot = ApplicationManager.getApplication().runReadAction<RefreshSnapshot> {
+            refreshSnapshotCollector.collectRefreshSnapshot(
+                MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
+            )
+        }
         if (indicator.isCanceled) return null
         if (!MavenUpSettings.getInstance().state.autoSearchVersions) {
             return AutomaticVersionSearchState(snapshot, null, null)

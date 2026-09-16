@@ -11,7 +11,7 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   die automatische Versionssuche anstößt;
   die deklarative Registrierung ermöglicht Plugin-Updates ohne IDE-Neustart.
 - **AutomaticVersionSearchCoordinator**: projektgebundener Service, der nach Projektstart und
-  abgeschlossenen Maven-Imports einen PSI-Schnappschuss erfasst und bei aktivierter Einstellung
+  abgeschlossenen Maven-Imports einen PSI-Schnappschuss innerhalb einer IntelliJ-Read-Action erfasst und bei aktivierter Einstellung
   `autoSearchVersions` die Versionsabfrage im Hintergrund ausführt, ohne das Tool-Window zu
   erzeugen. Er speichert den jüngsten Zustand, veröffentlicht ihn über
   `AUTOMATIC_VERSION_SEARCH_TOPIC` und verwirft durch eine Generation geschützte, überholte

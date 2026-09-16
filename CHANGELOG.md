@@ -33,6 +33,7 @@
 
 ### Fixed
 
+- Fixed automatic version checks accessing Maven PSI without an IntelliJ read action.
 - Fixed the **Show Dependency Hierarchy** context-menu action to stay visible while correctly disabling it for non-managed rows in the main dependency table and keeping it available for every transitive CVEs row.
 - Refactored dependency-table tooltips and context-menu construction to satisfy detekt method-length and return-count limits without changing their behavior.
 - Fixed Reset to Current Version in a row context menu so it only cancels the pending removal of that selected managed entry.
