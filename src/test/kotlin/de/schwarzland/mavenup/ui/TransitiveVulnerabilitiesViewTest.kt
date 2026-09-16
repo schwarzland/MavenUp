@@ -77,6 +77,17 @@ class TransitiveVulnerabilitiesViewTest {
     }
 
     @Test
+    fun testDependencyHierarchyActionIsEnabledOnlyForManagedEntries() {
+        assertTrue(
+            isDependencyHierarchyActionEnabledForType(
+                MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
+            )
+        )
+        assertTrue(isDependencyHierarchyActionEnabledForType(MANAGED_PLUGIN))
+        assertTrue(!isDependencyHierarchyActionEnabledForType("transitive"))
+    }
+
+    @Test
     fun testCoordinateWithoutThreePartsIsSkipped() {
         val advisories = mapOf(
             "incomplete:coordinate" to listOf(advisory("CVE-1", VulnerabilitySeverity.HIGH))

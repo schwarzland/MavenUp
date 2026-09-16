@@ -104,6 +104,16 @@ internal fun recommendedFixVersion(advisories: List<VulnerabilityAdvisory>, curr
 }
 
 /**
+ * Prüft, ob die Hierarchie-Aktion für einen Tabellenwert aktiviert sein soll.
+ *
+ * @param type Anzeigetyp der Zeile.
+ * @return `true`, wenn die Zeile eine verwaltete Dependency oder ein verwaltetes Plugin darstellt.
+ */
+internal fun isDependencyHierarchyActionEnabledForType(type: String): Boolean =
+    type == MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY) ||
+        type == MANAGED_PLUGIN
+
+/**
  * Ermittelt die anzuzeigenden Zeilen der transitiven Sicherheitslücken-Ansicht.
  *
  * Berücksichtigt ausschließlich transitive Koordinaten, für die mindestens eine Sicherheitswarnung
@@ -879,7 +889,8 @@ internal class TransitiveVulnerabilitiesView(
         val hasVulnerabilities = cell != null && cell.allAdvisories.isNotEmpty()
         group.addSeparator()
         addAction(
-            MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.showDependencyHierarchy")
+            MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.showDependencyHierarchy"),
+            true
         ) {
             openDependencyHierarchy(viewRow)
         }
