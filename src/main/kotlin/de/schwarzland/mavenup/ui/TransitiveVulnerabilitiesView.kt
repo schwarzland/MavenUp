@@ -101,6 +101,16 @@ internal fun recommendedFixVersion(advisories: List<VulnerabilityAdvisory>, curr
 }
 
 /**
+ * Prüft, ob die Hierarchie-Aktion für einen Tabellenwert aktiviert sein soll.
+ *
+ * @param type Anzeigetyp der Zeile.
+ * @return `true`, wenn die Zeile eine verwaltete Dependency oder ein verwaltetes Plugin darstellt.
+ */
+internal fun isDependencyHierarchyActionEnabledForType(type: String): Boolean =
+    type == MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY) ||
+        type == MANAGED_PLUGIN
+
+/**
  * Ermittelt die anzuzeigenden Zeilen der transitiven Sicherheitslücken-Ansicht.
  *
  * Berücksichtigt ausschließlich transitive Koordinaten, für die mindestens eine Sicherheitswarnung
@@ -876,6 +886,12 @@ internal class TransitiveVulnerabilitiesView(
         val hasVulnerabilities = cell != null && cell.allAdvisories.isNotEmpty()
         group.addSeparator()
         addAction(
+            MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.showDependencyHierarchy"),
+            true
+        ) {
+            openDependencyHierarchy(viewRow)
+        }
+        addAction(
             MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.showVulnerabilityDetails"),
             hasVulnerabilities
         ) {
@@ -920,6 +936,15 @@ internal class TransitiveVulnerabilitiesView(
         val viewRow = table.selectedRow
         if (viewRow < 0) return
         openVulnerabilityDetails(viewRow)
+    }
+
+    /**
+     * Öffnet den Hierarchiebaum-Dialog für die aktuell selektierte Zeile.
+     */
+    internal fun openSelectedDependencyHierarchy() {
+        val viewRow = table.selectedRow
+        if (viewRow < 0) return
+        openDependencyHierarchy(viewRow)
     }
 
     /**
@@ -1049,6 +1074,18 @@ internal class TransitiveVulnerabilitiesView(
                 SimpleTextAttributes.LINK_PLAIN_ATTRIBUTES
             ) { onShowDirectVulnerabilities() }
         }
+    }
+
+    /**
+     * Öffnet den Hierarchiebaum-Dialog für die Koordinate der angegebenen Sichtzeile.
+     *
+     * @param viewRow Der Zeilenindex in der (ggf. sortierten) Sicht.
+     */
+    internal fun openDependencyHierarchy(viewRow: Int) {
+        val modelRow = table.convertRowIndexToModel(viewRow)
+        val groupId = tableModel.getValueAt(modelRow, TRANSITIVE_GROUP_ID_COLUMN) as? String ?: ""
+        val artifactId = tableModel.getValueAt(modelRow, TRANSITIVE_ARTIFACT_ID_COLUMN) as? String ?: ""
+        DependencyHierarchyDialog(project, groupId, artifactId, false).show()
     }
 
     /**

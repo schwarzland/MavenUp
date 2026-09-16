@@ -161,4 +161,11 @@ class TransitiveVulnerabilitiesViewFilterTest : BasePlatformTestCase() {
         assertFalse(view.selectedVersions.containsKey("org.trans:lib"))
         assertEquals("3.0.0", view.selectedVersions["org.other:tool"])
     }
+
+    fun testOpenSelectedDependencyHierarchyWithoutSelectionDoesNotThrow() {
+        val view = buildView()
+        view.table.clearSelection()
+        // Darf ohne Selektion keine Exception werfen
+        view.openSelectedDependencyHierarchy()
+    }
 }
