@@ -219,7 +219,9 @@ class DependencyHierarchyDialog(
                 })
             },
             true
-        )
+        ).apply {
+            targetComponent = tree
+        }
 
     /**
      * Erstellt die Aktionsgruppe für das Kontextmenü des Hierarchiebaums.

@@ -34,6 +34,7 @@
 
 ### Fixed
 
+- Fixed the **Dependency Hierarchy** dialog toolbar using the focused component instead of its hierarchy tree to update local actions.
 - Fixed the **Type** filter dropping to only **All** after automatic version refreshes by always retaining the known dependency types as available filter options.
 - Fixed the MavenUp tool-window badge not indicating available updates after a background version search completed before the window was opened.
 - Fixed automatic version checks accessing Maven PSI without an IntelliJ read action.

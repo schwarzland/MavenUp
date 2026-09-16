@@ -302,6 +302,15 @@ class DependencyHierarchyDialogTest : BasePlatformTestCase() {
         )
     }
 
+    fun testCreateToolbarSetsTreeAsTargetComponent() {
+        val dialog = DependencyHierarchyDialog(project, "com.example", "demo")
+        val tree = Tree()
+
+        val toolbar = dialog.createToolbar(tree)
+
+        assertSame(tree, toolbar.targetComponent)
+    }
+
     fun testContextMenuActionPerformsNavigation() {
         val psiFile = myFixture.configureByText(
             "pom.xml",
