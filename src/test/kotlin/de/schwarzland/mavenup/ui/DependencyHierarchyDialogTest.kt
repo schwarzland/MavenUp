@@ -74,6 +74,29 @@ class DependencyHierarchyDialogTest : BasePlatformTestCase() {
         assertTrue(tree.isExpanded(0))
     }
 
+    fun testCollapseAllNodesCollapsesRows() {
+        val rootNode = DependencyHierarchyNode(
+            type = DependencyHierarchyNodeType.ROOT,
+            groupId = "com.example",
+            artifactId = "lib"
+        )
+        val childNode = DependencyHierarchyNode(
+            type = DependencyHierarchyNodeType.DIRECT_DEPENDENCY,
+            groupId = "com.example",
+            artifactId = "lib",
+            version = "1.0.0"
+        )
+        rootNode.children.add(childNode)
+
+        val dialog = DependencyHierarchyDialog(project, "com.example", "lib")
+        val treeModel = dialog.buildTreeModel(rootNode)
+        val tree = Tree(treeModel)
+
+        dialog.expandAllNodes(tree)
+        dialog.collapseAllNodes(tree)
+        assertFalse(tree.isExpanded(0))
+    }
+
     fun testRendererCustomizesTextAndDetails() {
         val node = DependencyHierarchyNode(
             type = DependencyHierarchyNodeType.DEPENDENCY_MANAGEMENT,

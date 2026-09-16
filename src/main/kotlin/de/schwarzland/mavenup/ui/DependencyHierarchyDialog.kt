@@ -2,10 +2,12 @@ package de.schwarzland.mavenup.ui
 
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.actionSystem.ActionManager
+import com.intellij.openapi.actionSystem.ActionToolbar
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.DefaultActionGroup
+import com.intellij.openapi.actionSystem.Separator
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileEditor.OpenFileDescriptor
@@ -96,6 +98,7 @@ class DependencyHierarchyDialog(
             isRootVisible = true
             showsRootHandles = true
             cellRenderer = DependencyHierarchyTreeCellRenderer(groupId, artifactId)
+            toolTipText = MyMessageBundle.message("dependency.hierarchy.dialog.tree.tooltip")
         }
 
         TreeSpeedSearch.installOn(tree, false) { path ->
@@ -103,6 +106,7 @@ class DependencyHierarchyDialog(
             node?.let { "${it.groupId}:${it.artifactId} ${it.version.orEmpty()}" } ?: path.lastPathComponent.toString()
         }
 
+        val hierarchyToolbar = createToolbar(tree)
         expandAllNodes(tree)
 
         tree.addMouseListener(object : MouseAdapter() {
@@ -132,6 +136,9 @@ class DependencyHierarchyDialog(
 
         return panel {
             row {
+                cell(hierarchyToolbar.component)
+            }
+            row {
                 label(MyMessageBundle.message("dependency.hierarchy.dialog.header", "$groupId:$artifactId"))
                     .bold()
             }
@@ -143,6 +150,51 @@ class DependencyHierarchyDialog(
             preferredSize = Dimension(850, 520)
         }
     }
+
+    /**
+     * Erstellt die Toolbar-Aktionen des Hierarchie-Dialogs.
+     *
+     * @param tree Der zugehörige Baum.
+     * @return Die Toolbar mit den allgemeinen Baumaktionen.
+     */
+    internal fun createToolbar(tree: JTree): ActionToolbar =
+        ActionManager.getInstance().createActionToolbar(
+            "MavenUp.DependencyHierarchyDialog",
+            DefaultActionGroup().apply {
+                add(object : AnAction(
+                    MyMessageBundle.message("dependency.hierarchy.toolbar.expandAll"),
+                    null,
+                    AllIcons.Actions.Expandall
+                ) {
+                    override fun getActionUpdateThread() = ActionUpdateThread.EDT
+                    override fun actionPerformed(event: AnActionEvent) {
+                        expandAllNodes(tree)
+                    }
+                })
+                add(object : AnAction(
+                    MyMessageBundle.message("dependency.hierarchy.toolbar.collapseAll"),
+                    null,
+                    AllIcons.Actions.Collapseall
+                ) {
+                    override fun getActionUpdateThread() = ActionUpdateThread.EDT
+                    override fun actionPerformed(event: AnActionEvent) {
+                        collapseAllNodes(tree)
+                    }
+                })
+                add(Separator.getInstance())
+                add(object : AnAction(
+                    MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.navigateToPom"),
+                    null,
+                    AllIcons.Actions.Find
+                ) {
+                    override fun getActionUpdateThread() = ActionUpdateThread.EDT
+                    override fun actionPerformed(event: AnActionEvent) {
+                        navigateToSelectedNode(tree)
+                    }
+                })
+            },
+            true
+        )
 
     /**
      * Erstellt die Aktionsgruppe für das Kontextmenü des Hierarchiebaums.
@@ -213,6 +265,17 @@ class DependencyHierarchyDialog(
         while (row < tree.rowCount) {
             tree.expandRow(row)
             row++
+        }
+    }
+
+    /**
+     * Klappt alle Knoten des Baums vollständig zu.
+     *
+     * @param tree Der zu kollabierende Baum.
+     */
+    internal fun collapseAllNodes(tree: JTree) {
+        for (row in tree.rowCount - 1 downTo 0) {
+            tree.collapseRow(row)
         }
     }
 
