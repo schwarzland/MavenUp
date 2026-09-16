@@ -954,12 +954,18 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertNotNull(table)
 
         val pomAction = toolWindow.topToolbarActions()
-            .firstOrNull { it.templatePresentation.text == "Navigate to pom.xml" }
-        assertNotNull("Navigate-to-pom-Aktion muss in der Toolbar vorhanden sein", pomAction)
+            .first { it.templatePresentation.icon == AllIcons.General.Locate } as com.intellij.openapi.actionSystem.AnAction
+        val pomEvent = com.intellij.testFramework.TestActionEvent.createTestEvent(pomAction)
+        pomAction.update(pomEvent)
+        assertEquals(
+            "Die Toolbar-Aktion sollte die kurze Bezeichnung 'Locate' anzeigen",
+            MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.navigateToPom.short"),
+            pomEvent.presentation.text
+        )
         assertSame(
             "Die pom.xml-Aktion sollte das Locate-Icon aus dem Hierarchie-Dialog verwenden",
             AllIcons.General.Locate,
-            pomAction!!.templatePresentation.icon
+            pomAction.templatePresentation.icon
         )
 
         assertFalse(
@@ -1035,7 +1041,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         navigatePomAction.update(navigatePomEvent)
         assertEquals(
             "Die Aktion direkt vor Hierarchy muss die pom.xml-Navigation sein",
-            "Navigate to pom.xml",
+            MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.navigateToPom.short"),
             navigatePomEvent.presentation.text
         )
         assertSame(

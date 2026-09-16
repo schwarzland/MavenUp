@@ -114,6 +114,8 @@ private data class DependencyContextMenuTarget(
     val dependencyKey: String = "$groupId:$artifactId"
 }
 
+private const val TOOLWINDOW_MY_TOOL_WINDOW_CONTEXT_MENU_NAVIGATE_TO_POM = "toolwindow.MyToolWindow.contextMenu.navigateToPom"
+
 /**
  * -----------------------------------------------------------------------------------------------
  * Factory-Klasse zur Erstellung und Initialisierung des MavenUp Tool Windows in der IntelliJ-IDE.
@@ -1127,11 +1129,12 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 addSeparator()
                 add(openInRepositoryAction)
                 add(toolbarAction(
-                    "toolwindow.MyToolWindow.contextMenu.navigateToPom",
+                    TOOLWINDOW_MY_TOOL_WINDOW_CONTEXT_MENU_NAVIGATE_TO_POM,
                     AllIcons.General.Locate,
                     { isNavigateToPomEnabled() },
+                    shortLabelKey = "toolwindow.MyToolWindow.contextMenu.navigateToPom.short",
                     descriptionProvider = {
-                        MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.navigateToPom")
+                        MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_CONTEXT_MENU_NAVIGATE_TO_POM)
                     }
                 ) { navigateToPomForSelectedRow() })
                 add(toolbarAction(
@@ -1323,7 +1326,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * @param target Daten der angeklickten Tabellenzeile.
          */
         private fun addContextNavigationActions(group: DefaultActionGroup, target: DependencyContextMenuTarget) {
-            addContextMenuAction(group, MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.navigateToPom")) {
+            addContextMenuAction(group, MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_CONTEXT_MENU_NAVIGATE_TO_POM)) {
                 pomNavigationService.navigateToDependency(target.groupId, target.artifactId, target.type)
             }
             addContextMenuAction(
