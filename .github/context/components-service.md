@@ -14,8 +14,9 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   abgeschlossenen Maven-Imports einen PSI-Schnappschuss innerhalb einer IntelliJ-Read-Action erfasst und bei aktivierter Einstellung
   `autoSearchVersions` die Versionsabfrage im Hintergrund ausführt, ohne das Tool-Window zu
   erzeugen. Er speichert den jüngsten Zustand, veröffentlicht ihn über
-  `AUTOMATIC_VERSION_SEARCH_TOPIC` und verwirft durch eine Generation geschützte, überholte
-  Ergebnisse; `MavenUpWindowFactory` übernimmt den Cache beim Öffnen bzw. bei der Veröffentlichung.
+  `AUTOMATIC_VERSION_SEARCH_TOPIC`, setzt den Update-Badge direkt über
+  `ToolWindowBadgeService` und verwirft durch eine Generation geschützte, überholte Ergebnisse;
+  `MavenUpWindowFactory` übernimmt den Cache beim Öffnen bzw. bei der Veröffentlichung.
 - **MavenUpToolWindowActivator**: gemeinsames, idempotentes Hilfsobjekt zum Verfügbarmachen
   des Tool-Windows, genutzt von Startup-Aktivität und Import-Listener; nutzt die gemeinsame
   Konstante `MAVEN_UP_TOOL_WINDOW_ID`.

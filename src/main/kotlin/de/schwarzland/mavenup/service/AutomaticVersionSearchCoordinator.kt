@@ -63,6 +63,25 @@ internal fun shouldPublishAutomaticVersionSearchResult(
 ): Boolean = !isCancelled && isCurrentGeneration && !isProjectDisposed
 
 /**
+ * Prüft, ob ein Versionssuchergebnis mindestens ein verfügbares Update enthält.
+ *
+ * @param snapshot Schnappschuss mit den aktuell verwendeten Versionen.
+ * @param result Ergebnis der Versionssuche.
+ * @return `true`, wenn die höchste angebotene Version einer Koordinate von ihrer aktuellen Version abweicht.
+ */
+internal fun hasAvailableVersionUpdates(
+    snapshot: RefreshSnapshot,
+    result: VersionSearchResult
+): Boolean {
+    val currentVersions = snapshot.rows.associate { it.key to it.currentVersion }
+    return result.availableVersions.any { (key, versions) ->
+        versions.firstOrNull()?.let { newestVersion ->
+            newestVersion.isNotEmpty() && newestVersion != currentVersions[key].orEmpty()
+        } == true
+    }
+}
+
+/**
  * Führt die von Maven-Importen ausgelöste Versionssuche unabhängig vom Tool Window aus.
  *
  * Die Komponente erfasst nach Projektstart und jedem abgeschlossenen Maven-Import zunächst einen
@@ -119,6 +138,7 @@ internal class AutomaticVersionSearchCoordinator(private val project: Project) {
                     }
 
                     latestState = state
+                    updateToolWindowBadge(state)
                     ApplicationManager.getApplication().invokeLater {
                         if (shouldPublishAutomaticVersionSearchResult(
                                 indicator.isCanceled,
@@ -182,6 +202,26 @@ internal class AutomaticVersionSearchCoordinator(private val project: Project) {
         if (indicator.isCanceled) return null
         LOG.info("Finished automatic version search for ${result.availableVersions.size} Maven coordinates.")
         return AutomaticVersionSearchState(snapshot, result, repositoryError.get())
+    }
+
+    /**
+     * Aktualisiert das Tool-Window-Badge nach einer automatischen Versionssuche.
+     *
+     * Sicherheitslücken werden durch automatische Versionssuchen nicht ermittelt; daher wird für
+     * den Badge-Zustand nur die Verfügbarkeit neuer Versionen berücksichtigt.
+     *
+     * @param state Der abgeschlossene automatische Aktualisierungszustand.
+     */
+    private fun updateToolWindowBadge(state: AutomaticVersionSearchState) {
+        val result = state.versionSearchResult
+        val hasUpdates = result != null && hasAvailableVersionUpdates(state.snapshot, result)
+        ToolWindowBadgeService.getInstance(project).update(
+            determineBadgeState(
+                worstSeverity = null,
+                hasUpdates = hasUpdates,
+                mode = MavenUpSettings.getInstance().state.toolWindowBadgeMode
+            )
+        )
     }
 
     companion object {
