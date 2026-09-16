@@ -9,7 +9,7 @@
 - Added color highlighting for the target dependency across the tree in the **Dependency Hierarchy** dialog with automatic adaptation to Light and Dark themes.
 - Added a toolbar in the **Dependency Hierarchy** dialog with **Expand all**, **Collapse all**, and **Navigate to pom.xml** actions for quick tree navigation.
 - Added a **Show Dependency Hierarchy** toolbar action (with short label "Hierarchy" and abstract tree icon `AllIcons.Actions.ShowAsTree`) positioned between **Open on [Browser]** and **Vulnerability Details**, allowing inspection of the dependency hierarchy for a selected managed dependency or managed plugin in the main table, as well as any selected coordinate in the transitive CVEs table.
-- Added a modal **Show Dependency Hierarchy** dialog and context-menu action in both the main dependencies table and the transitive CVEs table for managed dependencies and managed plugins, visualizing the full resolution and inclusion paths, parent POMs, BOM imports, and intervening dependencies in an interactive tree with right-click context menu (**Navigate to pom.xml**) and `Enter` / `F4` keyboard navigation to the POM.
+- Added a modal **Show Dependency Hierarchy** dialog and context-menu action for managed dependencies and managed plugins in the main dependencies table and for every coordinate in the transitive CVEs table, visualizing the full resolution and inclusion paths, parent POMs, BOM imports, and intervening dependencies in an interactive tree with right-click context menu (**Navigate to pom.xml**) and `Enter` / `F4` keyboard navigation to the POM.
 - Added a context-menu action that marks managed dependencies and managed plugins for removal from `pom.xml` when the shared Update action is confirmed.
 - Added a dedicated dark theme plugin icon for the JetBrains Marketplace and IDE Plugin Manager.
 - Added IDE notifications reporting the number of versions found for the checked dependencies after a version search, and the number of direct/indirect vulnerabilities found after a vulnerability scan.
@@ -32,7 +32,7 @@
 
 ### Fixed
 
-- Fixed the **Show Dependency Hierarchy** context-menu action to stay visible in both the main dependency table and the transitive CVEs table while disabling it for non-managed rows and passing the managed-plugin flag correctly for plugin entries.
+- Fixed the **Show Dependency Hierarchy** context-menu action to stay visible while correctly disabling it for non-managed rows in the main dependency table and keeping it available for every transitive CVEs row.
 - Refactored dependency-table tooltips and context-menu construction to satisfy detekt method-length and return-count limits without changing their behavior.
 - Fixed Reset to Current Version in a row context menu so it only cancels the pending removal of that selected managed entry.
 - Fixed an IntelliJ platform inspection warning in `MavenUpConfigurable` by moving the sub-page link definitions and display name from a companion object to top-level declarations.
