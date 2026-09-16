@@ -1127,6 +1127,14 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 addSeparator()
                 add(openInRepositoryAction)
                 add(toolbarAction(
+                    "toolwindow.MyToolWindow.contextMenu.navigateToPom",
+                    AllIcons.General.Locate,
+                    { isNavigateToPomEnabled() },
+                    descriptionProvider = {
+                        MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.navigateToPom")
+                    }
+                ) { navigateToPomForSelectedRow() })
+                add(toolbarAction(
                     "toolwindow.MyToolWindow.dependencyHierarchy.button",
                     AllIcons.Actions.ShowAsTree,
                     { isDependencyHierarchyEnabled() },
@@ -3094,6 +3102,31 @@ class MavenUpWindowFactory : ToolWindowFactory {
         internal fun isOpenInRepositoryEnabled(): Boolean =
             if (showingTransitiveView) transitiveVulnerabilitiesView.hasSelectedRow()
             else table.selectedRow >= 0
+
+        /**
+         * Prüft, ob für die aktuell selektierte Zeile die Navigation zur `pom.xml` verfügbar ist.
+         *
+         * Die Aktion ist nur in der Haupttabelle aktiv und wird in der transitiven Sicherheitslücken-
+         * ansicht deaktiviert, weil dort keine direkte `pom.xml`-Deklaration für den Eintrag existiert.
+         *
+         * @return `true`, wenn eine Zeile in der Haupttabelle selektiert ist.
+         */
+        internal fun isNavigateToPomEnabled(): Boolean = !showingTransitiveView && table.selectedRow >= 0
+
+        /**
+         * Öffnet die Deklaration der aktuell selektierten Haupttabellenzeile in der passenden `pom.xml`.
+         */
+        internal fun navigateToPomForSelectedRow() {
+            if (showingTransitiveView) return
+            val row = table.selectedRow
+            if (row < 0) return
+            val groupId = table.getValueAt(row, GROUP_ID_COLUMN)?.toString().orEmpty()
+            val artifactId = table.getValueAt(row, ARTIFACT_ID_COLUMN)?.toString().orEmpty()
+            val type = table.getValueAt(row, TYPE_COLUMN)?.toString().orEmpty()
+            if (groupId.isNotBlank() && artifactId.isNotBlank()) {
+                pomNavigationService.navigateToDependency(groupId, artifactId, type)
+            }
+        }
 
         /**
          * Prüft, ob für die aktuell selektierte Zeile die Abhängigkeitshierarchie-Aktion verfügbar ist.

@@ -947,6 +947,51 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         )
     }
 
+    fun testNavigateToPomActionEnabledOnlyForSelectedMainTableRows() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val content = toolWindow.getContent()
+        val table = findTable(content)
+        assertNotNull(table)
+
+        val pomAction = toolWindow.topToolbarActions()
+            .firstOrNull { it.templatePresentation.text == "Navigate to pom.xml" }
+        assertNotNull("Navigate-to-pom-Aktion muss in der Toolbar vorhanden sein", pomAction)
+        assertSame(
+            "Die pom.xml-Aktion sollte das Locate-Icon aus dem Hierarchie-Dialog verwenden",
+            AllIcons.General.Locate,
+            pomAction!!.templatePresentation.icon
+        )
+
+        assertFalse(
+            "Navigate-to-pom-Aktion sollte ohne Selektion deaktiviert sein",
+            toolWindow.isNavigateToPomEnabled()
+        )
+
+        (table!!.model as? javax.swing.table.DefaultTableModel)?.addRow(
+            arrayOf("com.example", "my-lib", "", "dependency", null, "1.0.0", emptyList<String>())
+        )
+        table.setRowSelectionInterval(0, 0)
+        assertTrue(
+            "Navigate-to-pom-Aktion sollte bei selektierter Haupttabellenzeile aktiviert sein",
+            toolWindow.isNavigateToPomEnabled()
+        )
+
+        val showingTransitiveView = toolWindow.javaClass.getDeclaredField("showingTransitiveView")
+            .apply { isAccessible = true }
+        showingTransitiveView.setBoolean(toolWindow, true)
+        assertFalse(
+            "Navigate-to-pom-Aktion sollte in der transitiven CVE-Ansicht deaktiviert sein",
+            toolWindow.isNavigateToPomEnabled()
+        )
+        showingTransitiveView.setBoolean(toolWindow, false)
+
+        table.clearSelection()
+        assertFalse(
+            "Navigate-to-pom-Aktion sollte ohne Auswahl wieder deaktiviert sein",
+            toolWindow.isNavigateToPomEnabled()
+        )
+    }
+
     fun testOpenInRepositoryActionLabelReflectsConfiguredBrowser() {
         val settings = MavenUpSettings.getInstance()
         settings.state.repositoryBrowser = MavenRepositoryBrowser.SONATYPE_CENTRAL
@@ -984,12 +1029,27 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
             detailsIndex
         )
 
-        val openIndex = hierarchyIndex - 1
+        val navigatePomIndex = hierarchyIndex - 1
+        val navigatePomAction = allActions[navigatePomIndex]
+        val navigatePomEvent = com.intellij.testFramework.TestActionEvent.createTestEvent(navigatePomAction)
+        navigatePomAction.update(navigatePomEvent)
+        assertEquals(
+            "Die Aktion direkt vor Hierarchy muss die pom.xml-Navigation sein",
+            "Navigate to pom.xml",
+            navigatePomEvent.presentation.text
+        )
+        assertSame(
+            "Die pom.xml-Navigation sollte das Locate-Icon verwenden",
+            AllIcons.General.Locate,
+            navigatePomAction.templatePresentation.icon
+        )
+
+        val openIndex = navigatePomIndex - 1
         val openAction = allActions[openIndex]
         val openEvent = com.intellij.testFramework.TestActionEvent.createTestEvent(openAction)
         openAction.update(openEvent)
         assertEquals(
-            "Die Aktion direkt vor Hierarchy muss die Open-In-Repository-Aktion sein",
+            "Die Aktion direkt vor der pom.xml-Navigation muss die Open-In-Repository-Aktion sein",
             "Open",
             openEvent.presentation.text
         )
