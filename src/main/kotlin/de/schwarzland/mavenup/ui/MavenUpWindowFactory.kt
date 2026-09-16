@@ -1550,6 +1550,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 (listOf(allTypesFilterLabel) + stableTypeFilterOptions()).toTypedArray()
             )
             typeFilterComboBox.selectedItem = allTypesFilterLabel
+            typeFilterComboBox.renderer = typeFilterRenderer()
             typeFilterComboBox.toolTipText = MyMessageBundle.message("toolwindow.MyToolWindow.filter.type.tooltip")
             typeFilterComboBox.addActionListener { applyRowFilter() }
             filterControlsPanel.add(typeFilterComboBox)
@@ -2126,8 +2127,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
-         * Aktualisiert die Auswahlmöglichkeiten der Typ-Combobox anhand der aktuell in der
-         * Tabelle vorhandenen Typen.
+         * Aktualisiert die Auswahlmöglichkeiten der Typ-Combobox anhand der stabilen unterstützten
+         * Typen sowie der aktuell bekannten und in der Tabelle vorhandenen Typen.
          *
          * Die bisherige Auswahl bleibt erhalten, sofern der Typ weiterhin existiert; andernfalls
          * wird auf "alle Typen" zurückgesetzt.

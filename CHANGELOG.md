@@ -19,6 +19,7 @@
 
 ### Changed
 
+- Standardized all filter options to Sentence case, including dependency type labels while preserving their technical filter values.
 - Changed navigation in the **Dependency Hierarchy** dialog to use a right-click context menu (**Navigate to pom.xml**) and `Enter` / `F4` shortcuts, removing the conflicting double-click mouse handler and the hint text.
 - Reordered the main table row context menu so that **Show Dependency Hierarchy** is positioned directly above **Show Vulnerability Details**, consistent with the transitive CVEs table context menu.
 - Updated the Marketplace plugin icons with a shield and checkmark motif for vulnerability checks.

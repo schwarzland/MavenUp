@@ -135,6 +135,40 @@ internal fun triStateFilterRenderer(labels: TriStateFilterLabels): ListCellRende
         }
     }
 
+/**
+ * Formatiert einen technischen Dependency-Typ für die Anzeige als Option im Type-Filter.
+ *
+ * Der zurückgegebene Text folgt dem IntelliJ-Styleguide für Optionstexte (Sentence Case), während
+ * der unveränderte technische Wert weiterhin für die Filterung verwendet wird.
+ *
+ * @param type Der technische Typwert einer Tabellenzeile.
+ * @return Der im Sentence Case dargestellte Typwert.
+ */
+internal fun typeFilterOptionLabel(type: String): String =
+    type.replaceFirstChar { character -> character.uppercase() }
+
+/**
+ * Erzeugt einen Renderer, der technische Dependency-Typen im Type-Filter als Sentence Case zeigt.
+ *
+ * @return Ein [ListCellRenderer] für die Type-Filter-Combobox.
+ */
+internal fun typeFilterRenderer(): ListCellRenderer<in String> =
+    object : DefaultListCellRenderer() {
+        override fun getListCellRendererComponent(
+            list: JList<*>?,
+            value: Any?,
+            index: Int,
+            isSelected: Boolean,
+            cellHasFocus: Boolean
+        ): Component = super.getListCellRendererComponent(
+            list,
+            (value as? String)?.let(::typeFilterOptionLabel) ?: value?.toString(),
+            index,
+            isSelected,
+            cellHasFocus
+        )
+    }
+
 /** Kontextspezifische Optionstexte des Änderungs-Filters. */
 internal val CHANGES_FILTER_LABELS = TriStateFilterLabels(
     "toolwindow.MyToolWindow.filter.changes.option.all",
