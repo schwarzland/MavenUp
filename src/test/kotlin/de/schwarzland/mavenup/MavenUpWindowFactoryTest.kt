@@ -12,7 +12,9 @@ import de.schwarzland.mavenup.ui.buildMavenRepositoryUrl
 import de.schwarzland.mavenup.ui.GROUP_ID_COLUMN
 import de.schwarzland.mavenup.ui.ARTIFACT_ID_COLUMN
 import de.schwarzland.mavenup.ui.MavenUpWindowFactory
+import de.schwarzland.mavenup.ui.MANAGED_DEPENDENCY
 import de.schwarzland.mavenup.ui.MANAGED_PLUGIN
+import de.schwarzland.mavenup.ui.PARENT_TYPE
 import de.schwarzland.mavenup.ui.TransitiveVulnerabilitiesView
 import de.schwarzland.mavenup.ui.UpdateConfirmationDialog
 import de.schwarzland.mavenup.service.RefreshSnapshotCollector
@@ -51,6 +53,7 @@ import com.intellij.ui.content.ContentFactory
 import com.intellij.ui.content.ContentManager
 import java.awt.Container
 import javax.swing.JLabel
+import javax.swing.table.DefaultTableModel
 import java.util.concurrent.TimeUnit
 
 class MavenUpWindowFactoryTest : BasePlatformTestCase() {
@@ -508,6 +511,32 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         assertFalse(toolWindowInstance.updatesFilterComboBox.isEnabled)
         assertEquals(TriStateFilter.ALL, toolWindowInstance.updatesFilterComboBox.selectedItem)
+    }
+
+    fun testTypeFilterOptionsAlwaysIncludeAllKnownTypeCategories() {
+        val toolWindowInstance = MavenUpWindowFactory().MyToolWindow(project)
+        val knownTypesField = toolWindowInstance.javaClass
+            .getDeclaredField("knownTypes").apply { isAccessible = true }
+        @Suppress("UNCHECKED_CAST")
+        val knownTypes = knownTypesField.get(toolWindowInstance) as MutableMap<String, String>
+        knownTypes.clear()
+
+        val tableField = toolWindowInstance.javaClass.getDeclaredField("table").apply { isAccessible = true }
+        val table = tableField.get(toolWindowInstance) as JBTable
+        (table.model as DefaultTableModel).setRowCount(0)
+
+        toolWindowInstance.updateTypeFilterOptions()
+
+        val options = (0 until toolWindowInstance.typeFilterComboBox.itemCount)
+            .map { toolWindowInstance.typeFilterComboBox.getItemAt(it) as String }
+            .toSet()
+
+        assertTrue(options.contains(MyMessageBundle.message("toolwindow.MyToolWindow.filter.type.all")))
+        assertTrue(options.contains("dependency"))
+        assertTrue(options.contains("plugin"))
+        assertTrue(options.contains(PARENT_TYPE))
+        assertTrue(options.contains(MANAGED_PLUGIN))
+        assertTrue(options.contains(MANAGED_DEPENDENCY))
     }
 
     fun testVulnerabilitiesFilterIsDisabledUntilSuccessfulVulnerabilityScan() {

@@ -33,6 +33,7 @@
 
 ### Fixed
 
+- Fixed the **Type** filter dropping to only **All** after automatic version refreshes by always retaining the known dependency types as available filter options.
 - Fixed the MavenUp tool-window badge not indicating available updates after a background version search completed before the window was opened.
 - Fixed automatic version checks accessing Maven PSI without an IntelliJ read action.
 - Fixed the **Show Dependency Hierarchy** context-menu action to stay visible while correctly disabling it for non-managed rows in the main dependency table and keeping it available for every transitive CVEs row.

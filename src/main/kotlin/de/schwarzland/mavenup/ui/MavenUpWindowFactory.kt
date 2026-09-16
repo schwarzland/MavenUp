@@ -379,6 +379,15 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private val allTypesFilterLabel =
             MyMessageBundle.message("toolwindow.MyToolWindow.filter.type.all")
 
+        /** Stabile, immer verfügbare Liste der von MavenUp unterstützten Typfilter-Werte. */
+        private fun stableTypeFilterOptions(): List<String> = linkedSetOf(
+            "dependency",
+            "plugin",
+            PARENT_TYPE,
+            MANAGED_PLUGIN,
+            MANAGED_DEPENDENCY
+        ).toList()
+
         /** Container für die Aktionsleiste und die Filterzeile des Tabs **Dependencies**. */
         private val topPanel = JBPanel<JBPanel<*>>(BorderLayout())
 
@@ -744,6 +753,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 knownDependencies.clear()
                 knownTypes.clear()
                 inheritedVersionDependencies.clear()
+                updateTypeFilterOptions()
                 updateUpdateButtonState()
             }
 
@@ -1536,7 +1546,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
             val filterControlsPanel = JBPanel<JBPanel<*>>(FlowLayout(FlowLayout.LEFT, 4, 0))
 
             filterControlsPanel.add(JLabel(MyMessageBundle.message("toolwindow.MyToolWindow.filter.type.label")))
-            typeFilterComboBox.model = DefaultComboBoxModel(arrayOf(allTypesFilterLabel))
+            typeFilterComboBox.model = DefaultComboBoxModel(
+                (listOf(allTypesFilterLabel) + stableTypeFilterOptions()).toTypedArray()
+            )
+            typeFilterComboBox.selectedItem = allTypesFilterLabel
             typeFilterComboBox.toolTipText = MyMessageBundle.message("toolwindow.MyToolWindow.filter.type.tooltip")
             typeFilterComboBox.addActionListener { applyRowFilter() }
             filterControlsPanel.add(typeFilterComboBox)
@@ -2121,16 +2134,23 @@ class MavenUpWindowFactory : ToolWindowFactory {
          */
         internal fun updateTypeFilterOptions() {
             val model = table.model as DefaultTableModel
-            val types = (0 until model.rowCount)
+            val currentTableTypes = (0 until model.rowCount)
                 .mapNotNull { model.getValueAt(it, TYPE_COLUMN) as? String }
                 .filter { it.isNotBlank() }
+            val knownTypeOptions = knownTypes.values.filter { it.isNotBlank() }
+            val types = (stableTypeFilterOptions() + knownTypeOptions + currentTableTypes)
                 .distinct()
+                .filter { it.isNotBlank() }
                 .sorted()
             val previouslySelected = typeFilterComboBox.selectedItem as? String ?: allTypesFilterLabel
             typeFilterComboBox.model =
                 DefaultComboBoxModel((listOf(allTypesFilterLabel) + types).toTypedArray())
             typeFilterComboBox.selectedItem =
-                if (types.contains(previouslySelected)) previouslySelected else allTypesFilterLabel
+                if (previouslySelected == allTypesFilterLabel || types.contains(previouslySelected)) {
+                    previouslySelected
+                } else {
+                    allTypesFilterLabel
+                }
         }
 
         /**

@@ -6,6 +6,9 @@ internal const val PARENT_TYPE = "parent"
 /** Typ-Bezeichner für verwaltete Plugins ("managed plugins") in der Abhängigkeitstabelle. */
 internal const val MANAGED_PLUGIN = "managed plugin"
 
+/** Typ-Bezeichner für verwaltete Abhängigkeiten ("managed dependencies") in der Abhängigkeitstabelle. */
+internal const val MANAGED_DEPENDENCY = "managed dependency"
+
 /** Message-Bundle-Schlüssel für den Typ-Anzeigetext einer verwalteten Abhängigkeit. */
 internal const val TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY = "toolwindow.MyToolWindow.type.managedDependency"
 
