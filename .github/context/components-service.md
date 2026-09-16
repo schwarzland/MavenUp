@@ -7,8 +7,15 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
 - **MavenUpStartupActivity**: `ProjectActivity`, macht das Tool-Window beim Projektstart
   verfügbar, sobald bereits Maven-Projekte vorhanden sind (wartet auf `MavenProjectsManager`).
 - **MavenUpMavenImportListener**: deklarativ über `<projectListeners>` registrierter
-  `MavenImportListener`, der das Tool-Window nach abgeschlossenem Maven-Import verfügbar macht;
+  `MavenImportListener`, der das Tool-Window nach abgeschlossenem Maven-Import verfügbar macht und
+  die automatische Versionssuche anstößt;
   die deklarative Registrierung ermöglicht Plugin-Updates ohne IDE-Neustart.
+- **AutomaticVersionSearchCoordinator**: projektgebundener Service, der nach Projektstart und
+  abgeschlossenen Maven-Imports einen PSI-Schnappschuss erfasst und bei aktivierter Einstellung
+  `autoSearchVersions` die Versionsabfrage im Hintergrund ausführt, ohne das Tool-Window zu
+  erzeugen. Er speichert den jüngsten Zustand, veröffentlicht ihn über
+  `AUTOMATIC_VERSION_SEARCH_TOPIC` und verwirft durch eine Generation geschützte, überholte
+  Ergebnisse; `MavenUpWindowFactory` übernimmt den Cache beim Öffnen bzw. bei der Veröffentlichung.
 - **MavenUpToolWindowActivator**: gemeinsames, idempotentes Hilfsobjekt zum Verfügbarmachen
   des Tool-Windows, genutzt von Startup-Aktivität und Import-Listener; nutzt die gemeinsame
   Konstante `MAVEN_UP_TOOL_WINDOW_ID`.

@@ -120,7 +120,8 @@ class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
      * @property stopAfterCentralSuccess Bestimmt, ob nach einer erfolgreichen Abfrage von Maven Central keine weiteren privaten Repositories abgefragt werden.
      * @property offerAllVersions Bestimmt, ob in der Versionsauswahl alle verfügbaren Versionen (inklusive älterer) angeboten werden, statt nur Versionen `>=` der aktuellen Version.
      * @property confirmVersionReset Bestimmt, ob vor dem Zurücksetzen aller Versionsauswahlen ein Bestätigungsdialog angezeigt wird.
-     * @property autoSearchVersions Bestimmt, ob nach dem automatischen Neuladen der Projektdaten (Tool-Window-Start, Maven-Import/Resync) unmittelbar online nach neuen Versionen gesucht wird.
+     * @property autoSearchVersions Bestimmt, ob nach dem Laden eines Maven-Projekts und nach jedem
+     *   Maven-Import/Resync unabhängig vom geöffneten Tool Window online nach neuen Versionen gesucht wird.
      * @property addVulnerabilityFixComment Legacy-Flag früherer Plugin-Versionen; wird ausschließlich zur Migration auf [vulnerabilityCommentMode] gelesen und daraus fortgeschrieben.
      * @property vulnerabilityCommentMode Bestimmt, welche Kennungen der behobenen Sicherheitswarnungen beim Anlegen eines gepinnten `dependencyManagement`-Eintrags als erklärender XML-Kommentar eingefügt werden.
      * @property vulnerabilityCommentPrefix Der Text, der im erklärenden XML-Kommentar vor den Kennungen steht.

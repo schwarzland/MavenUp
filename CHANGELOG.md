@@ -6,6 +6,7 @@
 
 ### Added
 
+- Added project-wide background version checks after Maven project load and every completed Maven import or resync, independent of whether the MavenUp tool window has been opened.
 - Added color highlighting for the target dependency across the tree in the **Dependency Hierarchy** dialog with automatic adaptation to Light and Dark themes.
 - Added a toolbar in the **Dependency Hierarchy** dialog with **Expand all**, **Collapse all**, and **Navigate to pom.xml** actions for quick tree navigation.
 - Added a **Show Dependency Hierarchy** toolbar action (with short label "Hierarchy" and abstract tree icon `AllIcons.Actions.ShowAsTree`) positioned between **Open on [Browser]** and **Vulnerability Details**, allowing inspection of the dependency hierarchy for a selected managed dependency or managed plugin in the main table, as well as any selected coordinate in the transitive CVEs table.

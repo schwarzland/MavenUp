@@ -24,7 +24,7 @@ Tools
 
 #### Version Lookup
 
-- **Search for new versions automatically**: Determines whether the online version search runs automatically after the tool window loads the project data and after every finished Maven import or resync (default: on). When disabled, versions are only fetched when you trigger **Refresh and Search for New Versions** yourself. The automatic search only happens while the MavenUp tool window is open, so no network requests are made otherwise.
+- **Search for new versions automatically**: Determines whether the online version search runs in the background after a Maven project loads and after every finished Maven import or resync (default: on), even when the MavenUp tool window is closed. When disabled, versions are only fetched when you trigger **Refresh and Search for New Versions** yourself.
 - **Stop after a successful Maven Central lookup**: Determines whether no further private repositories are queried after a successful Maven Central lookup (default: on). When the option is disabled, private repositories continue to be queried even after a successful Central lookup in order to find private-only versions.
 
 #### Privacy

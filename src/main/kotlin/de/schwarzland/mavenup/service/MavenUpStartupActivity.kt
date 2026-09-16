@@ -8,12 +8,13 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
- * Startup-Aktivität, die das MavenUp Tool Window beim Öffnen eines Projekts verfügbar macht.
+ * Startup-Aktivität, die beim Öffnen eines Maven-Projekts das Tool Window aktiviert und die
+ * automatische Versionssuche auslöst.
  *
  * Diese Klasse implementiert [ProjectActivity] und wird beim Laden eines IntelliJ-Projektes ausgeführt.
  * Sind bereits Maven-Projekte importiert, wird das Tool Window sofort verfügbar gemacht. Andernfalls
- * übernimmt der deklarativ registrierte [MavenUpMavenImportListener] die Aktivierung, sobald der
- * nächste Maven-Import abgeschlossen ist.
+ * übernimmt der deklarativ registrierte [MavenUpMavenImportListener] Aktivierung und
+ * Versionssuche, sobald der nächste Maven-Import abgeschlossen ist.
  *
  * Die Aktivierung erfolgt über [MavenUpToolWindowActivator], damit Startup-Aktivität und Import-Listener
  * dieselbe, idempotente Logik verwenden.
@@ -32,8 +33,8 @@ private const val MAVEN_INDEXING_TIMEOUT_MS = 30000L // 30 Sekunden Timeout
 class MavenUpStartupActivity : ProjectActivity {
     /**
      * Wird beim Start eines IntelliJ-Projekts aufgerufen. Prüft, ob Maven-Projekte vorhanden sind,
-     * und aktiviert das MavenUp Tool Window direkt. Sind noch keine Projekte vorhanden, wird die
-     * Aktivierung dem deklarativen [MavenUpMavenImportListener] überlassen.
+     * und aktiviert das MavenUp Tool Window sowie die automatische Versionssuche direkt. Sind noch
+     * keine Projekte vorhanden, wird beides dem deklarativen [MavenUpMavenImportListener] überlassen.
      */
     override suspend fun execute(project: Project) {
         try {
@@ -47,6 +48,7 @@ class MavenUpStartupActivity : ProjectActivity {
             if (mavenManager.hasProjects()) {
                 LOG.debug("Maven-Projekte gefunden. Tool Window wird verfügbar gemacht.")
                 MavenUpToolWindowActivator.makeToolWindowAvailable(project)
+                AutomaticVersionSearchCoordinator.getInstance(project).requestAutomaticSearch()
                 return
             }
 

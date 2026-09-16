@@ -25,7 +25,8 @@ class MavenUpMavenImportListener(private val project: Project) : MavenImportList
     }
 
     /**
-     * Wird nach Abschluss eines Maven-Imports aufgerufen und macht das Tool Window verfügbar.
+     * Wird nach Abschluss eines Maven-Imports aufgerufen, macht das Tool Window verfügbar und
+     * startet die konfigurationsabhängige Versionssuche im Hintergrund.
      *
      * @param importedProjects Die im Zuge des Imports verarbeiteten Maven-Projekte.
      * @param newModules Die dabei neu erzeugten IntelliJ-Module.
@@ -39,5 +40,6 @@ class MavenUpMavenImportListener(private val project: Project) : MavenImportList
                     "${newModules.size} Module). Tool Window wird verfügbar gemacht."
         )
         MavenUpToolWindowActivator.makeToolWindowAvailable(project)
+        AutomaticVersionSearchCoordinator.getInstance(project).requestAutomaticSearch()
     }
 }

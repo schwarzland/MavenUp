@@ -18,6 +18,10 @@ import de.schwarzland.mavenup.service.VersionAutoSelectionMode
 import de.schwarzland.mavenup.service.VulnerabilityApiService
 import de.schwarzland.mavenup.service.VulnerabilityMerger
 import de.schwarzland.mavenup.service.MavenUpNotifications
+import de.schwarzland.mavenup.service.AutomaticVersionSearchCoordinator
+import de.schwarzland.mavenup.service.AutomaticVersionSearchState
+import de.schwarzland.mavenup.service.AutomaticVersionSearchListener
+import de.schwarzland.mavenup.service.AUTOMATIC_VERSION_SEARCH_TOPIC
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.ActionToolbar
 import com.intellij.openapi.actionSystem.ActionUpdateThread
@@ -60,8 +64,6 @@ import com.intellij.ui.table.JBTable
 import com.intellij.util.concurrency.AppExecutorUtil
 import com.intellij.util.ui.AbstractTableCellEditor
 import com.intellij.icons.AllIcons
-import org.jetbrains.idea.maven.project.MavenImportListener
-import org.jetbrains.idea.maven.project.MavenProject
 import org.jetbrains.idea.maven.project.MavenProjectsManager
 import java.awt.BorderLayout
 import java.awt.Component
@@ -215,6 +217,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         private val refreshSnapshotCollector = RefreshSnapshotCollector(project)
+        private val automaticVersionSearchCoordinator = AutomaticVersionSearchCoordinator.getInstance(project)
         private val pomUpdateService = PomUpdateService(project)
         private val pomNavigationService = PomNavigationService(project)
         private val toolWindowBadgeService = ToolWindowBadgeService.getInstance(project)
@@ -896,7 +899,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 }
             }
 
-            refreshAction(isAutoVersionSearchEnabled(), true, true)
+            automaticVersionSearchCoordinator.latestState()?.let(::applyAutomaticVersionSearchState)
+                ?: refreshAction(false, true, true)
 
             add(JBScrollPane(table), BorderLayout.CENTER)
             transitiveContent.add(transitiveTopPanel, BorderLayout.NORTH)
@@ -1166,19 +1170,14 @@ class MavenUpWindowFactory : ToolWindowFactory {
             topPanel.add(filterAndHintPanel, BorderLayout.SOUTH)
             add(topPanel, BorderLayout.NORTH)
 
-            project.messageBus.connect(this@MyToolWindow).subscribe(MavenImportListener.TOPIC, object : MavenImportListener {
-                override fun importFinished(
-                    importedProjects: Collection<MavenProject>,
-                    newModules: List<com.intellij.openapi.module.Module>
-                ) {
-                    ApplicationManager.getApplication().invokeLater {
-                        availableVersions.clear()
-                        rawAvailableVersions.clear()
-                        selectedVersions.clear()
-                        refreshAction(isAutoVersionSearchEnabled(), true, true)
+            project.messageBus.connect(this@MyToolWindow).subscribe(
+                AUTOMATIC_VERSION_SEARCH_TOPIC,
+                object : AutomaticVersionSearchListener {
+                    override fun automaticVersionSearchCompleted(state: AutomaticVersionSearchState) {
+                        applyAutomaticVersionSearchState(state)
                     }
                 }
-            })
+            )
 
             project.messageBus.connect(this@MyToolWindow).subscribe(MAVEN_UP_SETTINGS_TOPIC, Runnable {
                 ApplicationManager.getApplication().invokeLater {
@@ -2028,6 +2027,73 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     availableVersions[row.key].orEmpty()
                 )
             )
+        }
+
+        /**
+         * Übernimmt einen vom projektweiten Hintergrundkoordinator veröffentlichten Zustand in die UI.
+         *
+         * Ein laufender manueller Update- oder Vulnerability-Vorgang behält Vorrang, damit dessen
+         * Ergebnis nicht durch einen gleichzeitig fertig werdenden Maven-Import überschrieben wird.
+         *
+         * @param state Der nach Projektstart oder Maven-Import erfasste Zustand.
+         */
+        private fun applyAutomaticVersionSearchState(state: AutomaticVersionSearchState) {
+            if (isUpdating || project.isDisposed) return
+
+            refreshGeneration++
+            isRefreshing = false
+            isSearchingVersions = false
+            (table.model as DefaultTableModel).setRowCount(0)
+            availableVersions.clear()
+            rawAvailableVersions.clear()
+            selectedVersions.clear()
+            pendingManagedRemovalUpdates.clear()
+            dependencyToProperty.clear()
+            knownDependencies.clear()
+            knownTypes.clear()
+            inheritedVersionDependencies.clear()
+            vulnerabilityAdvisories.clear()
+            transitiveCoordinates.clear()
+            transitiveDependenciesByDirect.clear()
+            transitiveAvailableVersions.clear()
+            rawTransitiveAvailableVersions.clear()
+            transitiveCurrentVersions.clear()
+            vulnerabilityScanPerformed = false
+            lastScannedCount = 0
+            hideScanHint()
+            vulnerabilityScanErrors = emptyList()
+            transitiveVersionRepositoryError = null
+
+            val result = state.versionSearchResult
+            availableVersions.putAll(result?.availableVersions.orEmpty())
+            rawAvailableVersions.putAll(result?.rawVersions.orEmpty())
+            selectedVersions.putAll(result?.selectedVersions.orEmpty())
+            versionSearchRepositoryError = state.repositoryError
+            dependencyToProperty.putAll(state.snapshot.dependencyProperties)
+
+            val declaredCoordinates = state.snapshot.rows
+                .filter { it.currentVersion.isNotEmpty() }
+                .mapTo(linkedSetOf()) { "${it.key}:${it.currentVersion}" }
+            state.snapshot.rows.forEach { row ->
+                knownDependencies[row.key] = row.currentVersion
+                knownTypes[row.key] = row.type
+                if (row.versionInherited) {
+                    inheritedVersionDependencies.add(row.key)
+                }
+                addDependencyRow(row, declaredCoordinates)
+            }
+
+            updateUpdateButtonState()
+            updateTypeFilterOptions()
+            updateUpdatesFilterState()
+            updateVulnerabilitiesFilterState()
+            updateVersionSourceFilterState()
+            updateTransitiveVulnerabilitiesView()
+            trimColumnWidthsToContent(table)
+            refreshApiErrorBanner()
+            updateTableEmptyText()
+            updateToolWindowBadge()
+            refreshToolbar()
         }
 
         /**
@@ -2905,9 +2971,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * Prüft, ob nach einem automatischen Neuladen der Projektdaten sofort online nach neuen
          * Versionen gesucht werden soll.
          *
-         * Die automatischen Auslöser sind der Aufbau des Tool-Window-Inhalts (erstes Öffnen nach dem
-         * Projektstart) und jeder abgeschlossene Maven-Import bzw. -Resync. Ohne geöffnetes Tool Window
-         * existiert dieser Inhalt nicht, sodass ohne Zutun des Anwenders keine Netzwerkabfragen erfolgen.
+         * Die automatischen Auslöser sind Projektstart und jeder abgeschlossene Maven-Import bzw.
+         * -Resync; der projektweite [AutomaticVersionSearchCoordinator] führt sie unabhängig vom
+         * geöffneten Tool Window aus.
          *
          * @return `true`, wenn die Einstellung [MavenUpSettings.State.autoSearchVersions] aktiv ist.
          */
