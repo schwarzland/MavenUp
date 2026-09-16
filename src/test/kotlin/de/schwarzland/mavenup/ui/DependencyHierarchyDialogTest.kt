@@ -346,6 +346,46 @@ class DependencyHierarchyDialogTest : BasePlatformTestCase() {
         assertNotNull(panel)
     }
 
+    fun testCanNavigateToSelectedNodeDependsOnSelection() {
+        val rootNode = DependencyHierarchyNode(
+            type = DependencyHierarchyNodeType.ROOT,
+            groupId = "com.example",
+            artifactId = "demo",
+            version = "1.0.0",
+            pomFile = null
+        )
+        val childNode = DependencyHierarchyNode(
+            type = DependencyHierarchyNodeType.DIRECT_DEPENDENCY,
+            groupId = "com.example",
+            artifactId = "demo",
+            version = "1.0.0",
+            pomFile = null
+        )
+        val treeModel = DefaultMutableTreeNode(rootNode).apply {
+            add(DefaultMutableTreeNode(childNode))
+        }
+        val tree = Tree(treeModel)
+        val dialog = DependencyHierarchyDialog(project, "com.example", "demo")
+
+        tree.setSelectionRow(0)
+        assertTrue(dialog.canNavigateToSelectedNode(tree))
+
+        val rootOnlyTree = Tree(DefaultMutableTreeNode(rootNode))
+        rootOnlyTree.setSelectionRow(0)
+        assertTrue(dialog.canNavigateToSelectedNode(rootOnlyTree))
+
+        val invalidNode = DependencyHierarchyNode(
+            type = DependencyHierarchyNodeType.ROOT,
+            groupId = "",
+            artifactId = "",
+            version = "1.0.0",
+            pomFile = null
+        )
+        val invalidTree = Tree(DefaultMutableTreeNode(invalidNode))
+        invalidTree.setSelectionRow(0)
+        assertFalse(dialog.canNavigateToSelectedNode(invalidTree))
+    }
+
     private val DependencyHierarchyTreeCellRenderer.renderedItems: List<String>
         get() = (0 until iterator().asSequence().count()).map {
             iterator().asSequence().toList()[it]

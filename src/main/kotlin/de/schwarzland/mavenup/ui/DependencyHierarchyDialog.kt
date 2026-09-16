@@ -152,6 +152,26 @@ class DependencyHierarchyDialog(
     }
 
     /**
+     * Prüft, ob für den aktuell ausgewählten Knoten eine Navigation möglich ist.
+     *
+     * @param tree Der Baum mit der aktuellen Selektion.
+     * @return `true`, wenn die Auswahl zu einer `pom.xml`-Stelle oder einer passenden
+     *         Maven-Navigation springen kann.
+     */
+    internal fun canNavigateToSelectedNode(tree: JTree): Boolean {
+        val selectedPath = tree.selectionPath ?: return false
+        val treeNode = selectedPath.lastPathComponent as? DefaultMutableTreeNode ?: return false
+        val node = treeNode.userObject as? DependencyHierarchyNode ?: return false
+        return when {
+            node.xmlTag != null && node.pomFile != null && node.xmlTag.isValid -> true
+            node.type == DependencyHierarchyNodeType.PROJECT && node.pomFile != null -> true
+            node.groupId.isNotBlank() && node.artifactId.isNotBlank() -> true
+            node.pomFile != null -> true
+            else -> false
+        }
+    }
+
+    /**
      * Erstellt die Toolbar-Aktionen des Hierarchie-Dialogs.
      *
      * @param tree Der zugehörige Baum.
@@ -185,11 +205,16 @@ class DependencyHierarchyDialog(
                 add(object : AnAction(
                     MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.navigateToPom"),
                     null,
-                    AllIcons.Actions.Find
+                    AllIcons.General.Locate
                 ) {
                     override fun getActionUpdateThread() = ActionUpdateThread.EDT
+                    override fun update(event: AnActionEvent) {
+                        event.presentation.isEnabled = canNavigateToSelectedNode(tree)
+                    }
                     override fun actionPerformed(event: AnActionEvent) {
-                        navigateToSelectedNode(tree)
+                        if (canNavigateToSelectedNode(tree)) {
+                            navigateToSelectedNode(tree)
+                        }
                     }
                 })
             },
@@ -206,8 +231,13 @@ class DependencyHierarchyDialog(
         DefaultActionGroup().apply {
             add(object : AnAction(MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.navigateToPom")) {
                 override fun getActionUpdateThread() = ActionUpdateThread.BGT
+                override fun update(event: AnActionEvent) {
+                    event.presentation.isEnabled = canNavigateToSelectedNode(tree)
+                }
                 override fun actionPerformed(event: AnActionEvent) {
-                    navigateToSelectedNode(tree)
+                    if (canNavigateToSelectedNode(tree)) {
+                        navigateToSelectedNode(tree)
+                    }
                 }
             })
         }
@@ -289,27 +319,31 @@ class DependencyHierarchyDialog(
         val treeNode = selectedPath.lastPathComponent as? DefaultMutableTreeNode ?: return
         val node = treeNode.userObject as? DependencyHierarchyNode ?: return
 
-        if (node.xmlTag != null && node.pomFile != null && node.xmlTag.isValid) {
-            openInEditor(node.pomFile, node.xmlTag)
-        } else if (node.type == DependencyHierarchyNodeType.PROJECT && node.pomFile != null) {
-            val descriptor = OpenFileDescriptor(project, node.pomFile)
-            FileEditorManager.getInstance(project).openTextEditor(descriptor, true)
-        } else if (node.groupId.isNotBlank() && node.artifactId.isNotBlank()) {
-            val navType = resolveNavType(node.type)
-            if (node.pomFile != null) {
-                val targetTag = ApplicationManager.getApplication().runReadAction<XmlTag?> {
-                    val psiFile = PsiManager.getInstance(project).findFile(node.pomFile) as? XmlFile
-                    findTargetTag(psiFile?.document?.rootTag, node)
-                }
-                if (targetTag != null) {
-                    openInEditor(node.pomFile, targetTag)
-                    return
-                }
+        when {
+            node.xmlTag != null && node.pomFile != null && node.xmlTag.isValid -> {
+                openInEditor(node.pomFile, node.xmlTag)
             }
-            PomNavigationService(project).navigateToDependency(node.groupId, node.artifactId, navType)
-        } else if (node.pomFile != null) {
-            val descriptor = OpenFileDescriptor(project, node.pomFile)
-            FileEditorManager.getInstance(project).openTextEditor(descriptor, true)
+            node.type == DependencyHierarchyNodeType.PROJECT && node.pomFile != null -> {
+                openFileInEditor(node.pomFile)
+            }
+            node.groupId.isNotBlank() && node.artifactId.isNotBlank() -> {
+                val navType = resolveNavType(node.type)
+                val pomFile = node.pomFile
+                if (pomFile != null) {
+                    val targetTag = ApplicationManager.getApplication().runReadAction<XmlTag?> {
+                        val psiFile = PsiManager.getInstance(project).findFile(pomFile) as? XmlFile
+                        findTargetTag(psiFile?.document?.rootTag, node)
+                    }
+                    if (targetTag != null) {
+                        openInEditor(pomFile, targetTag)
+                        return
+                    }
+                }
+                PomNavigationService(project).navigateToDependency(node.groupId, node.artifactId, navType)
+            }
+            node.pomFile != null -> {
+                openFileInEditor(node.pomFile)
+            }
         }
     }
 
@@ -351,6 +385,11 @@ class DependencyHierarchyDialog(
      * @param pomFile Die zu öffnende Datei.
      * @param targetTag Das Ziel-XML-Tag.
      */
+    private fun openFileInEditor(pomFile: VirtualFile) {
+        val descriptor = OpenFileDescriptor(project, pomFile)
+        FileEditorManager.getInstance(project).openTextEditor(descriptor, true)
+    }
+
     private fun openInEditor(pomFile: VirtualFile, targetTag: XmlTag) {
         val offset = ApplicationManager.getApplication().runReadAction<Int> {
             if (targetTag.isValid) targetTag.textOffset else 0
