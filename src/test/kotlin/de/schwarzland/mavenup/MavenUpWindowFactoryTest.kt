@@ -2927,16 +2927,16 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val coord2 = "org.test:lib-b:1.0.0"
         val advisories = mapOf(
             coord1 to listOf(
-                de.schwarzland.mavenup.model.VulnerabilityAdvisory(
+                VulnerabilityAdvisory(
                     id = "CVE-1",
-                    severity = de.schwarzland.mavenup.model.VulnerabilitySeverity.HIGH,
+                    severity = VulnerabilitySeverity.HIGH,
                     sources = setOf("OSV")
                 )
             ),
             coord2 to listOf(
-                de.schwarzland.mavenup.model.VulnerabilityAdvisory(
+                VulnerabilityAdvisory(
                     id = "CVE-2",
-                    severity = de.schwarzland.mavenup.model.VulnerabilitySeverity.HIGH,
+                    severity = VulnerabilitySeverity.HIGH,
                     sources = setOf("OSV")
                 )
             )
