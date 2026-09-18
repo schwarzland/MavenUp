@@ -44,6 +44,7 @@
 - Refactored dependency-table tooltips and context-menu construction to satisfy detekt method-length and return-count limits without changing their behavior.
 - Fixed Reset to Current Version in a row context menu so it only cancels the pending removal of that selected managed entry.
 - Fixed an IntelliJ platform inspection warning in `MavenUpConfigurable` by moving the sub-page link definitions and display name from a companion object to top-level declarations.
+- Fixed IntelliJ platform inspection warnings in `MavenUpWindowFactoryTest` regarding direct `AnAction.update(AnActionEvent)` test invocations by suppressing the `OverrideOnly` inspection on the affected test methods.
 
 ## 3.2.0
 

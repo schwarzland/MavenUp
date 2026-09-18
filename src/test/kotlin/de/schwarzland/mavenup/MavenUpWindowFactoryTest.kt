@@ -978,6 +978,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         )
     }
 
+    @Suppress("OverrideOnly")
     fun testNavigateToPomActionEnabledOnlyForSelectedMainTableRows() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         val content = toolWindow.getContent()
@@ -985,7 +986,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertNotNull(table)
 
         val pomAction = toolWindow.topToolbarActions()
-            .first { it.templatePresentation.icon == AllIcons.General.Locate } as com.intellij.openapi.actionSystem.AnAction
+            .first { it.templatePresentation.icon == AllIcons.General.Locate }
         val pomEvent = com.intellij.testFramework.TestActionEvent.createTestEvent(pomAction)
         pomAction.update(pomEvent)
         assertEquals(
@@ -3411,6 +3412,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
      * Stellt sicher, dass "Remove from pom.xml" im Kontextmenü der Haupttabelle stets vorhanden ist
      * und für nicht verwaltete Einträge deaktiviert ist.
      */
+    @Suppress("OverrideOnly")
     fun testContextMenuRemoveFromPomAlwaysPresentAndDisabledForStandardEntries() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         toolWindow.getContent()
@@ -3441,6 +3443,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
      * Stellt sicher, dass "Remove from pom.xml" für verwaltete Einträge aktiviert ist, nach dem Vormerken
      * deaktiviert wird und bei laufender Aktualisierung ebenfalls deaktiviert ist.
      */
+    @Suppress("OverrideOnly")
     fun testContextMenuRemoveFromPomEnabledForManagedEntriesAndDisabledWhenMarkedOrUpdating() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         toolWindow.getContent()
