@@ -607,7 +607,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     val type = table?.getValueAt(row, TYPE_COLUMN) as? String ?: ""
                     if (isManagedEntryMarkedForRemoval(key, type)) {
                         return@TableCellRenderer JLabel(
-                            MyMessageBundle.message("toolwindow.MyToolWindow.version.willRemove")
+                            willRemoveOrCommentOutLabel()
                         ).apply {
                             foreground = versionStatusColor(false)
                             font = font.deriveFont(Font.BOLD)
@@ -912,20 +912,20 @@ class MavenUpWindowFactory : ToolWindowFactory {
             transitiveContent.add(transitiveTopPanel, BorderLayout.NORTH)
             transitiveContent.add(transitiveVulnerabilitiesView, BorderLayout.CENTER)
 
-            fun toolbarAction(
-                messageKey: String,
+            fun dynamicToolbarAction(
                 icon: Icon,
                 isEnabled: () -> Boolean,
+                labelProvider: () -> String,
                 shortLabelKey: String? = null,
                 descriptionProvider: (() -> String)? = null,
                 isMenuItem: Boolean = false,
                 onPerform: () -> Unit
             ): AnAction {
-                val label = MyMessageBundle.message(messageKey)
-                return object : AnAction(label, label, icon) {
+                return object : AnAction(labelProvider(), labelProvider(), icon) {
                     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
                     override fun update(e: AnActionEvent) {
                         e.presentation.isEnabled = isEnabled()
+                        val label = labelProvider()
                         val fullText = descriptionProvider?.invoke() ?: label
                         if (isMenuItem) {
                             // In einem Untermenü wird immer der vollständige Text angezeigt.
@@ -948,6 +948,24 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     override fun actionPerformed(e: AnActionEvent) = onPerform()
                 }
             }
+
+            fun toolbarAction(
+                messageKey: String,
+                icon: Icon,
+                isEnabled: () -> Boolean,
+                shortLabelKey: String? = null,
+                descriptionProvider: (() -> String)? = null,
+                isMenuItem: Boolean = false,
+                onPerform: () -> Unit
+            ): AnAction = dynamicToolbarAction(
+                icon = icon,
+                isEnabled = isEnabled,
+                labelProvider = { MyMessageBundle.message(messageKey) },
+                shortLabelKey = shortLabelKey,
+                descriptionProvider = descriptionProvider,
+                isMenuItem = isMenuItem,
+                onPerform = onPerform
+            )
 
             val openInRepositoryAction = object : AnAction() {
                 override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
@@ -1070,7 +1088,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
                 override fun update(e: AnActionEvent) {
                     val showText = isToolbarTextEnabled()
-                    val tooltip = MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.group.tooltip")
+                    val tooltip = managedEntriesGroupTooltip()
                     e.presentation.isEnabled = !showingTransitiveView && (
                         hasManagedEntriesToRemoveForType(MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)) ||
                             hasManagedEntriesToRemoveForType(MANAGED_PLUGIN)
@@ -1083,13 +1101,17 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 }
             }.apply {
                 templatePresentation.icon = MANAGED_ENTRIES_ICON
-                add(toolbarAction(
-                    "toolwindow.MyToolWindow.managedEntries.removeManagedDependencies.button",
-                    AllIcons.Actions.Cancel,
-                    { !showingTransitiveView && hasManagedEntriesToRemoveForType(MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)) },
+                add(dynamicToolbarAction(
+                    icon = AllIcons.Actions.Cancel,
+                    isEnabled = {
+                        !showingTransitiveView && hasManagedEntriesToRemoveForType(
+                            MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
+                        )
+                    },
+                    labelProvider = { managedDependenciesActionLabel() },
                     descriptionProvider = {
                         bulkSelectionActionDescription(
-                            MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.removeManagedDependencies.button")
+                            managedDependenciesActionLabel()
                         )
                     },
                     isMenuItem = true
@@ -1098,13 +1120,13 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
                     )
                 })
-                add(toolbarAction(
-                    "toolwindow.MyToolWindow.managedEntries.removeManagedPlugins.button",
-                    AllIcons.Actions.Cancel,
-                    { !showingTransitiveView && hasManagedEntriesToRemoveForType(MANAGED_PLUGIN) },
+                add(dynamicToolbarAction(
+                    icon = AllIcons.Actions.Cancel,
+                    isEnabled = { !showingTransitiveView && hasManagedEntriesToRemoveForType(MANAGED_PLUGIN) },
+                    labelProvider = { managedPluginsActionLabel() },
                     descriptionProvider = {
                         bulkSelectionActionDescription(
-                            MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.removeManagedPlugins.button")
+                            managedPluginsActionLabel()
                         )
                     },
                     isMenuItem = true
@@ -1204,6 +1226,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     applyVersionVisibilitySettingsIfChanged()
                     applySelectLatestVersionSettingIfChanged()
                     updateToolWindowBadge()
+                    table.repaint()
+                    filterAndHintPanel.revalidate()
+                    filterAndHintPanel.repaint()
                 }
             })
         }
@@ -1266,7 +1291,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             val type = table.getValueAt(row, TYPE_COLUMN) as? String ?: ""
             val dependencyKey = "$groupId:$artifactId"
             if (isManagedEntryMarkedForRemoval(dependencyKey, type)) {
-                return MyMessageBundle.message("toolwindow.MyToolWindow.version.willRemoveTooltip")
+                return willRemoveOrCommentOutTooltip()
             }
 
             val newestVersion = versions.firstOrNull().orEmpty()
@@ -1415,7 +1440,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             ) { resetVersionForDependency(dependencyKey, target.type) }
             addContextMenuAction(
                 group,
-                MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.removeFromPom"),
+                managedEntryContextMenuLabel(),
                 isManagedEntryRemovalEnabled(dependencyKey, target.type)
             ) {
                 markManagedEntryForRemoval(dependencyKey, target.type, target.currentVersion)
@@ -2995,15 +3020,100 @@ class MavenUpWindowFactory : ToolWindowFactory {
                MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.filtered.option.filtered"),
                MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.filtered.option.cancel")
            )
+           val messageKey = if (isCommentOutManagedEntriesEnabled()) {
+               "toolwindow.MyToolWindow.managedEntries.filtered.message.commentOut"
+           } else {
+               "toolwindow.MyToolWindow.managedEntries.filtered.message"
+           }
            return Messages.showDialog(
                project,
-               MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.filtered.message"),
+               MyMessageBundle.message(messageKey),
                MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_MANAGED_ENTRIES_GROUP_BUTTON),
                options,
                0,
                Messages.getWarningIcon()
            )
         }
+
+        /**
+         * Prüft, ob das Auskommentieren verwalteter Einträge beim Entfernen in den Einstellungen aktiviert ist.
+         *
+         * @return `true`, wenn verwaltete Einträge auskommentiert statt gelöscht werden sollen.
+         */
+        internal fun isCommentOutManagedEntriesEnabled(): Boolean =
+            MavenUpSettings.getInstance().state.commentOutManagedEntriesOnRemoval
+
+        /**
+         * Liefert die konfigurationsabhängige Beschriftung der Bulk-Aktion für verwaltete Abhängigkeiten.
+         *
+         * @return Die lokalisierte Beschriftung ("Comment out managed dependencies" bzw. "Remove managed dependencies").
+         */
+        internal fun managedDependenciesActionLabel(): String =
+            if (isCommentOutManagedEntriesEnabled()) {
+                MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.commentOutManagedDependencies.button")
+            } else {
+                MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.removeManagedDependencies.button")
+            }
+
+        /**
+         * Liefert die konfigurationsabhängige Beschriftung der Bulk-Aktion für verwaltete Plugins.
+         *
+         * @return Die lokalisierte Beschriftung ("Comment out managed plugins" bzw. "Remove managed plugins").
+         */
+        internal fun managedPluginsActionLabel(): String =
+            if (isCommentOutManagedEntriesEnabled()) {
+                MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.commentOutManagedPlugins.button")
+            } else {
+                MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.removeManagedPlugins.button")
+            }
+
+        /**
+         * Liefert den konfigurationsabhängigen Tooltip für das Managed-Entries-Menü.
+         *
+         * @return Der lokalisierte Tooltip.
+         */
+        internal fun managedEntriesGroupTooltip(): String =
+            if (isCommentOutManagedEntriesEnabled()) {
+                MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.group.tooltip.commentOut")
+            } else {
+                MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.group.tooltip")
+            }
+
+        /**
+         * Liefert die konfigurationsabhängige Beschriftung des Kontextmenüeintrags zum Entfernen/Auskommentieren.
+         *
+         * @return Die lokalisierte Beschriftung ("Comment out in pom.xml" bzw. "Remove from pom.xml").
+         */
+        internal fun managedEntryContextMenuLabel(): String =
+            if (isCommentOutManagedEntriesEnabled()) {
+                MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.commentOutFromPom")
+            } else {
+                MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.removeFromPom")
+            }
+
+        /**
+         * Liefert den Anzeigetext für die Spalte "New Version" bei zur Entfernung/Auskommentierung vorgemerkten Einträgen.
+         *
+         * @return Der lokalisierte Statustext ("Will be commented out" bzw. "Will be removed").
+         */
+        internal fun willRemoveOrCommentOutLabel(): String =
+            if (isCommentOutManagedEntriesEnabled()) {
+                MyMessageBundle.message("toolwindow.MyToolWindow.version.willCommentOut")
+            } else {
+                MyMessageBundle.message("toolwindow.MyToolWindow.version.willRemove")
+            }
+
+        /**
+         * Liefert den Tooltip für die Spalte "New Version" bei zur Entfernung/Auskommentierung vorgemerkten Einträgen.
+         *
+         * @return Der lokalisierte Tooltip.
+         */
+        internal fun willRemoveOrCommentOutTooltip(): String =
+            if (isCommentOutManagedEntriesEnabled()) {
+                MyMessageBundle.message("toolwindow.MyToolWindow.version.willCommentOutTooltip")
+            } else {
+                MyMessageBundle.message("toolwindow.MyToolWindow.version.willRemoveTooltip")
+            }
 
         /**
          * Prüft, ob die Sammelaktionen zur Versionsauswahl ausführbar sind.

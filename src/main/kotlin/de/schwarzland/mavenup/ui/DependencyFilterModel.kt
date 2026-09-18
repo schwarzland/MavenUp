@@ -1,5 +1,6 @@
 package de.schwarzland.mavenup.ui
 
+import de.schwarzland.mavenup.service.MavenUpSettings
 import java.awt.Component
 import javax.swing.DefaultListCellRenderer
 import javax.swing.JList
@@ -52,7 +53,11 @@ internal enum class PendingChangesFilter(val labelKey: String) {
 
     /** Liefert die lokalisierte Bezeichnung der Filteroption. */
     val label: String
-        get() = MyMessageBundle.message(labelKey)
+        get() = if (this == WILL_REMOVE && MavenUpSettings.getInstance().state.commentOutManagedEntriesOnRemoval) {
+            MyMessageBundle.message("toolwindow.MyToolWindow.filter.changes.option.willCommentOut")
+        } else {
+            MyMessageBundle.message(labelKey)
+        }
 
     override fun toString(): String = label
 }

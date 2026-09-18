@@ -20,6 +20,7 @@
 
 ### Changed
 
+- Updated the "Remove managed..." bulk action labels, toolbar group tooltip, row context menu action ("Remove from pom.xml" / "Comment out in pom.xml"), and "New Version" column status ("Will be removed" / "Will be commented out") to adapt dynamically based on the "Comment out managed entries instead of deleting" setting.
 - Capitalized the **Dependency Hierarchy** toolbar and navigation action labels in accordance with IntelliJ action naming conventions.
 - Standardized all filter options to Sentence case, including dependency type labels while preserving their technical filter values.
 - Changed navigation in the **Dependency Hierarchy** dialog to use a right-click context menu (**Navigate to pom.xml**) and `Enter` / `F4` shortcuts, removing the conflicting double-click mouse handler and the hint text.
@@ -36,6 +37,7 @@
 
 ### Fixed
 
+- Fixed angle brackets in the explanatory comment for commenting out managed entries on removal being parsed as HTML tags by escaping them as HTML entities.
 - Fixed the bulk version selection actions (**Select Highest Major Version**, **Select Highest Minor Version**, **Select Recommended Version**) in the transitive CVEs view not prompting whether to apply to all coordinates or only to the filtered ones when a filter is active, making its behavior consistent with the main dependencies table.
 - Fixed the **Dependency Hierarchy** dialog toolbar using the focused component instead of its hierarchy tree to update local actions.
 - Fixed the **Type** filter dropping to only **All** after automatic version refreshes by always retaining the known dependency types as available filter options.

@@ -95,7 +95,11 @@ class UpdateConfirmationDialog(
                     typeLabel(update),
                     update.oldVersion,
                     if (update.removeFromPom) {
-                        MyMessageBundle.message("toolwindow.MyToolWindow.version.willRemove")
+                        if (MavenUpSettings.getInstance().state.commentOutManagedEntriesOnRemoval) {
+                            MyMessageBundle.message("toolwindow.MyToolWindow.version.willCommentOut")
+                        } else {
+                            MyMessageBundle.message("toolwindow.MyToolWindow.version.willRemove")
+                        }
                     } else {
                         update.newVersion
                     }

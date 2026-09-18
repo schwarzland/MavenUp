@@ -377,8 +377,8 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
                 .map { it.templatePresentation.text }
                 .containsAll(
                     listOf(
-                        MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.removeManagedDependencies.button"),
-                        MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.removeManagedPlugins.button")
+                        toolWindowInstance.managedDependenciesActionLabel(),
+                        toolWindowInstance.managedPluginsActionLabel()
                     )
                 )
         )
@@ -3113,24 +3113,110 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
     }
 
     fun testManagedEntryRemovalShowsWillBeRemovedInNewVersionColumn() {
-        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
-        val table = findTable(toolWindow.getContent())!!
-        val model = table.model as DefaultTableModel
-        val key = "com.example:managed-library"
-        val managedDependency = MyMessageBundle.message("toolwindow.MyToolWindow.type.managedDependency")
-        model.addRow(
-            arrayOf(
-                "com.example", "managed-library", "", managedDependency, null, "1.0.0", listOf("1.0.0")
+        val settings = MavenUpSettings.getInstance()
+        val originalCommentOut = settings.state.commentOutManagedEntriesOnRemoval
+        try {
+            settings.state.commentOutManagedEntriesOnRemoval = false
+            val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+            val table = findTable(toolWindow.getContent())!!
+            val model = table.model as DefaultTableModel
+            val key = "com.example:managed-library"
+            val managedDependency = MyMessageBundle.message("toolwindow.MyToolWindow.type.managedDependency")
+            model.addRow(
+                arrayOf(
+                    "com.example", "managed-library", "", managedDependency, null, "1.0.0", listOf("1.0.0")
+                )
             )
-        )
 
-        toolWindow.markManagedEntryForRemoval(key, managedDependency, "1.0.0")
+            toolWindow.markManagedEntryForRemoval(key, managedDependency, "1.0.0")
 
-        val renderer = table.columnModel.getColumn(6).cellRenderer
-        val component = renderer.getTableCellRendererComponent(
-            table, model.getValueAt(0, 6), false, false, 0, 6
-        ) as JLabel
-        assertEquals(MyMessageBundle.message("toolwindow.MyToolWindow.version.willRemove"), component.text)
+            val renderer = table.columnModel.getColumn(6).cellRenderer
+            val component = renderer.getTableCellRendererComponent(
+                table, model.getValueAt(0, 6), false, false, 0, 6
+            ) as JLabel
+            assertEquals(MyMessageBundle.message("toolwindow.MyToolWindow.version.willRemove"), component.text)
+
+            settings.state.commentOutManagedEntriesOnRemoval = true
+            val componentCommentOut = renderer.getTableCellRendererComponent(
+                table, model.getValueAt(0, 6), false, false, 0, 6
+            ) as JLabel
+            assertEquals(MyMessageBundle.message("toolwindow.MyToolWindow.version.willCommentOut"), componentCommentOut.text)
+        } finally {
+            settings.state.commentOutManagedEntriesOnRemoval = originalCommentOut
+        }
+    }
+
+    fun testManagedEntriesLabelsAndTooltipsReflectConfiguration() {
+        val settings = MavenUpSettings.getInstance()
+        val originalCommentOut = settings.state.commentOutManagedEntriesOnRemoval
+        try {
+            val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+            toolWindow.getContent()
+
+            // 1. Wenn Auskommentieren aktiv ist (Standard)
+            settings.state.commentOutManagedEntriesOnRemoval = true
+            assertEquals(
+                MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.commentOutManagedDependencies.button"),
+                toolWindow.managedDependenciesActionLabel()
+            )
+            assertEquals(
+                MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.commentOutManagedPlugins.button"),
+                toolWindow.managedPluginsActionLabel()
+            )
+            assertEquals(
+                MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.group.tooltip.commentOut"),
+                toolWindow.managedEntriesGroupTooltip()
+            )
+            assertEquals(
+                MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.commentOutFromPom"),
+                toolWindow.managedEntryContextMenuLabel()
+            )
+            assertEquals(
+                MyMessageBundle.message("toolwindow.MyToolWindow.version.willCommentOut"),
+                toolWindow.willRemoveOrCommentOutLabel()
+            )
+            assertEquals(
+                MyMessageBundle.message("toolwindow.MyToolWindow.version.willCommentOutTooltip"),
+                toolWindow.willRemoveOrCommentOutTooltip()
+            )
+            assertEquals(
+                MyMessageBundle.message("toolwindow.MyToolWindow.filter.changes.option.willCommentOut"),
+                PendingChangesFilter.WILL_REMOVE.label
+            )
+
+            // 2. Wenn Auskommentieren deaktiviert ist (Entfernen)
+            settings.state.commentOutManagedEntriesOnRemoval = false
+            assertEquals(
+                MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.removeManagedDependencies.button"),
+                toolWindow.managedDependenciesActionLabel()
+            )
+            assertEquals(
+                MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.removeManagedPlugins.button"),
+                toolWindow.managedPluginsActionLabel()
+            )
+            assertEquals(
+                MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.group.tooltip"),
+                toolWindow.managedEntriesGroupTooltip()
+            )
+            assertEquals(
+                MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.removeFromPom"),
+                toolWindow.managedEntryContextMenuLabel()
+            )
+            assertEquals(
+                MyMessageBundle.message("toolwindow.MyToolWindow.version.willRemove"),
+                toolWindow.willRemoveOrCommentOutLabel()
+            )
+            assertEquals(
+                MyMessageBundle.message("toolwindow.MyToolWindow.version.willRemoveTooltip"),
+                toolWindow.willRemoveOrCommentOutTooltip()
+            )
+            assertEquals(
+                MyMessageBundle.message("toolwindow.MyToolWindow.filter.changes.option.willRemove"),
+                PendingChangesFilter.WILL_REMOVE.label
+            )
+        } finally {
+            settings.state.commentOutManagedEntriesOnRemoval = originalCommentOut
+        }
     }
 
     fun testPendingFilterDistinguishesManagedEntryRemovalFromVersionUpdate() {
@@ -3429,10 +3515,10 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val removeAction = group.getChildren(null)
             .filterIsInstance<com.intellij.openapi.actionSystem.AnAction>()
             .firstOrNull {
-                it.templatePresentation.text == MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.removeFromPom")
+                it.templatePresentation.text == toolWindow.managedEntryContextMenuLabel()
             }
 
-        assertNotNull("Die Aktion 'Remove from pom.xml' muss im Kontextmenü immer vorhanden sein", removeAction)
+        assertNotNull("Die Aktion zum Entfernen/Auskommentieren muss im Kontextmenü immer vorhanden sein", removeAction)
         val event = com.intellij.testFramework.TestActionEvent.createTestEvent(removeAction!!)
         removeAction.update(event)
         assertFalse("Für normale (nicht verwaltete) Abhängigkeiten muss die Aktion deaktiviert sein", event.presentation.isEnabled)
@@ -3440,8 +3526,8 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
     }
 
     /**
-     * Stellt sicher, dass "Remove from pom.xml" für verwaltete Einträge aktiviert ist, nach dem Vormerken
-     * deaktiviert wird und bei laufender Aktualisierung ebenfalls deaktiviert ist.
+     * Stellt sicher, dass die Aktion zum Entfernen/Auskommentieren für verwaltete Einträge aktiviert ist,
+     * nach dem Vormerken deaktiviert wird und bei laufender Aktualisierung ebenfalls deaktiviert ist.
      */
     @Suppress("OverrideOnly")
     fun testContextMenuRemoveFromPomEnabledForManagedEntriesAndDisabledWhenMarkedOrUpdating() {
@@ -3461,7 +3547,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val removeAction = group.getChildren(null)
             .filterIsInstance<com.intellij.openapi.actionSystem.AnAction>()
             .first {
-                it.templatePresentation.text == MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.removeFromPom")
+                it.templatePresentation.text == toolWindow.managedEntryContextMenuLabel()
             }
 
         val event = com.intellij.testFramework.TestActionEvent.createTestEvent(removeAction)
@@ -3475,7 +3561,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val removeActionAfterRemoval = groupAfterRemoval.getChildren(null)
             .filterIsInstance<com.intellij.openapi.actionSystem.AnAction>()
             .first {
-                it.templatePresentation.text == MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.removeFromPom")
+                it.templatePresentation.text == toolWindow.managedEntryContextMenuLabel()
             }
         val eventAfterRemoval = com.intellij.testFramework.TestActionEvent.createTestEvent(removeActionAfterRemoval)
         removeActionAfterRemoval.update(eventAfterRemoval)
@@ -3492,7 +3578,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val removeActionWhileUpdating = groupWhileUpdating.getChildren(null)
             .filterIsInstance<com.intellij.openapi.actionSystem.AnAction>()
             .first {
-                it.templatePresentation.text == MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.removeFromPom")
+                it.templatePresentation.text == toolWindow.managedEntryContextMenuLabel()
             }
         val eventWhileUpdating = com.intellij.testFramework.TestActionEvent.createTestEvent(removeActionWhileUpdating)
         removeActionWhileUpdating.update(eventWhileUpdating)
