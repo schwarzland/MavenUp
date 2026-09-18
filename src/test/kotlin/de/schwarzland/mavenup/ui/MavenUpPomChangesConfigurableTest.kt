@@ -63,10 +63,9 @@ class MavenUpPomChangesConfigurableTest : BasePlatformTestCase() {
 
     fun testCommentOutManagedEntriesOnRemovalCommentEscapesAngleBrackets() {
         val comment = MyMessageBundle.message("settings.commentOutManagedEntriesOnRemoval.comment")
-        assertEquals(
-            "Comments out &lt;dependency&gt; and &lt;plugin&gt; tags in &lt;dependencyManagement&gt; and &lt;pluginManagement&gt; when removed, preserving their declarations in pom.xml.",
-            comment
-        )
+        val expected = "Comments out dependency- and plugin-tags in " +
+            "dependencyManagement and pluginManagement, preserving their declarations in pom.xml."
+        assertEquals(expected, comment)
     }
 
     fun testVulnerabilityCommentModeDefaultIsAdvisoryIds() {
