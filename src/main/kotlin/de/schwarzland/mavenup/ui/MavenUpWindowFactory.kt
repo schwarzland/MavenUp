@@ -1007,11 +1007,16 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     },
                     isMenuItem = true
                 ) {
-                    if (showingTransitiveView) transitiveVulnerabilitiesView.selectHighestMajorVersionForAll()
-                    else confirmAndApplyBulkVersionSelection(
+                    confirmAndApplyBulkVersionSelection(
                         TOOLWINDOW_MY_TOOL_WINDOW_SELECT_HIGHEST_MAJOR_BUTTON,
-                        applyVisible = { selectHighestMajorVersionForAll(visibleOnly = true) },
-                        applyAll = { selectHighestMajorVersionForAll(visibleOnly = false) }
+                        applyVisible = {
+                            if (showingTransitiveView) transitiveVulnerabilitiesView.selectHighestMajorVersionForAll(visibleOnly = true)
+                            else selectHighestMajorVersionForAll(visibleOnly = true)
+                        },
+                        applyAll = {
+                            if (showingTransitiveView) transitiveVulnerabilitiesView.selectHighestMajorVersionForAll(visibleOnly = false)
+                            else selectHighestMajorVersionForAll(visibleOnly = false)
+                        }
                     )
                 })
                 add(toolbarAction(
@@ -1025,11 +1030,16 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     },
                     isMenuItem = true
                 ) {
-                    if (showingTransitiveView) transitiveVulnerabilitiesView.selectHighestMinorVersionForAll()
-                    else confirmAndApplyBulkVersionSelection(
+                    confirmAndApplyBulkVersionSelection(
                         TOOLWINDOW_MY_TOOL_WINDOW_SELECT_HIGHEST_MINOR_BUTTON,
-                        applyVisible = { selectHighestMinorVersionForAll(visibleOnly = true) },
-                        applyAll = { selectHighestMinorVersionForAll(visibleOnly = false) }
+                        applyVisible = {
+                            if (showingTransitiveView) transitiveVulnerabilitiesView.selectHighestMinorVersionForAll(visibleOnly = true)
+                            else selectHighestMinorVersionForAll(visibleOnly = true)
+                        },
+                        applyAll = {
+                            if (showingTransitiveView) transitiveVulnerabilitiesView.selectHighestMinorVersionForAll(visibleOnly = false)
+                            else selectHighestMinorVersionForAll(visibleOnly = false)
+                        }
                     )
                 })
                 add(toolbarAction(
@@ -1043,11 +1053,16 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     },
                     isMenuItem = true
                 ) {
-                    if (showingTransitiveView) transitiveVulnerabilitiesView.selectRecommendedVersionForAll()
-                    else confirmAndApplyBulkVersionSelection(
+                    confirmAndApplyBulkVersionSelection(
                         TOOLWINDOW_MY_TOOL_WINDOW_SELECT_RECOMMENDED_BUTTON,
-                        applyVisible = { selectRecommendedVersionForAll(visibleOnly = true) },
-                        applyAll = { selectRecommendedVersionForAll(visibleOnly = false) }
+                        applyVisible = {
+                            if (showingTransitiveView) transitiveVulnerabilitiesView.selectRecommendedVersionForAll(visibleOnly = true)
+                            else selectRecommendedVersionForAll(visibleOnly = true)
+                        },
+                        applyAll = {
+                            if (showingTransitiveView) transitiveVulnerabilitiesView.selectRecommendedVersionForAll(visibleOnly = false)
+                            else selectRecommendedVersionForAll(visibleOnly = false)
+                        }
                     )
                 })
             }

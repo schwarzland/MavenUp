@@ -608,28 +608,40 @@ internal class TransitiveVulnerabilitiesView(
         selectedVersions.containsKey(key)
 
     /**
-     * Wählt für die aktuell sichtbaren transitiven Koordinaten die höchste verfügbare Version
-     * (über alle Major-Linien hinweg) aus.
+     * Wählt für alle oder nur für die aktuell sichtbaren transitiven Koordinaten die höchste verfügbare
+     * Version (über alle Major-Linien hinweg) aus.
+     *
+     * @param visibleOnly Wenn `true`, werden nur aktuell sichtbare (nicht ausgefilterte) Einträge
+     *   berücksichtigt; andernfalls wirkt die Auswahl auf alle geladenen Koordinaten.
      */
-    internal fun selectHighestMajorVersionForAll() {
-        applyBulkSelection { _, versions, _ -> versions.firstOrNull().orEmpty() }
+    @JvmOverloads
+    internal fun selectHighestMajorVersionForAll(visibleOnly: Boolean = true) {
+        applyBulkSelection(visibleOnly = visibleOnly) { _, versions, _ -> versions.firstOrNull().orEmpty() }
     }
 
     /**
-     * Wählt für die aktuell sichtbaren transitiven Koordinaten die höchste Version innerhalb derselben
-     * Major-Linie wie die aktuell aufgelöste Version aus.
+     * Wählt für alle oder nur für die aktuell sichtbaren transitiven Koordinaten die höchste Version
+     * innerhalb derselben Major-Linie wie die aktuell aufgelöste Version aus.
+     *
+     * @param visibleOnly Wenn `true`, werden nur aktuell sichtbare (nicht ausgefilterte) Einträge
+     *   berücksichtigt; andernfalls wirkt die Auswahl auf alle geladenen Koordinaten.
      */
-    internal fun selectHighestMinorVersionForAll() {
-        applyBulkSelection { current, versions, _ -> latestVersionWithinSameMajor(current, versions) ?: current }
+    @JvmOverloads
+    internal fun selectHighestMinorVersionForAll(visibleOnly: Boolean = true) {
+        applyBulkSelection(visibleOnly = visibleOnly) { current, versions, _ -> latestVersionWithinSameMajor(current, versions) ?: current }
     }
 
     /**
-     * Wählt für die aktuell sichtbaren transitiven Koordinaten die empfohlene Fix-Version aus.
+     * Wählt für alle oder nur für die aktuell sichtbaren transitiven Koordinaten die empfohlene Fix-Version aus.
      *
      * Koordinaten ohne empfohlene Fix-Version bleiben unverändert.
+     *
+     * @param visibleOnly Wenn `true`, werden nur aktuell sichtbare (nicht ausgefilterte) Einträge
+     *   berücksichtigt; andernfalls wirkt die Auswahl auf alle geladenen Koordinaten.
      */
-    internal fun selectRecommendedVersionForAll() {
-        applyBulkSelection { current, _, recommended -> recommended.ifEmpty { current } }
+    @JvmOverloads
+    internal fun selectRecommendedVersionForAll(visibleOnly: Boolean = true) {
+        applyBulkSelection(visibleOnly = visibleOnly) { current, _, recommended -> recommended.ifEmpty { current } }
     }
 
     /**
@@ -671,16 +683,22 @@ internal class TransitiveVulnerabilitiesView(
     }
 
     /**
-     * Wendet eine Auswahlstrategie auf die aktuell sichtbaren Koordinaten an und aktualisiert die Ansicht.
+     * Wendet eine Auswahlstrategie auf transitive Koordinaten an und aktualisiert die Ansicht.
      *
-     * Durch einen aktiven Filter ausgeblendete Zeilen bleiben – wie in der Haupttabelle – unverändert.
+     * Durch einen aktiven Filter ausgeblendete Zeilen bleiben bei `visibleOnly = true` – wie in der
+     * Haupttabelle – unverändert.
      *
+     * @param visibleOnly Wenn `true`, werden nur aktuell sichtbare (nicht ausgefilterte) Einträge
+     *   berücksichtigt; andernfalls alle Einträge des Modells.
      * @param chooser Funktion, die aus aktueller Version, verfügbaren Versionen und empfohlener
      * Fix-Version die Zielversion ermittelt.
      */
-    private fun applyBulkSelection(chooser: (String, List<String>, String) -> String) {
+    private fun applyBulkSelection(
+        visibleOnly: Boolean = true,
+        chooser: (String, List<String>, String) -> String
+    ) {
         var changed = false
-        for ((key, currentVersion) in currentVersionsByKey(visibleOnly = true)) {
+        for ((key, currentVersion) in currentVersionsByKey(visibleOnly = visibleOnly)) {
             if (applySelectionForKey(key, currentVersion, chooser)) changed = true
         }
         if (changed) finishSelectionChange()

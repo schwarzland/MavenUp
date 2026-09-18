@@ -2913,6 +2913,51 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertTrue(toolWindow.bulkSelectionActionDescription("Base").length > "Base".length)
     }
 
+    fun testTransitiveViewBulkSelectionActionDescriptionReflectsTransitiveFilter() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        val showingTransitiveViewField = toolWindow.javaClass.getDeclaredField("showingTransitiveView")
+            .apply { isAccessible = true }
+        val transitiveViewField = toolWindow.javaClass.getDeclaredField("transitiveVulnerabilitiesView")
+            .apply { isAccessible = true }
+        val transitiveView = transitiveViewField.get(toolWindow) as TransitiveVulnerabilitiesView
+
+        val coord1 = "org.test:lib-a:1.0.0"
+        val coord2 = "org.test:lib-b:1.0.0"
+        val advisories = mapOf(
+            coord1 to listOf(
+                de.schwarzland.mavenup.model.VulnerabilityAdvisory(
+                    id = "CVE-1",
+                    severity = de.schwarzland.mavenup.model.VulnerabilitySeverity.HIGH,
+                    sources = setOf("OSV")
+                )
+            ),
+            coord2 to listOf(
+                de.schwarzland.mavenup.model.VulnerabilityAdvisory(
+                    id = "CVE-2",
+                    severity = de.schwarzland.mavenup.model.VulnerabilitySeverity.HIGH,
+                    sources = setOf("OSV")
+                )
+            )
+        )
+        transitiveView.update(
+            advisories,
+            setOf(coord1, coord2),
+            emptyMap(),
+            mapOf("org.test:lib-a" to listOf("2.0.0", "1.0.0"), "org.test:lib-b" to listOf("2.0.0", "1.0.0"))
+        )
+
+        showingTransitiveViewField.setBoolean(toolWindow, true)
+        assertFalse(toolWindow.isRowFilterHidingEntries())
+        assertEquals("Base", toolWindow.bulkSelectionActionDescription("Base"))
+
+        transitiveView.filterPanel.filterBy("lib-a")
+        assertTrue(toolWindow.isRowFilterHidingEntries())
+        assertTrue(toolWindow.bulkSelectionActionDescription("Base").startsWith("Base"))
+        assertTrue(toolWindow.bulkSelectionActionDescription("Base").length > "Base".length)
+    }
+
     fun testResetAllVersionsToCurrentClearsSelections() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         toolWindow.getContent()

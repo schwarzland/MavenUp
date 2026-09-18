@@ -139,6 +139,65 @@ class TransitiveVulnerabilitiesViewFilterTest : BasePlatformTestCase() {
         assertEquals("1.2.4", view.selectedVersions["org.trans:lib"])
     }
 
+    fun testBulkSelectionVisibleOnlyVsAll() {
+        val view = TransitiveVulnerabilitiesView(project)
+        val coord1 = "org.test:lib-a:1.0.0"
+        val coord2 = "org.test:lib-b:1.0.0"
+        val advisories = mapOf(
+            coord1 to listOf(
+                VulnerabilityAdvisory(id = "CVE-1", severity = VulnerabilitySeverity.HIGH, sources = setOf("OSV"), fixedVersions = setOf("1.0.5"))
+            ),
+            coord2 to listOf(
+                VulnerabilityAdvisory(id = "CVE-2", severity = VulnerabilitySeverity.HIGH, sources = setOf("OSV"), fixedVersions = setOf("2.0.0"))
+            )
+        )
+        view.update(
+            advisories,
+            setOf(coord1, coord2),
+            emptyMap(),
+            mapOf(
+                "org.test:lib-a" to listOf("2.0.0", "1.0.5", "1.0.0"),
+                "org.test:lib-b" to listOf("2.0.0", "1.1.0", "1.0.0")
+            )
+        )
+
+        // Filter auf lib-a setzen
+        view.filterPanel.filterBy("lib-a")
+        assertEquals(1, view.table.rowCount)
+
+        // 1. Highest Major: visibleOnly = true vs visibleOnly = false
+        view.selectHighestMajorVersionForAll(visibleOnly = true)
+        assertEquals("2.0.0", view.selectedVersions["org.test:lib-a"])
+        assertNull(view.selectedVersions["org.test:lib-b"])
+
+        view.resetSelections()
+        view.selectHighestMajorVersionForAll(visibleOnly = false)
+        assertEquals("2.0.0", view.selectedVersions["org.test:lib-a"])
+        assertEquals("2.0.0", view.selectedVersions["org.test:lib-b"])
+
+        // 2. Highest Minor: visibleOnly = true vs visibleOnly = false
+        view.resetSelections()
+        view.selectHighestMinorVersionForAll(visibleOnly = true)
+        assertEquals("1.0.5", view.selectedVersions["org.test:lib-a"])
+        assertNull(view.selectedVersions["org.test:lib-b"])
+
+        view.resetSelections()
+        view.selectHighestMinorVersionForAll(visibleOnly = false)
+        assertEquals("1.0.5", view.selectedVersions["org.test:lib-a"])
+        assertEquals("1.1.0", view.selectedVersions["org.test:lib-b"])
+
+        // 3. Recommended: visibleOnly = true vs visibleOnly = false
+        view.resetSelections()
+        view.selectRecommendedVersionForAll(visibleOnly = true)
+        assertEquals("1.0.5", view.selectedVersions["org.test:lib-a"])
+        assertNull(view.selectedVersions["org.test:lib-b"])
+
+        view.resetSelections()
+        view.selectRecommendedVersionForAll(visibleOnly = false)
+        assertEquals("1.0.5", view.selectedVersions["org.test:lib-a"])
+        assertEquals("2.0.0", view.selectedVersions["org.test:lib-b"])
+    }
+
     fun testCriteriaReflectsSelectedFilters() {
         val view = buildView()
         view.filterPanel.filterBy("lib")

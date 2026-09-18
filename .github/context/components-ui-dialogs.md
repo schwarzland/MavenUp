@@ -79,7 +79,7 @@ UI-Komponenten: [`components-ui.md`](components-ui.md) und
   (`resetVersionForDependency`/`isVersionResetEnabledForDependency`), **Show Dependency Hierarchy**
   (`openDependencyHierarchy`) und **Show Vulnerability Details** (nur bei Funden aktiv).
   Für die Sammelauswahl über die Toolbar wirken `selectHighestMajorVersionForAll`/`selectHighestMinorVersionForAll`/
-  `selectRecommendedVersionForAll` auf die aktuell sichtbaren (nicht ausgefilterten) Koordinaten; ihre Aktivierung steuern
+  `selectRecommendedVersionForAll` je nach Wahl im Bestätigungsdialog bei aktivem Filter auf alle oder nur die aktuell sichtbaren (nicht ausgefilterten) Koordinaten (`visibleOnly = false` bzw. `true`); ihre Aktivierung steuern
   `isBulkVersionSelectionEnabled`/`hasRecommendedVersions`, das Zurücksetzen erfolgt über `resetSelections`
   (alle) bzw. `resetVisibleSelections` (nur gefilterte). `applyRowFilter` setzt den `RowFilter` des `TableRowSorter`
   aus `filterPanel.criteria()` und `rowMatchesFilter`; `isRowFilterHidingEntries` meldet ausgeblendete Zeilen.

@@ -35,6 +35,7 @@
 
 ### Fixed
 
+- Fixed the bulk version selection actions (**Select Highest Major Version**, **Select Highest Minor Version**, **Select Recommended Version**) in the transitive CVEs view not prompting whether to apply to all coordinates or only to the filtered ones when a filter is active, making its behavior consistent with the main dependencies table.
 - Fixed the **Dependency Hierarchy** dialog toolbar using the focused component instead of its hierarchy tree to update local actions.
 - Fixed the **Type** filter dropping to only **All** after automatic version refreshes by always retaining the known dependency types as available filter options.
 - Fixed the MavenUp tool-window badge not indicating available updates after a background version search completed before the window was opened.
