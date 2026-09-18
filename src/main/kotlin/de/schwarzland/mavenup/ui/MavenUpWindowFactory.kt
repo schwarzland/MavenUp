@@ -103,14 +103,14 @@ private const val TOOLWINDOW_MY_TOOL_WINDOW_MANAGED_ENTRIES_GROUP_BUTTON = "tool
  * @property currentVersion Aktuelle Version des Eintrags.
  * @property vulnerabilityCell Sicherheitslücken der Dependency, sofern vorhanden.
  */
-private data class DependencyContextMenuTarget(
+internal data class DependencyContextMenuTarget(
     val column: Int,
     val groupId: String,
     val artifactId: String,
     val property: String,
     val type: String,
     val currentVersion: String,
-    val vulnerabilityCell: VulnerabilityCell?
+    val vulnerabilityCell: VulnerabilityCell? = null
 ) {
     /** Maven-Koordinate ohne Version. */
     val dependencyKey: String = "$groupId:$artifactId"
@@ -530,11 +530,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
                 private fun showContextMenu(e: MouseEvent) {
                     val target = contextMenuTarget(e) ?: return
-                    val group = DefaultActionGroup()
-                    addContextFilterAction(group, target)
-                    addContextNavigationActions(group, target)
-                    addContextVersionActions(group, target)
-                    addContextVulnerabilityAction(group, target)
+                    val group = buildContextMenuGroup(target)
                     showContextMenuPopup(group, e)
                 }
             })
@@ -1320,6 +1316,21 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
+         * Erzeugt die Aktionsgruppe des Kontextmenüs für eine Tabellenzeile.
+         *
+         * @param target Daten der angeklickten Tabellenzeile.
+         * @return Die zusammengestellte Aktionsgruppe.
+         */
+        internal fun buildContextMenuGroup(target: DependencyContextMenuTarget): DefaultActionGroup {
+            val group = DefaultActionGroup()
+            addContextFilterAction(group, target)
+            addContextNavigationActions(group, target)
+            addContextVersionActions(group, target)
+            addContextVulnerabilityAction(group, target)
+            return group
+        }
+
+        /**
          * Fügt die Filteraktion hinzu, wenn die angeklickte Spalte einen filterbaren Wert enthält.
          *
          * @param group Aktionsgruppe des Kontextmenüs.
@@ -1373,7 +1384,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
-         * Fügt die versionsbezogenen Aktionen und gegebenenfalls die Entfernungsaktion hinzu.
+         * Fügt die versionsbezogenen Aktionen und die Entfernungsaktion hinzu.
          *
          * @param group Aktionsgruppe des Kontextmenüs.
          * @param target Daten der angeklickten Tabellenzeile.
@@ -1402,14 +1413,12 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.resetToCurrent"),
                 isVersionResetEnabledForDependency(dependencyKey, target.type)
             ) { resetVersionForDependency(dependencyKey, target.type) }
-            if (isManagedEntryType(target.type) && !isManagedEntryMarkedForRemoval(dependencyKey, target.type)) {
-                addContextMenuAction(
-                    group,
-                    MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.removeFromPom"),
-                    !isUpdating
-                ) {
-                    markManagedEntryForRemoval(dependencyKey, target.type, target.currentVersion)
-                }
+            addContextMenuAction(
+                group,
+                MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.removeFromPom"),
+                isManagedEntryRemovalEnabled(dependencyKey, target.type)
+            ) {
+                markManagedEntryForRemoval(dependencyKey, target.type, target.currentVersion)
             }
         }
 
@@ -2681,6 +2690,17 @@ class MavenUpWindowFactory : ToolWindowFactory {
          */
         internal fun isManagedEntryMarkedForRemoval(key: String, type: String): Boolean =
             pendingManagedRemovalUpdates.containsKey(managedRemovalKey(key, type))
+
+        /**
+         * Prüft, ob ein Eintrag aus der pom.xml entfernt werden kann.
+         *
+         * @param key Der Schlüssel (`groupId:artifactId`) des Eintrags.
+         * @param type Der Typ des Eintrags.
+         * @return `true`, wenn keine Aktualisierung läuft, es sich um einen verwalteten Eintrag handelt
+         *   und dieser noch nicht zur Entfernung vorgemerkt ist.
+         */
+        internal fun isManagedEntryRemovalEnabled(key: String, type: String): Boolean =
+            !isUpdating && isManagedEntryType(type) && !isManagedEntryMarkedForRemoval(key, type)
 
         /**
          * Erzeugt einen eindeutigen Schlüssel für eine verwaltete Entfernungsmarkierung.

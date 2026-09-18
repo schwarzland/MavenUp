@@ -8,6 +8,7 @@ import de.schwarzland.mavenup.model.DependencyUpdate
 import de.schwarzland.mavenup.service.MavenUpSettings
 import de.schwarzland.mavenup.service.MavenRepositoryBrowser
 import de.schwarzland.mavenup.service.VersionAutoSelectionMode
+import de.schwarzland.mavenup.ui.DependencyContextMenuTarget
 import de.schwarzland.mavenup.ui.buildMavenRepositoryUrl
 import de.schwarzland.mavenup.ui.GROUP_ID_COLUMN
 import de.schwarzland.mavenup.ui.ARTIFACT_ID_COLUMN
@@ -3404,5 +3405,97 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertFalse(toolWindow.isManagedEntryType("dependency"))
         assertFalse(toolWindow.isManagedEntryType("plugin"))
         assertFalse(toolWindow.isManagedEntryType("parent"))
+    }
+
+    /**
+     * Stellt sicher, dass "Remove from pom.xml" im Kontextmenü der Haupttabelle stets vorhanden ist
+     * und für nicht verwaltete Einträge deaktiviert ist.
+     */
+    fun testContextMenuRemoveFromPomAlwaysPresentAndDisabledForStandardEntries() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+        val standardTarget = DependencyContextMenuTarget(
+            column = 0,
+            groupId = "com.example",
+            artifactId = "regular-lib",
+            property = "",
+            type = "dependency",
+            currentVersion = "1.0.0"
+        )
+
+        val group = toolWindow.buildContextMenuGroup(standardTarget)
+        val removeAction = group.getChildren(null)
+            .filterIsInstance<com.intellij.openapi.actionSystem.AnAction>()
+            .firstOrNull {
+                it.templatePresentation.text == MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.removeFromPom")
+            }
+
+        assertNotNull("Die Aktion 'Remove from pom.xml' muss im Kontextmenü immer vorhanden sein", removeAction)
+        val event = com.intellij.testFramework.TestActionEvent.createTestEvent(removeAction!!)
+        removeAction.update(event)
+        assertFalse("Für normale (nicht verwaltete) Abhängigkeiten muss die Aktion deaktiviert sein", event.presentation.isEnabled)
+        assertFalse(toolWindow.isManagedEntryRemovalEnabled("com.example:regular-lib", "dependency"))
+    }
+
+    /**
+     * Stellt sicher, dass "Remove from pom.xml" für verwaltete Einträge aktiviert ist, nach dem Vormerken
+     * deaktiviert wird und bei laufender Aktualisierung ebenfalls deaktiviert ist.
+     */
+    fun testContextMenuRemoveFromPomEnabledForManagedEntriesAndDisabledWhenMarkedOrUpdating() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+        val managedDependencyType = MyMessageBundle.message("toolwindow.MyToolWindow.type.managedDependency")
+        val target = DependencyContextMenuTarget(
+            column = 0,
+            groupId = "com.example",
+            artifactId = "managed-lib",
+            property = "",
+            type = managedDependencyType,
+            currentVersion = "1.0.0"
+        )
+
+        val group = toolWindow.buildContextMenuGroup(target)
+        val removeAction = group.getChildren(null)
+            .filterIsInstance<com.intellij.openapi.actionSystem.AnAction>()
+            .first {
+                it.templatePresentation.text == MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.removeFromPom")
+            }
+
+        val event = com.intellij.testFramework.TestActionEvent.createTestEvent(removeAction)
+        removeAction.update(event)
+        assertTrue("Für verwaltete Abhängigkeiten muss die Aktion aktiviert sein", event.presentation.isEnabled)
+        assertTrue(toolWindow.isManagedEntryRemovalEnabled("com.example:managed-lib", managedDependencyType))
+
+        // Nach Vormerkung zur Entfernung muss die Aktion deaktiviert sein
+        toolWindow.markManagedEntryForRemoval("com.example:managed-lib", managedDependencyType, "1.0.0")
+        val groupAfterRemoval = toolWindow.buildContextMenuGroup(target)
+        val removeActionAfterRemoval = groupAfterRemoval.getChildren(null)
+            .filterIsInstance<com.intellij.openapi.actionSystem.AnAction>()
+            .first {
+                it.templatePresentation.text == MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.removeFromPom")
+            }
+        val eventAfterRemoval = com.intellij.testFramework.TestActionEvent.createTestEvent(removeActionAfterRemoval)
+        removeActionAfterRemoval.update(eventAfterRemoval)
+        assertFalse("Nach Vormerkung zur Entfernung muss die Aktion deaktiviert sein", eventAfterRemoval.presentation.isEnabled)
+        assertFalse(toolWindow.isManagedEntryRemovalEnabled("com.example:managed-lib", managedDependencyType))
+
+        // Reset und Prüfung während isUpdating
+        toolWindow.resetAllVersionsToCurrent()
+        val isUpdatingField = toolWindow.javaClass.getDeclaredField("isUpdating")
+            .apply { isAccessible = true }
+        isUpdatingField.setBoolean(toolWindow, true)
+
+        val groupWhileUpdating = toolWindow.buildContextMenuGroup(target)
+        val removeActionWhileUpdating = groupWhileUpdating.getChildren(null)
+            .filterIsInstance<com.intellij.openapi.actionSystem.AnAction>()
+            .first {
+                it.templatePresentation.text == MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.removeFromPom")
+            }
+        val eventWhileUpdating = com.intellij.testFramework.TestActionEvent.createTestEvent(removeActionWhileUpdating)
+        removeActionWhileUpdating.update(eventWhileUpdating)
+        assertFalse("Während eines laufenden Updates muss die Aktion deaktiviert sein", eventWhileUpdating.presentation.isEnabled)
+        assertFalse(toolWindow.isManagedEntryRemovalEnabled("com.example:managed-lib", managedDependencyType))
+
+        isUpdatingField.setBoolean(toolWindow, false)
     }
 }
