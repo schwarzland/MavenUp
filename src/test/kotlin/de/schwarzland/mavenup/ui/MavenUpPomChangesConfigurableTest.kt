@@ -43,6 +43,24 @@ class MavenUpPomChangesConfigurableTest : BasePlatformTestCase() {
         assertFalse(settings.state.syncMavenAfterUpdate)
     }
 
+    fun testCommentOutManagedEntriesOnRemovalDefaultIsTrue() {
+        assertTrue(MavenUpSettings.State().commentOutManagedEntriesOnRemoval)
+    }
+
+    fun testCommentOutManagedEntriesOnRemovalSelectionIsPersistedOnApply() {
+        val settings = MavenUpSettings.getInstance()
+        settings.state.commentOutManagedEntriesOnRemoval = true
+
+        val configurable = createConfigurable()
+        assertFalse(configurable.isModified)
+        configurable.commentOutManagedEntriesOnRemovalCheckBox!!.isSelected = false
+        assertTrue("Änderung der Checkbox sollte isModified() true machen", configurable.isModified)
+
+        configurable.apply()
+
+        assertFalse(settings.state.commentOutManagedEntriesOnRemoval)
+    }
+
     fun testVulnerabilityCommentModeDefaultIsAdvisoryIds() {
         assertEquals(VulnerabilityCommentMode.ADVISORY_IDS, MavenUpSettings.State().vulnerabilityCommentMode)
     }
@@ -136,6 +154,7 @@ class MavenUpPomChangesConfigurableTest : BasePlatformTestCase() {
         configurable.disposeUIResources()
 
         assertNull(configurable.syncMavenAfterUpdateCheckBox)
+        assertNull(configurable.commentOutManagedEntriesOnRemovalCheckBox)
         assertNull(configurable.vulnerabilityCommentModeComboBox)
         assertNull(configurable.vulnerabilityCommentPrefixField)
         assertNull(configurable.vulnerabilityCommentMaxIdsSpinner)

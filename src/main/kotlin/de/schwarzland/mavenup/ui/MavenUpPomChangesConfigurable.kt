@@ -37,6 +37,10 @@ class MavenUpPomChangesConfigurable(project: Project) :
     internal var syncMavenAfterUpdateCheckBox: JBCheckBox? = null
         private set
 
+    /** Schalter für das Auskommentieren statt Löschen beim Entfernen verwalteter Einträge. */
+    internal var commentOutManagedEntriesOnRemovalCheckBox: JBCheckBox? = null
+        private set
+
     /** Auswahlfeld für den Umfang des erklärenden XML-Kommentars. */
     internal var vulnerabilityCommentModeComboBox: ComboBox<VulnerabilityCommentMode>? = null
         private set
@@ -63,6 +67,16 @@ class MavenUpPomChangesConfigurable(project: Project) :
                 .bindSelected({ state.syncMavenAfterUpdate }, { state.syncMavenAfterUpdate = it })
                 .component
         }.rowComment(MyMessageBundle.message("settings.syncMavenAfterUpdate.comment"))
+        row {
+            commentOutManagedEntriesOnRemovalCheckBox = checkBox(
+                MyMessageBundle.message("settings.commentOutManagedEntriesOnRemoval")
+            )
+                .bindSelected(
+                    { state.commentOutManagedEntriesOnRemoval },
+                    { state.commentOutManagedEntriesOnRemoval = it }
+                )
+                .component
+        }.rowComment(MyMessageBundle.message("settings.commentOutManagedEntriesOnRemoval.comment"))
         lateinit var commentModeComboBox: ComboBox<VulnerabilityCommentMode>
         row(MyMessageBundle.message("settings.vulnerabilityCommentMode")) {
             commentModeComboBox = comboBox(
@@ -119,6 +133,7 @@ class MavenUpPomChangesConfigurable(project: Project) :
      */
     override fun disposeUIResources() {
         syncMavenAfterUpdateCheckBox = null
+        commentOutManagedEntriesOnRemovalCheckBox = null
         vulnerabilityCommentModeComboBox = null
         vulnerabilityCommentPrefixField = null
         vulnerabilityCommentMaxIdsSpinner = null

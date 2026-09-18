@@ -6,6 +6,7 @@
 
 ### Added
 
+- Added a configurable option in the "pom.xml Changes" settings page (enabled by default) to comment out managed dependencies and managed plugins as XML comments instead of deleting them when removed from pom.xml.
 - Added project-wide background version checks after Maven project load and every completed Maven import or resync, independent of whether the MavenUp tool window has been opened.
 - Added color highlighting for the target dependency across the tree in the **Dependency Hierarchy** dialog with automatic adaptation to Light and Dark themes.
 - Added a toolbar in the **Dependency Hierarchy** dialog with **Expand All**, **Collapse All**, and **Navigate to pom.xml** actions for quick tree navigation.

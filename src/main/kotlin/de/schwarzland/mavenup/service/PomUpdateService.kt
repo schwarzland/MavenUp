@@ -14,6 +14,7 @@ import com.intellij.psi.PsiDocumentManager
 import com.intellij.psi.PsiManager
 import com.intellij.psi.XmlElementFactory
 import com.intellij.psi.codeStyle.CodeStyleManager
+import com.intellij.psi.xml.XmlComment
 import com.intellij.psi.xml.XmlFile
 import com.intellij.psi.xml.XmlTag
 import org.jetbrains.idea.maven.project.MavenProject
@@ -86,6 +87,9 @@ internal class PomUpdateService(private val project: Project) {
     /**
      * Entfernt einen verwalteten Eintrag aus dem passenden Management-Bereich der `pom.xml`.
      *
+     * Je nach [MavenUpSettings.State.commentOutManagedEntriesOnRemoval] wird der gefundene XML-Eintrag
+     * als XML-Kommentar auskommentiert oder vollständig aus der `pom.xml` gelöscht.
+     *
      * @param documentElement Das Root-Tag der `pom.xml`.
      * @param update Der als Entfernung markierte verwaltete Eintrag.
      * @param managedDependencyType Der lokalisierte Typname für verwaltete Abhängigkeiten.
@@ -105,10 +109,37 @@ internal class PomUpdateService(private val project: Project) {
                 ?.findSubTags("plugin")
             else -> emptyArray()
         }
-        entries?.firstOrNull { entry ->
+        val target = entries?.firstOrNull { entry ->
             entry.findFirstSubTag("groupId")?.value?.text == update.groupId &&
                 entry.findFirstSubTag("artifactId")?.value?.text == update.artifactId
-        }?.delete()
+        } ?: return
+
+        if (MavenUpSettings.getInstance().state.commentOutManagedEntriesOnRemoval) {
+            commentOutTag(target)
+        } else {
+            target.delete()
+        }
+    }
+
+    /**
+     * Kommentiert ein XML-Tag in der `pom.xml` aus, indem es durch ein [XmlComment]-Element ersetzt wird.
+     *
+     * Mögliche Bindestrichfolgen (`--`) im Tag-Inhalt werden entschärft, um gültige XML-Kommentarsyntax zu wahren.
+     *
+     * @param tag Das auszukommentierende XML-Tag.
+     */
+    private fun commentOutTag(tag: XmlTag) {
+        val rawText = tag.text
+        val safeText = HYPHEN_SEQUENCE_REGEX.replace(rawText) { match ->
+            match.value.toCharArray().joinToString(" ")
+        }
+        val dummyTag = XmlElementFactory.getInstance(project).createTagFromText("<dummy><!-- $safeText --></dummy>")
+        val commentElement = dummyTag.children.firstOrNull { it is XmlComment }
+        if (commentElement != null) {
+            tag.replace(commentElement)
+        } else {
+            tag.delete()
+        }
     }
 
     /**

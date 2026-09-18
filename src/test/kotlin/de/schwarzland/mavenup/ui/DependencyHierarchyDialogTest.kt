@@ -68,7 +68,10 @@ class DependencyHierarchyDialogTest : BasePlatformTestCase() {
 
         val dialog = DependencyHierarchyDialog(project, "com.example", "lib")
         val treeModel = dialog.buildTreeModel(rootNode)
-        val tree = Tree(treeModel)
+        val tree = Tree(treeModel).apply {
+            isRootVisible = true
+            showsRootHandles = true
+        }
 
         dialog.expandAllNodes(tree)
         assertTrue(tree.isExpanded(0))
@@ -90,9 +93,13 @@ class DependencyHierarchyDialogTest : BasePlatformTestCase() {
 
         val dialog = DependencyHierarchyDialog(project, "com.example", "lib")
         val treeModel = dialog.buildTreeModel(rootNode)
-        val tree = Tree(treeModel)
+        val tree = Tree(treeModel).apply {
+            isRootVisible = true
+            showsRootHandles = true
+        }
 
         dialog.expandAllNodes(tree)
+        assertTrue(tree.isExpanded(0))
         dialog.collapseAllNodes(tree)
         assertFalse(tree.isExpanded(0))
     }

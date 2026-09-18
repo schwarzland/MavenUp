@@ -135,7 +135,9 @@ liefert die DSL. Abhängige Felder werden über `enabledIf` gesteuert.
   `beforeApply()` mit einer `ConfigurationException` ab. Das Token ist nicht über die UI-DSL gebunden: Es wird
   außerhalb des EDT aus dem Password Safe geladen (`OssIndexCredentialStore`), für `isModified()` gecacht und in
   `afterApply()` gespeichert; bis zum Abschluss des Ladens bleiben Checkbox und Token-Feld deaktiviert.
-- **MavenUpPomChangesConfigurable**: Unterseite **pom.xml Changes** mit `syncMavenAfterUpdate` und der Combobox
+- **MavenUpPomChangesConfigurable**: Unterseite **pom.xml Changes** mit `syncMavenAfterUpdate`,
+  `commentOutManagedEntriesOnRemoval` (steuert das Auskommentieren als XML-Kommentar statt Löschen beim Entfernen
+  verwalteter Einträge, Standard aktiv) und der Combobox
   `vulnerabilityCommentMode` (Kennungen im erklärenden XML-Kommentar beim Anlegen eines gepinnten
   `dependencyManagement`-Eintrags, siehe `PomUpdateService.addManagedDependency`) sowie den eingerückten Feldern
   `vulnerabilityCommentPrefix` und `vulnerabilityCommentMaxIds` (Spinner `0..99`), deren Aktivierung per

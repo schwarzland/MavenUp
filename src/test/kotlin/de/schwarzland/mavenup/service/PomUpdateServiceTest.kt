@@ -13,6 +13,14 @@ import de.schwarzland.mavenup.model.DependencyUpdate
  */
 class PomUpdateServiceTest : BasePlatformTestCase() {
 
+    override fun tearDown() {
+        try {
+            MavenUpSettings.getInstance().loadState(MavenUpSettings.State())
+        } finally {
+            super.tearDown()
+        }
+    }
+
     fun testUpdateXmlTagVersion() {
         val pomContent = """
             <project>
@@ -422,7 +430,7 @@ class PomUpdateServiceTest : BasePlatformTestCase() {
         assertEquals("2.0.1", added?.findFirstSubTag("version")?.value?.text)
     }
 
-    fun testRemoveManagedEntryRemovesOnlyMatchingDependencyAndPlugin() {
+    fun testRemoveManagedEntryCommentsOutMatchingDependencyAndPluginByDefault() {
         val pomContent = """
             <project>
                 <dependencyManagement><dependencies>
@@ -451,15 +459,98 @@ class PomUpdateServiceTest : BasePlatformTestCase() {
             )
         }
 
-        val dependencies = rootTag.findFirstSubTag("dependencyManagement")
-            ?.findFirstSubTag("dependencies")?.findSubTags("dependency")?.mapNotNull {
-                it.findFirstSubTag("artifactId")?.value?.text
-            }
-        val plugins = rootTag.findFirstSubTag("build")?.findFirstSubTag("pluginManagement")
-            ?.findFirstSubTag("plugins")?.findSubTags("plugin")?.mapNotNull {
-                it.findFirstSubTag("artifactId")?.value?.text
-            }
+        val dependenciesTag = rootTag.findFirstSubTag("dependencyManagement")?.findFirstSubTag("dependencies")
+        val pluginsTag = rootTag.findFirstSubTag("build")?.findFirstSubTag("pluginManagement")?.findFirstSubTag("plugins")
+
+        val dependencies = dependenciesTag?.findSubTags("dependency")?.mapNotNull {
+            it.findFirstSubTag("artifactId")?.value?.text
+        }
+        val plugins = pluginsTag?.findSubTags("plugin")?.mapNotNull {
+            it.findFirstSubTag("artifactId")?.value?.text
+        }
         assertEquals(listOf("keep-dependency"), dependencies)
         assertEquals(listOf("keep-plugin"), plugins)
+
+        val dependencyComments = PsiTreeUtil.findChildrenOfType(dependenciesTag, XmlComment::class.java).map { it.text }
+        assertTrue("Dependency tag should be converted to XML comment", dependencyComments.any { it.contains("remove-dependency") })
+
+        val pluginComments = PsiTreeUtil.findChildrenOfType(pluginsTag, XmlComment::class.java).map { it.text }
+        assertTrue("Plugin tag should be converted to XML comment", pluginComments.any { it.contains("remove-plugin") })
+    }
+
+    fun testRemoveManagedEntryCommentsOutWithHyphensSafely() {
+        val pomContent = """
+            <project>
+                <dependencyManagement><dependencies>
+                    <dependency><groupId>org.example--custom</groupId><artifactId>hyphen--lib</artifactId><version>1.0.0</version></dependency>
+                </dependencies></dependencyManagement>
+            </project>
+        """.trimIndent()
+        val rootTag = (myFixture.configureByText("pom.xml", pomContent) as XmlFile).document!!.rootTag!!
+        val service = PomUpdateService(project)
+
+        WriteCommandAction.runWriteCommandAction(project) {
+            service.removeManagedEntry(
+                rootTag,
+                DependencyUpdate("org.example--custom", "hyphen--lib", "managed dependency", "1.0.0", "1.0.0", removeFromPom = true),
+                "managed dependency"
+            )
+        }
+
+        val dependenciesTag = rootTag.findFirstSubTag("dependencyManagement")?.findFirstSubTag("dependencies")
+        assertEquals(0, dependenciesTag?.findSubTags("dependency")?.size)
+
+        val commentPayloads = PsiTreeUtil.findChildrenOfType(dependenciesTag, XmlComment::class.java)
+            .map { it.text.removePrefix("<!--").removeSuffix("-->").trim() }
+        assertTrue("Comment should contain sanitized hyphens", commentPayloads.any { it.contains("hyphen- -lib") && !it.contains("--") })
+    }
+
+    fun testRemoveManagedEntryDeletesDirectlyWhenCommentSettingIsFalse() {
+        MavenUpSettings.getInstance().state.commentOutManagedEntriesOnRemoval = false
+        val pomContent = """
+            <project>
+                <dependencyManagement><dependencies>
+                    <dependency><groupId>org.example</groupId><artifactId>remove-dependency</artifactId><version>1.0.0</version></dependency>
+                    <dependency><groupId>org.example</groupId><artifactId>keep-dependency</artifactId><version>1.0.0</version></dependency>
+                </dependencies></dependencyManagement>
+                <build><pluginManagement><plugins>
+                    <plugin><groupId>org.example</groupId><artifactId>remove-plugin</artifactId><version>1.0.0</version></plugin>
+                    <plugin><groupId>org.example</groupId><artifactId>keep-plugin</artifactId><version>1.0.0</version></plugin>
+                </plugins></pluginManagement></build>
+            </project>
+        """.trimIndent()
+        val rootTag = (myFixture.configureByText("pom.xml", pomContent) as XmlFile).document!!.rootTag!!
+        val service = PomUpdateService(project)
+
+        WriteCommandAction.runWriteCommandAction(project) {
+            service.removeManagedEntry(
+                rootTag,
+                DependencyUpdate("org.example", "remove-dependency", "managed dependency", "1.0.0", "1.0.0", removeFromPom = true),
+                "managed dependency"
+            )
+            service.removeManagedEntry(
+                rootTag,
+                DependencyUpdate("org.example", "remove-plugin", "managed plugin", "1.0.0", "1.0.0", removeFromPom = true),
+                "managed dependency"
+            )
+        }
+
+        val dependenciesTag = rootTag.findFirstSubTag("dependencyManagement")?.findFirstSubTag("dependencies")
+        val pluginsTag = rootTag.findFirstSubTag("build")?.findFirstSubTag("pluginManagement")?.findFirstSubTag("plugins")
+
+        val dependencies = dependenciesTag?.findSubTags("dependency")?.mapNotNull {
+            it.findFirstSubTag("artifactId")?.value?.text
+        }
+        val plugins = pluginsTag?.findSubTags("plugin")?.mapNotNull {
+            it.findFirstSubTag("artifactId")?.value?.text
+        }
+        assertEquals(listOf("keep-dependency"), dependencies)
+        assertEquals(listOf("keep-plugin"), plugins)
+
+        val dependencyComments = PsiTreeUtil.findChildrenOfType(dependenciesTag, XmlComment::class.java)
+        assertTrue("No comments should be created when commenting out is disabled", dependencyComments.isEmpty())
+
+        val pluginComments = PsiTreeUtil.findChildrenOfType(pluginsTag, XmlComment::class.java)
+        assertTrue("No comments should be created when commenting out is disabled", pluginComments.isEmpty())
     }
 }
