@@ -11,11 +11,11 @@ MavenUp is an IntelliJ plugin built specifically for Maven projects to simplify 
 
 **Dependency Tab**
 
-![Dependency Tab](/assets/main.png "Dependency Tab")
+![Dependency Tab](/docs/assets/main.png "Dependency Tab")
 
 **Transitive CVEs Tab**
 
-![Transitive CVEs Tab](/assets/transitive_cves_kontext.png "Transitive CVEs Tab")
+![Transitive CVEs Tab](/docs/assets/transitive_cves_kontext.png "Transitive CVEs Tab")
 
 ## Installation
 
