@@ -1,5 +1,6 @@
 package de.schwarzland.mavenup.ui
 
+import de.schwarzland.mavenup.service.MavenUpSettings
 import java.awt.Component
 import javax.swing.DefaultListCellRenderer
 import javax.swing.JList
@@ -52,7 +53,11 @@ internal enum class PendingChangesFilter(val labelKey: String) {
 
     /** Liefert die lokalisierte Bezeichnung der Filteroption. */
     val label: String
-        get() = MyMessageBundle.message(labelKey)
+        get() = if (this == WILL_REMOVE && MavenUpSettings.getInstance().state.commentOutManagedEntriesOnRemoval) {
+            MyMessageBundle.message("toolwindow.MyToolWindow.filter.changes.option.willCommentOut")
+        } else {
+            MyMessageBundle.message(labelKey)
+        }
 
     override fun toString(): String = label
 }
@@ -133,6 +138,40 @@ internal fun triStateFilterRenderer(labels: TriStateFilterLabels): ListCellRende
                 ?: value?.toString()
             return super.getListCellRendererComponent(list, text, index, isSelected, cellHasFocus)
         }
+    }
+
+/**
+ * Formatiert einen technischen Dependency-Typ für die Anzeige als Option im Type-Filter.
+ *
+ * Der zurückgegebene Text folgt dem IntelliJ-Styleguide für Optionstexte (Sentence Case), während
+ * der unveränderte technische Wert weiterhin für die Filterung verwendet wird.
+ *
+ * @param type Der technische Typwert einer Tabellenzeile.
+ * @return Der im Sentence Case dargestellte Typwert.
+ */
+internal fun typeFilterOptionLabel(type: String): String =
+    type.replaceFirstChar { character -> character.uppercase() }
+
+/**
+ * Erzeugt einen Renderer, der technische Dependency-Typen im Type-Filter als Sentence Case zeigt.
+ *
+ * @return Ein [ListCellRenderer] für die Type-Filter-Combobox.
+ */
+internal fun typeFilterRenderer(): ListCellRenderer<in String> =
+    object : DefaultListCellRenderer() {
+        override fun getListCellRendererComponent(
+            list: JList<*>?,
+            value: Any?,
+            index: Int,
+            isSelected: Boolean,
+            cellHasFocus: Boolean
+        ): Component = super.getListCellRendererComponent(
+            list,
+            (value as? String)?.let(::typeFilterOptionLabel) ?: value?.toString(),
+            index,
+            isSelected,
+            cellHasFocus
+        )
     }
 
 /** Kontextspezifische Optionstexte des Änderungs-Filters. */

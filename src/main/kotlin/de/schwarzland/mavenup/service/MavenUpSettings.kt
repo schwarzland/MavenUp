@@ -117,10 +117,12 @@ class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
      * @property repositoryBrowser Der Maven-Repository-Browser, der für Links auf Abhängigkeits-Versionsseiten verwendet wird.
      * @property toolbarShowText Bestimmt, ob die Aktionsleisten Text-Buttons statt reiner Icon-Buttons anzeigen.
      * @property syncMavenAfterUpdate Bestimmt, ob nach dem Schreiben der `pom.xml` automatisch der Maven-Sync der IDE ausgelöst wird.
+     * @property commentOutManagedEntriesOnRemoval Bestimmt, ob beim Entfernen verwalteter Einträge (Dependencies/Plugins) das Element in der pom.xml als XML-Kommentar auskommentiert statt vollständig gelöscht wird.
      * @property stopAfterCentralSuccess Bestimmt, ob nach einer erfolgreichen Abfrage von Maven Central keine weiteren privaten Repositories abgefragt werden.
      * @property offerAllVersions Bestimmt, ob in der Versionsauswahl alle verfügbaren Versionen (inklusive älterer) angeboten werden, statt nur Versionen `>=` der aktuellen Version.
      * @property confirmVersionReset Bestimmt, ob vor dem Zurücksetzen aller Versionsauswahlen ein Bestätigungsdialog angezeigt wird.
-     * @property autoSearchVersions Bestimmt, ob nach dem automatischen Neuladen der Projektdaten (Tool-Window-Start, Maven-Import/Resync) unmittelbar online nach neuen Versionen gesucht wird.
+     * @property autoSearchVersions Bestimmt, ob nach dem Laden eines Maven-Projekts und nach jedem
+     *   Maven-Import/Resync unabhängig vom geöffneten Tool Window online nach neuen Versionen gesucht wird.
      * @property addVulnerabilityFixComment Legacy-Flag früherer Plugin-Versionen; wird ausschließlich zur Migration auf [vulnerabilityCommentMode] gelesen und daraus fortgeschrieben.
      * @property vulnerabilityCommentMode Bestimmt, welche Kennungen der behobenen Sicherheitswarnungen beim Anlegen eines gepinnten `dependencyManagement`-Eintrags als erklärender XML-Kommentar eingefügt werden.
      * @property vulnerabilityCommentPrefix Der Text, der im erklärenden XML-Kommentar vor den Kennungen steht.
@@ -138,6 +140,7 @@ class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
         var repositoryBrowser: MavenRepositoryBrowser = MavenRepositoryBrowser.MVN_REPOSITORY,
         var toolbarShowText: Boolean = true,
         var syncMavenAfterUpdate: Boolean = true,
+        var commentOutManagedEntriesOnRemoval: Boolean = true,
         var stopAfterCentralSuccess: Boolean = true,
         var selectLatestVersion: Boolean = false,
         var selectLatestMinorVersion: Boolean = false,

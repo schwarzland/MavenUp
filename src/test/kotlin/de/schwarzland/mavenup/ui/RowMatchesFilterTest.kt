@@ -450,6 +450,13 @@ class RowMatchesFilterTest {
     }
 
     @Test
+    fun testTypeFilterOptionLabelsUseSentenceCaseWithoutChangingTechnicalValues() {
+        assertEquals("Dependency", typeFilterOptionLabel("dependency"))
+        assertEquals("Managed dependency", typeFilterOptionLabel("managed dependency"))
+        assertEquals("", typeFilterOptionLabel(""))
+    }
+
+    @Test
     fun testVersionSourceFilterAllMatchesBothKinds() {
         val inherited = FilterRow("org.a", "lib", "p", "dependency", versionInherited = true)
         val declared = FilterRow("org.a", "lib", "p", "dependency", versionInherited = false)

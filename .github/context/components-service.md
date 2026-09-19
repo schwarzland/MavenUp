@@ -7,8 +7,16 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
 - **MavenUpStartupActivity**: `ProjectActivity`, macht das Tool-Window beim Projektstart
   verfügbar, sobald bereits Maven-Projekte vorhanden sind (wartet auf `MavenProjectsManager`).
 - **MavenUpMavenImportListener**: deklarativ über `<projectListeners>` registrierter
-  `MavenImportListener`, der das Tool-Window nach abgeschlossenem Maven-Import verfügbar macht;
+  `MavenImportListener`, der das Tool-Window nach abgeschlossenem Maven-Import verfügbar macht und
+  die automatische Versionssuche anstößt;
   die deklarative Registrierung ermöglicht Plugin-Updates ohne IDE-Neustart.
+- **AutomaticVersionSearchCoordinator**: projektgebundener Service, der nach Projektstart und
+  abgeschlossenen Maven-Imports einen PSI-Schnappschuss innerhalb einer IntelliJ-Read-Action erfasst und bei aktivierter Einstellung
+  `autoSearchVersions` die Versionsabfrage im Hintergrund ausführt, ohne das Tool-Window zu
+  erzeugen. Er speichert den jüngsten Zustand, veröffentlicht ihn über
+  `AUTOMATIC_VERSION_SEARCH_TOPIC`, setzt den Update-Badge direkt über
+  `ToolWindowBadgeService` und verwirft durch eine Generation geschützte, überholte Ergebnisse;
+  `MavenUpWindowFactory` übernimmt den Cache beim Öffnen bzw. bei der Veröffentlichung.
 - **MavenUpToolWindowActivator**: gemeinsames, idempotentes Hilfsobjekt zum Verfügbarmachen
   des Tool-Windows, genutzt von Startup-Aktivität und Import-Listener; nutzt die gemeinsame
   Konstante `MAVEN_UP_TOOL_WINDOW_ID`.
@@ -26,7 +34,7 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
 - **MavenUpSettings**: `PersistentStateComponent` auf Anwendungsebene (`Service.Level.APP`), global für alle Projekte gespeichert in `mavenup_settings.xml`
   (`jumpOnSingleClick`, `versionAutoSelectionMode` mit `DISABLED`, `LATEST`, `LATEST_MINOR`, `hideUnstableVersions`, `hiddenVersionQualifiers`,
   `ossIndexEnabled`, `checkTransitiveDependencies`, `repositoryBrowser`, `toolbarShowText`,
-  `syncMavenAfterUpdate`, `stopAfterCentralSuccess`, `offerAllVersions`, `confirmVersionReset`,
+  `syncMavenAfterUpdate`, `commentOutManagedEntriesOnRemoval`, `stopAfterCentralSuccess`, `offerAllVersions`, `confirmVersionReset`,
   `autoSearchVersions`, `vulnerabilityCommentMode` mit `NONE`, `TEXT_ONLY`, `ADVISORY_IDS`, `ALIASES`, `ALL_IDS`,
   `vulnerabilityCommentPrefix`, `vulnerabilityCommentMaxIds`,
   `toolWindowBadgeMode` mit `OFF`, `VULNERABILITIES`, `VULNERABILITIES_AND_UPDATES`,
@@ -126,7 +134,10 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   (Version stammt aus Parent-POM oder importiertem BOM). Zustandslos, benötigt nur das Projekt.
 - **PomUpdateService**: wendet ausgewählte Updates über PSI/`WriteCommandAction` auf die
   `pom.xml` an (`applyUpdateToPom`, `updateXmlTagVersion`, Parent/Dependencies/Plugins) und
-  speichert die Dateien vor dem Maven-Sync (`persistPomChanges`). Für „managed dependency"-Updates
+  speichert die Dateien vor dem Maven-Sync (`persistPomChanges`). `removeManagedEntry` entfernt einen
+  verwalteten Eintrag aus `<dependencyManagement>` bzw. `<pluginManagement>` und kommentiert diesen je nach
+  Einstellung `commentOutManagedEntriesOnRemoval` als XML-Kommentar aus (Standard) oder löscht ihn vollständig.
+  Für „managed dependency"-Updates
   ohne vorhandenen Eintrag legt `addManagedDependency` einen neuen `<dependencyManagement>`-Eintrag an
   (Container werden bei Bedarf erzeugt) und stellt der Abhängigkeit je nach Einstellung
   `vulnerabilityCommentMode` (Standard: `ADVISORY_IDS`) über `managedDependencyCommentText` einen XML-Kommentar

@@ -12,12 +12,17 @@ import de.schwarzland.mavenup.service.RefreshSnapshotCollector
 import de.schwarzland.mavenup.service.PomUpdateService
 import de.schwarzland.mavenup.service.PomNavigationService
 import de.schwarzland.mavenup.service.ToolWindowBadgeService
+import de.schwarzland.mavenup.service.MAVEN_UP_TOOL_WINDOW_ID
 import de.schwarzland.mavenup.service.determineBadgeState
 import de.schwarzland.mavenup.service.VulnerabilityScanService
 import de.schwarzland.mavenup.service.VersionAutoSelectionMode
 import de.schwarzland.mavenup.service.VulnerabilityApiService
 import de.schwarzland.mavenup.service.VulnerabilityMerger
 import de.schwarzland.mavenup.service.MavenUpNotifications
+import de.schwarzland.mavenup.service.AutomaticVersionSearchCoordinator
+import de.schwarzland.mavenup.service.AutomaticVersionSearchState
+import de.schwarzland.mavenup.service.AutomaticVersionSearchListener
+import de.schwarzland.mavenup.service.AUTOMATIC_VERSION_SEARCH_TOPIC
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.ActionToolbar
 import com.intellij.openapi.actionSystem.ActionUpdateThread
@@ -45,6 +50,7 @@ import com.intellij.openapi.ui.MessageDialogBuilder
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
+import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.ui.DocumentAdapter
 import com.intellij.ui.EditorNotificationPanel
 import com.intellij.ui.InlineBanner
@@ -60,8 +66,6 @@ import com.intellij.ui.table.JBTable
 import com.intellij.util.concurrency.AppExecutorUtil
 import com.intellij.util.ui.AbstractTableCellEditor
 import com.intellij.icons.AllIcons
-import org.jetbrains.idea.maven.project.MavenImportListener
-import org.jetbrains.idea.maven.project.MavenProject
 import org.jetbrains.idea.maven.project.MavenProjectsManager
 import java.awt.BorderLayout
 import java.awt.Component
@@ -101,14 +105,14 @@ private const val TOOLWINDOW_MY_TOOL_WINDOW_MANAGED_ENTRIES_GROUP_BUTTON = "tool
  * @property currentVersion Aktuelle Version des Eintrags.
  * @property vulnerabilityCell Sicherheitslücken der Dependency, sofern vorhanden.
  */
-private data class DependencyContextMenuTarget(
+internal data class DependencyContextMenuTarget(
     val column: Int,
     val groupId: String,
     val artifactId: String,
     val property: String,
     val type: String,
     val currentVersion: String,
-    val vulnerabilityCell: VulnerabilityCell?
+    val vulnerabilityCell: VulnerabilityCell? = null
 ) {
     /** Maven-Koordinate ohne Version. */
     val dependencyKey: String = "$groupId:$artifactId"
@@ -215,6 +219,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         private val refreshSnapshotCollector = RefreshSnapshotCollector(project)
+        private val automaticVersionSearchCoordinator = AutomaticVersionSearchCoordinator.getInstance(project)
         private val pomUpdateService = PomUpdateService(project)
         private val pomNavigationService = PomNavigationService(project)
         private val toolWindowBadgeService = ToolWindowBadgeService.getInstance(project)
@@ -263,7 +268,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private val transitiveVulnerabilitiesView = TransitiveVulnerabilitiesView(
             project,
             { refreshToolbar() },
-            { showDirectVulnerabilitiesInDependencies() }
+            { showDirectVulnerabilitiesInDependencies() },
+            { groupId, artifactId -> navigateToDependencyInTable(groupId, artifactId) },
+            { groupId, artifactId -> isDependencyInTable(groupId, artifactId) }
         )
 
         /** Wurzelkomponente des Tabs **Transitive CVEs**: Aktionsleiste über der transitiven Ansicht. */
@@ -375,6 +382,15 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /** Anzeigetext der Combobox-Option, die alle Typen zulässt. */
         private val allTypesFilterLabel =
             MyMessageBundle.message("toolwindow.MyToolWindow.filter.type.all")
+
+        /** Stabile, immer verfügbare Liste der von MavenUp unterstützten Typfilter-Werte. */
+        private fun stableTypeFilterOptions(): List<String> = linkedSetOf(
+            "dependency",
+            "plugin",
+            PARENT_TYPE,
+            MANAGED_PLUGIN,
+            MANAGED_DEPENDENCY
+        ).toList()
 
         /** Container für die Aktionsleiste und die Filterzeile des Tabs **Dependencies**. */
         private val topPanel = JBPanel<JBPanel<*>>(BorderLayout())
@@ -518,11 +534,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
                 private fun showContextMenu(e: MouseEvent) {
                     val target = contextMenuTarget(e) ?: return
-                    val group = DefaultActionGroup()
-                    addContextFilterAction(group, target)
-                    addContextNavigationActions(group, target)
-                    addContextVersionActions(group, target)
-                    addContextVulnerabilityAction(group, target)
+                    val group = buildContextMenuGroup(target)
                     showContextMenuPopup(group, e)
                 }
             })
@@ -599,7 +611,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     val type = table?.getValueAt(row, TYPE_COLUMN) as? String ?: ""
                     if (isManagedEntryMarkedForRemoval(key, type)) {
                         return@TableCellRenderer JLabel(
-                            MyMessageBundle.message("toolwindow.MyToolWindow.version.willRemove")
+                            willRemoveOrCommentOutLabel()
                         ).apply {
                             foreground = versionStatusColor(false)
                             font = font.deriveFont(Font.BOLD)
@@ -741,6 +753,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 knownDependencies.clear()
                 knownTypes.clear()
                 inheritedVersionDependencies.clear()
+                updateTypeFilterOptions()
                 updateUpdateButtonState()
             }
 
@@ -896,26 +909,27 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 }
             }
 
-            refreshAction(isAutoVersionSearchEnabled(), true, true)
+            automaticVersionSearchCoordinator.latestState()?.let(::applyAutomaticVersionSearchState)
+                ?: refreshAction(false, true, true)
 
             add(JBScrollPane(table), BorderLayout.CENTER)
             transitiveContent.add(transitiveTopPanel, BorderLayout.NORTH)
             transitiveContent.add(transitiveVulnerabilitiesView, BorderLayout.CENTER)
 
-            fun toolbarAction(
-                messageKey: String,
+            fun dynamicToolbarAction(
                 icon: Icon,
                 isEnabled: () -> Boolean,
+                labelProvider: () -> String,
                 shortLabelKey: String? = null,
                 descriptionProvider: (() -> String)? = null,
                 isMenuItem: Boolean = false,
                 onPerform: () -> Unit
             ): AnAction {
-                val label = MyMessageBundle.message(messageKey)
-                return object : AnAction(label, label, icon) {
+                return object : AnAction(labelProvider(), labelProvider(), icon) {
                     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
                     override fun update(e: AnActionEvent) {
                         e.presentation.isEnabled = isEnabled()
+                        val label = labelProvider()
                         val fullText = descriptionProvider?.invoke() ?: label
                         if (isMenuItem) {
                             // In einem Untermenü wird immer der vollständige Text angezeigt.
@@ -938,6 +952,24 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     override fun actionPerformed(e: AnActionEvent) = onPerform()
                 }
             }
+
+            fun toolbarAction(
+                messageKey: String,
+                icon: Icon,
+                isEnabled: () -> Boolean,
+                shortLabelKey: String? = null,
+                descriptionProvider: (() -> String)? = null,
+                isMenuItem: Boolean = false,
+                onPerform: () -> Unit
+            ): AnAction = dynamicToolbarAction(
+                icon = icon,
+                isEnabled = isEnabled,
+                labelProvider = { MyMessageBundle.message(messageKey) },
+                shortLabelKey = shortLabelKey,
+                descriptionProvider = descriptionProvider,
+                isMenuItem = isMenuItem,
+                onPerform = onPerform
+            )
 
             val openInRepositoryAction = object : AnAction() {
                 override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
@@ -993,11 +1025,16 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     },
                     isMenuItem = true
                 ) {
-                    if (showingTransitiveView) transitiveVulnerabilitiesView.selectHighestMajorVersionForAll()
-                    else confirmAndApplyBulkVersionSelection(
+                    confirmAndApplyBulkVersionSelection(
                         TOOLWINDOW_MY_TOOL_WINDOW_SELECT_HIGHEST_MAJOR_BUTTON,
-                        applyVisible = { selectHighestMajorVersionForAll(visibleOnly = true) },
-                        applyAll = { selectHighestMajorVersionForAll(visibleOnly = false) }
+                        applyVisible = {
+                            if (showingTransitiveView) transitiveVulnerabilitiesView.selectHighestMajorVersionForAll(visibleOnly = true)
+                            else selectHighestMajorVersionForAll(visibleOnly = true)
+                        },
+                        applyAll = {
+                            if (showingTransitiveView) transitiveVulnerabilitiesView.selectHighestMajorVersionForAll(visibleOnly = false)
+                            else selectHighestMajorVersionForAll(visibleOnly = false)
+                        }
                     )
                 })
                 add(toolbarAction(
@@ -1011,11 +1048,16 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     },
                     isMenuItem = true
                 ) {
-                    if (showingTransitiveView) transitiveVulnerabilitiesView.selectHighestMinorVersionForAll()
-                    else confirmAndApplyBulkVersionSelection(
+                    confirmAndApplyBulkVersionSelection(
                         TOOLWINDOW_MY_TOOL_WINDOW_SELECT_HIGHEST_MINOR_BUTTON,
-                        applyVisible = { selectHighestMinorVersionForAll(visibleOnly = true) },
-                        applyAll = { selectHighestMinorVersionForAll(visibleOnly = false) }
+                        applyVisible = {
+                            if (showingTransitiveView) transitiveVulnerabilitiesView.selectHighestMinorVersionForAll(visibleOnly = true)
+                            else selectHighestMinorVersionForAll(visibleOnly = true)
+                        },
+                        applyAll = {
+                            if (showingTransitiveView) transitiveVulnerabilitiesView.selectHighestMinorVersionForAll(visibleOnly = false)
+                            else selectHighestMinorVersionForAll(visibleOnly = false)
+                        }
                     )
                 })
                 add(toolbarAction(
@@ -1029,11 +1071,16 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     },
                     isMenuItem = true
                 ) {
-                    if (showingTransitiveView) transitiveVulnerabilitiesView.selectRecommendedVersionForAll()
-                    else confirmAndApplyBulkVersionSelection(
+                    confirmAndApplyBulkVersionSelection(
                         TOOLWINDOW_MY_TOOL_WINDOW_SELECT_RECOMMENDED_BUTTON,
-                        applyVisible = { selectRecommendedVersionForAll(visibleOnly = true) },
-                        applyAll = { selectRecommendedVersionForAll(visibleOnly = false) }
+                        applyVisible = {
+                            if (showingTransitiveView) transitiveVulnerabilitiesView.selectRecommendedVersionForAll(visibleOnly = true)
+                            else selectRecommendedVersionForAll(visibleOnly = true)
+                        },
+                        applyAll = {
+                            if (showingTransitiveView) transitiveVulnerabilitiesView.selectRecommendedVersionForAll(visibleOnly = false)
+                            else selectRecommendedVersionForAll(visibleOnly = false)
+                        }
                     )
                 })
             }
@@ -1045,7 +1092,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
                 override fun update(e: AnActionEvent) {
                     val showText = isToolbarTextEnabled()
-                    val tooltip = MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.group.tooltip")
+                    val tooltip = managedEntriesGroupTooltip()
                     e.presentation.isEnabled = !showingTransitiveView && (
                         hasManagedEntriesToRemoveForType(MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)) ||
                             hasManagedEntriesToRemoveForType(MANAGED_PLUGIN)
@@ -1058,13 +1105,17 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 }
             }.apply {
                 templatePresentation.icon = MANAGED_ENTRIES_ICON
-                add(toolbarAction(
-                    "toolwindow.MyToolWindow.managedEntries.removeManagedDependencies.button",
-                    AllIcons.Actions.Cancel,
-                    { !showingTransitiveView && hasManagedEntriesToRemoveForType(MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)) },
+                add(dynamicToolbarAction(
+                    icon = AllIcons.Actions.Cancel,
+                    isEnabled = {
+                        !showingTransitiveView && hasManagedEntriesToRemoveForType(
+                            MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
+                        )
+                    },
+                    labelProvider = { managedDependenciesActionLabel() },
                     descriptionProvider = {
                         bulkSelectionActionDescription(
-                            MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.removeManagedDependencies.button")
+                            managedDependenciesActionLabel()
                         )
                     },
                     isMenuItem = true
@@ -1073,13 +1124,13 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
                     )
                 })
-                add(toolbarAction(
-                    "toolwindow.MyToolWindow.managedEntries.removeManagedPlugins.button",
-                    AllIcons.Actions.Cancel,
-                    { !showingTransitiveView && hasManagedEntriesToRemoveForType(MANAGED_PLUGIN) },
+                add(dynamicToolbarAction(
+                    icon = AllIcons.Actions.Cancel,
+                    isEnabled = { !showingTransitiveView && hasManagedEntriesToRemoveForType(MANAGED_PLUGIN) },
+                    labelProvider = { managedPluginsActionLabel() },
                     descriptionProvider = {
                         bulkSelectionActionDescription(
-                            MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.removeManagedPlugins.button")
+                            managedPluginsActionLabel()
                         )
                     },
                     isMenuItem = true
@@ -1166,19 +1217,12 @@ class MavenUpWindowFactory : ToolWindowFactory {
             topPanel.add(filterAndHintPanel, BorderLayout.SOUTH)
             add(topPanel, BorderLayout.NORTH)
 
-            project.messageBus.connect(this@MyToolWindow).subscribe(MavenImportListener.TOPIC, object : MavenImportListener {
-                override fun importFinished(
-                    importedProjects: Collection<MavenProject>,
-                    newModules: List<com.intellij.openapi.module.Module>
-                ) {
-                    ApplicationManager.getApplication().invokeLater {
-                        availableVersions.clear()
-                        rawAvailableVersions.clear()
-                        selectedVersions.clear()
-                        refreshAction(isAutoVersionSearchEnabled(), true, true)
-                    }
+            project.messageBus.connect(this@MyToolWindow).subscribe(
+                AUTOMATIC_VERSION_SEARCH_TOPIC,
+                AutomaticVersionSearchListener { state ->
+                    applyAutomaticVersionSearchState(state)
                 }
-            })
+            )
 
             project.messageBus.connect(this@MyToolWindow).subscribe(MAVEN_UP_SETTINGS_TOPIC, Runnable {
                 ApplicationManager.getApplication().invokeLater {
@@ -1186,6 +1230,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     applyVersionVisibilitySettingsIfChanged()
                     applySelectLatestVersionSettingIfChanged()
                     updateToolWindowBadge()
+                    table.repaint()
+                    filterAndHintPanel.revalidate()
+                    filterAndHintPanel.repaint()
                 }
             })
         }
@@ -1248,7 +1295,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             val type = table.getValueAt(row, TYPE_COLUMN) as? String ?: ""
             val dependencyKey = "$groupId:$artifactId"
             if (isManagedEntryMarkedForRemoval(dependencyKey, type)) {
-                return MyMessageBundle.message("toolwindow.MyToolWindow.version.willRemoveTooltip")
+                return willRemoveOrCommentOutTooltip()
             }
 
             val newestVersion = versions.firstOrNull().orEmpty()
@@ -1295,6 +1342,21 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 currentVersion = table.getValueAt(row, CURRENT_VERSION_COLUMN) as? String ?: "",
                 vulnerabilityCell = table.getValueAt(row, VULNERABILITIES_COLUMN) as? VulnerabilityCell
             )
+        }
+
+        /**
+         * Erzeugt die Aktionsgruppe des Kontextmenüs für eine Tabellenzeile.
+         *
+         * @param target Daten der angeklickten Tabellenzeile.
+         * @return Die zusammengestellte Aktionsgruppe.
+         */
+        internal fun buildContextMenuGroup(target: DependencyContextMenuTarget): DefaultActionGroup {
+            val group = DefaultActionGroup()
+            addContextFilterAction(group, target)
+            addContextNavigationActions(group, target)
+            addContextVersionActions(group, target)
+            addContextVulnerabilityAction(group, target)
+            return group
         }
 
         /**
@@ -1351,7 +1413,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
-         * Fügt die versionsbezogenen Aktionen und gegebenenfalls die Entfernungsaktion hinzu.
+         * Fügt die versionsbezogenen Aktionen und die Entfernungsaktion hinzu.
          *
          * @param group Aktionsgruppe des Kontextmenüs.
          * @param target Daten der angeklickten Tabellenzeile.
@@ -1380,14 +1442,12 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.resetToCurrent"),
                 isVersionResetEnabledForDependency(dependencyKey, target.type)
             ) { resetVersionForDependency(dependencyKey, target.type) }
-            if (isManagedEntryType(target.type) && !isManagedEntryMarkedForRemoval(dependencyKey, target.type)) {
-                addContextMenuAction(
-                    group,
-                    MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.removeFromPom"),
-                    !isUpdating
-                ) {
-                    markManagedEntryForRemoval(dependencyKey, target.type, target.currentVersion)
-                }
+            addContextMenuAction(
+                group,
+                managedEntryContextMenuLabel(),
+                isManagedEntryRemovalEnabled(dependencyKey, target.type)
+            ) {
+                markManagedEntryForRemoval(dependencyKey, target.type, target.currentVersion)
             }
         }
 
@@ -1537,7 +1597,11 @@ class MavenUpWindowFactory : ToolWindowFactory {
             val filterControlsPanel = JBPanel<JBPanel<*>>(FlowLayout(FlowLayout.LEFT, 4, 0))
 
             filterControlsPanel.add(JLabel(MyMessageBundle.message("toolwindow.MyToolWindow.filter.type.label")))
-            typeFilterComboBox.model = DefaultComboBoxModel(arrayOf(allTypesFilterLabel))
+            typeFilterComboBox.model = DefaultComboBoxModel(
+                (listOf(allTypesFilterLabel) + stableTypeFilterOptions()).toTypedArray()
+            )
+            typeFilterComboBox.selectedItem = allTypesFilterLabel
+            typeFilterComboBox.renderer = typeFilterRenderer()
             typeFilterComboBox.toolTipText = MyMessageBundle.message("toolwindow.MyToolWindow.filter.type.tooltip")
             typeFilterComboBox.addActionListener { applyRowFilter() }
             filterControlsPanel.add(typeFilterComboBox)
@@ -2031,6 +2095,73 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
+         * Übernimmt einen vom projektweiten Hintergrundkoordinator veröffentlichten Zustand in die UI.
+         *
+         * Ein laufender manueller Update- oder Vulnerability-Vorgang behält Vorrang, damit dessen
+         * Ergebnis nicht durch einen gleichzeitig fertig werdenden Maven-Import überschrieben wird.
+         *
+         * @param state Der nach Projektstart oder Maven-Import erfasste Zustand.
+         */
+        private fun applyAutomaticVersionSearchState(state: AutomaticVersionSearchState) {
+            if (isUpdating || project.isDisposed) return
+
+            refreshGeneration++
+            isRefreshing = false
+            isSearchingVersions = false
+            (table.model as DefaultTableModel).setRowCount(0)
+            availableVersions.clear()
+            rawAvailableVersions.clear()
+            selectedVersions.clear()
+            pendingManagedRemovalUpdates.clear()
+            dependencyToProperty.clear()
+            knownDependencies.clear()
+            knownTypes.clear()
+            inheritedVersionDependencies.clear()
+            vulnerabilityAdvisories.clear()
+            transitiveCoordinates.clear()
+            transitiveDependenciesByDirect.clear()
+            transitiveAvailableVersions.clear()
+            rawTransitiveAvailableVersions.clear()
+            transitiveCurrentVersions.clear()
+            vulnerabilityScanPerformed = false
+            lastScannedCount = 0
+            hideScanHint()
+            vulnerabilityScanErrors = emptyList()
+            transitiveVersionRepositoryError = null
+
+            val result = state.versionSearchResult
+            availableVersions.putAll(result?.availableVersions.orEmpty())
+            rawAvailableVersions.putAll(result?.rawVersions.orEmpty())
+            selectedVersions.putAll(result?.selectedVersions.orEmpty())
+            versionSearchRepositoryError = state.repositoryError
+            dependencyToProperty.putAll(state.snapshot.dependencyProperties)
+
+            val declaredCoordinates = state.snapshot.rows
+                .filter { it.currentVersion.isNotEmpty() }
+                .mapTo(linkedSetOf()) { "${it.key}:${it.currentVersion}" }
+            state.snapshot.rows.forEach { row ->
+                knownDependencies[row.key] = row.currentVersion
+                knownTypes[row.key] = row.type
+                if (row.versionInherited) {
+                    inheritedVersionDependencies.add(row.key)
+                }
+                addDependencyRow(row, declaredCoordinates)
+            }
+
+            updateUpdateButtonState()
+            updateTypeFilterOptions()
+            updateUpdatesFilterState()
+            updateVulnerabilitiesFilterState()
+            updateVersionSourceFilterState()
+            updateTransitiveVulnerabilitiesView()
+            trimColumnWidthsToContent(table)
+            refreshApiErrorBanner()
+            updateTableEmptyText()
+            updateToolWindowBadge()
+            refreshToolbar()
+        }
+
+        /**
          * Setzt den Hinweistext, der anstelle der Tabelle der Abhängigkeiten angezeigt wird, solange
          * diese keine sichtbaren Zeilen enthält.
          *
@@ -2047,24 +2178,31 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
-         * Aktualisiert die Auswahlmöglichkeiten der Typ-Combobox anhand der aktuell in der
-         * Tabelle vorhandenen Typen.
+         * Aktualisiert die Auswahlmöglichkeiten der Typ-Combobox anhand der stabilen unterstützten
+         * Typen sowie der aktuell bekannten und in der Tabelle vorhandenen Typen.
          *
          * Die bisherige Auswahl bleibt erhalten, sofern der Typ weiterhin existiert; andernfalls
          * wird auf "alle Typen" zurückgesetzt.
          */
         internal fun updateTypeFilterOptions() {
             val model = table.model as DefaultTableModel
-            val types = (0 until model.rowCount)
+            val currentTableTypes = (0 until model.rowCount)
                 .mapNotNull { model.getValueAt(it, TYPE_COLUMN) as? String }
                 .filter { it.isNotBlank() }
+            val knownTypeOptions = knownTypes.values.filter { it.isNotBlank() }
+            val types = (stableTypeFilterOptions() + knownTypeOptions + currentTableTypes)
                 .distinct()
+                .filter { it.isNotBlank() }
                 .sorted()
             val previouslySelected = typeFilterComboBox.selectedItem as? String ?: allTypesFilterLabel
             typeFilterComboBox.model =
                 DefaultComboBoxModel((listOf(allTypesFilterLabel) + types).toTypedArray())
             typeFilterComboBox.selectedItem =
-                if (types.contains(previouslySelected)) previouslySelected else allTypesFilterLabel
+                if (previouslySelected == allTypesFilterLabel || types.contains(previouslySelected)) {
+                    previouslySelected
+                } else {
+                    allTypesFilterLabel
+                }
         }
 
         /**
@@ -2583,6 +2721,17 @@ class MavenUpWindowFactory : ToolWindowFactory {
             pendingManagedRemovalUpdates.containsKey(managedRemovalKey(key, type))
 
         /**
+         * Prüft, ob ein Eintrag aus der pom.xml entfernt werden kann.
+         *
+         * @param key Der Schlüssel (`groupId:artifactId`) des Eintrags.
+         * @param type Der Typ des Eintrags.
+         * @return `true`, wenn keine Aktualisierung läuft, es sich um einen verwalteten Eintrag handelt
+         *   und dieser noch nicht zur Entfernung vorgemerkt ist.
+         */
+        internal fun isManagedEntryRemovalEnabled(key: String, type: String): Boolean =
+            !isUpdating && isManagedEntryType(type) && !isManagedEntryMarkedForRemoval(key, type)
+
+        /**
          * Erzeugt einen eindeutigen Schlüssel für eine verwaltete Entfernungsmarkierung.
          *
          * Der Typ gehört zum Schlüssel, damit eine verwaltete Abhängigkeit und ein verwaltetes Plugin
@@ -2875,15 +3024,100 @@ class MavenUpWindowFactory : ToolWindowFactory {
                MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.filtered.option.filtered"),
                MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.filtered.option.cancel")
            )
+           val messageKey = if (isCommentOutManagedEntriesEnabled()) {
+               "toolwindow.MyToolWindow.managedEntries.filtered.message.commentOut"
+           } else {
+               "toolwindow.MyToolWindow.managedEntries.filtered.message"
+           }
            return Messages.showDialog(
                project,
-               MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.filtered.message"),
+               MyMessageBundle.message(messageKey),
                MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_MANAGED_ENTRIES_GROUP_BUTTON),
                options,
                0,
                Messages.getWarningIcon()
            )
         }
+
+        /**
+         * Prüft, ob das Auskommentieren verwalteter Einträge beim Entfernen in den Einstellungen aktiviert ist.
+         *
+         * @return `true`, wenn verwaltete Einträge auskommentiert statt gelöscht werden sollen.
+         */
+        internal fun isCommentOutManagedEntriesEnabled(): Boolean =
+            MavenUpSettings.getInstance().state.commentOutManagedEntriesOnRemoval
+
+        /**
+         * Liefert die konfigurationsabhängige Beschriftung der Bulk-Aktion für verwaltete Abhängigkeiten.
+         *
+         * @return Die lokalisierte Beschriftung ("Comment out managed dependencies" bzw. "Remove managed dependencies").
+         */
+        internal fun managedDependenciesActionLabel(): String =
+            if (isCommentOutManagedEntriesEnabled()) {
+                MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.commentOutManagedDependencies.button")
+            } else {
+                MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.removeManagedDependencies.button")
+            }
+
+        /**
+         * Liefert die konfigurationsabhängige Beschriftung der Bulk-Aktion für verwaltete Plugins.
+         *
+         * @return Die lokalisierte Beschriftung ("Comment out managed plugins" bzw. "Remove managed plugins").
+         */
+        internal fun managedPluginsActionLabel(): String =
+            if (isCommentOutManagedEntriesEnabled()) {
+                MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.commentOutManagedPlugins.button")
+            } else {
+                MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.removeManagedPlugins.button")
+            }
+
+        /**
+         * Liefert den konfigurationsabhängigen Tooltip für das Managed-Entries-Menü.
+         *
+         * @return Der lokalisierte Tooltip.
+         */
+        internal fun managedEntriesGroupTooltip(): String =
+            if (isCommentOutManagedEntriesEnabled()) {
+                MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.group.tooltip.commentOut")
+            } else {
+                MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.group.tooltip")
+            }
+
+        /**
+         * Liefert die konfigurationsabhängige Beschriftung des Kontextmenüeintrags zum Entfernen/Auskommentieren.
+         *
+         * @return Die lokalisierte Beschriftung ("Comment out in pom.xml" bzw. "Remove from pom.xml").
+         */
+        internal fun managedEntryContextMenuLabel(): String =
+            if (isCommentOutManagedEntriesEnabled()) {
+                MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.commentOutFromPom")
+            } else {
+                MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.removeFromPom")
+            }
+
+        /**
+         * Liefert den Anzeigetext für die Spalte "New Version" bei zur Entfernung/Auskommentierung vorgemerkten Einträgen.
+         *
+         * @return Der lokalisierte Statustext ("Will be commented out" bzw. "Will be removed").
+         */
+        internal fun willRemoveOrCommentOutLabel(): String =
+            if (isCommentOutManagedEntriesEnabled()) {
+                MyMessageBundle.message("toolwindow.MyToolWindow.version.willCommentOut")
+            } else {
+                MyMessageBundle.message("toolwindow.MyToolWindow.version.willRemove")
+            }
+
+        /**
+         * Liefert den Tooltip für die Spalte "New Version" bei zur Entfernung/Auskommentierung vorgemerkten Einträgen.
+         *
+         * @return Der lokalisierte Tooltip.
+         */
+        internal fun willRemoveOrCommentOutTooltip(): String =
+            if (isCommentOutManagedEntriesEnabled()) {
+                MyMessageBundle.message("toolwindow.MyToolWindow.version.willCommentOutTooltip")
+            } else {
+                MyMessageBundle.message("toolwindow.MyToolWindow.version.willRemoveTooltip")
+            }
 
         /**
          * Prüft, ob die Sammelaktionen zur Versionsauswahl ausführbar sind.
@@ -2905,9 +3139,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * Prüft, ob nach einem automatischen Neuladen der Projektdaten sofort online nach neuen
          * Versionen gesucht werden soll.
          *
-         * Die automatischen Auslöser sind der Aufbau des Tool-Window-Inhalts (erstes Öffnen nach dem
-         * Projektstart) und jeder abgeschlossene Maven-Import bzw. -Resync. Ohne geöffnetes Tool Window
-         * existiert dieser Inhalt nicht, sodass ohne Zutun des Anwenders keine Netzwerkabfragen erfolgen.
+         * Die automatischen Auslöser sind Projektstart und jeder abgeschlossene Maven-Import bzw.
+         * -Resync; der projektweite [AutomaticVersionSearchCoordinator] führt sie unabhängig vom
+         * geöffneten Tool Window aus.
          *
          * @return `true`, wenn die Einstellung [MavenUpSettings.State.autoSearchVersions] aktiv ist.
          */
@@ -3478,7 +3712,63 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * @param isPlugin `true` für Managed Plugins, `false` für Managed Dependencies.
          */
         internal fun showDependencyHierarchy(groupId: String, artifactId: String, isPlugin: Boolean = false) {
-            DependencyHierarchyDialog(project, groupId, artifactId, isPlugin).show()
+            DependencyHierarchyDialog(
+                project = project,
+                groupId = groupId,
+                artifactId = artifactId,
+                isPlugin = isPlugin,
+                isDependencyInTable = { targetGroupId, targetArtifactId ->
+                    isDependencyInTable(targetGroupId, targetArtifactId)
+                },
+                onNavigateToTable = { targetGroupId, targetArtifactId ->
+                    navigateToDependencyInTable(targetGroupId, targetArtifactId)
+                }
+            ).show()
         }
+
+        /**
+         * Navigiert zur übergebenen Abhängigkeit in der Haupttabelle, setzt alle Filter zurück
+         * und selektiert die entsprechende Zeile.
+         *
+         * Aktiviert bei Bedarf das Tool Window und wechselt in den Tab **Dependencies**.
+         *
+         * @param groupId Group-ID der anzuspringenden Komponente.
+         * @param artifactId Artefakt-ID der anzuspringenden Komponente.
+         * @return `true`, wenn die Zeile in der Tabelle gefunden und selektiert wurde, sonst `false`.
+         */
+        internal fun navigateToDependencyInTable(groupId: String, artifactId: String): Boolean {
+            val toolWindow = ToolWindowManager.getInstance(project).getToolWindow(MAVEN_UP_TOOL_WINDOW_ID)
+            if (toolWindow != null && !toolWindow.isVisible) {
+                toolWindow.show()
+            }
+            setTransitiveViewVisible(false)
+            resetAllFilters()
+
+            val model = table.model as DefaultTableModel
+            val targetModelRow = (0 until model.rowCount).firstOrNull { modelRow ->
+                val rowGroupId = model.getValueAt(modelRow, GROUP_ID_COLUMN)?.toString().orEmpty()
+                val rowArtifactId = model.getValueAt(modelRow, ARTIFACT_ID_COLUMN)?.toString().orEmpty()
+                rowGroupId == groupId && rowArtifactId == artifactId
+            } ?: return false
+
+            val targetViewRow = table.convertRowIndexToView(targetModelRow)
+            if (targetViewRow >= 0) {
+                table.setRowSelectionInterval(targetViewRow, targetViewRow)
+                table.scrollRectToVisible(table.getCellRect(targetViewRow, 0, true))
+                table.requestFocusInWindow()
+                return true
+            }
+            return false
+        }
+
+        /**
+         * Prüft, ob eine Abhängigkeit mit den angegebenen Koordinaten in der Haupttabelle enthalten ist.
+         *
+         * @param groupId Group-ID der Komponente.
+         * @param artifactId Artefakt-ID der Komponente.
+         * @return `true`, wenn die Komponente in der Haupttabelle existiert, sonst `false`.
+         */
+        internal fun isDependencyInTable(groupId: String, artifactId: String): Boolean =
+            knownDependencies.containsKey("$groupId:$artifactId")
     }
 }

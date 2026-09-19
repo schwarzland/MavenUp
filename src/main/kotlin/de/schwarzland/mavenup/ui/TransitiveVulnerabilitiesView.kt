@@ -197,13 +197,23 @@ internal fun advisoriesBySeverity(advisories: List<VulnerabilityAdvisory>): List
  * (z. B. um die Aktionsleiste zu aktualisieren).
  * @param onShowDirectVulnerabilities Callback des Links im Empty State, der zu den ausschließlich
  * direkt deklarierten Befunden im Tab **Dependencies** wechselt.
+ * @param onNavigateToTable Optionaler Callback zur Navigation zu einer Koordinate in der Haupttabelle.
+ * @param isDependencyInTable Optionales Prädikat zur Prüfung, ob eine Koordinate in der Haupttabelle existiert.
  */
 @Suppress("TooManyFunctions")
 internal class TransitiveVulnerabilitiesView(
     private val project: Project,
-    private val onSelectionChanged: () -> Unit = {},
-    private val onShowDirectVulnerabilities: () -> Unit = {}
+    private val onSelectionChanged: () -> Unit,
+    private val onShowDirectVulnerabilities: () -> Unit,
+    private val onNavigateToTable: ((String, String) -> Boolean)?,
+    private val isDependencyInTable: ((String, String) -> Boolean)? = null
 ) : JBPanel<JBPanel<*>>(BorderLayout()) {
+
+    constructor(
+        project: Project,
+        onSelectionChanged: () -> Unit = {},
+        onShowDirectVulnerabilities: () -> Unit = {}
+    ) : this(project, onSelectionChanged, onShowDirectVulnerabilities, null, null)
 
     /** `true`, sobald mindestens ein Sicherheits-Scan abgeschlossen wurde. */
     private var scanPerformed = false
@@ -608,28 +618,40 @@ internal class TransitiveVulnerabilitiesView(
         selectedVersions.containsKey(key)
 
     /**
-     * Wählt für die aktuell sichtbaren transitiven Koordinaten die höchste verfügbare Version
-     * (über alle Major-Linien hinweg) aus.
+     * Wählt für alle oder nur für die aktuell sichtbaren transitiven Koordinaten die höchste verfügbare
+     * Version (über alle Major-Linien hinweg) aus.
+     *
+     * @param visibleOnly Wenn `true`, werden nur aktuell sichtbare (nicht ausgefilterte) Einträge
+     *   berücksichtigt; andernfalls wirkt die Auswahl auf alle geladenen Koordinaten.
      */
-    internal fun selectHighestMajorVersionForAll() {
-        applyBulkSelection { _, versions, _ -> versions.firstOrNull().orEmpty() }
+    @JvmOverloads
+    internal fun selectHighestMajorVersionForAll(visibleOnly: Boolean = true) {
+        applyBulkSelection(visibleOnly = visibleOnly) { _, versions, _ -> versions.firstOrNull().orEmpty() }
     }
 
     /**
-     * Wählt für die aktuell sichtbaren transitiven Koordinaten die höchste Version innerhalb derselben
-     * Major-Linie wie die aktuell aufgelöste Version aus.
+     * Wählt für alle oder nur für die aktuell sichtbaren transitiven Koordinaten die höchste Version
+     * innerhalb derselben Major-Linie wie die aktuell aufgelöste Version aus.
+     *
+     * @param visibleOnly Wenn `true`, werden nur aktuell sichtbare (nicht ausgefilterte) Einträge
+     *   berücksichtigt; andernfalls wirkt die Auswahl auf alle geladenen Koordinaten.
      */
-    internal fun selectHighestMinorVersionForAll() {
-        applyBulkSelection { current, versions, _ -> latestVersionWithinSameMajor(current, versions) ?: current }
+    @JvmOverloads
+    internal fun selectHighestMinorVersionForAll(visibleOnly: Boolean = true) {
+        applyBulkSelection(visibleOnly = visibleOnly) { current, versions, _ -> latestVersionWithinSameMajor(current, versions) ?: current }
     }
 
     /**
-     * Wählt für die aktuell sichtbaren transitiven Koordinaten die empfohlene Fix-Version aus.
+     * Wählt für alle oder nur für die aktuell sichtbaren transitiven Koordinaten die empfohlene Fix-Version aus.
      *
      * Koordinaten ohne empfohlene Fix-Version bleiben unverändert.
+     *
+     * @param visibleOnly Wenn `true`, werden nur aktuell sichtbare (nicht ausgefilterte) Einträge
+     *   berücksichtigt; andernfalls wirkt die Auswahl auf alle geladenen Koordinaten.
      */
-    internal fun selectRecommendedVersionForAll() {
-        applyBulkSelection { current, _, recommended -> recommended.ifEmpty { current } }
+    @JvmOverloads
+    internal fun selectRecommendedVersionForAll(visibleOnly: Boolean = true) {
+        applyBulkSelection(visibleOnly = visibleOnly) { current, _, recommended -> recommended.ifEmpty { current } }
     }
 
     /**
@@ -671,16 +693,22 @@ internal class TransitiveVulnerabilitiesView(
     }
 
     /**
-     * Wendet eine Auswahlstrategie auf die aktuell sichtbaren Koordinaten an und aktualisiert die Ansicht.
+     * Wendet eine Auswahlstrategie auf transitive Koordinaten an und aktualisiert die Ansicht.
      *
-     * Durch einen aktiven Filter ausgeblendete Zeilen bleiben – wie in der Haupttabelle – unverändert.
+     * Durch einen aktiven Filter ausgeblendete Zeilen bleiben bei `visibleOnly = true` – wie in der
+     * Haupttabelle – unverändert.
      *
+     * @param visibleOnly Wenn `true`, werden nur aktuell sichtbare (nicht ausgefilterte) Einträge
+     *   berücksichtigt; andernfalls alle Einträge des Modells.
      * @param chooser Funktion, die aus aktueller Version, verfügbaren Versionen und empfohlener
      * Fix-Version die Zielversion ermittelt.
      */
-    private fun applyBulkSelection(chooser: (String, List<String>, String) -> String) {
+    private fun applyBulkSelection(
+        visibleOnly: Boolean = true,
+        chooser: (String, List<String>, String) -> String
+    ) {
         var changed = false
-        for ((key, currentVersion) in currentVersionsByKey(visibleOnly = true)) {
+        for ((key, currentVersion) in currentVersionsByKey(visibleOnly = visibleOnly)) {
             if (applySelectionForKey(key, currentVersion, chooser)) changed = true
         }
         if (changed) finishSelectionChange()
@@ -1085,7 +1113,14 @@ internal class TransitiveVulnerabilitiesView(
         val modelRow = table.convertRowIndexToModel(viewRow)
         val groupId = tableModel.getValueAt(modelRow, TRANSITIVE_GROUP_ID_COLUMN) as? String ?: ""
         val artifactId = tableModel.getValueAt(modelRow, TRANSITIVE_ARTIFACT_ID_COLUMN) as? String ?: ""
-        DependencyHierarchyDialog(project, groupId, artifactId, false).show()
+        DependencyHierarchyDialog(
+            project = project,
+            groupId = groupId,
+            artifactId = artifactId,
+            isPlugin = false,
+            isDependencyInTable = isDependencyInTable,
+            onNavigateToTable = onNavigateToTable
+        ).show()
     }
 
     /**

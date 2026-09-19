@@ -6,8 +6,11 @@
 
 ### Added
 
+- Added a configurable option in the "pom.xml Changes" settings page (enabled by default) to comment out managed dependencies and managed plugins as XML comments instead of deleting them when removed from pom.xml.
+- Added project-wide background version checks after Maven project load and every completed Maven import or resync, independent of whether the MavenUp tool window has been opened.
 - Added color highlighting for the target dependency across the tree in the **Dependency Hierarchy** dialog with automatic adaptation to Light and Dark themes.
-- Added a toolbar in the **Dependency Hierarchy** dialog with **Expand all**, **Collapse all**, and **Navigate to pom.xml** actions for quick tree navigation.
+- Added a toolbar in the **Dependency Hierarchy** dialog with **Expand All**, **Collapse All**, **Navigate to pom.xml**, and **Select in Table** actions for quick tree navigation and jumping to the component in the main table.
+- Added a **Select in Table** action to the toolbar and context menu of the **Dependency Hierarchy** dialog that closes the dialog, resets all filters, and selects the matching row in the main dependencies table.
 - Added a **Show Dependency Hierarchy** toolbar action (with short label "Hierarchy" and abstract tree icon `AllIcons.Actions.ShowAsTree`) positioned between **Open on [Browser]** and **Vulnerability Details**, allowing inspection of the dependency hierarchy for a selected managed dependency or managed plugin in the main table, as well as any selected coordinate in the transitive CVEs table.
 - Added a modal **Show Dependency Hierarchy** dialog and context-menu action for managed dependencies and managed plugins in the main dependencies table and for every coordinate in the transitive CVEs table, visualizing the full resolution and inclusion paths, parent POMs, BOM imports, and intervening dependencies in an interactive tree with right-click context menu (**Navigate to pom.xml**) and `Enter` / `F4` keyboard navigation to the POM.
 - Added a context-menu action that marks managed dependencies and managed plugins for removal from `pom.xml` when the shared Update action is confirmed.
@@ -18,6 +21,9 @@
 
 ### Changed
 
+- Updated the "Remove managed..." bulk action labels, toolbar group tooltip, row context menu action ("Remove from pom.xml" / "Comment out in pom.xml"), and "New Version" column status ("Will be removed" / "Will be commented out") to adapt dynamically based on the "Comment out managed entries instead of deleting" setting.
+- Capitalized the **Dependency Hierarchy** toolbar and navigation action labels in accordance with IntelliJ action naming conventions.
+- Standardized all filter options to Sentence case, including dependency type labels while preserving their technical filter values.
 - Changed navigation in the **Dependency Hierarchy** dialog to use a right-click context menu (**Navigate to pom.xml**) and `Enter` / `F4` shortcuts, removing the conflicting double-click mouse handler and the hint text.
 - Reordered the main table row context menu so that **Show Dependency Hierarchy** is positioned directly above **Show Vulnerability Details**, consistent with the transitive CVEs table context menu.
 - Updated the Marketplace plugin icons with a shield and checkmark motif for vulnerability checks.
@@ -32,10 +38,17 @@
 
 ### Fixed
 
+- Fixed angle brackets in the explanatory comment for commenting out managed entries on removal being parsed as HTML tags by escaping them as HTML entities.
+- Fixed the bulk version selection actions (**Select Highest Major Version**, **Select Highest Minor Version**, **Select Recommended Version**) in the transitive CVEs view not prompting whether to apply to all coordinates or only to the filtered ones when a filter is active, making its behavior consistent with the main dependencies table.
+- Fixed the **Dependency Hierarchy** dialog toolbar using the focused component instead of its hierarchy tree to update local actions.
+- Fixed the **Type** filter dropping to only **All** after automatic version refreshes by always retaining the known dependency types as available filter options.
+- Fixed the MavenUp tool-window badge not indicating available updates after a background version search completed before the window was opened.
+- Fixed automatic version checks accessing Maven PSI without an IntelliJ read action.
 - Fixed the **Show Dependency Hierarchy** context-menu action to stay visible while correctly disabling it for non-managed rows in the main dependency table and keeping it available for every transitive CVEs row.
 - Refactored dependency-table tooltips and context-menu construction to satisfy detekt method-length and return-count limits without changing their behavior.
 - Fixed Reset to Current Version in a row context menu so it only cancels the pending removal of that selected managed entry.
 - Fixed an IntelliJ platform inspection warning in `MavenUpConfigurable` by moving the sub-page link definitions and display name from a companion object to top-level declarations.
+- Fixed IntelliJ platform inspection warnings in `MavenUpWindowFactoryTest` regarding direct `AnAction.update(AnActionEvent)` test invocations by suppressing the `OverrideOnly` inspection on the affected test methods.
 
 ## 3.2.0
 
@@ -56,7 +69,7 @@
 ### Changed
 
 - Declared the pinned jsoup and Jackson versions of the settings buildscript classpath as explicit `classpath` dependencies in addition to the existing `resolutionStrategy.force(...)`, so dependency scanners and Dependabot see the patched version instead of the vulnerable transitive one.
-- Restructured the plugin settings into a settings tree following the IntelliJ UI guidelines: the **MavenUp** root page keeps appearance and behavior, while **Versions and Updates**, **Vulnerability Check**, and **Pom.xml Changes** became sub-pages, so no page requires scrolling.
+- Restructured the plugin settings into a settings tree following the IntelliJ UI guidelines: the **MavenUp** root page keeps appearance and behavior, while **Versions and Updates**, **Vulnerability Check**, and **pom.xml Changes** became sub-pages, so no page requires scrolling.
 - Grouped the **Versions and Updates** page into *Version Lookup*, *Privacy*, and *Version Selection* so the settings follow the order in which they take effect.
 - Replaced the tooltips of the settings options with explanatory comments below each control and shortened the option labels accordingly.
 - The **Hide unstable versions** and **Offer all versions** settings take effect on the **New Version** column immediately after they are changed, without requiring another version search.
@@ -73,7 +86,7 @@
 
 ### Fixed
 
-- Fixed the order of the MavenUp sub-pages in the settings tree, which the platform sorted alphabetically (**Pom.xml Changes** first) instead of following the workflow order shown by the quick links.
+- Fixed the order of the MavenUp sub-pages in the settings tree, which the platform sorted alphabetically (**pom.xml Changes** first) instead of following the workflow order shown by the quick links.
 - Fixed detekt findings (`LongMethod`, `NestedBlockDepth`, `MaxLineLength`) by extracting helper functions in `MavenUpWindowFactory` and `VulnerabilityApiService` and wrapping an overlong KDoc line.
 - Fixed a failed OSV.dev advisory detail lookup (e.g. an unresolvable host from a misconfigured URI, or any other network/exception or non-2xx HTTP failure) not showing the red error banner at all, because `VulnerabilityApiService.fetchAdvisoryJson`/`fetchAdvisoryDetails` silently discarded such errors instead of reporting them like the batch query already did.
 - Fixed the closable green "no vulnerabilities found" success banner incorrectly appearing together with the red error banner when a vulnerability scan failed entirely (e.g. OSV.dev unreachable) and therefore produced zero findings; the success banner is now suppressed whenever the last scan reported a qualified API error.
@@ -101,7 +114,7 @@
 - Kept all context and toolbar operations (version selection, bulk actions, reset, navigation, vulnerability details) fully available for entries with an inherited version; choosing a version adds an explicit `<version>` tag.
 - Kept the dependency table hidden behind an explanatory empty state while a refresh or a version search is running — like the transitive vulnerabilities view — and rebuilt its rows only once the operation has finished.
 - Shortened the filter row labels and combo box option texts (for example **Vulnerabilities:** to **CVEs:** and *Transitive vulnerability* to *Transitive*) so the filter controls take up less horizontal space and leave more room for the search field; the full meaning stays available in each control's tooltip.
-- Reordered the settings groups under `Settings > Tools > MavenUp` to follow the actual workflow: **Appearance and Behavior**, **Versions and Updates**, **Vulnerability Check**, **Pom.xml Changes**.
+- Reordered the settings groups under `Settings > Tools > MavenUp` to follow the actual workflow: **Appearance and Behavior**, **Versions and Updates**, **Vulnerability Check**, **pom.xml Changes**.
 - Renamed the first settings group from **Appearance** to **Appearance and Behavior** because it also contains behavioral options such as the single-click navigation.
 - Moved **Confirm before resetting all version selections** from the appearance group to **Versions and Updates**, where the other version-selection options live.
 - Placed **Automatically select version after checking for updates** after the version filters, since the pre-selection operates on the filtered list of versions.
@@ -119,7 +132,7 @@
 - Added a **Select Recommended Version** entry to the toolbar's **Select Highest Version** dropdown that selects the recommended fix version for every transitive coordinate while the transitive vulnerabilities view is shown.
 - Added an editable **New Version** column to the transitive vulnerabilities view; available versions for vulnerable transitive dependencies are fetched automatically after a vulnerability scan, and selecting a version pins it in `<dependencyManagement>` (creating the entry if needed) and applies it through the shared **Update** action. The recommended fix version (lowest known version that resolves all vulnerabilities of the coordinate) is highlighted in the version dropdown in bold with a *(recommended)* marker.
 - Added an explanatory XML comment as the first line inside each newly pinned transitive `<dependencyManagement>` entry that lists the fixed vulnerability IDs and notes the change was made by MavenUp.
-- Added an "Explanatory comment when pinning a dependency to fix a vulnerability" setting that selects which identifiers the XML comment lists — no comment, comment text only, advisory IDs (e.g. GHSA, default), aliases (e.g. CVE), or all identifiers — together with a configurable comment text (default: `Pinned by MavenUp to fix:`) and a maximum number of listed identifiers (default: 3, `0` for no limit) that replaces the remaining ones with `and more`, placed in a new **Pom.xml Changes** settings group alongside the relocated "Sync Maven changes after update" setting.
+- Added an "Explanatory comment when pinning a dependency to fix a vulnerability" setting that selects which identifiers the XML comment lists — no comment, comment text only, advisory IDs (e.g. GHSA, default), aliases (e.g. CVE), or all identifiers — together with a configurable comment text (default: `Pinned by MavenUp to fix:`) and a maximum number of listed identifiers (default: 3, `0` for no limit) that replaces the remaining ones with `and more`, placed in a new **pom.xml Changes** settings group alongside the relocated "Sync Maven changes after update" setting.
 - Added a master-detail split view to the Vulnerability Details dialog whose lower detail pane shows the selected finding's affected component, summary, and references as clickable hyperlinks.
 - Added an "Open on ..." hyperlink in the detail pane that opens the selected component in the configured Maven repository browser.
 - Added the CVSS vector and the fixed-in versions of the selected finding to the detail pane when available.
@@ -146,7 +159,7 @@
 - Kept the detailed description, CWE identifiers, publish/last-modified dates, affected version ranges, and fixed-in versions when merging findings of several sources, and adopted the CVSS vector belonging to the highest CVSS score.
 - Moved the "Open in ..." toolbar action of the Vulnerability Details dialog into the detail pane as a hyperlink and removed the dialog toolbar.
 - Aligned the documentation with the actual UI label of the repository context menu entry, which is **Open on [Browser]** (e.g. *Open on MVN Repository*) rather than *Open in Maven Repository*.
-- Moved the "Sync Maven changes after update" setting out of **Versions and Updates** into the new **Pom.xml Changes** settings group.
+- Moved the "Sync Maven changes after update" setting out of **Versions and Updates** into the new **pom.xml Changes** settings group.
 - Reordered the **Versions and Updates** settings group to follow the actual workflow, placing the search options ("Search for new versions automatically when the project data is loaded" and "Stop after a successful Maven Central lookup") above the version selection and filter options.
 - Trimmed the Vulnerability Details table columns to their content when the dialog opens, let them scale with the dialog size, and enlarged the dialog for better readability.
 - Trimmed the main dependency table and all confirmation-table columns to their content after the table is populated for better readability.

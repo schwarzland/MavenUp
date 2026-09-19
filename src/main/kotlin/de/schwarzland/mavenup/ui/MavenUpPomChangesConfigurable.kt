@@ -21,7 +21,7 @@ import de.schwarzland.mavenup.service.VulnerabilityCommentMode
 private const val VULNERABILITY_COMMENT_MAX_IDS_LIMIT = 99
 
 /**
- * Einstellungsseite **Pom.xml Changes** unterhalb der MavenUp-Wurzelseite.
+ * Einstellungsseite **pom.xml Changes** unterhalb der MavenUp-Wurzelseite.
  *
  * Die Seite steuert, was beim Schreiben der `pom.xml` passiert: den anschließenden Maven-Sync und
  * den erklärenden XML-Kommentar, der beim Pinnen einer Abhängigkeit zur Behebung einer Sicherheitslücke
@@ -29,12 +29,16 @@ private const val VULNERABILITY_COMMENT_MAX_IDS_LIMIT = 99
  *
  * @param project Das Projekt, dessen Message-Bus nach dem Speichern benachrichtigt wird.
  */
-// "Pom.xml Changes" enthaelt den Dateinamen pom.xml und ist daher bewusst nicht in Title Case.
+// "pom.xml Changes" enthaelt den Dateinamen pom.xml und ist daher bewusst nicht in Title Case.
 class MavenUpPomChangesConfigurable(project: Project) :
     MavenUpSettingsPage(project, MyMessageBundle.message("settings.page.pomChanges")) {
 
     /** Schalter für den automatischen Maven-Sync nach dem Schreiben der `pom.xml`. */
     internal var syncMavenAfterUpdateCheckBox: JBCheckBox? = null
+        private set
+
+    /** Schalter für das Auskommentieren statt Löschen beim Entfernen verwalteter Einträge. */
+    internal var commentOutManagedEntriesOnRemovalCheckBox: JBCheckBox? = null
         private set
 
     /** Auswahlfeld für den Umfang des erklärenden XML-Kommentars. */
@@ -63,6 +67,16 @@ class MavenUpPomChangesConfigurable(project: Project) :
                 .bindSelected({ state.syncMavenAfterUpdate }, { state.syncMavenAfterUpdate = it })
                 .component
         }.rowComment(MyMessageBundle.message("settings.syncMavenAfterUpdate.comment"))
+        row {
+            commentOutManagedEntriesOnRemovalCheckBox = checkBox(
+                MyMessageBundle.message("settings.commentOutManagedEntriesOnRemoval")
+            )
+                .bindSelected(
+                    { state.commentOutManagedEntriesOnRemoval },
+                    { state.commentOutManagedEntriesOnRemoval = it }
+                )
+                .component
+        }.rowComment(MyMessageBundle.message("settings.commentOutManagedEntriesOnRemoval.comment"))
         lateinit var commentModeComboBox: ComboBox<VulnerabilityCommentMode>
         row(MyMessageBundle.message("settings.vulnerabilityCommentMode")) {
             commentModeComboBox = comboBox(
@@ -119,6 +133,7 @@ class MavenUpPomChangesConfigurable(project: Project) :
      */
     override fun disposeUIResources() {
         syncMavenAfterUpdateCheckBox = null
+        commentOutManagedEntriesOnRemovalCheckBox = null
         vulnerabilityCommentModeComboBox = null
         vulnerabilityCommentPrefixField = null
         vulnerabilityCommentMaxIdsSpinner = null
