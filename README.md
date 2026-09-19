@@ -9,6 +9,14 @@
 
 MavenUp is an IntelliJ plugin built specifically for Maven projects to simplify the management of dependencies and plugins. It provides a clear table view of all declared components and enables easy updates to newer versions, online version checks against Maven Central and private repositories, and multi-source vulnerability scanning.
 
+**Dependency Tab**
+
+![Dependency Tab](/assets/main.png "Dependency Tab")
+
+**Transitive CVEs Tab**
+
+![Transitive CVEs Tab](/assets/transitive_cves_kontext.png "Transitive CVEs Tab")
+
 ## Installation
 
 Install **MavenUp** from the JetBrains Marketplace via `Settings > Plugins > Marketplace`, or download the plugin ZIP from the [releases](https://github.com/schwarzland/MavenUp/releases) and install it via `Settings > Plugins > Install Plugin from Disk…`.
