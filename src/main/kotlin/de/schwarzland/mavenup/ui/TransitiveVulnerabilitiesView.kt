@@ -198,20 +198,22 @@ internal fun advisoriesBySeverity(advisories: List<VulnerabilityAdvisory>): List
  * @param onShowDirectVulnerabilities Callback des Links im Empty State, der zu den ausschließlich
  * direkt deklarierten Befunden im Tab **Dependencies** wechselt.
  * @param onNavigateToTable Optionaler Callback zur Navigation zu einer Koordinate in der Haupttabelle.
+ * @param isDependencyInTable Optionales Prädikat zur Prüfung, ob eine Koordinate in der Haupttabelle existiert.
  */
 @Suppress("TooManyFunctions")
 internal class TransitiveVulnerabilitiesView(
     private val project: Project,
     private val onSelectionChanged: () -> Unit,
     private val onShowDirectVulnerabilities: () -> Unit,
-    private val onNavigateToTable: ((String, String) -> Boolean)?
+    private val onNavigateToTable: ((String, String) -> Boolean)?,
+    private val isDependencyInTable: ((String, String) -> Boolean)? = null
 ) : JBPanel<JBPanel<*>>(BorderLayout()) {
 
     constructor(
         project: Project,
         onSelectionChanged: () -> Unit = {},
         onShowDirectVulnerabilities: () -> Unit = {}
-    ) : this(project, onSelectionChanged, onShowDirectVulnerabilities, null)
+    ) : this(project, onSelectionChanged, onShowDirectVulnerabilities, null, null)
 
     /** `true`, sobald mindestens ein Sicherheits-Scan abgeschlossen wurde. */
     private var scanPerformed = false
@@ -1111,7 +1113,14 @@ internal class TransitiveVulnerabilitiesView(
         val modelRow = table.convertRowIndexToModel(viewRow)
         val groupId = tableModel.getValueAt(modelRow, TRANSITIVE_GROUP_ID_COLUMN) as? String ?: ""
         val artifactId = tableModel.getValueAt(modelRow, TRANSITIVE_ARTIFACT_ID_COLUMN) as? String ?: ""
-        DependencyHierarchyDialog(project, groupId, artifactId, false, onNavigateToTable).show()
+        DependencyHierarchyDialog(
+            project = project,
+            groupId = groupId,
+            artifactId = artifactId,
+            isPlugin = false,
+            isDependencyInTable = isDependencyInTable,
+            onNavigateToTable = onNavigateToTable
+        ).show()
     }
 
     /**

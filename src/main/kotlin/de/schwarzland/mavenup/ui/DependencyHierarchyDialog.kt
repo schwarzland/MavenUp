@@ -58,6 +58,7 @@ import javax.swing.tree.DefaultTreeModel
  * @property groupId Group-ID der anzuzeigenden Komponente.
  * @property artifactId Artefakt-ID der anzuzeigenden Komponente.
  * @property isPlugin `true`, wenn es sich um ein Plugin aus `<pluginManagement>` handelt.
+ * @property isDependencyInTable Optionales Prädikat zur Prüfung, ob eine Koordinate in der Haupttabelle existiert.
  * @property onNavigateToTable Optionaler Callback zur Navigation in die Haupttabelle.
  */
 class DependencyHierarchyDialog(
@@ -65,6 +66,7 @@ class DependencyHierarchyDialog(
     private val groupId: String,
     private val artifactId: String,
     private val isPlugin: Boolean = false,
+    private val isDependencyInTable: ((groupId: String, artifactId: String) -> Boolean)? = null,
     private val onNavigateToTable: ((groupId: String, artifactId: String) -> Boolean)? = null
 ) : DialogWrapper(project, true) {
 
@@ -165,26 +167,63 @@ class DependencyHierarchyDialog(
         val selectedPath = tree.selectionPath ?: return false
         val treeNode = selectedPath.lastPathComponent as? DefaultMutableTreeNode ?: return false
         val node = treeNode.userObject as? DependencyHierarchyNode ?: return false
-        return when {
-            node.xmlTag != null && node.pomFile != null && node.xmlTag.isValid -> true
-            node.type == DependencyHierarchyNodeType.PROJECT && node.pomFile != null -> true
-            node.groupId.isNotBlank() && node.artifactId.isNotBlank() -> true
-            node.pomFile != null -> true
-            else -> false
-        }
+        return isNodeInPom(node)
     }
+
+    /**
+     * Prüft, ob der übergebene Hierarchieknoten in einer `pom.xml` des Projekts deklariert ist.
+     *
+     * Modulknoten ([DependencyHierarchyNodeType.PROJECT]) unterstützen keine Navigation.
+     * Transitive Abhängigkeiten ([DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY]) können angesprungen werden,
+     * wenn sie als verwaltete Abhängigkeit im `<dependencyManagement>` vorhanden sind.
+     *
+     * @param node Der zu prüfende Hierarchieknoten.
+     * @return `true`, wenn eine passende Deklaration in einer `pom.xml` existiert.
+     */
+    internal fun isNodeInPom(node: DependencyHierarchyNode): Boolean {
+        if (node.type == DependencyHierarchyNodeType.PROJECT) return false
+        if (node.xmlTag != null && node.xmlTag.isValid) return true
+        if (node.groupId.isBlank() || node.artifactId.isBlank()) return false
+        return isDeclaredInProjectPoms(node)
+    }
+
+    private fun isDeclaredInProjectPoms(node: DependencyHierarchyNode): Boolean {
+        val pomFile = node.pomFile
+        if (pomFile != null) {
+            val targetTag = ApplicationManager.getApplication().runReadAction<XmlTag?> {
+                val psiFile = PsiManager.getInstance(project).findFile(pomFile) as? XmlFile
+                findTargetTag(psiFile?.document?.rootTag, node)
+            }
+            if (targetTag != null && targetTag.isValid) return true
+        }
+        return isDeclaredInAnyMavenProjectPom(node)
+    }
+
+    private fun isDeclaredInAnyMavenProjectPom(node: DependencyHierarchyNode): Boolean =
+        ApplicationManager.getApplication().runReadAction<Boolean> {
+            val mavenProjects = org.jetbrains.idea.maven.project.MavenProjectsManager.getInstance(project).projects.toList()
+            mavenProjects.any { mavenProject ->
+                val psiFile = PsiManager.getInstance(project).findFile(mavenProject.file) as? XmlFile
+                val targetTag = findTargetTag(psiFile?.document?.rootTag, node)
+                targetTag != null && targetTag.isValid
+            }
+        }
 
     /**
      * Prüft, ob für den aktuell ausgewählten Knoten eine Navigation in die Haupttabelle möglich ist.
      *
      * @param tree Der Baum mit der aktuellen Selektion.
-     * @return `true`, wenn die Auswahl gültige Koordinaten für Group-ID und Artefakt-ID besitzt.
+     * @return `true`, wenn die Auswahl gültige Koordinaten für Group-ID und Artefakt-ID besitzt
+     *         und in der Haupttabelle enthalten ist.
      */
     internal fun canNavigateToTable(tree: JTree): Boolean {
         val selectedPath = tree.selectionPath ?: return false
         val treeNode = selectedPath.lastPathComponent as? DefaultMutableTreeNode ?: return false
         val node = treeNode.userObject as? DependencyHierarchyNode ?: return false
-        return node.groupId.isNotBlank() && node.artifactId.isNotBlank()
+        if (node.type == DependencyHierarchyNodeType.PROJECT || node.groupId.isBlank() || node.artifactId.isBlank()) {
+            return false
+        }
+        return isDependencyInTable?.invoke(node.groupId, node.artifactId) ?: (onNavigateToTable != null)
     }
 
     /**
@@ -263,7 +302,7 @@ class DependencyHierarchyDialog(
     internal fun createContextMenuGroup(tree: JTree): DefaultActionGroup =
         DefaultActionGroup().apply {
             add(object : AnAction(MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.navigateToPom")) {
-                override fun getActionUpdateThread() = ActionUpdateThread.BGT
+                override fun getActionUpdateThread() = ActionUpdateThread.EDT
                 override fun update(event: AnActionEvent) {
                     event.presentation.isEnabled = canNavigateToSelectedNode(tree)
                 }
@@ -274,7 +313,7 @@ class DependencyHierarchyDialog(
                 }
             })
             add(object : AnAction(MyMessageBundle.message("dependency.hierarchy.action.navigateToTable")) {
-                override fun getActionUpdateThread() = ActionUpdateThread.BGT
+                override fun getActionUpdateThread() = ActionUpdateThread.EDT
                 override fun update(event: AnActionEvent) {
                     event.presentation.isEnabled = canNavigateToTable(tree)
                 }
@@ -379,12 +418,11 @@ class DependencyHierarchyDialog(
         val treeNode = selectedPath.lastPathComponent as? DefaultMutableTreeNode ?: return
         val node = treeNode.userObject as? DependencyHierarchyNode ?: return
 
+        if (!isNodeInPom(node)) return
+
         when {
             node.xmlTag != null && node.pomFile != null && node.xmlTag.isValid -> {
                 openInEditor(node.pomFile, node.xmlTag)
-            }
-            node.type == DependencyHierarchyNodeType.PROJECT && node.pomFile != null -> {
-                openFileInEditor(node.pomFile)
             }
             node.groupId.isNotBlank() && node.artifactId.isNotBlank() -> {
                 val navType = resolveNavType(node.type)
@@ -407,14 +445,31 @@ class DependencyHierarchyDialog(
         }
     }
 
+    /**
+     * Ermittelt den Navigationstyp für [PomNavigationService] anhand des Knotentyps.
+     *
+     * @param type Der Typ des Hierarchieknotens.
+     * @return Der Typ-String für die Navigation in der POM-Datei.
+     */
     private fun resolveNavType(type: DependencyHierarchyNodeType): String = when (type) {
         DependencyHierarchyNodeType.PARENT_POM -> PARENT_TYPE
         DependencyHierarchyNodeType.PLUGIN_MANAGEMENT,
         DependencyHierarchyNodeType.DIRECT_PLUGIN -> "plugin"
+        DependencyHierarchyNodeType.DEPENDENCY_MANAGEMENT,
+        DependencyHierarchyNodeType.BOM_IMPORT,
+        DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY ->
+            MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
         DependencyHierarchyNodeType.ROOT -> if (isPlugin) "plugin" else "dependency"
         else -> "dependency"
     }
 
+    /**
+     * Sucht das passende XML-Tag für einen Hierarchieknoten im angegebenen Root-Tag einer `pom.xml`.
+     *
+     * @param rootTag Das Root-Tag der `pom.xml`.
+     * @param node Der gesuchte Hierarchieknoten.
+     * @return Das gefundene [XmlTag] oder `null`.
+     */
     private fun findTargetTag(rootTag: XmlTag?, node: DependencyHierarchyNode): XmlTag? {
         val navService = PomNavigationService(project)
         return when (node.type) {
@@ -425,7 +480,8 @@ class DependencyHierarchyDialog(
             DependencyHierarchyNodeType.PLUGIN_MANAGEMENT ->
                 navService.findPlugin(rootTag, node.groupId, node.artifactId, isManaged = true)
             DependencyHierarchyNodeType.DEPENDENCY_MANAGEMENT,
-            DependencyHierarchyNodeType.BOM_IMPORT ->
+            DependencyHierarchyNodeType.BOM_IMPORT,
+            DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY ->
                 navService.findDependency(rootTag, node.groupId, node.artifactId, isManaged = true)
             DependencyHierarchyNodeType.ROOT ->
                 if (isPlugin) {
@@ -433,6 +489,8 @@ class DependencyHierarchyDialog(
                         ?: navService.findPlugin(rootTag, node.groupId, node.artifactId, isManaged = true)
                 } else {
                     navService.findDependency(rootTag, node.groupId, node.artifactId, isManaged = false)
+                        ?: navService.findDependency(rootTag, node.groupId, node.artifactId, isManaged = true)
+                        ?: navService.findParent(rootTag, node.groupId, node.artifactId)
                 }
             else ->
                 navService.findDependency(rootTag, node.groupId, node.artifactId, isManaged = false)

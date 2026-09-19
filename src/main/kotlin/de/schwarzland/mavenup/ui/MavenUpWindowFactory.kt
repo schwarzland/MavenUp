@@ -269,7 +269,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
             project,
             { refreshToolbar() },
             { showDirectVulnerabilitiesInDependencies() },
-            { groupId, artifactId -> navigateToDependencyInTable(groupId, artifactId) }
+            { groupId, artifactId -> navigateToDependencyInTable(groupId, artifactId) },
+            { groupId, artifactId -> isDependencyInTable(groupId, artifactId) }
         )
 
         /** Wurzelkomponente des Tabs **Transitive CVEs**: Aktionsleiste über der transitiven Ansicht. */
@@ -3711,9 +3712,18 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * @param isPlugin `true` für Managed Plugins, `false` für Managed Dependencies.
          */
         internal fun showDependencyHierarchy(groupId: String, artifactId: String, isPlugin: Boolean = false) {
-            DependencyHierarchyDialog(project, groupId, artifactId, isPlugin) { targetGroupId, targetArtifactId ->
-                navigateToDependencyInTable(targetGroupId, targetArtifactId)
-            }.show()
+            DependencyHierarchyDialog(
+                project = project,
+                groupId = groupId,
+                artifactId = artifactId,
+                isPlugin = isPlugin,
+                isDependencyInTable = { targetGroupId, targetArtifactId ->
+                    isDependencyInTable(targetGroupId, targetArtifactId)
+                },
+                onNavigateToTable = { targetGroupId, targetArtifactId ->
+                    navigateToDependencyInTable(targetGroupId, targetArtifactId)
+                }
+            ).show()
         }
 
         /**
@@ -3750,5 +3760,15 @@ class MavenUpWindowFactory : ToolWindowFactory {
             }
             return false
         }
+
+        /**
+         * Prüft, ob eine Abhängigkeit mit den angegebenen Koordinaten in der Haupttabelle enthalten ist.
+         *
+         * @param groupId Group-ID der Komponente.
+         * @param artifactId Artefakt-ID der Komponente.
+         * @return `true`, wenn die Komponente in der Haupttabelle existiert, sonst `false`.
+         */
+        internal fun isDependencyInTable(groupId: String, artifactId: String): Boolean =
+            knownDependencies.containsKey("$groupId:$artifactId")
     }
 }
