@@ -12,6 +12,7 @@ import de.schwarzland.mavenup.service.RefreshSnapshotCollector
 import de.schwarzland.mavenup.service.PomUpdateService
 import de.schwarzland.mavenup.service.PomNavigationService
 import de.schwarzland.mavenup.service.ToolWindowBadgeService
+import de.schwarzland.mavenup.service.MAVEN_UP_TOOL_WINDOW_ID
 import de.schwarzland.mavenup.service.determineBadgeState
 import de.schwarzland.mavenup.service.VulnerabilityScanService
 import de.schwarzland.mavenup.service.VersionAutoSelectionMode
@@ -49,6 +50,7 @@ import com.intellij.openapi.ui.MessageDialogBuilder
 import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
+import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.ui.DocumentAdapter
 import com.intellij.ui.EditorNotificationPanel
 import com.intellij.ui.InlineBanner
@@ -266,7 +268,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private val transitiveVulnerabilitiesView = TransitiveVulnerabilitiesView(
             project,
             { refreshToolbar() },
-            { showDirectVulnerabilitiesInDependencies() }
+            { showDirectVulnerabilitiesInDependencies() },
+            { groupId, artifactId -> navigateToDependencyInTable(groupId, artifactId) }
         )
 
         /** Wurzelkomponente des Tabs **Transitive CVEs**: Aktionsleiste über der transitiven Ansicht. */
@@ -3708,7 +3711,44 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * @param isPlugin `true` für Managed Plugins, `false` für Managed Dependencies.
          */
         internal fun showDependencyHierarchy(groupId: String, artifactId: String, isPlugin: Boolean = false) {
-            DependencyHierarchyDialog(project, groupId, artifactId, isPlugin).show()
+            DependencyHierarchyDialog(project, groupId, artifactId, isPlugin) { targetGroupId, targetArtifactId ->
+                navigateToDependencyInTable(targetGroupId, targetArtifactId)
+            }.show()
+        }
+
+        /**
+         * Navigiert zur übergebenen Abhängigkeit in der Haupttabelle, setzt alle Filter zurück
+         * und selektiert die entsprechende Zeile.
+         *
+         * Aktiviert bei Bedarf das Tool Window und wechselt in den Tab **Dependencies**.
+         *
+         * @param groupId Group-ID der anzuspringenden Komponente.
+         * @param artifactId Artefakt-ID der anzuspringenden Komponente.
+         * @return `true`, wenn die Zeile in der Tabelle gefunden und selektiert wurde, sonst `false`.
+         */
+        internal fun navigateToDependencyInTable(groupId: String, artifactId: String): Boolean {
+            val toolWindow = ToolWindowManager.getInstance(project).getToolWindow(MAVEN_UP_TOOL_WINDOW_ID)
+            if (toolWindow != null && !toolWindow.isVisible) {
+                toolWindow.show()
+            }
+            setTransitiveViewVisible(false)
+            resetAllFilters()
+
+            val model = table.model as DefaultTableModel
+            val targetModelRow = (0 until model.rowCount).firstOrNull { modelRow ->
+                val rowGroupId = model.getValueAt(modelRow, GROUP_ID_COLUMN)?.toString().orEmpty()
+                val rowArtifactId = model.getValueAt(modelRow, ARTIFACT_ID_COLUMN)?.toString().orEmpty()
+                rowGroupId == groupId && rowArtifactId == artifactId
+            } ?: return false
+
+            val targetViewRow = table.convertRowIndexToView(targetModelRow)
+            if (targetViewRow >= 0) {
+                table.setRowSelectionInterval(targetViewRow, targetViewRow)
+                table.scrollRectToVisible(table.getCellRect(targetViewRow, 0, true))
+                table.requestFocusInWindow()
+                return true
+            }
+            return false
         }
     }
 }

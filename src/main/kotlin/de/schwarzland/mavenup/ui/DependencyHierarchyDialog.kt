@@ -50,19 +50,22 @@ import javax.swing.tree.DefaultTreeModel
  * eine verwaltete Abhängigkeit bzw. ein Plugin im Projekt eingebunden wird, welche direkten
  * und transitiven Abhängigkeiten dazwischen liegen und welche Versionen bzw. Properties greifen.
  *
- * Ein Rechtsklick öffnet ein Kontextmenü zur Navigation in die `pom.xml` (`Navigate to pom.xml`),
+ * Ein Rechtsklick öffnet ein Kontextmenü zur Navigation in die `pom.xml` (`Navigate to pom.xml`)
+ * oder zum Anspringen der Komponente in der Haupttabelle (`Navigate to ...`),
  * zusätzlich kann per `Enter` oder `F4` direkt zur Deklaration gesprungen werden.
  *
  * @property project Das zugehörige IntelliJ-Projekt.
  * @property groupId Group-ID der anzuzeigenden Komponente.
  * @property artifactId Artefakt-ID der anzuzeigenden Komponente.
  * @property isPlugin `true`, wenn es sich um ein Plugin aus `<pluginManagement>` handelt.
+ * @property onNavigateToTable Optionaler Callback zur Navigation in die Haupttabelle.
  */
 class DependencyHierarchyDialog(
     private val project: Project,
     private val groupId: String,
     private val artifactId: String,
-    private val isPlugin: Boolean = false
+    private val isPlugin: Boolean = false,
+    private val onNavigateToTable: ((groupId: String, artifactId: String) -> Boolean)? = null
 ) : DialogWrapper(project, true) {
 
     init {
@@ -152,7 +155,7 @@ class DependencyHierarchyDialog(
     }
 
     /**
-     * Prüft, ob für den aktuell ausgewählten Knoten eine Navigation möglich ist.
+     * Prüft, ob für den aktuell ausgewählten Knoten eine Navigation in die pom.xml möglich ist.
      *
      * @param tree Der Baum mit der aktuellen Selektion.
      * @return `true`, wenn die Auswahl zu einer `pom.xml`-Stelle oder einer passenden
@@ -169,6 +172,19 @@ class DependencyHierarchyDialog(
             node.pomFile != null -> true
             else -> false
         }
+    }
+
+    /**
+     * Prüft, ob für den aktuell ausgewählten Knoten eine Navigation in die Haupttabelle möglich ist.
+     *
+     * @param tree Der Baum mit der aktuellen Selektion.
+     * @return `true`, wenn die Auswahl gültige Koordinaten für Group-ID und Artefakt-ID besitzt.
+     */
+    internal fun canNavigateToTable(tree: JTree): Boolean {
+        val selectedPath = tree.selectionPath ?: return false
+        val treeNode = selectedPath.lastPathComponent as? DefaultMutableTreeNode ?: return false
+        val node = treeNode.userObject as? DependencyHierarchyNode ?: return false
+        return node.groupId.isNotBlank() && node.artifactId.isNotBlank()
     }
 
     /**
@@ -217,6 +233,21 @@ class DependencyHierarchyDialog(
                         }
                     }
                 })
+                add(object : AnAction(
+                    MyMessageBundle.message("dependency.hierarchy.action.navigateToTable"),
+                    null,
+                    AllIcons.Actions.Forward
+                ) {
+                    override fun getActionUpdateThread() = ActionUpdateThread.EDT
+                    override fun update(event: AnActionEvent) {
+                        event.presentation.isEnabled = canNavigateToTable(tree)
+                    }
+                    override fun actionPerformed(event: AnActionEvent) {
+                        if (canNavigateToTable(tree)) {
+                            navigateToTableForSelectedNode(tree)
+                        }
+                    }
+                })
             },
             true
         ).apply {
@@ -227,7 +258,7 @@ class DependencyHierarchyDialog(
      * Erstellt die Aktionsgruppe für das Kontextmenü des Hierarchiebaums.
      *
      * @param tree Der zugehörige Baum.
-     * @return Die Aktionsgruppe mit der Navigationsaktion.
+     * @return Die Aktionsgruppe mit den Navigationsaktionen.
      */
     internal fun createContextMenuGroup(tree: JTree): DefaultActionGroup =
         DefaultActionGroup().apply {
@@ -239,6 +270,17 @@ class DependencyHierarchyDialog(
                 override fun actionPerformed(event: AnActionEvent) {
                     if (canNavigateToSelectedNode(tree)) {
                         navigateToSelectedNode(tree)
+                    }
+                }
+            })
+            add(object : AnAction(MyMessageBundle.message("dependency.hierarchy.action.navigateToTable")) {
+                override fun getActionUpdateThread() = ActionUpdateThread.BGT
+                override fun update(event: AnActionEvent) {
+                    event.presentation.isEnabled = canNavigateToTable(tree)
+                }
+                override fun actionPerformed(event: AnActionEvent) {
+                    if (canNavigateToTable(tree)) {
+                        navigateToTableForSelectedNode(tree)
                     }
                 }
             })
@@ -309,6 +351,22 @@ class DependencyHierarchyDialog(
         for (row in tree.rowCount - 1 downTo 0) {
             tree.collapseRow(row)
         }
+    }
+
+    /**
+     * Schließt den Dialog und springt in der Haupttabelle zur ausgewählten Komponente.
+     *
+     * @param tree Der Baum mit der aktuellen Selektion.
+     * @return `true`, wenn die Navigation ausgeführt wurde, sonst `false`.
+     */
+    internal fun navigateToTableForSelectedNode(tree: JTree): Boolean {
+        val selectedPath = tree.selectionPath ?: return false
+        val treeNode = selectedPath.lastPathComponent as? DefaultMutableTreeNode ?: return false
+        val node = treeNode.userObject as? DependencyHierarchyNode ?: return false
+        if (node.groupId.isBlank() || node.artifactId.isBlank()) return false
+
+        close(OK_EXIT_CODE)
+        return onNavigateToTable?.invoke(node.groupId, node.artifactId) ?: true
     }
 
     /**

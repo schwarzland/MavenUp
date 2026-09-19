@@ -197,13 +197,21 @@ internal fun advisoriesBySeverity(advisories: List<VulnerabilityAdvisory>): List
  * (z. B. um die Aktionsleiste zu aktualisieren).
  * @param onShowDirectVulnerabilities Callback des Links im Empty State, der zu den ausschließlich
  * direkt deklarierten Befunden im Tab **Dependencies** wechselt.
+ * @param onNavigateToTable Optionaler Callback zur Navigation zu einer Koordinate in der Haupttabelle.
  */
 @Suppress("TooManyFunctions")
 internal class TransitiveVulnerabilitiesView(
     private val project: Project,
-    private val onSelectionChanged: () -> Unit = {},
-    private val onShowDirectVulnerabilities: () -> Unit = {}
+    private val onSelectionChanged: () -> Unit,
+    private val onShowDirectVulnerabilities: () -> Unit,
+    private val onNavigateToTable: ((String, String) -> Boolean)?
 ) : JBPanel<JBPanel<*>>(BorderLayout()) {
+
+    constructor(
+        project: Project,
+        onSelectionChanged: () -> Unit = {},
+        onShowDirectVulnerabilities: () -> Unit = {}
+    ) : this(project, onSelectionChanged, onShowDirectVulnerabilities, null)
 
     /** `true`, sobald mindestens ein Sicherheits-Scan abgeschlossen wurde. */
     private var scanPerformed = false
@@ -1103,7 +1111,7 @@ internal class TransitiveVulnerabilitiesView(
         val modelRow = table.convertRowIndexToModel(viewRow)
         val groupId = tableModel.getValueAt(modelRow, TRANSITIVE_GROUP_ID_COLUMN) as? String ?: ""
         val artifactId = tableModel.getValueAt(modelRow, TRANSITIVE_ARTIFACT_ID_COLUMN) as? String ?: ""
-        DependencyHierarchyDialog(project, groupId, artifactId, false).show()
+        DependencyHierarchyDialog(project, groupId, artifactId, false, onNavigateToTable).show()
     }
 
     /**

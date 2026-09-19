@@ -302,20 +302,103 @@ class DependencyHierarchyDialogTest : BasePlatformTestCase() {
         val tree = Tree()
         val group = dialog.createContextMenuGroup(tree)
         val actions = group.getChildren(null)
-        assertEquals(1, actions.size)
+        assertEquals(2, actions.size)
         assertEquals(
             MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.navigateToPom"),
             actions[0].templatePresentation.text
         )
+        assertEquals(
+            MyMessageBundle.message("dependency.hierarchy.action.navigateToTable"),
+            actions[1].templatePresentation.text
+        )
     }
 
-    fun testCreateToolbarSetsTreeAsTargetComponent() {
+    fun testCreateToolbarSetsTreeAsTargetComponentAndContainsNavigateAction() {
         val dialog = DependencyHierarchyDialog(project, "com.example", "demo")
         val tree = Tree()
 
         val toolbar = dialog.createToolbar(tree)
 
         assertSame(tree, toolbar.targetComponent)
+        val actions = toolbar.actionGroup.getChildren(null)
+        val navigateTableAction = actions.filterIsInstance<com.intellij.openapi.actionSystem.AnAction>()
+            .firstOrNull { it.templatePresentation.text == MyMessageBundle.message("dependency.hierarchy.action.navigateToTable") }
+        assertNotNull(navigateTableAction)
+    }
+
+    fun testCanNavigateToTableRequiresValidCoordinates() {
+        val validNode = DependencyHierarchyNode(
+            type = DependencyHierarchyNodeType.DIRECT_DEPENDENCY,
+            groupId = "com.example",
+            artifactId = "demo",
+            version = "1.0.0",
+            pomFile = null
+        )
+        val invalidNode = DependencyHierarchyNode(
+            type = DependencyHierarchyNodeType.ROOT,
+            groupId = "",
+            artifactId = "",
+            version = null,
+            pomFile = null
+        )
+        val tree = Tree(DefaultMutableTreeNode(validNode).apply {
+            add(DefaultMutableTreeNode(invalidNode))
+        })
+        val dialog = DependencyHierarchyDialog(project, "com.example", "demo")
+
+        tree.setSelectionRow(0)
+        assertTrue(dialog.canNavigateToTable(tree))
+
+        tree.setSelectionRow(1)
+        assertFalse(dialog.canNavigateToTable(tree))
+
+        tree.clearSelection()
+        assertFalse(dialog.canNavigateToTable(tree))
+    }
+
+    fun testNavigateToTableForSelectedNodeClosesDialogAndInvokesCallback() {
+        var callbackCalledWith: Pair<String, String>? = null
+        val node = DependencyHierarchyNode(
+            type = DependencyHierarchyNodeType.PARENT_POM,
+            groupId = "org.springframework.boot",
+            artifactId = "spring-boot-starter-parent",
+            version = "3.2.0",
+            pomFile = null
+        )
+        val tree = Tree(DefaultMutableTreeNode(node))
+        tree.setSelectionRow(0)
+
+        val dialog = DependencyHierarchyDialog(project, "com.example", "demo", onNavigateToTable = { gid, aid ->
+            callbackCalledWith = Pair(gid, aid)
+            true
+        })
+
+        val result = dialog.navigateToTableForSelectedNode(tree)
+        assertTrue(result)
+        assertEquals(Pair("org.springframework.boot", "spring-boot-starter-parent"), callbackCalledWith)
+    }
+
+    fun testContextMenuActionPerformsNavigationToTable() {
+        var callbackCalled = false
+        val node = DependencyHierarchyNode(
+            type = DependencyHierarchyNodeType.DIRECT_DEPENDENCY,
+            groupId = "com.example",
+            artifactId = "demo",
+            version = "1.0.0",
+            pomFile = null
+        )
+        val tree = Tree(DefaultMutableTreeNode(node))
+        tree.setSelectionRow(0)
+
+        val dialog = DependencyHierarchyDialog(project, "com.example", "demo", onNavigateToTable = { _, _ ->
+            callbackCalled = true
+            true
+        })
+        val group = dialog.createContextMenuGroup(tree)
+        val navigateAction = group.getChildren(null)[1]
+        val event = com.intellij.testFramework.TestActionEvent.createTestEvent(navigateAction)
+        navigateAction.actionPerformed(event)
+        assertTrue(callbackCalled)
     }
 
     fun testContextMenuActionPerformsNavigation() {

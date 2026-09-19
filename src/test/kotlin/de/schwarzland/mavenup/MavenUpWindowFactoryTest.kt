@@ -3587,4 +3587,44 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         isUpdatingField.setBoolean(toolWindow, false)
     }
+
+    /**
+     * Stellt sicher, dass [MavenUpWindowFactory.MyToolWindow.navigateToDependencyInTable] alle Filter
+     * zurücksetzt, auf den Tab "Dependencies" wechselt und die passende Tabellenzeile selektiert.
+     */
+    fun testNavigateToDependencyInTableResetsFiltersAndSelectsRow() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        val tableField = toolWindow.javaClass.getDeclaredField("table").apply { isAccessible = true }
+        val table = tableField.get(toolWindow) as javax.swing.JTable
+        val tableModel = table.model as javax.swing.table.DefaultTableModel
+
+        tableModel.addRow(arrayOf("com.example", "alpha", "", "dependency", "", "1.0.0", emptyList<String>()))
+        tableModel.addRow(arrayOf("org.springframework.boot", "spring-boot-starter-web", "", "dependency", "", "3.2.0", emptyList<String>()))
+        tableModel.addRow(arrayOf("com.example", "beta", "", "dependency", "", "2.0.0", emptyList<String>()))
+
+        // Filter setzen, so dass nur "alpha" sichtbar wäre
+        toolWindow.searchTextField.text = "alpha"
+        toolWindow.applyRowFilter()
+        assertEquals(1, table.rowCount)
+
+        // Navigation zu "spring-boot-starter-web"
+        val found = toolWindow.navigateToDependencyInTable("org.springframework.boot", "spring-boot-starter-web")
+        assertTrue(found)
+
+        // Filter müssen zurückgesetzt sein und alle 3 Zeilen sichtbar
+        assertEquals("", toolWindow.searchTextField.text)
+        assertEquals(3, table.rowCount)
+
+        // Die selektierte Zeile muss "spring-boot-starter-web" sein
+        val selectedRow = table.selectedRow
+        assertTrue(selectedRow >= 0)
+        assertEquals("org.springframework.boot", table.getValueAt(selectedRow, GROUP_ID_COLUMN))
+        assertEquals("spring-boot-starter-web", table.getValueAt(selectedRow, ARTIFACT_ID_COLUMN))
+
+        // Navigation zu nicht existierender Koordinate liefert false
+        val notFound = toolWindow.navigateToDependencyInTable("unknown.group", "unknown-artifact")
+        assertFalse(notFound)
+    }
 }
