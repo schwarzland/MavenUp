@@ -51,7 +51,7 @@ import javax.swing.tree.DefaultTreeModel
  * und transitiven Abhängigkeiten dazwischen liegen und welche Versionen bzw. Properties greifen.
  *
  * Ein Rechtsklick öffnet ein Kontextmenü zur Navigation in die `pom.xml` (`Navigate to pom.xml`)
- * oder zum Anspringen der Komponente in der Haupttabelle (`Navigate to ...`),
+ * oder zum Anspringen der Komponente in der Haupttabelle (`Show in Table`),
  * zusätzlich kann per `Enter` oder `F4` direkt zur Deklaration gesprungen werden.
  *
  * @property project Das zugehörige IntelliJ-Projekt.
