@@ -3598,7 +3598,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         val tableField = toolWindow.javaClass.getDeclaredField("table").apply { isAccessible = true }
         val table = tableField.get(toolWindow) as javax.swing.JTable
-        val tableModel = table.model as javax.swing.table.DefaultTableModel
+        val tableModel = table.model as DefaultTableModel
 
         tableModel.addRow(arrayOf("com.example", "alpha", "", "dependency", "", "1.0.0", emptyList<String>()))
         tableModel.addRow(arrayOf("org.springframework.boot", "spring-boot-starter-web", "", "dependency", "", "3.2.0", emptyList<String>()))

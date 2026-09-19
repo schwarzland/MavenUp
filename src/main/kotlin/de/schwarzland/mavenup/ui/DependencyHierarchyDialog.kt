@@ -13,6 +13,7 @@ import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogWrapper
+import com.intellij.openapi.util.IconLoader
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiManager
 import com.intellij.psi.xml.XmlFile
@@ -51,7 +52,7 @@ import javax.swing.tree.DefaultTreeModel
  * und transitiven Abhängigkeiten dazwischen liegen und welche Versionen bzw. Properties greifen.
  *
  * Ein Rechtsklick öffnet ein Kontextmenü zur Navigation in die `pom.xml` (`Navigate to pom.xml`)
- * oder zum Anspringen der Komponente in der Haupttabelle (`Show in Table`),
+ * oder zum Anspringen der Komponente in der Haupttabelle (`Select in Table`),
  * zusätzlich kann per `Enter` oder `F4` direkt zur Deklaration gesprungen werden.
  *
  * @property project Das zugehörige IntelliJ-Projekt.
@@ -275,7 +276,7 @@ class DependencyHierarchyDialog(
                 add(object : AnAction(
                     MyMessageBundle.message("dependency.hierarchy.action.navigateToTable"),
                     null,
-                    AllIcons.Actions.Forward
+                    SELECT_IN_TABLE_ICON
                 ) {
                     override fun getActionUpdateThread() = ActionUpdateThread.EDT
                     override fun update(event: AnActionEvent) {
@@ -517,6 +518,9 @@ class DependencyHierarchyDialog(
         }
     }
 }
+
+/** Icon für die Aktion „Select in Table" im Dependency-Hierarchy-Dialog. */
+private val SELECT_IN_TABLE_ICON = IconLoader.getIcon("/icons/selectInTable.svg", DependencyHierarchyDialog::class.java)
 
 /** Farbe zur Hervorhebung der Ziel-Abhängigkeit im Hierarchiebaum (Light-/Dark-Mode). */
 internal val TARGET_DEPENDENCY_COLOR = JBColor(Color(10, 95, 185), Color(88, 157, 246))
