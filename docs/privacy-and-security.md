@@ -11,7 +11,7 @@ MavenUp places great importance on transparency and data minimization when acces
 1. **Maven Central & repositories (`repo1.maven.org` / configured servers):**
    - **Purpose:** Determining newer versions via `maven-metadata.xml`.
    - **Transmission:** HTTP GET requests with paths based on `groupId` and `artifactId`.
-   - **Trigger:** The version search action, and — while the MavenUp tool window is open — automatically after the project data is loaded and after every finished Maven import or resync. A finished vulnerability scan additionally queries the versions of the vulnerable transitive coordinates. The automatic trigger can be switched off in the settings; vulnerability scans are never started automatically.
+   - **Trigger:** The version search action, and — when enabled — automatically after the Maven project data is loaded and after every finished Maven import or resync, regardless of whether the MavenUp tool window has already been opened. A finished vulnerability scan additionally queries the versions of the vulnerable transitive coordinates. The automatic trigger can be switched off in the settings; vulnerability scans are never started automatically.
 2. **OSV.dev (`api.osv.dev`):**
    - **Purpose:** Default multi-source vulnerability check (Google / OpenSSF).
    - **Transmission:** Batch and detail queries with `groupId`, `artifactId`, and `version` (PURL / ecosystem `Maven`).
