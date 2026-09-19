@@ -17,31 +17,30 @@
         
         <p><b>Core Features:</b></p>
         <ul>
-            <li><b>Vulnerability Scanning:</b> Check your dependencies, plugins, and resolved transitive components for known vulnerabilities via OSV.dev and Sonatype OSS Index, with severity, CVSS score, and affected versions shown right in the table, and discreet hints confirming a scan without findings.</li>
-            <li><b>Transparent Error Handling:</b> Reports a failed request to OSV.dev, Sonatype OSS Index, or a Maven repository in a closable banner above the table that names the reason — with a direct link to the settings when an API token is missing or rejected — instead of silently showing an empty result.</li>
-            <li><b>One-Click Vulnerability Fixes:</b> Apply the recommended fix version — the lowest release that resolves every known finding of a component — for a single entry or for all affected entries at once, and pin vulnerable transitive dependencies in <code>dependencyManagement</code> with configurable explanatory comments without editing the <code>pom.xml</code> by hand.</li>
-            <li><b>Find & Update Versions:</b> Discover newer versions in Maven Central and private repositories — automatically in the background after each project load and Maven resync when enabled — then apply a configurable auto-selection strategy (disabled, highest version, or latest minor in the current major line), bulk-select the highest major, highest minor, recommended fix, or current version for all dependencies at once, or set those versions—or reset to the current version—for a single dependency straight from its row context menu.</li>
-            <li><b>Complete Dependency Overview:</b> Displays all dependencies, plugins, and parent POM across Maven modules in an organized table, marking entries whose version is inherited from the parent POM or an imported BOM with an <i>(inherited)</i> label.</li>
-            <li><b>Status at a Glance:</b> Marks the tool window icon with a colored badge dot — red for high or critical vulnerabilities, yellow for lower-severity findings, blue when only newer versions are available — so the state stays visible while the tool window is collapsed.</li>
-            <li><b>Smart Navigation:</b> Jump directly to <code>pom.xml</code> definitions — or to the version property definition when clicking the Property column — and open artifacts in Maven repository browsers with a single click.</li>
+            <li><b>Find & Update Versions:</b> Discover newer versions in Maven Central and private repositories, apply configurable auto-selection strategies, and bulk-update dependencies, plugins, and parent POMs directly from the tool window.</li>
+            <li><b>Vulnerability Scanning:</b> Check dependencies, plugins, and resolved transitive components for known vulnerabilities via OSV.dev and Sonatype OSS Index with severity ratings, CVSS scores, and affected version ranges.</li>
+            <li><b>One-Click Vulnerability Fixes:</b> Apply recommended fix versions for direct findings and pin vulnerable transitive dependencies in <code>dependencyManagement</code> with configurable explanatory comments.</li>
+            <li><b>Complete Dependency Overview:</b> Displays all dependencies, plugins, and parent POMs across Maven modules in an organized table, marking entries inherited from parent POMs or BOM imports.</li>
+            <li><b>Transitive Vulnerabilities View:</b> Inspect, filter, and remediate vulnerable transitive dependencies in a dedicated tool window tab with highlighted recommended fix versions.</li>
         </ul>
         
         <p><b>Advanced Capabilities:</b></p>
         <ul>
-            <li><b>Property-Aware Versions:</b> Recognizes and updates Maven properties (e.g., <code>${spring.version}</code>) across all references.</li>
-            <li><b>Flexible Filtering & Sorting:</b> Filter by name, type, inherited or declared version, pending changes, available updates, or security findings—including whether a dependency is affected itself or only through its transitive dependencies—quickly filter by a right-clicked GroupId, ArtifactId, or Property via the row context menu, clear every filter with a single reset button, and sort any column ascending, descending, or back to the original pom.xml order to quickly locate the dependencies you need.</li>
-            <li><b>Optional Downgrades:</b> Enable an "offer all versions" setting to also list versions older than the current one when a rollback is needed; the current version and the recommended fix version are marked in the selection dropdown.</li>
+            <li><b>Property-Aware Versions:</b> Recognizes and updates Maven properties (e.g., <code>${spring.version}</code>) across all references while resolving placeholders accurately.</li>
+            <li><b>Dependency Hierarchy Inspection:</b> Inspect the full parent, BOM, management, and inclusion paths of managed entries or vulnerable transitive coordinates in a searchable tree dialog.</li>
+            <li><b>Detailed Security Reports:</b> View advisories in a master-detail split view with severity, CVSS scores and vectors, CWE identifiers, affected version ranges, fixed versions, and advisory references.</li>
+            <li><b>Safe Update Workflow:</b> Review all planned version updates and managed-entry removals in a sortable confirmation dialog with optional automatic Maven re-sync.</li>
+            <li><b>Flexible Filtering & Sorting:</b> Filter by name, type, inheritance, pending updates, or security findings, and sort columns ascending, descending, or in original POM order.</li>
+            <li><b>Status at a Glance:</b> Marks the tool window icon with a colored badge dot to signal vulnerabilities and available updates while the tool window is collapsed.</li>
+            <li><b>Smart Navigation:</b> Jump directly to <code>pom.xml</code> declarations or property definitions, and open artifacts in configured repository browsers with a single click.</li>
+            <li><b>Private Repository Support:</b> Access authenticated repositories from Maven <code>settings.xml</code> with support for environment variable placeholders.</li>
+            <li><b>Private GroupId Filter:</b> Exclude internal GroupIds from Maven Central queries to ensure proprietary company identifiers remain private.</li>
+            <li><b>Optional Downgrades & Version Filtering:</b> List older versions when rollbacks are needed or hide unstable releases and custom pre-release qualifiers.</li>
             <li><b>Repository Browser Options:</b> Choose between MVN Repository and Sonatype Central for artifact links.</li>
-            <li><b>Private GroupId Filter:</b> Configure a comma-separated list of private/internal GroupId prefixes to exclude matching dependencies, plugins, managed dependencies/plugins, and parent POMs from queries to Maven Central, so no company information is transmitted to that external server.</li>
-            <li><b>Private Repository Support:</b> Access authenticated repositories from <code>settings.xml</code> with fallback to standard Maven user settings.</li>
-            <li><b>Detailed Security Reports:</b> View advisories in a master-detail split view with an origin column that classifies each finding as direct or transitive, plus severity, CVSS scores and vector, CWE identifiers, publish/last-modified dates, summaries, detailed descriptions, affected version ranges, fixed-in versions, references, and a link to open the affected component in the configured repository browser, with the severity column color-coded to match the tool window.</li>
-            <li><b>Dependency Hierarchy:</b> Inspect the full parent, BOM, management, and inclusion paths of managed entries or any vulnerable transitive coordinate in a searchable tree, jump to its pom.xml declaration, or navigate directly to the entry in the main table.</li>
-            <li><b>Safe Update Workflow:</b> Mark managed dependencies and plugins for removal via the new <i>Managed Entries</i> bulk menu, or select version changes, review every planned change in a sortable confirmation dialog, and optionally trigger the IDE's Maven sync right afterwards.</li>
-            <li><b>Transitive Vulnerabilities View:</b> A dedicated <i>Transitive CVEs</i> tool window tab lists all transitive dependencies with known vulnerabilities, including type, vulnerability count, and an editable new-version column that highlights the recommended fix in the dropdown; narrow the list with its own filter row, select the highest major, highest minor, or recommended fix version—for all visible coordinates via the toolbar or a single one via its row context menu—and reset selections.</li>
-            <li><b>Secure Token Storage:</b> API tokens are stored safely in IntelliJ Password Safe.</li>
-            <li><b>Global Settings:</b> Configure behavior, filters, and integrations under <b>Settings | Tools | Maven Up</b> to apply across all projects.</li>
-            <li><b>Responsive UI & Restart-Free:</b> Background processing and dynamic loading ensure smooth operation and updates without IDE restart.</li>
-            <li><b>Privacy-First Design:</b> Only Maven coordinates are transmitted for version checks and vulnerability scans—your source code remains private.</li>
+            <li><b>Transparent Error Handling:</b> Report failed API or repository requests in closable banners with direct links to settings when credentials require attention.</li>
+            <li><b>Secure Token Storage:</b> Stores Sonatype OSS Index API tokens safely in IntelliJ Password Safe.</li>
+            <li><b>Global Settings:</b> Configure version lookup strategies, vulnerability scanners, and POM modification preferences under <b>Settings | Tools | Maven Up</b>.</li>
+            <li><b>Privacy-First Design:</b> Only Maven coordinates are transmitted over HTTPS for version checks and vulnerability scans—your source code remains private.</li>
         </ul>
         ]]></description>
 
