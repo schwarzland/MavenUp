@@ -1,7 +1,6 @@
 package de.schwarzland.mavenup.ui
 
 import com.intellij.icons.AllIcons
-import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.Separator
 import com.intellij.psi.xml.XmlFile
 import com.intellij.testFramework.TestActionEvent
@@ -766,24 +765,6 @@ class DependencyHierarchyPanelTest : BasePlatformTestCase() {
                 mapOf("com.example:lib:1.0.0" to listOf(advisory))
             }
         )
-
-        val psiFile = myFixture.configureByText(
-            "pom.xml",
-            """
-            <project>
-                <groupId>com.example</groupId>
-                <artifactId>demo</artifactId>
-                <version>1.0.0</version>
-                <dependencies>
-                    <dependency>
-                        <groupId>com.example</groupId>
-                        <artifactId>lib</artifactId>
-                        <version>1.0.0</version>
-                    </dependency>
-                </dependencies>
-            </project>
-            """.trimIndent()
-        ) as XmlFile
 
         panel.showHierarchy("com.example", "lib", false)
         assertTrue(advisoriesProviderCalled)

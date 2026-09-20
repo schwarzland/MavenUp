@@ -166,7 +166,7 @@ class DependencyHierarchyPanel(
             emptyTree.registerKeyboardAction(
                 { onClose.invoke() },
                 KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0),
-                JComponent.WHEN_FOCUSED
+                WHEN_FOCUSED
             )
         }
         return emptyTree
@@ -208,19 +208,19 @@ class DependencyHierarchyPanel(
         newTree.registerKeyboardAction(
             { navigateToSelectedNode(newTree) },
             KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0),
-            JComponent.WHEN_FOCUSED
+            WHEN_FOCUSED
         )
         newTree.registerKeyboardAction(
             { navigateToSelectedNode(newTree) },
             KeyStroke.getKeyStroke(KeyEvent.VK_F4, 0),
-            JComponent.WHEN_FOCUSED
+            WHEN_FOCUSED
         )
 
         if (onClose != null) {
             newTree.registerKeyboardAction(
                 { onClose.invoke() },
                 KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0),
-                JComponent.WHEN_FOCUSED
+                WHEN_FOCUSED
             )
         }
 
@@ -245,7 +245,7 @@ class DependencyHierarchyPanel(
             emptyTree.registerKeyboardAction(
                 { onClose.invoke() },
                 KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0),
-                JComponent.WHEN_FOCUSED
+                WHEN_FOCUSED
             )
         }
         val hierarchyToolbar = createToolbar(emptyTree)
@@ -608,7 +608,6 @@ class DependencyHierarchyPanel(
     }
 
     companion object {
-        private val TARGET_DEPENDENCY_COLOR = JBColor(Color(0x00, 0x55, 0xAA), Color(0x58, 0x9D, 0xF6))
         private val SELECT_IN_TABLE_ICON = IconLoader.getIcon("/icons/selectInTable.svg", DependencyHierarchyPanel::class.java)
     }
 }
