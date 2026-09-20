@@ -1,6 +1,9 @@
 package de.schwarzland.mavenup.ui
 
+import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.actionSystem.Separator
 import com.intellij.psi.xml.XmlFile
+import com.intellij.testFramework.TestActionEvent
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.ui.treeStructure.Tree
 import de.schwarzland.mavenup.model.DependencyHierarchyNode
@@ -8,9 +11,9 @@ import de.schwarzland.mavenup.model.DependencyHierarchyNodeType
 import javax.swing.tree.DefaultMutableTreeNode
 
 /**
- * Tests für den [DependencyHierarchyDialog] und den [DependencyHierarchyTreeCellRenderer].
+ * Tests für das [DependencyHierarchyPanel] und den [DependencyHierarchyTreeCellRenderer].
  */
-class DependencyHierarchyDialogTest : BasePlatformTestCase() {
+class DependencyHierarchyPanelTest : BasePlatformTestCase() {
 
     fun testBuildTreeModelConstructsFullHierarchy() {
         val rootNode = DependencyHierarchyNode(
@@ -37,8 +40,8 @@ class DependencyHierarchyDialogTest : BasePlatformTestCase() {
         projectNode.children.add(dmNode)
         rootNode.children.add(projectNode)
 
-        val dialog = DependencyHierarchyDialog(project, "com.fasterxml.jackson.core", "jackson-databind")
-        val treeModel = dialog.buildTreeModel(rootNode)
+        val panel = DependencyHierarchyPanel(project)
+        val treeModel = panel.buildTreeModel(rootNode)
 
         val rootTreeNode = treeModel.root as DefaultMutableTreeNode
         assertEquals(rootNode, rootTreeNode.userObject)
@@ -66,14 +69,14 @@ class DependencyHierarchyDialogTest : BasePlatformTestCase() {
         )
         rootNode.children.add(childNode)
 
-        val dialog = DependencyHierarchyDialog(project, "com.example", "lib")
-        val treeModel = dialog.buildTreeModel(rootNode)
+        val panel = DependencyHierarchyPanel(project)
+        val treeModel = panel.buildTreeModel(rootNode)
         val tree = Tree(treeModel).apply {
             isRootVisible = true
             showsRootHandles = true
         }
 
-        dialog.expandAllNodes(tree)
+        panel.expandAllNodes(tree)
         assertTrue(tree.isExpanded(0))
     }
 
@@ -91,16 +94,16 @@ class DependencyHierarchyDialogTest : BasePlatformTestCase() {
         )
         rootNode.children.add(childNode)
 
-        val dialog = DependencyHierarchyDialog(project, "com.example", "lib")
-        val treeModel = dialog.buildTreeModel(rootNode)
+        val panel = DependencyHierarchyPanel(project)
+        val treeModel = panel.buildTreeModel(rootNode)
         val tree = Tree(treeModel).apply {
             isRootVisible = true
             showsRootHandles = true
         }
 
-        dialog.expandAllNodes(tree)
+        panel.expandAllNodes(tree)
         assertTrue(tree.isExpanded(0))
-        dialog.collapseAllNodes(tree)
+        panel.collapseAllNodes(tree)
         assertFalse(tree.isExpanded(0))
     }
 
@@ -153,59 +156,87 @@ class DependencyHierarchyDialogTest : BasePlatformTestCase() {
         )
         assertTrue(renderer.isTargetDependency(directNode))
 
-        val transitiveTargetNode = DependencyHierarchyNode(
-            type = DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY,
-            groupId = "com.fasterxml.jackson.core",
-            artifactId = "jackson-databind",
-            version = "2.15.2"
+        val otherNode = DependencyHierarchyNode(
+            type = DependencyHierarchyNodeType.DIRECT_DEPENDENCY,
+            groupId = "org.slf4j",
+            artifactId = "slf4j-api",
+            version = "2.0.7"
         )
-        assertTrue(renderer.isTargetDependency(transitiveTargetNode))
-
-        val intermediateTransitiveNode = DependencyHierarchyNode(
-            type = DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY,
-            groupId = "org.springframework.boot",
-            artifactId = "spring-boot-starter-json",
-            version = "3.2.0"
-        )
-        assertFalse(renderer.isTargetDependency(intermediateTransitiveNode))
+        assertFalse(renderer.isTargetDependency(otherNode))
 
         val projectNode = DependencyHierarchyNode(
             type = DependencyHierarchyNodeType.PROJECT,
             groupId = "com.fasterxml.jackson.core",
             artifactId = "jackson-databind"
         )
-        assertFalse("Project-Knoten dürfen nicht als Target-Dependency gewertet werden", renderer.isTargetDependency(projectNode))
-
-        val unconfiguredRenderer = DependencyHierarchyTreeCellRenderer()
-        assertFalse(unconfiguredRenderer.isTargetDependency(rootNode))
+        assertFalse(renderer.isTargetDependency(projectNode))
     }
 
-    fun testRendererHighlightsTargetDependencyWithColor() {
+    fun testRendererRendersAllNodeTypes() {
+        val types = listOf(
+            DependencyHierarchyNodeType.ROOT,
+            DependencyHierarchyNodeType.PROJECT,
+            DependencyHierarchyNodeType.PARENT_POM,
+            DependencyHierarchyNodeType.BOM_IMPORT,
+            DependencyHierarchyNodeType.DEPENDENCY_MANAGEMENT,
+            DependencyHierarchyNodeType.PLUGIN_MANAGEMENT,
+            DependencyHierarchyNodeType.DIRECT_DEPENDENCY,
+            DependencyHierarchyNodeType.DIRECT_PLUGIN,
+            DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY
+        )
+
+        val renderer = DependencyHierarchyTreeCellRenderer("org.example", "target-lib")
+        val tree = Tree()
+
+        for ((index, type) in types.withIndex()) {
+            val node = DependencyHierarchyNode(
+                type = type,
+                groupId = "org.example",
+                artifactId = "artifact-$index",
+                version = "1.0.0",
+                propertyName = if (type == DependencyHierarchyNodeType.DEPENDENCY_MANAGEMENT) "lib.version" else null,
+                scope = if (type == DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY) "test" else "compile",
+                isManaged = true
+            )
+            val treeNode = DefaultMutableTreeNode(node)
+            renderer.getTreeCellRendererComponent(tree, treeNode, false, false, true, index, false)
+            assertNotNull("Icon für $type darf nicht null sein", renderer.icon)
+            val rendered = renderer.renderedItems
+            assertTrue("Text für $type muss Koordinate enthalten", rendered.any { it.contains("artifact-$index") })
+        }
+    }
+
+    fun testRendererHandlesUserObjectNonHierarchyNode() {
+        val renderer = DependencyHierarchyTreeCellRenderer()
+        val tree = Tree()
+        val treeNode = DefaultMutableTreeNode("Ein String Knoten")
+
+        renderer.getTreeCellRendererComponent(tree, treeNode, false, false, true, 0, false)
+        assertTrue(renderer.renderedItems.contains("Ein String Knoten"))
+    }
+
+    fun testRendererHighlightsTargetDependency() {
+        val renderer = DependencyHierarchyTreeCellRenderer("my.group", "my-target")
+        val tree = Tree()
+
         val targetNode = DependencyHierarchyNode(
-            type = DependencyHierarchyNodeType.DEPENDENCY_MANAGEMENT,
-            groupId = "com.example",
+            type = DependencyHierarchyNodeType.DIRECT_DEPENDENCY,
+            groupId = "my.group",
             artifactId = "my-target",
             version = "1.0.0"
         )
         val otherNode = DependencyHierarchyNode(
             type = DependencyHierarchyNodeType.DIRECT_DEPENDENCY,
-            groupId = "com.example",
+            groupId = "my.group",
             artifactId = "other-lib",
-            version = "2.0.0"
+            version = "1.0.0"
         )
-
-        val renderer = DependencyHierarchyTreeCellRenderer("com.example", "my-target")
-        val tree = Tree()
 
         renderer.getTreeCellRendererComponent(tree, DefaultMutableTreeNode(targetNode), false, false, true, 0, false)
         assertTrue(renderer.renderedItems.any { it.contains("my-target") })
 
         renderer.getTreeCellRendererComponent(tree, DefaultMutableTreeNode(otherNode), false, false, true, 1, false)
         assertTrue(renderer.renderedItems.any { it.contains("other-lib") })
-    }
-
-    fun testTargetDependencyColorDefined() {
-        assertNotNull(TARGET_DEPENDENCY_COLOR)
     }
 
     fun testNavigateToSelectedNodeWithTag() {
@@ -235,13 +266,13 @@ class DependencyHierarchyDialogTest : BasePlatformTestCase() {
             xmlTag = tag
         )
 
-        val dialog = DependencyHierarchyDialog(project, "com.example", "demo")
-        val treeModel = dialog.buildTreeModel(node)
+        val panel = DependencyHierarchyPanel(project)
+        val treeModel = panel.buildTreeModel(node)
         val tree = Tree(treeModel)
         tree.setSelectionRow(0)
 
         // Sollte ohne Fehler ausgeführt werden
-        dialog.navigateToSelectedNode(tree)
+        panel.navigateToSelectedNode(tree)
     }
 
     fun testNavigateToSelectedNodeWithoutTagWithPomFile() {
@@ -269,183 +300,24 @@ class DependencyHierarchyDialogTest : BasePlatformTestCase() {
             xmlTag = null
         )
 
-        val dialog = DependencyHierarchyDialog(project, "com.example", "demo")
-        val treeModel = dialog.buildTreeModel(node)
+        val panel = DependencyHierarchyPanel(project)
+        val treeModel = panel.buildTreeModel(node)
         val tree = Tree(treeModel)
         tree.setSelectionRow(0)
 
-        // Findet das Tag in der übergebenen pomFile und öffnet den Editor
-        dialog.navigateToSelectedNode(tree)
+        // Sollte ohne Fehler ausgeführt werden
+        panel.navigateToSelectedNode(tree)
     }
 
-    fun testNavigateToSelectedNodeWithoutPomFileFallsBackToNavigationService() {
-        val node = DependencyHierarchyNode(
-            type = DependencyHierarchyNodeType.DIRECT_DEPENDENCY,
-            groupId = "com.example",
-            artifactId = "demo",
-            version = "1.0.0",
-            pomFile = null,
-            xmlTag = null
-        )
-
-        val dialog = DependencyHierarchyDialog(project, "com.example", "demo")
-        val treeModel = dialog.buildTreeModel(node)
-        val tree = Tree(treeModel)
-        tree.setSelectionRow(0)
-
-        // Nutzt PomNavigationService Fallback
-        dialog.navigateToSelectedNode(tree)
-    }
-
-    fun testCreateContextMenuGroupContainsNavigateAction() {
-        val dialog = DependencyHierarchyDialog(project, "com.example", "demo")
+    fun testNavigateToSelectedNodeWithoutSelectionDoesNothing() {
+        val panel = DependencyHierarchyPanel(project)
         val tree = Tree()
-        val group = dialog.createContextMenuGroup(tree)
-        val actions = group.getChildren(null)
-        assertEquals(2, actions.size)
-        assertEquals(
-            MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.navigateToPom"),
-            actions[0].templatePresentation.text
-        )
-        assertEquals(
-            MyMessageBundle.message("dependency.hierarchy.action.navigateToTable"),
-            actions[1].templatePresentation.text
-        )
-    }
-
-    fun testCreateToolbarSetsTreeAsTargetComponentAndContainsNavigateAction() {
-        val dialog = DependencyHierarchyDialog(project, "com.example", "demo")
-        val tree = Tree()
-
-        val toolbar = dialog.createToolbar(tree)
-
-        assertSame(tree, toolbar.targetComponent)
-        val actions = toolbar.actionGroup.getChildren(null)
-        val navigateTableAction = actions.filterIsInstance<com.intellij.openapi.actionSystem.AnAction>()
-            .firstOrNull { it.templatePresentation.text == MyMessageBundle.message("dependency.hierarchy.action.navigateToTable") }
-        assertNotNull(navigateTableAction)
-    }
-
-    fun testCanNavigateToTableRequiresValidCoordinates() {
-        val validNode = DependencyHierarchyNode(
-            type = DependencyHierarchyNodeType.DIRECT_DEPENDENCY,
-            groupId = "com.example",
-            artifactId = "demo",
-            version = "1.0.0",
-            pomFile = null
-        )
-        val projectNode = DependencyHierarchyNode(
-            type = DependencyHierarchyNodeType.PROJECT,
-            groupId = "com.example",
-            artifactId = "project",
-            version = "1.0.0",
-            pomFile = null
-        )
-        val invalidNode = DependencyHierarchyNode(
-            type = DependencyHierarchyNodeType.ROOT,
-            groupId = "",
-            artifactId = "",
-            version = null,
-            pomFile = null
-        )
-        val tree = Tree(DefaultMutableTreeNode(validNode).apply {
-            add(DefaultMutableTreeNode(projectNode))
-            add(DefaultMutableTreeNode(invalidNode))
-        })
-        val dialog = DependencyHierarchyDialog(project, "com.example", "demo", onNavigateToTable = { _, _ -> true })
-
-        tree.setSelectionRow(0)
-        assertTrue(dialog.canNavigateToTable(tree))
-
-        tree.setSelectionRow(1)
-        assertFalse(dialog.canNavigateToTable(tree))
-
-        tree.setSelectionRow(2)
-        assertFalse(dialog.canNavigateToTable(tree))
-
         tree.clearSelection()
-        assertFalse(dialog.canNavigateToTable(tree))
+
+        panel.navigateToSelectedNode(tree)
     }
 
-    fun testCanNavigateToTableWithIsDependencyInTablePredicate() {
-        val node1 = DependencyHierarchyNode(
-            type = DependencyHierarchyNodeType.DIRECT_DEPENDENCY,
-            groupId = "com.example",
-            artifactId = "present-in-table",
-            version = "1.0.0"
-        )
-        val node2 = DependencyHierarchyNode(
-            type = DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY,
-            groupId = "com.example",
-            artifactId = "not-in-table",
-            version = "2.0.0"
-        )
-        val tree = Tree(DefaultMutableTreeNode(node1).apply {
-            add(DefaultMutableTreeNode(node2))
-        })
-
-        val known = setOf("com.example:present-in-table")
-        val dialog = DependencyHierarchyDialog(
-            project = project,
-            groupId = "com.example",
-            artifactId = "present-in-table",
-            isDependencyInTable = { g, a -> "$g:$a" in known },
-            onNavigateToTable = { _, _ -> true }
-        )
-
-        tree.setSelectionRow(0)
-        assertTrue(dialog.canNavigateToTable(tree))
-
-        tree.setSelectionRow(1)
-        assertFalse(dialog.canNavigateToTable(tree))
-    }
-
-    fun testNavigateToTableForSelectedNodeClosesDialogAndInvokesCallback() {
-        var callbackCalledWith: Pair<String, String>? = null
-        val node = DependencyHierarchyNode(
-            type = DependencyHierarchyNodeType.PARENT_POM,
-            groupId = "org.springframework.boot",
-            artifactId = "spring-boot-starter-parent",
-            version = "3.2.0",
-            pomFile = null
-        )
-        val tree = Tree(DefaultMutableTreeNode(node))
-        tree.setSelectionRow(0)
-
-        val dialog = DependencyHierarchyDialog(project, "com.example", "demo", onNavigateToTable = { gid, aid ->
-            callbackCalledWith = Pair(gid, aid)
-            true
-        })
-
-        val result = dialog.navigateToTableForSelectedNode(tree)
-        assertTrue(result)
-        assertEquals(Pair("org.springframework.boot", "spring-boot-starter-parent"), callbackCalledWith)
-    }
-
-    fun testContextMenuActionPerformsNavigationToTable() {
-        var callbackCalled = false
-        val node = DependencyHierarchyNode(
-            type = DependencyHierarchyNodeType.DIRECT_DEPENDENCY,
-            groupId = "com.example",
-            artifactId = "demo",
-            version = "1.0.0",
-            pomFile = null
-        )
-        val tree = Tree(DefaultMutableTreeNode(node))
-        tree.setSelectionRow(0)
-
-        val dialog = DependencyHierarchyDialog(project, "com.example", "demo", onNavigateToTable = { _, _ ->
-            callbackCalled = true
-            true
-        })
-        val group = dialog.createContextMenuGroup(tree)
-        val navigateAction = group.getChildren(null)[1]
-        val event = com.intellij.testFramework.TestActionEvent.createTestEvent(navigateAction)
-        navigateAction.actionPerformed(event)
-        assertTrue(callbackCalled)
-    }
-
-    fun testContextMenuActionPerformsNavigation() {
+    fun testCanNavigateToSelectedNode() {
         val psiFile = myFixture.configureByText(
             "pom.xml",
             """
@@ -461,39 +333,135 @@ class DependencyHierarchyDialogTest : BasePlatformTestCase() {
             """.trimIndent()
         ) as XmlFile
 
-        val tag = psiFile.document?.rootTag?.findFirstSubTag("dependencies")?.findFirstSubTag("dependency")
-
         val node = DependencyHierarchyNode(
             type = DependencyHierarchyNodeType.DIRECT_DEPENDENCY,
             groupId = "com.example",
             artifactId = "demo",
             version = "1.0.0",
-            pomFile = psiFile.virtualFile,
-            xmlTag = tag
+            pomFile = psiFile.virtualFile
+        )
+        val projectNode = DependencyHierarchyNode(
+            type = DependencyHierarchyNodeType.PROJECT,
+            groupId = "com.example",
+            artifactId = "demo-project",
+            pomFile = psiFile.virtualFile
         )
 
-        val dialog = DependencyHierarchyDialog(project, "com.example", "demo")
-        val treeModel = dialog.buildTreeModel(node)
-        val tree = Tree(treeModel)
-        tree.setSelectionRow(0)
+        val panel = DependencyHierarchyPanel(project)
 
-        val group = dialog.createContextMenuGroup(tree)
-        val action = group.getChildren(null)[0]
-        val event = com.intellij.testFramework.TestActionEvent.createTestEvent(action)
-        action.actionPerformed(event)
+        val validTree = Tree(DefaultMutableTreeNode(node))
+        validTree.setSelectionRow(0)
+        assertTrue(panel.canNavigateToSelectedNode(validTree))
+
+        val projectTree = Tree(DefaultMutableTreeNode(projectNode))
+        projectTree.setSelectionRow(0)
+        assertFalse(panel.canNavigateToSelectedNode(projectTree))
+
+        val emptyTree = Tree()
+        emptyTree.clearSelection()
+        assertFalse(panel.canNavigateToSelectedNode(emptyTree))
     }
 
-    fun testCreateCenterPanelBuildsUI() {
-        val dialog = DependencyHierarchyDialog(project, "com.example", "demo")
-        val panel = dialog.createCenterPanel()
-        assertNotNull(panel)
+    fun testCanNavigateToTable() {
+        val inTableNode = DependencyHierarchyNode(
+            type = DependencyHierarchyNodeType.DIRECT_DEPENDENCY,
+            groupId = "com.example",
+            artifactId = "in-table",
+            version = "1.0.0"
+        )
+        val notInTableNode = DependencyHierarchyNode(
+            type = DependencyHierarchyNodeType.DIRECT_DEPENDENCY,
+            groupId = "com.example",
+            artifactId = "not-in-table",
+            version = "1.0.0"
+        )
+        val projectNode = DependencyHierarchyNode(
+            type = DependencyHierarchyNodeType.PROJECT,
+            groupId = "com.example",
+            artifactId = "my-module"
+        )
+
+        val panel = DependencyHierarchyPanel(
+            project = project,
+            isDependencyInTable = { g, a -> g == "com.example" && a == "in-table" }
+        )
+
+        val treeInTable = Tree(DefaultMutableTreeNode(inTableNode)).apply { setSelectionRow(0) }
+        assertTrue(panel.canNavigateToTable(treeInTable))
+
+        val treeNotInTable = Tree(DefaultMutableTreeNode(notInTableNode)).apply { setSelectionRow(0) }
+        assertFalse(panel.canNavigateToTable(treeNotInTable))
+
+        val treeProject = Tree(DefaultMutableTreeNode(projectNode)).apply { setSelectionRow(0) }
+        assertFalse(panel.canNavigateToTable(treeProject))
+
+        val emptyTree = Tree().apply { clearSelection() }
+        assertFalse(panel.canNavigateToTable(emptyTree))
     }
 
-    fun testCanNavigateToSelectedNodeDependsOnSelection() {
-        val psiFile = myFixture.configureByText(
+    fun testNavigateToTableForSelectedNodeExecutesCallback() {
+        var navigatedGroupId = ""
+        var navigatedArtifactId = ""
+
+        val node = DependencyHierarchyNode(
+            type = DependencyHierarchyNodeType.DIRECT_DEPENDENCY,
+            groupId = "org.slf4j",
+            artifactId = "slf4j-api",
+            version = "2.0.7"
+        )
+
+        val panel = DependencyHierarchyPanel(
+            project = project,
+            onNavigateToTable = { g, a ->
+                navigatedGroupId = g
+                navigatedArtifactId = a
+                true
+            }
+        )
+
+        val tree = Tree(DefaultMutableTreeNode(node)).apply { setSelectionRow(0) }
+        val result = panel.navigateToTableForSelectedNode(tree)
+
+        assertTrue(result)
+        assertEquals("org.slf4j", navigatedGroupId)
+        assertEquals("slf4j-api", navigatedArtifactId)
+    }
+
+    fun testToolbarAndContextMenuActions() {
+        val rootNode = DependencyHierarchyNode(
+            type = DependencyHierarchyNodeType.ROOT,
+            groupId = "com.example",
+            artifactId = "lib"
+        )
+        var closed = false
+        val panel = DependencyHierarchyPanel(project, onClose = { closed = true })
+        val tree = Tree(DefaultMutableTreeNode(rootNode))
+
+        val toolbar = panel.createToolbar(tree)
+        assertNotNull(toolbar)
+
+        val contextGroup = panel.createContextMenuGroup(tree)
+        assertNotNull(contextGroup)
+        assertEquals(2, contextGroup.childrenCount)
+
+        // Close action in toolbar
+        val actions = panel.createToolbar(tree).actionGroup.getChildren(null)
+        val closeAction = actions.filterIsInstance<com.intellij.openapi.actionSystem.AnAction>()
+            .lastOrNull { it !is Separator }
+        assertNotNull(closeAction)
+        val event = TestActionEvent.createTestEvent()
+        closeAction?.actionPerformed(event)
+        assertTrue(closed)
+    }
+
+    fun testShowHierarchyUpdatesPanel() {
+        myFixture.configureByText(
             "pom.xml",
             """
             <project>
+                <groupId>com.example</groupId>
+                <artifactId>demo</artifactId>
+                <version>1.0.0</version>
                 <dependencyManagement>
                     <dependencies>
                         <dependency>
@@ -503,80 +471,31 @@ class DependencyHierarchyDialogTest : BasePlatformTestCase() {
                         </dependency>
                     </dependencies>
                 </dependencyManagement>
-                <dependencies>
-                    <dependency>
-                        <groupId>com.example</groupId>
-                        <artifactId>demo</artifactId>
-                        <version>1.0.0</version>
-                    </dependency>
-                </dependencies>
             </project>
             """.trimIndent()
-        ) as XmlFile
-        val tag = psiFile.document?.rootTag?.findFirstSubTag("dependencies")?.findFirstSubTag("dependency")
-
-        val validNodeWithTag = DependencyHierarchyNode(
-            type = DependencyHierarchyNodeType.ROOT,
-            groupId = "com.example",
-            artifactId = "demo",
-            version = "1.0.0",
-            pomFile = psiFile.virtualFile,
-            xmlTag = tag
         )
-        val moduleNode = DependencyHierarchyNode(
-            type = DependencyHierarchyNodeType.PROJECT,
-            groupId = "com.example",
-            artifactId = "demo-module",
-            version = "1.0.0",
-            pomFile = psiFile.virtualFile
-        )
-        val transitiveUnmanagedNode = DependencyHierarchyNode(
-            type = DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY,
-            groupId = "com.example",
-            artifactId = "transitive-child",
-            version = "1.0.0",
-            pomFile = psiFile.virtualFile
-        )
-        val transitiveManagedNode = DependencyHierarchyNode(
-            type = DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY,
-            groupId = "org.slf4j",
-            artifactId = "slf4j-api",
-            version = "2.0.7",
-            pomFile = psiFile.virtualFile
-        )
-        val treeModel = DefaultMutableTreeNode(validNodeWithTag).apply {
-            add(DefaultMutableTreeNode(moduleNode))
-            add(DefaultMutableTreeNode(transitiveUnmanagedNode))
-            add(DefaultMutableTreeNode(transitiveManagedNode))
-        }
-        val tree = Tree(treeModel)
-        val dialog = DependencyHierarchyDialog(project, "com.example", "demo")
 
-        tree.setSelectionRow(0)
-        assertTrue(dialog.canNavigateToSelectedNode(tree))
+        val panel = DependencyHierarchyPanel(project)
+        panel.showHierarchy("org.slf4j", "slf4j-api", false)
 
-        tree.setSelectionRow(1)
-        assertFalse(dialog.canNavigateToSelectedNode(tree))
-
-        tree.setSelectionRow(2)
-        assertFalse(dialog.canNavigateToSelectedNode(tree))
-
-        tree.setSelectionRow(3)
-        assertTrue(dialog.canNavigateToSelectedNode(tree))
-
-        val invalidNode = DependencyHierarchyNode(
-            type = DependencyHierarchyNodeType.ROOT,
-            groupId = "",
-            artifactId = "",
-            version = "1.0.0",
-            pomFile = null
-        )
-        val invalidTree = Tree(DefaultMutableTreeNode(invalidNode))
-        invalidTree.setSelectionRow(0)
-        assertFalse(dialog.canNavigateToSelectedNode(invalidTree))
+        assertEquals("org.slf4j", panel.currentGroupId)
+        assertEquals("slf4j-api", panel.currentArtifactId)
+        assertFalse(panel.currentIsPlugin)
+        assertNotNull(panel.tree)
+        assertNotNull(panel.toolbar)
     }
 
-    fun testIsNodeInPomChecksXmlTagAndType() {
+    fun testShowHierarchyWithEmptyRoot() {
+        val panel = DependencyHierarchyPanel(project)
+        panel.showHierarchy("nonexistent.group", "nonexistent-artifact", false)
+
+        assertEquals("nonexistent.group", panel.currentGroupId)
+        assertEquals("nonexistent-artifact", panel.currentArtifactId)
+        assertNotNull(panel.tree)
+        assertNotNull(panel.toolbar)
+    }
+
+    fun testIsNodeInPomResolvesCorrectly() {
         val psiFile = myFixture.configureByText(
             "pom.xml",
             """
@@ -586,6 +505,9 @@ class DependencyHierarchyDialogTest : BasePlatformTestCase() {
                     <artifactId>spring-boot-starter-parent</artifactId>
                     <version>3.2.0</version>
                 </parent>
+                <groupId>com.example</groupId>
+                <artifactId>demo-app</artifactId>
+                <version>1.0.0</version>
                 <dependencyManagement>
                     <dependencies>
                         <dependency>
@@ -598,7 +520,7 @@ class DependencyHierarchyDialogTest : BasePlatformTestCase() {
                 <dependencies>
                     <dependency>
                         <groupId>com.example</groupId>
-                        <artifactId>declared-dep</artifactId>
+                        <artifactId>direct-lib</artifactId>
                         <version>1.0.0</version>
                     </dependency>
                 </dependencies>
@@ -606,24 +528,16 @@ class DependencyHierarchyDialogTest : BasePlatformTestCase() {
             """.trimIndent()
         ) as XmlFile
 
-        val dialog = DependencyHierarchyDialog(project, "com.example", "declared-dep")
+        val panel = DependencyHierarchyPanel(project)
 
-        val projectNode = DependencyHierarchyNode(
-            type = DependencyHierarchyNodeType.PROJECT,
-            groupId = "com.example",
-            artifactId = "my-project",
-            pomFile = psiFile.virtualFile
-        )
-        assertFalse(dialog.isNodeInPom(projectNode))
-
-        val declaredNode = DependencyHierarchyNode(
+        val directNode = DependencyHierarchyNode(
             type = DependencyHierarchyNodeType.DIRECT_DEPENDENCY,
             groupId = "com.example",
-            artifactId = "declared-dep",
+            artifactId = "direct-lib",
             version = "1.0.0",
             pomFile = psiFile.virtualFile
         )
-        assertTrue(dialog.isNodeInPom(declaredNode))
+        assertTrue(panel.isNodeInPom(directNode))
 
         val parentNode = DependencyHierarchyNode(
             type = DependencyHierarchyNodeType.PARENT_POM,
@@ -632,7 +546,7 @@ class DependencyHierarchyDialogTest : BasePlatformTestCase() {
             version = "3.2.0",
             pomFile = psiFile.virtualFile
         )
-        assertTrue(dialog.isNodeInPom(parentNode))
+        assertTrue(panel.isNodeInPom(parentNode))
 
         val managedTransitiveNode = DependencyHierarchyNode(
             type = DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY,
@@ -641,7 +555,7 @@ class DependencyHierarchyDialogTest : BasePlatformTestCase() {
             version = "2.0.7",
             pomFile = psiFile.virtualFile
         )
-        assertTrue(dialog.isNodeInPom(managedTransitiveNode))
+        assertTrue(panel.isNodeInPom(managedTransitiveNode))
 
         val unmanagedTransitiveNode = DependencyHierarchyNode(
             type = DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY,
@@ -650,7 +564,7 @@ class DependencyHierarchyDialogTest : BasePlatformTestCase() {
             version = "3.12.0",
             pomFile = psiFile.virtualFile
         )
-        assertFalse(dialog.isNodeInPom(unmanagedTransitiveNode))
+        assertFalse(panel.isNodeInPom(unmanagedTransitiveNode))
 
         val notInPomNode = DependencyHierarchyNode(
             type = DependencyHierarchyNodeType.DIRECT_DEPENDENCY,
@@ -659,7 +573,7 @@ class DependencyHierarchyDialogTest : BasePlatformTestCase() {
             version = "1.0.0",
             pomFile = psiFile.virtualFile
         )
-        assertFalse(dialog.isNodeInPom(notInPomNode))
+        assertFalse(panel.isNodeInPom(notInPomNode))
     }
 
     fun testNavigateToSelectedNodeIgnoresProjectNode() {
@@ -683,8 +597,8 @@ class DependencyHierarchyDialogTest : BasePlatformTestCase() {
         val tree = Tree(DefaultMutableTreeNode(projectNode))
         tree.setSelectionRow(0)
 
-        val dialog = DependencyHierarchyDialog(project, "com.example", "demo-project")
-        dialog.navigateToSelectedNode(tree)
+        val panel = DependencyHierarchyPanel(project)
+        panel.navigateToSelectedNode(tree)
     }
 
     fun testNavigateToSelectedNodeNavigatesToManagedTransitiveDependency() {
@@ -715,8 +629,8 @@ class DependencyHierarchyDialogTest : BasePlatformTestCase() {
         val tree = Tree(DefaultMutableTreeNode(managedTransitiveNode))
         tree.setSelectionRow(0)
 
-        val dialog = DependencyHierarchyDialog(project, "org.slf4j", "slf4j-api")
-        dialog.navigateToSelectedNode(tree)
+        val panel = DependencyHierarchyPanel(project)
+        panel.navigateToSelectedNode(tree)
     }
 
     private val DependencyHierarchyTreeCellRenderer.renderedItems: List<String>

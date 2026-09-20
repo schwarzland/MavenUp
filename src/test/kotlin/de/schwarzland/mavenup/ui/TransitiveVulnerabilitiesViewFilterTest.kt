@@ -227,4 +227,24 @@ class TransitiveVulnerabilitiesViewFilterTest : BasePlatformTestCase() {
         // Darf ohne Selektion keine Exception werfen
         view.openSelectedDependencyHierarchy()
     }
+
+    fun testShowAndHideDependencyHierarchy() {
+        val view = buildView()
+        assertFalse(view.isDependencyHierarchyVisible())
+
+        view.showDependencyHierarchy("org.trans", "lib", false)
+        assertTrue(view.isDependencyHierarchyVisible())
+
+        view.hideDependencyHierarchy()
+        assertFalse(view.isDependencyHierarchyVisible())
+    }
+
+    fun testOpenDependencyHierarchyForSelectedRow() {
+        val view = buildView()
+        assertFalse(view.isDependencyHierarchyVisible())
+
+        view.table.setRowSelectionInterval(0, 0)
+        view.openSelectedDependencyHierarchy()
+        assertTrue(view.isDependencyHierarchyVisible())
+    }
 }

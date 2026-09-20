@@ -1195,6 +1195,19 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         )
     }
 
+    fun testShowAndHideDependencyHierarchyPanel() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        assertFalse(toolWindow.isDependencyHierarchyVisible())
+
+        toolWindow.showDependencyHierarchy("org.springframework.boot", "spring-boot-starter-web", false)
+        assertTrue(toolWindow.isDependencyHierarchyVisible())
+
+        toolWindow.hideDependencyHierarchy()
+        assertFalse(toolWindow.isDependencyHierarchyVisible())
+    }
+
     fun testActionToolbarIsPresentAtTop() {
         val content = MavenUpWindowFactory().MyToolWindow(project).getContent()
 

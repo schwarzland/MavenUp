@@ -12,7 +12,6 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.openapi.util.IconLoader
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiManager
@@ -23,6 +22,7 @@ import com.intellij.ui.JBColor
 import com.intellij.ui.SimpleTextAttributes
 import com.intellij.ui.TreeSpeedSearch
 import com.intellij.ui.components.JBLabel
+import com.intellij.ui.components.JBPanel
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.dsl.builder.Align
 import com.intellij.ui.dsl.builder.panel
@@ -31,12 +31,11 @@ import de.schwarzland.mavenup.model.DependencyHierarchyNode
 import de.schwarzland.mavenup.model.DependencyHierarchyNodeType
 import de.schwarzland.mavenup.service.DependencyHierarchyService
 import de.schwarzland.mavenup.service.PomNavigationService
+import java.awt.BorderLayout
 import java.awt.Color
-import java.awt.Dimension
 import java.awt.event.KeyEvent
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
-import javax.swing.Action
 import javax.swing.JComponent
 import javax.swing.JTree
 import javax.swing.KeyStroke
@@ -44,103 +43,134 @@ import javax.swing.tree.DefaultMutableTreeNode
 import javax.swing.tree.DefaultTreeModel
 
 /**
- * Ein modaler Dialog zur Anzeige des Einbindungs- und Management-Hierarchiebaums für
- * Managed Dependencies und Managed Plugins.
+ * Einbettbares Seitenpanel zur Anzeige des Einbindungs- und Management-Hierarchiebaums für
+ * Managed Dependencies, Managed Plugins sowie transitive Abhängigkeiten.
  *
  * Stellt in einem interaktiven [Tree] dar, über welche Wege und Eltern-Hierarchien
- * eine verwaltete Abhängigkeit bzw. ein Plugin im Projekt eingebunden wird, welche direkten
- * und transitiven Abhängigkeiten dazwischen liegen und welche Versionen bzw. Properties greifen.
+ * eine Komponente im Projekt eingebunden wird, welche direkten und transitiven
+ * Abhängigkeiten dazwischen liegen und welche Versionen bzw. Properties greifen.
  *
- * Ein Rechtsklick öffnet ein Kontextmenü zur Navigation in die `pom.xml` (`Navigate to pom.xml`)
- * oder zum Anspringen der Komponente in der Haupttabelle (`Select in Table`),
- * zusätzlich kann per `Enter` oder `F4` direkt zur Deklaration gesprungen werden.
+ * Beinhaltet eine eigene Toolbar mit Aktionen zum Auf-/Zuklappen aller Knoten, zur
+ * Navigation in die `pom.xml` (`Navigate to pom.xml`), zum Anspringen der Komponente in der
+ * Haupttabelle (`Select in Table`) und zum Schließen des Seitenpanels.
+ *
+ * Ein Rechtsklick auf einen Baumknoten öffnet das entsprechende Kontextmenü;
+ * zusätzlich kann per `Enter` oder `F4` direkt zur Deklaration in der `pom.xml` gesprungen werden.
  *
  * @property project Das zugehörige IntelliJ-Projekt.
- * @property groupId Group-ID der anzuzeigenden Komponente.
- * @property artifactId Artefakt-ID der anzuzeigenden Komponente.
- * @property isPlugin `true`, wenn es sich um ein Plugin aus `<pluginManagement>` handelt.
  * @property isDependencyInTable Optionales Prädikat zur Prüfung, ob eine Koordinate in der Haupttabelle existiert.
  * @property onNavigateToTable Optionaler Callback zur Navigation in die Haupttabelle.
+ * @property onClose Optionaler Callback beim Schließen des Seitenpanels.
  */
-class DependencyHierarchyDialog(
+class DependencyHierarchyPanel(
     private val project: Project,
-    private val groupId: String,
-    private val artifactId: String,
-    private val isPlugin: Boolean = false,
     private val isDependencyInTable: ((groupId: String, artifactId: String) -> Boolean)? = null,
-    private val onNavigateToTable: ((groupId: String, artifactId: String) -> Boolean)? = null
-) : DialogWrapper(project, true) {
+    private val onNavigateToTable: ((groupId: String, artifactId: String) -> Boolean)? = null,
+    private val onClose: (() -> Unit)? = null
+) : JBPanel<JBPanel<*>>(BorderLayout()) {
 
-    init {
-        title = MyMessageBundle.message("dependency.hierarchy.dialog.title", "$groupId:$artifactId")
-        setOKButtonText(MyMessageBundle.message("button.close"))
-        init()
-    }
+    /** Group-ID der aktuell angezeigten Zielkomponente. */
+    var currentGroupId: String? = null
+        private set
+
+    /** Artefakt-ID der aktuell angezeigten Zielkomponente. */
+    var currentArtifactId: String? = null
+        private set
+
+    /** `true`, wenn die aktuell angezeigte Komponente ein Plugin ist. */
+    var currentIsPlugin: Boolean = false
+        private set
+
+    /** Der aktuelle Hierarchiebaum. */
+    var tree: Tree? = null
+        private set
+
+    /** Die Aktionsleiste des Hierarchiepanels. */
+    var toolbar: ActionToolbar? = null
+        private set
 
     /**
-     * Liefert ausschließlich die Schließen-Aktion, da der Dialog rein informativ ist.
+     * Baut die Hierarchie für die übergebene Komponente auf und aktualisiert die Ansicht.
+     *
+     * @param groupId Group-ID der anzuzeigenden Komponente.
+     * @param artifactId Artefakt-ID der anzuzeigenden Komponente.
+     * @param isPlugin `true` für Plugins aus `<pluginManagement>`, sonst `false`.
      */
-    override fun createActions(): Array<Action> = arrayOf(okAction)
+    fun showHierarchy(groupId: String, artifactId: String, isPlugin: Boolean = false) {
+        currentGroupId = groupId
+        currentArtifactId = artifactId
+        currentIsPlugin = isPlugin
 
-    /**
-     * Erstellt den Haupt-Inhaltsbereich des Dialogs mittels Kotlin UI DSL v2.
-     */
-    public override fun createCenterPanel(): JComponent {
         val hierarchyService = DependencyHierarchyService(project)
         val rootData = hierarchyService.buildHierarchy(groupId, artifactId, isPlugin)
 
+        removeAll()
+
         if (rootData.children.isEmpty()) {
-            return panel {
+            val emptyTree = Tree(DefaultTreeModel(DefaultMutableTreeNode(rootData)))
+            val hierarchyToolbar = createToolbar(emptyTree)
+            this.toolbar = hierarchyToolbar
+            this.tree = emptyTree
+
+            val emptyPanel = panel {
+                row {
+                    cell(hierarchyToolbar.component)
+                }
                 row {
                     cell(JBLabel(MyMessageBundle.message("dependency.hierarchy.dialog.empty", "$groupId:$artifactId")))
                 }
-            }.apply {
-                preferredSize = Dimension(600, 300)
             }
+            add(emptyPanel, BorderLayout.CENTER)
+            revalidate()
+            repaint()
+            return
         }
 
         val treeModel = buildTreeModel(rootData)
-        val tree = Tree(treeModel).apply {
+        val newTree = Tree(treeModel).apply {
             isRootVisible = true
             showsRootHandles = true
             cellRenderer = DependencyHierarchyTreeCellRenderer(groupId, artifactId)
             toolTipText = MyMessageBundle.message("dependency.hierarchy.dialog.tree.tooltip")
         }
 
-        TreeSpeedSearch.installOn(tree, false) { path ->
+        TreeSpeedSearch.installOn(newTree, false) { path ->
             val node = (path.lastPathComponent as? DefaultMutableTreeNode)?.userObject as? DependencyHierarchyNode
             node?.let { "${it.groupId}:${it.artifactId} ${it.version.orEmpty()}" } ?: path.lastPathComponent.toString()
         }
 
-        val hierarchyToolbar = createToolbar(tree)
-        expandAllNodes(tree)
+        val hierarchyToolbar = createToolbar(newTree)
+        this.toolbar = hierarchyToolbar
+        this.tree = newTree
 
-        tree.addMouseListener(object : MouseAdapter() {
+        expandAllNodes(newTree)
+
+        newTree.addMouseListener(object : MouseAdapter() {
             override fun mousePressed(e: MouseEvent) {
                 if (e.isPopupTrigger) {
-                    showContextMenu(tree, e)
+                    showContextMenu(newTree, e)
                 }
             }
 
             override fun mouseReleased(e: MouseEvent) {
                 if (e.isPopupTrigger) {
-                    showContextMenu(tree, e)
+                    showContextMenu(newTree, e)
                 }
             }
         })
 
-        tree.registerKeyboardAction(
-            { navigateToSelectedNode(tree) },
+        newTree.registerKeyboardAction(
+            { navigateToSelectedNode(newTree) },
             KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0),
             JComponent.WHEN_FOCUSED
         )
-        tree.registerKeyboardAction(
-            { navigateToSelectedNode(tree) },
+        newTree.registerKeyboardAction(
+            { navigateToSelectedNode(newTree) },
             KeyStroke.getKeyStroke(KeyEvent.VK_F4, 0),
             JComponent.WHEN_FOCUSED
         )
 
-        return panel {
+        val contentPanel = panel {
             row {
                 cell(hierarchyToolbar.component)
             }
@@ -149,23 +179,25 @@ class DependencyHierarchyDialog(
                     .bold()
             }
             row {
-                cell(JBScrollPane(tree))
+                cell(JBScrollPane(newTree))
                     .align(Align.FILL)
             }.resizableRow()
-        }.apply {
-            preferredSize = Dimension(850, 520)
         }
+
+        add(contentPanel, BorderLayout.CENTER)
+        revalidate()
+        repaint()
     }
 
     /**
      * Prüft, ob für den aktuell ausgewählten Knoten eine Navigation in die pom.xml möglich ist.
      *
-     * @param tree Der Baum mit der aktuellen Selektion.
+     * @param targetTree Der Baum mit der aktuellen Selektion.
      * @return `true`, wenn die Auswahl zu einer `pom.xml`-Stelle oder einer passenden
      *         Maven-Navigation springen kann.
      */
-    internal fun canNavigateToSelectedNode(tree: JTree): Boolean {
-        val selectedPath = tree.selectionPath ?: return false
+    internal fun canNavigateToSelectedNode(targetTree: JTree): Boolean {
+        val selectedPath = targetTree.selectionPath ?: return false
         val treeNode = selectedPath.lastPathComponent as? DefaultMutableTreeNode ?: return false
         val node = treeNode.userObject as? DependencyHierarchyNode ?: return false
         return isNodeInPom(node)
@@ -213,12 +245,12 @@ class DependencyHierarchyDialog(
     /**
      * Prüft, ob für den aktuell ausgewählten Knoten eine Navigation in die Haupttabelle möglich ist.
      *
-     * @param tree Der Baum mit der aktuellen Selektion.
+     * @param targetTree Der Baum mit der aktuellen Selektion.
      * @return `true`, wenn die Auswahl gültige Koordinaten für Group-ID und Artefakt-ID besitzt
      *         und in der Haupttabelle enthalten ist.
      */
-    internal fun canNavigateToTable(tree: JTree): Boolean {
-        val selectedPath = tree.selectionPath ?: return false
+    internal fun canNavigateToTable(targetTree: JTree): Boolean {
+        val selectedPath = targetTree.selectionPath ?: return false
         val treeNode = selectedPath.lastPathComponent as? DefaultMutableTreeNode ?: return false
         val node = treeNode.userObject as? DependencyHierarchyNode ?: return false
         if (node.type == DependencyHierarchyNodeType.PROJECT || node.groupId.isBlank() || node.artifactId.isBlank()) {
@@ -228,14 +260,14 @@ class DependencyHierarchyDialog(
     }
 
     /**
-     * Erstellt die Toolbar-Aktionen des Hierarchie-Dialogs.
+     * Erstellt die Toolbar-Aktionen des Hierarchie-Panels.
      *
-     * @param tree Der zugehörige Baum.
-     * @return Die Toolbar mit den allgemeinen Baumaktionen.
+     * @param targetTree Der zugehörige Baum.
+     * @return Die Toolbar mit den Hierarchieaktionen und dem Schließen-Button.
      */
-    internal fun createToolbar(tree: JTree): ActionToolbar =
+    internal fun createToolbar(targetTree: JTree): ActionToolbar =
         ActionManager.getInstance().createActionToolbar(
-            "MavenUp.DependencyHierarchyDialog",
+            "MavenUp.DependencyHierarchyPanel",
             DefaultActionGroup().apply {
                 add(object : AnAction(
                     MyMessageBundle.message("dependency.hierarchy.toolbar.expandAll"),
@@ -244,7 +276,7 @@ class DependencyHierarchyDialog(
                 ) {
                     override fun getActionUpdateThread() = ActionUpdateThread.EDT
                     override fun actionPerformed(event: AnActionEvent) {
-                        expandAllNodes(tree)
+                        expandAllNodes(targetTree)
                     }
                 })
                 add(object : AnAction(
@@ -254,7 +286,7 @@ class DependencyHierarchyDialog(
                 ) {
                     override fun getActionUpdateThread() = ActionUpdateThread.EDT
                     override fun actionPerformed(event: AnActionEvent) {
-                        collapseAllNodes(tree)
+                        collapseAllNodes(targetTree)
                     }
                 })
                 add(Separator.getInstance())
@@ -265,11 +297,11 @@ class DependencyHierarchyDialog(
                 ) {
                     override fun getActionUpdateThread() = ActionUpdateThread.EDT
                     override fun update(event: AnActionEvent) {
-                        event.presentation.isEnabled = canNavigateToSelectedNode(tree)
+                        event.presentation.isEnabled = canNavigateToSelectedNode(targetTree)
                     }
                     override fun actionPerformed(event: AnActionEvent) {
-                        if (canNavigateToSelectedNode(tree)) {
-                            navigateToSelectedNode(tree)
+                        if (canNavigateToSelectedNode(targetTree)) {
+                            navigateToSelectedNode(targetTree)
                         }
                     }
                 })
@@ -280,47 +312,60 @@ class DependencyHierarchyDialog(
                 ) {
                     override fun getActionUpdateThread() = ActionUpdateThread.EDT
                     override fun update(event: AnActionEvent) {
-                        event.presentation.isEnabled = canNavigateToTable(tree)
+                        event.presentation.isEnabled = canNavigateToTable(targetTree)
                     }
                     override fun actionPerformed(event: AnActionEvent) {
-                        if (canNavigateToTable(tree)) {
-                            navigateToTableForSelectedNode(tree)
+                        if (canNavigateToTable(targetTree)) {
+                            navigateToTableForSelectedNode(targetTree)
                         }
                     }
                 })
+                if (onClose != null) {
+                    add(Separator.getInstance())
+                    add(object : AnAction(
+                        MyMessageBundle.message("button.close"),
+                        null,
+                        AllIcons.Actions.Cancel
+                    ) {
+                        override fun getActionUpdateThread() = ActionUpdateThread.EDT
+                        override fun actionPerformed(event: AnActionEvent) {
+                            onClose.invoke()
+                        }
+                    })
+                }
             },
             true
         ).apply {
-            targetComponent = tree
+            targetComponent = targetTree
         }
 
     /**
      * Erstellt die Aktionsgruppe für das Kontextmenü des Hierarchiebaums.
      *
-     * @param tree Der zugehörige Baum.
+     * @param targetTree Der zugehörige Baum.
      * @return Die Aktionsgruppe mit den Navigationsaktionen.
      */
-    internal fun createContextMenuGroup(tree: JTree): DefaultActionGroup =
+    internal fun createContextMenuGroup(targetTree: JTree): DefaultActionGroup =
         DefaultActionGroup().apply {
             add(object : AnAction(MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.navigateToPom")) {
                 override fun getActionUpdateThread() = ActionUpdateThread.EDT
                 override fun update(event: AnActionEvent) {
-                    event.presentation.isEnabled = canNavigateToSelectedNode(tree)
+                    event.presentation.isEnabled = canNavigateToSelectedNode(targetTree)
                 }
                 override fun actionPerformed(event: AnActionEvent) {
-                    if (canNavigateToSelectedNode(tree)) {
-                        navigateToSelectedNode(tree)
+                    if (canNavigateToSelectedNode(targetTree)) {
+                        navigateToSelectedNode(targetTree)
                     }
                 }
             })
             add(object : AnAction(MyMessageBundle.message("dependency.hierarchy.action.navigateToTable")) {
                 override fun getActionUpdateThread() = ActionUpdateThread.EDT
                 override fun update(event: AnActionEvent) {
-                    event.presentation.isEnabled = canNavigateToTable(tree)
+                    event.presentation.isEnabled = canNavigateToTable(targetTree)
                 }
                 override fun actionPerformed(event: AnActionEvent) {
-                    if (canNavigateToTable(tree)) {
-                        navigateToTableForSelectedNode(tree)
+                    if (canNavigateToTable(targetTree)) {
+                        navigateToTableForSelectedNode(targetTree)
                     }
                 }
             })
@@ -329,15 +374,15 @@ class DependencyHierarchyDialog(
     /**
      * Zeigt das Kontextmenü für den angeklickten Baumknoten an.
      *
-     * @param tree Der zugehörige Baum.
+     * @param targetTree Der zugehörige Baum.
      * @param e Das auslösende Maus-Ereignis.
      */
-    internal fun showContextMenu(tree: JTree, e: MouseEvent) {
-        val path = tree.getPathForLocation(e.x, e.y) ?: return
-        if (!tree.isPathSelected(path)) {
-            tree.selectionPath = path
+    internal fun showContextMenu(targetTree: JTree, e: MouseEvent) {
+        val path = targetTree.getPathForLocation(e.x, e.y) ?: return
+        if (!targetTree.isPathSelected(path)) {
+            targetTree.selectionPath = path
         }
-        val group = createContextMenuGroup(tree)
+        val group = createContextMenuGroup(targetTree)
         ActionManager.getInstance().createActionPopupMenu(
             "MavenUp.DependencyHierarchyTree", group
         ).component.show(e.component, e.x, e.y)
@@ -372,12 +417,12 @@ class DependencyHierarchyDialog(
     /**
      * Klappt alle Knoten des Baums vollständig auf.
      *
-     * @param tree Der zu expandierende Baum.
+     * @param targetTree Der zu expandierende Baum.
      */
-    internal fun expandAllNodes(tree: JTree) {
+    internal fun expandAllNodes(targetTree: JTree) {
         var row = 0
-        while (row < tree.rowCount) {
-            tree.expandRow(row)
+        while (row < targetTree.rowCount) {
+            targetTree.expandRow(row)
             row++
         }
     }
@@ -385,37 +430,36 @@ class DependencyHierarchyDialog(
     /**
      * Klappt alle Knoten des Baums vollständig zu.
      *
-     * @param tree Der zu kollabierende Baum.
+     * @param targetTree Der zu kollabierende Baum.
      */
-    internal fun collapseAllNodes(tree: JTree) {
-        for (row in tree.rowCount - 1 downTo 0) {
-            tree.collapseRow(row)
+    internal fun collapseAllNodes(targetTree: JTree) {
+        for (row in targetTree.rowCount - 1 downTo 0) {
+            targetTree.collapseRow(row)
         }
     }
 
     /**
-     * Schließt den Dialog und springt in der Haupttabelle zur ausgewählten Komponente.
+     * Springt in der Haupttabelle zur ausgewählten Komponente.
      *
-     * @param tree Der Baum mit der aktuellen Selektion.
+     * @param targetTree Der Baum mit der aktuellen Selektion.
      * @return `true`, wenn die Navigation ausgeführt wurde, sonst `false`.
      */
-    internal fun navigateToTableForSelectedNode(tree: JTree): Boolean {
-        val selectedPath = tree.selectionPath ?: return false
+    internal fun navigateToTableForSelectedNode(targetTree: JTree): Boolean {
+        val selectedPath = targetTree.selectionPath ?: return false
         val treeNode = selectedPath.lastPathComponent as? DefaultMutableTreeNode ?: return false
         val node = treeNode.userObject as? DependencyHierarchyNode ?: return false
         if (node.groupId.isBlank() || node.artifactId.isBlank()) return false
 
-        close(OK_EXIT_CODE)
         return onNavigateToTable?.invoke(node.groupId, node.artifactId) ?: true
     }
 
     /**
      * Springt zur `pom.xml`-Definition des aktuell ausgewählten Baumknotens.
      *
-     * @param tree Der Baum mit der aktuellen Selektion.
+     * @param targetTree Der Baum mit der aktuellen Selektion.
      */
-    internal fun navigateToSelectedNode(tree: JTree) {
-        val selectedPath = tree.selectionPath ?: return
+    internal fun navigateToSelectedNode(targetTree: JTree) {
+        val selectedPath = targetTree.selectionPath ?: return
         val treeNode = selectedPath.lastPathComponent as? DefaultMutableTreeNode ?: return
         val node = treeNode.userObject as? DependencyHierarchyNode ?: return
 
@@ -440,95 +484,62 @@ class DependencyHierarchyDialog(
                 }
                 PomNavigationService(project).navigateToDependency(node.groupId, node.artifactId, navType)
             }
-            node.pomFile != null -> {
-                openFileInEditor(node.pomFile)
-            }
         }
     }
 
-    /**
-     * Ermittelt den Navigationstyp für [PomNavigationService] anhand des Knotentyps.
-     *
-     * @param type Der Typ des Hierarchieknotens.
-     * @return Der Typ-String für die Navigation in der POM-Datei.
-     */
-    private fun resolveNavType(type: DependencyHierarchyNodeType): String = when (type) {
-        DependencyHierarchyNodeType.PARENT_POM -> PARENT_TYPE
-        DependencyHierarchyNodeType.PLUGIN_MANAGEMENT,
+    private fun resolveNavType(nodeType: DependencyHierarchyNodeType): String = when (nodeType) {
+        DependencyHierarchyNodeType.DEPENDENCY_MANAGEMENT -> "managed dependency"
+        DependencyHierarchyNodeType.PLUGIN_MANAGEMENT -> "managed plugin"
         DependencyHierarchyNodeType.DIRECT_PLUGIN -> "plugin"
-        DependencyHierarchyNodeType.DEPENDENCY_MANAGEMENT,
-        DependencyHierarchyNodeType.BOM_IMPORT,
-        DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY ->
-            MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
-        DependencyHierarchyNodeType.ROOT -> if (isPlugin) "plugin" else "dependency"
+        DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY -> "managed dependency"
         else -> "dependency"
     }
 
-    /**
-     * Sucht das passende XML-Tag für einen Hierarchieknoten im angegebenen Root-Tag einer `pom.xml`.
-     *
-     * @param rootTag Das Root-Tag der `pom.xml`.
-     * @param node Der gesuchte Hierarchieknoten.
-     * @return Das gefundene [XmlTag] oder `null`.
-     */
-    private fun findTargetTag(rootTag: XmlTag?, node: DependencyHierarchyNode): XmlTag? {
-        val navService = PomNavigationService(project)
-        return when (node.type) {
-            DependencyHierarchyNodeType.PARENT_POM ->
-                navService.findParent(rootTag, node.groupId, node.artifactId)
-            DependencyHierarchyNodeType.DIRECT_PLUGIN ->
-                navService.findPlugin(rootTag, node.groupId, node.artifactId, isManaged = false)
-            DependencyHierarchyNodeType.PLUGIN_MANAGEMENT ->
-                navService.findPlugin(rootTag, node.groupId, node.artifactId, isManaged = true)
-            DependencyHierarchyNodeType.DEPENDENCY_MANAGEMENT,
-            DependencyHierarchyNodeType.BOM_IMPORT,
-            DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY ->
-                navService.findDependency(rootTag, node.groupId, node.artifactId, isManaged = true)
-            DependencyHierarchyNodeType.ROOT ->
-                if (isPlugin) {
-                    navService.findPlugin(rootTag, node.groupId, node.artifactId, isManaged = false)
-                        ?: navService.findPlugin(rootTag, node.groupId, node.artifactId, isManaged = true)
-                } else {
-                    navService.findDependency(rootTag, node.groupId, node.artifactId, isManaged = false)
-                        ?: navService.findDependency(rootTag, node.groupId, node.artifactId, isManaged = true)
-                        ?: navService.findParent(rootTag, node.groupId, node.artifactId)
-                }
-            else ->
-                navService.findDependency(rootTag, node.groupId, node.artifactId, isManaged = false)
-        }
-    }
-
-    /**
-     * Öffnet die angegebene Datei im Editor an der Position des XML-Tags.
-     *
-     * @param pomFile Die zu öffnende Datei.
-     */
-    private fun openFileInEditor(pomFile: VirtualFile) {
-        val descriptor = OpenFileDescriptor(project, pomFile)
-        FileEditorManager.getInstance(project).openTextEditor(descriptor, true)
-    }
-
-    private fun openInEditor(pomFile: VirtualFile, targetTag: XmlTag) {
+    private fun openInEditor(pomFile: VirtualFile, xmlTag: XmlTag) {
         val offset = ApplicationManager.getApplication().runReadAction<Int> {
-            if (targetTag.isValid) targetTag.textOffset else 0
+            xmlTag.textOffset
         }
-        ApplicationManager.getApplication().invokeLater {
-            val descriptor = OpenFileDescriptor(project, pomFile, offset)
-            FileEditorManager.getInstance(project).openTextEditor(descriptor, true)
+        OpenFileDescriptor(project, pomFile, offset).navigate(true)
+        FileEditorManager.getInstance(project).openFile(pomFile, true)
+    }
+
+    private fun findTargetTag(rootTag: XmlTag?, node: DependencyHierarchyNode): XmlTag? {
+        if (rootTag == null) return null
+        if (node.type == DependencyHierarchyNodeType.PARENT_POM && rootTag.name == "parent") {
+            val gId = rootTag.findFirstSubTag("groupId")?.value?.trimmedText.orEmpty()
+            val aId = rootTag.findFirstSubTag("artifactId")?.value?.trimmedText.orEmpty()
+            if (gId == node.groupId && aId == node.artifactId) return rootTag
         }
+        val tagName = when (node.type) {
+            DependencyHierarchyNodeType.PARENT_POM -> "parent"
+            DependencyHierarchyNodeType.PLUGIN_MANAGEMENT, DependencyHierarchyNodeType.DIRECT_PLUGIN -> "plugin"
+            else -> "dependency"
+        }
+        val tags = rootTag.findSubTags(tagName)
+        for (tag in tags) {
+            val gId = tag.findFirstSubTag("groupId")?.value?.trimmedText.orEmpty()
+            val aId = tag.findFirstSubTag("artifactId")?.value?.trimmedText.orEmpty()
+            if (gId == node.groupId && aId == node.artifactId) return tag
+        }
+        for (subTag in rootTag.subTags) {
+            val found = findTargetTag(subTag, node)
+            if (found != null) return found
+        }
+        return null
+    }
+
+    companion object {
+        private val TARGET_DEPENDENCY_COLOR = JBColor(Color(0x00, 0x55, 0xAA), Color(0x58, 0x9D, 0xF6))
+        private val SELECT_IN_TABLE_ICON = IconLoader.getIcon("/icons/selectInTable.svg", DependencyHierarchyPanel::class.java)
     }
 }
 
-/** Icon für die Aktion „Select in Table" im Dependency-Hierarchy-Dialog. */
-private val SELECT_IN_TABLE_ICON = IconLoader.getIcon("/icons/selectInTable.svg", DependencyHierarchyDialog::class.java)
-
-/** Farbe zur Hervorhebung der Ziel-Abhängigkeit im Hierarchiebaum (Light-/Dark-Mode). */
-internal val TARGET_DEPENDENCY_COLOR = JBColor(Color(10, 95, 185), Color(88, 157, 246))
-
 /**
- * Renderer für die Knoten des Abhängigkeitshierarchie-Baums mit Icons und Formatierungen.
+ * Zell-Renderer für den [DependencyHierarchyPanel]-Hierarchiebaum.
  *
- * Hebt die Ziel-Abhängigkeit bzw. das Ziel-Plugin im Baum farblich hervor ([TARGET_DEPENDENCY_COLOR]).
+ * Stellt Knoten typabhängig mit passendem Icon, einem vorangestellten Typ-Präfix
+ * (z. B. `[Dependency Management]`, `[Direct Dependency]`), Koordinaten und Version dar.
+ * Die Ziel-Abhängigkeit wird zur schnellen Orientierung farblich hervorgehoben.
  *
  * @param targetGroupId Group-ID der Zielkomponente zur farblichen Hervorhebung.
  * @param targetArtifactId Artefakt-ID der Zielkomponente zur farblichen Hervorhebung.
@@ -637,5 +648,9 @@ class DependencyHierarchyTreeCellRenderer(
             detailsList.add(MyMessageBundle.message("dependency.hierarchy.node.managedMarker"))
         }
         return detailsList.joinToString(", ")
+    }
+
+    companion object {
+        private val TARGET_DEPENDENCY_COLOR = JBColor(Color(0x00, 0x55, 0xAA), Color(0x58, 0x9D, 0xF6))
     }
 }

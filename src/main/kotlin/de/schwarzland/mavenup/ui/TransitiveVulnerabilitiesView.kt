@@ -8,6 +8,7 @@ import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.ComboBox
+import com.intellij.ui.OnePixelSplitter
 import com.intellij.ui.SimpleTextAttributes
 import com.intellij.ui.components.JBPanel
 import com.intellij.ui.components.JBScrollPane
@@ -276,6 +277,17 @@ internal class TransitiveVulnerabilitiesView(
      */
     private val rowSorter: TableRowSorter<DefaultTableModel>
 
+    /** Splitter für die transitive Tabelle und das optionale Hierarchiepanel. */
+    private val splitter = OnePixelSplitter(false, 0.65f)
+
+    /** Seitenpanel zur Anzeige des Hierarchiebaums einer ausgewählten transitiven Abhängigkeit. */
+    private val dependencyHierarchyPanel = DependencyHierarchyPanel(
+        project = project,
+        isDependencyInTable = isDependencyInTable,
+        onNavigateToTable = onNavigateToTable,
+        onClose = { hideDependencyHierarchy() }
+    )
+
     init {
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION)
         table.tableHeader.reorderingAllowed = false
@@ -343,8 +355,9 @@ internal class TransitiveVulnerabilitiesView(
             }
         })
 
+        splitter.firstComponent = JBScrollPane(table)
         add(filterPanel, BorderLayout.NORTH)
-        add(JBScrollPane(table), BorderLayout.CENTER)
+        add(splitter, BorderLayout.CENTER)
         updateEmptyText()
         applyRowFilter()
     }
@@ -1105,7 +1118,7 @@ internal class TransitiveVulnerabilitiesView(
     }
 
     /**
-     * Öffnet den Hierarchiebaum-Dialog für die Koordinate der angegebenen Sichtzeile.
+     * Öffnet das Hierarchiebaum-Panel rechts neben der transitiven CVE-Tabelle für die Koordinate der angegebenen Sichtzeile.
      *
      * @param viewRow Der Zeilenindex in der (ggf. sortierten) Sicht.
      */
@@ -1113,15 +1126,36 @@ internal class TransitiveVulnerabilitiesView(
         val modelRow = table.convertRowIndexToModel(viewRow)
         val groupId = tableModel.getValueAt(modelRow, TRANSITIVE_GROUP_ID_COLUMN) as? String ?: ""
         val artifactId = tableModel.getValueAt(modelRow, TRANSITIVE_ARTIFACT_ID_COLUMN) as? String ?: ""
-        DependencyHierarchyDialog(
-            project = project,
-            groupId = groupId,
-            artifactId = artifactId,
-            isPlugin = false,
-            isDependencyInTable = isDependencyInTable,
-            onNavigateToTable = onNavigateToTable
-        ).show()
+        showDependencyHierarchy(groupId, artifactId, false)
     }
+
+    /**
+     * Zeigt das Hierarchiebaum-Panel für die angegebene Koordinate rechts neben der transitiven Tabelle an.
+     *
+     * @param groupId Group-ID der Komponente.
+     * @param artifactId Artefakt-ID der Komponente.
+     * @param isPlugin `true` für Plugins, sonst `false`.
+     */
+    internal fun showDependencyHierarchy(groupId: String, artifactId: String, isPlugin: Boolean = false) {
+        dependencyHierarchyPanel.showHierarchy(groupId, artifactId, isPlugin)
+        splitter.secondComponent = dependencyHierarchyPanel
+        splitter.revalidate()
+        splitter.repaint()
+    }
+
+    /**
+     * Schließt das Hierarchiebaum-Panel neben der transitiven Tabelle.
+     */
+    internal fun hideDependencyHierarchy() {
+        splitter.secondComponent = null
+        splitter.revalidate()
+        splitter.repaint()
+    }
+
+    /**
+     * Prüft, ob das Hierarchiebaum-Panel neben der transitiven Tabelle aktuell eingeblendet ist.
+     */
+    internal fun isDependencyHierarchyVisible(): Boolean = splitter.secondComponent != null
 
     /**
      * Öffnet den Detaildialog für die Sicherheitslücken der angeklickten Sichtzeile.

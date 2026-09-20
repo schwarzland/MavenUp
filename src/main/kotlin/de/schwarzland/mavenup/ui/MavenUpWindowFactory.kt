@@ -54,6 +54,7 @@ import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.ui.DocumentAdapter
 import com.intellij.ui.EditorNotificationPanel
 import com.intellij.ui.InlineBanner
+import com.intellij.ui.OnePixelSplitter
 import com.intellij.ui.SearchTextField
 import com.intellij.ui.components.JBPanel
 import com.intellij.ui.components.JBScrollPane
@@ -278,6 +279,21 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
         /** Container für die Aktionsleiste des Tabs **Transitive CVEs**. */
         private val transitiveTopPanel = JBPanel<JBPanel<*>>(BorderLayout())
+
+        /** Splitter für die Haupttabelle und das optionale Hierarchiepanel. */
+        private val dependenciesSplitter = OnePixelSplitter(false, 0.65f)
+
+        /** Seitenpanel zur Anzeige des Hierarchiebaums einer ausgewählten Abhängigkeit. */
+        private val dependencyHierarchyPanel = DependencyHierarchyPanel(
+            project = project,
+            isDependencyInTable = { targetGroupId, targetArtifactId ->
+                isDependencyInTable(targetGroupId, targetArtifactId)
+            },
+            onNavigateToTable = { targetGroupId, targetArtifactId ->
+                navigateToDependencyInTable(targetGroupId, targetArtifactId)
+            },
+            onClose = { hideDependencyHierarchy() }
+        )
 
         /** ContentManager des Tool Windows; erst nach [bindTabs] gesetzt. */
         private var contentManager: ContentManager? = null
@@ -912,7 +928,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
             automaticVersionSearchCoordinator.latestState()?.let(::applyAutomaticVersionSearchState)
                 ?: refreshAction(false, true, true)
 
-            add(JBScrollPane(table), BorderLayout.CENTER)
+            dependenciesSplitter.firstComponent = JBScrollPane(table)
+            add(dependenciesSplitter, BorderLayout.CENTER)
             transitiveContent.add(transitiveTopPanel, BorderLayout.NORTH)
             transitiveContent.add(transitiveVulnerabilitiesView, BorderLayout.CENTER)
 
@@ -3705,26 +3722,33 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
-         * Öffnet den Hierarchiebaum-Dialog für eine Managed Dependency oder ein Managed Plugin.
+         * Öffnet das Hierarchiebaum-Panel für eine Managed Dependency oder ein Managed Plugin
+         * rechts neben der Haupttabelle.
          *
          * @param groupId Group-ID der Komponente.
          * @param artifactId Artefakt-ID der Komponente.
          * @param isPlugin `true` für Managed Plugins, `false` für Managed Dependencies.
          */
         internal fun showDependencyHierarchy(groupId: String, artifactId: String, isPlugin: Boolean = false) {
-            DependencyHierarchyDialog(
-                project = project,
-                groupId = groupId,
-                artifactId = artifactId,
-                isPlugin = isPlugin,
-                isDependencyInTable = { targetGroupId, targetArtifactId ->
-                    isDependencyInTable(targetGroupId, targetArtifactId)
-                },
-                onNavigateToTable = { targetGroupId, targetArtifactId ->
-                    navigateToDependencyInTable(targetGroupId, targetArtifactId)
-                }
-            ).show()
+            dependencyHierarchyPanel.showHierarchy(groupId, artifactId, isPlugin)
+            dependenciesSplitter.secondComponent = dependencyHierarchyPanel
+            dependenciesSplitter.revalidate()
+            dependenciesSplitter.repaint()
         }
+
+        /**
+         * Schließt das Hierarchiebaum-Panel neben der Haupttabelle.
+         */
+        internal fun hideDependencyHierarchy() {
+            dependenciesSplitter.secondComponent = null
+            dependenciesSplitter.revalidate()
+            dependenciesSplitter.repaint()
+        }
+
+        /**
+         * Prüft, ob das Hierarchiebaum-Panel der Haupttabelle aktuell eingeblendet ist.
+         */
+        internal fun isDependencyHierarchyVisible(): Boolean = dependenciesSplitter.secondComponent != null
 
         /**
          * Navigiert zur übergebenen Abhängigkeit in der Haupttabelle, setzt alle Filter zurück
