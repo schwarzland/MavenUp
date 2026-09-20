@@ -1,5 +1,6 @@
 package de.schwarzland.mavenup.ui
 
+import com.intellij.icons.AllIcons
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.Separator
 import com.intellij.psi.xml.XmlFile
@@ -8,6 +9,8 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.ui.treeStructure.Tree
 import de.schwarzland.mavenup.model.DependencyHierarchyNode
 import de.schwarzland.mavenup.model.DependencyHierarchyNodeType
+import de.schwarzland.mavenup.model.VulnerabilityAdvisory
+import de.schwarzland.mavenup.model.VulnerabilitySeverity
 import javax.swing.tree.DefaultMutableTreeNode
 
 /**
@@ -666,6 +669,125 @@ class DependencyHierarchyPanelTest : BasePlatformTestCase() {
         assertNotNull(action)
         action.actionPerformed(java.awt.event.ActionEvent(tree, java.awt.event.ActionEvent.ACTION_PERFORMED, ""))
         assertTrue(closed)
+    }
+
+    fun testRendererHighlightsVulnerableTransitiveDependency() {
+        val advisory = VulnerabilityAdvisory(
+            id = "CVE-2023-9999",
+            summary = "Critical vulnerability in jackson-databind",
+            severity = VulnerabilitySeverity.CRITICAL,
+            sources = setOf("OSV")
+        )
+        val advisoriesMap = mapOf("com.fasterxml.jackson.core:jackson-databind:2.15.2" to listOf(advisory))
+
+        val renderer = DependencyHierarchyTreeCellRenderer(
+            targetGroupId = "org.springframework.boot",
+            targetArtifactId = "spring-boot-starter-web",
+            vulnerabilityAdvisories = advisoriesMap
+        )
+
+        val vulnerableTransitiveNode = DependencyHierarchyNode(
+            type = DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY,
+            groupId = "com.fasterxml.jackson.core",
+            artifactId = "jackson-databind",
+            version = "2.15.2"
+        )
+
+        val tree = Tree()
+        val treeNode = DefaultMutableTreeNode(vulnerableTransitiveNode)
+        renderer.getTreeCellRendererComponent(tree, treeNode, false, false, true, 0, false)
+
+        assertEquals(AllIcons.General.BalloonWarning, renderer.icon)
+        val renderedFragments = renderer.renderedItems
+        assertTrue("Muss VULNERABLE: CRITICAL enthalten", renderedFragments.any { it.contains("VULNERABLE: CRITICAL") })
+        assertNotNull(renderer.toolTipText)
+        assertTrue(renderer.toolTipText!!.contains("CVE-2023-9999"))
+
+        val safeTransitiveNode = DependencyHierarchyNode(
+            type = DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY,
+            groupId = "org.slf4j",
+            artifactId = "slf4j-api",
+            version = "2.0.7"
+        )
+        val safeTreeNode = DefaultMutableTreeNode(safeTransitiveNode)
+        renderer.getTreeCellRendererComponent(tree, safeTreeNode, false, false, true, 1, false)
+        assertEquals(AllIcons.Nodes.Related, renderer.icon)
+        val safeFragments = renderer.renderedItems
+        assertFalse("Darf kein VULNERABLE enthalten", safeFragments.any { it.contains("VULNERABLE") })
+    }
+
+    fun testFindAdvisoriesWithExactAndPrefixMatch() {
+        val advisory = VulnerabilityAdvisory(
+            id = "CVE-2023-1111",
+            summary = "Test Advisory",
+            severity = VulnerabilitySeverity.HIGH,
+            sources = setOf("OSV")
+        )
+        val advisoriesMap = mapOf("org.example:foo:1.2.3" to listOf(advisory))
+        val renderer = DependencyHierarchyTreeCellRenderer(vulnerabilityAdvisories = advisoriesMap)
+
+        val exactNode = DependencyHierarchyNode(
+            type = DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY,
+            groupId = "org.example",
+            artifactId = "foo",
+            version = "1.2.3"
+        )
+        assertEquals(listOf(advisory), renderer.findAdvisories(exactNode))
+
+        val prefixNode = DependencyHierarchyNode(
+            type = DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY,
+            groupId = "org.example",
+            artifactId = "foo",
+            version = null
+        )
+        assertEquals(listOf(advisory), renderer.findAdvisories(prefixNode))
+
+        val otherNode = DependencyHierarchyNode(
+            type = DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY,
+            groupId = "org.example",
+            artifactId = "bar",
+            version = "1.2.3"
+        )
+        assertTrue(renderer.findAdvisories(otherNode).isEmpty())
+    }
+
+    fun testPanelPassesVulnerabilityAdvisoriesToTreeRenderer() {
+        val advisory = VulnerabilityAdvisory(
+            id = "CVE-2023-2222",
+            summary = "Vulnerability in lib",
+            severity = VulnerabilitySeverity.MEDIUM,
+            sources = setOf("OSS Index")
+        )
+        var advisoriesProviderCalled = false
+        val panel = DependencyHierarchyPanel(
+            project = project,
+            vulnerabilityAdvisoriesProvider = {
+                advisoriesProviderCalled = true
+                mapOf("com.example:lib:1.0.0" to listOf(advisory))
+            }
+        )
+
+        val psiFile = myFixture.configureByText(
+            "pom.xml",
+            """
+            <project>
+                <groupId>com.example</groupId>
+                <artifactId>demo</artifactId>
+                <version>1.0.0</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>com.example</groupId>
+                        <artifactId>lib</artifactId>
+                        <version>1.0.0</version>
+                    </dependency>
+                </dependencies>
+            </project>
+            """.trimIndent()
+        ) as XmlFile
+
+        panel.showHierarchy("com.example", "lib", false)
+        assertTrue(advisoriesProviderCalled)
+        assertNotNull(panel.tree)
     }
 
     private val DependencyHierarchyTreeCellRenderer.renderedItems: List<String>

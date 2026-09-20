@@ -277,6 +277,9 @@ internal class TransitiveVulnerabilitiesView(
      */
     private val rowSorter: TableRowSorter<DefaultTableModel>
 
+    /** Letzte bekannte Zuordnung aller Koordinaten zu ihren Sicherheitswarnungen. */
+    private var lastAdvisoriesByCoordinate: Map<String, List<VulnerabilityAdvisory>> = emptyMap()
+
     /** Splitter für die transitive Tabelle und das optionale Hierarchiepanel. */
     private val splitter = OnePixelSplitter(false, 0.65f)
 
@@ -285,7 +288,8 @@ internal class TransitiveVulnerabilitiesView(
         project = project,
         isDependencyInTable = isDependencyInTable,
         onNavigateToTable = onNavigateToTable,
-        onClose = { hideDependencyHierarchy() }
+        onClose = { hideDependencyHierarchy() },
+        vulnerabilityAdvisoriesProvider = { lastAdvisoriesByCoordinate }
     )
 
     init {
@@ -1049,6 +1053,7 @@ internal class TransitiveVulnerabilitiesView(
         this.availableVersions = availableVersions
         this.scanPerformed = scanPerformed
         this.hasDirectFindings = hasDirectFindings
+        this.lastAdvisoriesByCoordinate = advisoriesByCoordinate
         val transitiveTypeLabel = MyMessageBundle.message("toolwindow.TransitiveVulnerabilities.type.transitive")
         val rows = collectTransitiveVulnerabilityRows(
             advisoriesByCoordinate,
@@ -1087,6 +1092,9 @@ internal class TransitiveVulnerabilitiesView(
         updateEmptyText()
         filterPanel.updateAvailability()
         applyRowFilter()
+        if (isDependencyHierarchyVisible()) {
+            syncDependencyHierarchySelection()
+        }
     }
 
     /**

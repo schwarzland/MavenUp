@@ -21,6 +21,8 @@
 
 ### Changed
 
+- Changed the **Dependency Hierarchy** view in the main table to support all dependencies and plugins (including direct dependencies and parent POMs, not only managed dependencies and managed plugins), displaying their full resolution, inclusion, and transitive dependency tree.
+- Added special highlighting and warning markers (warning balloon icon `AllIcons.General.BalloonWarning`, vulnerability details, worst severity badges, and tooltips) for vulnerable transitive dependencies in the **Dependency Hierarchy** split-view inspector following a vulnerability scan.
 - Changed the **Dependency Hierarchy** view into an interactive master-detail inspector panel (split-view) next to the main table or the transitive CVE table, toggled via the toolbar "Hierarchy" toggle button or context menu, reacting dynamically to table row selection changes with an informative empty state instead of abrupt collapsing.
 - Updated the "Remove managed..." bulk action labels, toolbar group tooltip, row context menu action ("Remove from pom.xml" / "Comment out in pom.xml"), and "New Version" column status ("Will be removed" / "Will be commented out") to adapt dynamically based on the "Comment out managed entries instead of deleting" setting.
 - Capitalized the **Dependency Hierarchy** toolbar and navigation action labels in accordance with IntelliJ action naming conventions.

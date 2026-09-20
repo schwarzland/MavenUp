@@ -1167,7 +1167,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
             .first { it.templatePresentation.text == MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.showDependencyHierarchy") }
         val directEvent = com.intellij.testFramework.TestActionEvent.createTestEvent(directAction)
         directAction.update(directEvent)
-        assertFalse("Kontextmenü für direkte Abhängigkeit sollte deaktiviert sein", directEvent.presentation.isEnabled)
+        assertTrue("Kontextmenü für direkte Abhängigkeit sollte aktiviert sein", directEvent.presentation.isEnabled)
 
         val managedTarget = DependencyContextMenuTarget(0, "com.example", "managed-lib", "", "managed dependency", "1.0.0")
         val managedGroup = toolWindow.buildContextMenuGroup(managedTarget)
@@ -1187,7 +1187,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         toolWindow.syncDependencyHierarchySelection()
         assertTrue(toolWindow.isDependencyHierarchyVisible())
 
-        // Select non-managed entry -> empty state, panel remains open
+        // Select direct entry -> hierarchy displayed, panel remains open
         table.setRowSelectionInterval(0, 0)
         toolWindow.syncDependencyHierarchySelection()
         assertTrue(toolWindow.isDependencyHierarchyVisible())

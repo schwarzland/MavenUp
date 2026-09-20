@@ -293,7 +293,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
             onNavigateToTable = { targetGroupId, targetArtifactId ->
                 navigateToDependencyInTable(targetGroupId, targetArtifactId)
             },
-            onClose = { hideDependencyHierarchy() }
+            onClose = { hideDependencyHierarchy() },
+            vulnerabilityAdvisoriesProvider = { vulnerabilityAdvisories }
         )
 
         /** ContentManager des Tool Windows; erst nach [bindTabs] gesetzt. */
@@ -1514,14 +1515,15 @@ class MavenUpWindowFactory : ToolWindowFactory {
          */
         private fun addContextVulnerabilityAction(group: DefaultActionGroup, target: DependencyContextMenuTarget) {
             val hasVulnerabilities = target.vulnerabilityCell?.allAdvisories?.isNotEmpty() == true
-            val hierarchyEnabled = isManagedEntryType(target.type)
+            val hierarchyEnabled = target.groupId.isNotBlank() && target.artifactId.isNotBlank()
             group.addSeparator()
             addContextMenuAction(
                 group,
                 MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.showDependencyHierarchy"),
                 hierarchyEnabled
             ) {
-                showDependencyHierarchy(target.groupId, target.artifactId, target.type == MANAGED_PLUGIN)
+                val isPlugin = target.type == MANAGED_PLUGIN || target.type == "plugin"
+                showDependencyHierarchy(target.groupId, target.artifactId, isPlugin)
             }
             addContextMenuAction(
                 group,
@@ -3464,8 +3466,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /**
          * Synchronisiert den Zustand des Hierarchiebaum-Panels mit der aktuell in der Haupttabelle selektierten Zeile.
          *
-         * Zeigt die Hierarchie für verwaltete Einträge an; für Zeilen ohne Hierarchie oder bei
-         * fehlender Selektion wird ein informativer Empty State dargestellt.
+         * Zeigt die Hierarchie für die ausgewählte Komponente an; bei fehlender Selektion oder mehreren selektierten
+         * Zeilen wird ein informativer Empty State dargestellt.
          */
         internal fun syncDependencyHierarchySelection() {
             val row = table.selectedRow
@@ -3476,8 +3478,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
             val groupId = table.getValueAt(row, GROUP_ID_COLUMN)?.toString().orEmpty()
             val artifactId = table.getValueAt(row, ARTIFACT_ID_COLUMN)?.toString().orEmpty()
             val type = table.getValueAt(row, TYPE_COLUMN) as? String ?: ""
-            if (isManagedEntryType(type) && groupId.isNotBlank() && artifactId.isNotBlank()) {
-                dependencyHierarchyPanel.showHierarchy(groupId, artifactId, type == MANAGED_PLUGIN)
+            if (groupId.isNotBlank() && artifactId.isNotBlank()) {
+                val isPlugin = type == MANAGED_PLUGIN || type == "plugin"
+                dependencyHierarchyPanel.showHierarchy(groupId, artifactId, isPlugin)
             } else {
                 dependencyHierarchyPanel.showEmpty()
             }
@@ -3725,6 +3728,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
             vulnerabilityScanPerformed = true
             lastScannedCount = scanTargets.dependencies.size
             updateTransitiveVulnerabilitiesView()
+            if (isDependencyHierarchyVisible()) {
+                syncDependencyHierarchySelection()
+            }
         }
 
         /**

@@ -29,6 +29,8 @@ import com.intellij.ui.dsl.builder.panel
 import com.intellij.ui.treeStructure.Tree
 import de.schwarzland.mavenup.model.DependencyHierarchyNode
 import de.schwarzland.mavenup.model.DependencyHierarchyNodeType
+import de.schwarzland.mavenup.model.VulnerabilityAdvisory
+import de.schwarzland.mavenup.model.VulnerabilitySeverity
 import de.schwarzland.mavenup.service.DependencyHierarchyService
 import de.schwarzland.mavenup.service.PomNavigationService
 import java.awt.BorderLayout
@@ -44,7 +46,7 @@ import javax.swing.tree.DefaultTreeModel
 
 /**
  * Einbettbares Seitenpanel zur Anzeige des Einbindungs- und Management-Hierarchiebaums für
- * Managed Dependencies, Managed Plugins sowie transitive Abhängigkeiten.
+ * Dependencies, Managed Dependencies, Plugins, Managed Plugins sowie transitive Abhängigkeiten.
  *
  * Stellt in einem interaktiven [Tree] dar, über welche Wege und Eltern-Hierarchien
  * eine Komponente im Projekt eingebunden wird, welche direkten und transitiven
@@ -61,12 +63,15 @@ import javax.swing.tree.DefaultTreeModel
  * @property isDependencyInTable Optionales Prädikat zur Prüfung, ob eine Koordinate in der Haupttabelle existiert.
  * @property onNavigateToTable Optionaler Callback zur Navigation in die Haupttabelle.
  * @property onClose Optionaler Callback beim Schließen des Seitenpanels.
+ * @property vulnerabilityAdvisoriesProvider Optionaler Provider für bekannte Sicherheitswarnungen zur Kennzeichnung
+ *           vulnerabler transitiver Abhängigkeiten.
  */
 class DependencyHierarchyPanel(
     private val project: Project,
     private val isDependencyInTable: ((groupId: String, artifactId: String) -> Boolean)? = null,
     private val onNavigateToTable: ((groupId: String, artifactId: String) -> Boolean)? = null,
-    private val onClose: (() -> Unit)? = null
+    private val onClose: (() -> Unit)? = null,
+    private val vulnerabilityAdvisoriesProvider: (() -> Map<String, List<VulnerabilityAdvisory>>)? = null
 ) : JBPanel<JBPanel<*>>(BorderLayout()) {
 
     /** Group-ID der aktuell angezeigten Zielkomponente. */
@@ -103,6 +108,7 @@ class DependencyHierarchyPanel(
 
         val hierarchyService = DependencyHierarchyService(project)
         val rootData = hierarchyService.buildHierarchy(groupId, artifactId, isPlugin)
+        val advisories = vulnerabilityAdvisoriesProvider?.invoke().orEmpty()
 
         removeAll()
 
@@ -128,7 +134,7 @@ class DependencyHierarchyPanel(
             return
         }
 
-        val newTree = createHierarchyTree(rootData, groupId, artifactId)
+        val newTree = createHierarchyTree(rootData, groupId, artifactId, advisories)
         val hierarchyToolbar = createToolbar(newTree)
         this.toolbar = hierarchyToolbar
         this.tree = newTree
@@ -169,13 +175,14 @@ class DependencyHierarchyPanel(
     private fun createHierarchyTree(
         rootData: DependencyHierarchyNode,
         groupId: String,
-        artifactId: String
+        artifactId: String,
+        vulnerabilityAdvisories: Map<String, List<VulnerabilityAdvisory>> = emptyMap()
     ): Tree {
         val treeModel = buildTreeModel(rootData)
         val newTree = Tree(treeModel).apply {
             isRootVisible = true
             showsRootHandles = true
-            cellRenderer = DependencyHierarchyTreeCellRenderer(groupId, artifactId)
+            cellRenderer = DependencyHierarchyTreeCellRenderer(groupId, artifactId, vulnerabilityAdvisories)
             toolTipText = MyMessageBundle.message("dependency.hierarchy.dialog.tree.tooltip")
         }
 
@@ -612,13 +619,17 @@ class DependencyHierarchyPanel(
  * Stellt Knoten typabhängig mit passendem Icon, einem vorangestellten Typ-Präfix
  * (z. B. `[Dependency Management]`, `[Direct Dependency]`), Koordinaten und Version dar.
  * Die Ziel-Abhängigkeit wird zur schnellen Orientierung farblich hervorgehoben.
+ * Vulnerable transitive Abhängigkeiten werden nach einem Sicherheits-Scan mit einem Warn-Icon
+ * und Fehlerdetails gesondert gekennzeichnet.
  *
  * @param targetGroupId Group-ID der Zielkomponente zur farblichen Hervorhebung.
  * @param targetArtifactId Artefakt-ID der Zielkomponente zur farblichen Hervorhebung.
+ * @param vulnerabilityAdvisories Zuordnung aller bekannten Koordinaten zu ihren Warnungen.
  */
 class DependencyHierarchyTreeCellRenderer(
     private val targetGroupId: String? = null,
-    private val targetArtifactId: String? = null
+    private val targetArtifactId: String? = null,
+    private val vulnerabilityAdvisories: Map<String, List<VulnerabilityAdvisory>> = emptyMap()
 ) : ColoredTreeCellRenderer() {
 
     override fun customizeCellRenderer(
@@ -632,38 +643,99 @@ class DependencyHierarchyTreeCellRenderer(
     ) {
         val userObject = (value as? DefaultMutableTreeNode)?.userObject
         if (userObject is DependencyHierarchyNode) {
-            icon = nodeIcon(userObject.type)
-
-            val prefix = nodePrefix(userObject.type)
-            if (prefix.isNotBlank()) {
-                append("$prefix ", SimpleTextAttributes.GRAYED_ATTRIBUTES)
-            }
-
-            val isTarget = isTargetDependency(userObject)
-            val coordAttributes = if (isTarget) {
-                SimpleTextAttributes(SimpleTextAttributes.STYLE_PLAIN, TARGET_DEPENDENCY_COLOR)
-            } else {
-                SimpleTextAttributes.REGULAR_ATTRIBUTES
-            }
-            val versionAttributes = if (isTarget) {
-                SimpleTextAttributes(SimpleTextAttributes.STYLE_BOLD, TARGET_DEPENDENCY_COLOR)
-            } else {
-                SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES
-            }
-
-            append("${userObject.groupId}:${userObject.artifactId}", coordAttributes)
-
-            if (!userObject.version.isNullOrBlank()) {
-                append(":${userObject.version}", versionAttributes)
-            }
-
-            val details = formatNodeDetails(userObject)
-            if (details.isNotBlank()) {
-                append(" ($details)", SimpleTextAttributes.GRAYED_SMALL_ATTRIBUTES)
-            }
+            renderHierarchyNode(userObject)
         } else if (userObject != null) {
             append(userObject.toString(), SimpleTextAttributes.REGULAR_ATTRIBUTES)
         }
+    }
+
+    private fun renderHierarchyNode(node: DependencyHierarchyNode) {
+        val advisories = findAdvisories(node)
+        val isVulnerableTransitive = advisories.isNotEmpty() &&
+            node.type == DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY
+
+        icon = if (isVulnerableTransitive) AllIcons.General.BalloonWarning else nodeIcon(node.type)
+
+        val prefix = nodePrefix(node.type)
+        if (prefix.isNotBlank()) {
+            append("$prefix ", SimpleTextAttributes.GRAYED_ATTRIBUTES)
+        }
+
+        val isTarget = isTargetDependency(node)
+        val (coordAttributes, versionAttributes) = determineAttributes(isTarget, isVulnerableTransitive)
+
+        append("${node.groupId}:${node.artifactId}", coordAttributes)
+
+        if (!node.version.isNullOrBlank()) {
+            append(":${node.version}", versionAttributes)
+        }
+
+        val details = formatNodeDetails(node, advisories)
+        if (details.isNotBlank()) {
+            val detailsAttributes = if (isVulnerableTransitive) {
+                SimpleTextAttributes(SimpleTextAttributes.STYLE_ITALIC, VULNERABLE_TEXT_COLOR)
+            } else {
+                SimpleTextAttributes.GRAYED_SMALL_ATTRIBUTES
+            }
+            append(" ($details)", detailsAttributes)
+        }
+
+        updateNodeTooltip(isVulnerableTransitive, advisories)
+    }
+
+    private fun determineAttributes(
+        isTarget: Boolean,
+        isVulnerable: Boolean
+    ): Pair<SimpleTextAttributes, SimpleTextAttributes> = when {
+        isTarget -> Pair(
+            SimpleTextAttributes(SimpleTextAttributes.STYLE_PLAIN, TARGET_DEPENDENCY_COLOR),
+            SimpleTextAttributes(SimpleTextAttributes.STYLE_BOLD, TARGET_DEPENDENCY_COLOR)
+        )
+        isVulnerable -> Pair(
+            SimpleTextAttributes(SimpleTextAttributes.STYLE_PLAIN, VULNERABLE_TEXT_COLOR),
+            SimpleTextAttributes(SimpleTextAttributes.STYLE_BOLD, VULNERABLE_TEXT_COLOR)
+        )
+        else -> Pair(
+            SimpleTextAttributes.REGULAR_ATTRIBUTES,
+            SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES
+        )
+    }
+
+    private fun updateNodeTooltip(isVulnerableTransitive: Boolean, advisories: List<VulnerabilityAdvisory>) {
+        if (isVulnerableTransitive) {
+            val severity = worstSeverity(advisories)
+            val summary = advisories.joinToString("; ") { adv ->
+                if (adv.summary.isNotBlank()) "${adv.id}: ${adv.summary}" else adv.id
+            }
+            toolTipText = MyMessageBundle.message(
+                "dependency.hierarchy.node.vulnerable.tooltip",
+                if (severity != VulnerabilitySeverity.UNKNOWN) severity.name else "-",
+                advisories.size,
+                summary
+            )
+        } else {
+            toolTipText = MyMessageBundle.message("dependency.hierarchy.dialog.tree.tooltip")
+        }
+    }
+
+    /**
+     * Ermittelt die passenden Sicherheitswarnungen für einen Hierarchieknoten.
+     *
+     * @param node Der zu prüfende Knoten.
+     * @return Liste aller zutreffenden [VulnerabilityAdvisory]-Warnungen.
+     */
+    internal fun findAdvisories(node: DependencyHierarchyNode): List<VulnerabilityAdvisory> {
+        if (node.groupId.isBlank() || node.artifactId.isBlank() || vulnerabilityAdvisories.isEmpty()) {
+            return emptyList()
+        }
+        val version = node.version
+        if (!version.isNullOrBlank()) {
+            val exact = vulnerabilityAdvisories["${node.groupId}:${node.artifactId}:$version"]
+            if (exact != null) return exact
+        }
+        return vulnerabilityAdvisories.entries
+            .filter { it.key.startsWith("${node.groupId}:${node.artifactId}:") }
+            .flatMap { it.value }
     }
 
     /**
@@ -708,7 +780,10 @@ class DependencyHierarchyTreeCellRenderer(
             MyMessageBundle.message("dependency.hierarchy.node.transitiveDependency")
     }
 
-    private fun formatNodeDetails(node: DependencyHierarchyNode): String {
+    internal fun formatNodeDetails(
+        node: DependencyHierarchyNode,
+        advisories: List<VulnerabilityAdvisory> = emptyList()
+    ): String {
         val detailsList = mutableListOf<String>()
         if (!node.propertyName.isNullOrBlank()) {
             detailsList.add(MyMessageBundle.message("dependency.hierarchy.node.property", node.propertyName))
@@ -719,10 +794,19 @@ class DependencyHierarchyTreeCellRenderer(
         if (node.isManaged && node.type == DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY) {
             detailsList.add(MyMessageBundle.message("dependency.hierarchy.node.managedMarker"))
         }
+        if (advisories.isNotEmpty() && node.type == DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY) {
+            val severity = worstSeverity(advisories)
+            if (severity != VulnerabilitySeverity.UNKNOWN) {
+                detailsList.add(MyMessageBundle.message("dependency.hierarchy.node.vulnerableWithSeverity", severity.name, advisories.size))
+            } else {
+                detailsList.add(MyMessageBundle.message("dependency.hierarchy.node.vulnerable", advisories.size))
+            }
+        }
         return detailsList.joinToString(", ")
     }
 
     companion object {
         private val TARGET_DEPENDENCY_COLOR = JBColor(Color(0x00, 0x55, 0xAA), Color(0x58, 0x9D, 0xF6))
+        private val VULNERABLE_TEXT_COLOR = JBColor(Color(0xC7, 0x22, 0x22), Color(0xFF, 0x6B, 0x68))
     }
 }

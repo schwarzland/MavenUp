@@ -256,6 +256,51 @@ class DependencyHierarchyServiceTest : BasePlatformTestCase() {
         assertTrue(targetDep.isManaged)
     }
 
+    fun testAttachTransitiveChildrenRecursivelyAndHandlesCycles() {
+        val child2Artifact = createArtifact("com.example", "child-two", "1.0.0")
+        val child2Node = MavenArtifactNode(null, child2Artifact, null, null, null, null, null)
+
+        val child1Artifact = createArtifact("com.example", "child-one", "1.0.0")
+        val child1Node = MavenArtifactNode(null, child1Artifact, null, null, null, null, null)
+
+        val rootArtifact = createArtifact("com.example", "root-lib", "1.0.0")
+        val rootNode = MavenArtifactNode(null, rootArtifact, null, null, null, null, null)
+
+        // Zyklus: child2 -> rootNode
+        val depField = MavenArtifactNode::class.java.getDeclaredField("myDependencies").apply { isAccessible = true }
+        depField.set(child2Node, mutableListOf(rootNode))
+        depField.set(child1Node, mutableListOf(child2Node))
+        depField.set(rootNode, mutableListOf(child1Node))
+
+        val service = DependencyHierarchyService(project)
+        val directHierarchyNode = DependencyHierarchyNode(
+            type = DependencyHierarchyNodeType.DIRECT_DEPENDENCY,
+            groupId = "com.example",
+            artifactId = "root-lib",
+            version = "1.0.0"
+        )
+
+        val psiFile = myFixture.configureByText(
+            "pom.xml",
+            "<project><groupId>com.example</groupId><artifactId>test-app</artifactId></project>"
+        ) as XmlFile
+
+        service.attachTransitiveChildren(directHierarchyNode, rootNode, psiFile.virtualFile, mutableSetOf(rootNode))
+
+        assertEquals(1, directHierarchyNode.children.size)
+        val child1 = directHierarchyNode.children[0]
+        assertEquals("com.example", child1.groupId)
+        assertEquals("child-one", child1.artifactId)
+
+        assertEquals(1, child1.children.size)
+        val child2 = child1.children[0]
+        assertEquals("com.example", child2.groupId)
+        assertEquals("child-two", child2.artifactId)
+
+        // Durch Zyklusvermeidung darf rootNode nicht erneut unter child2 angehängt werden
+        assertEquals(0, child2.children.size)
+    }
+
     private fun createArtifact(groupId: String, artifactId: String, version: String): MavenArtifact {
         return MavenArtifact(
             groupId,
