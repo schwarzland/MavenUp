@@ -633,6 +633,41 @@ class DependencyHierarchyPanelTest : BasePlatformTestCase() {
         panel.navigateToSelectedNode(tree)
     }
 
+    fun testShowEmptyRendersEmptyStateAndResetsCoordinates() {
+        val panel = DependencyHierarchyPanel(project)
+        panel.showEmpty()
+
+        assertNull(panel.currentGroupId)
+        assertNull(panel.currentArtifactId)
+        assertFalse(panel.currentIsPlugin)
+        assertNotNull(panel.tree)
+        assertNotNull(panel.toolbar)
+    }
+
+    fun testShowEmptyWithCustomMessage() {
+        val panel = DependencyHierarchyPanel(project)
+        panel.showEmpty("Custom empty message")
+
+        assertNull(panel.currentGroupId)
+        assertNull(panel.currentArtifactId)
+        assertFalse(panel.currentIsPlugin)
+        assertNotNull(panel.tree)
+    }
+
+    fun testEscapeKeyTriggersCloseCallback() {
+        var closed = false
+        val panel = DependencyHierarchyPanel(project, onClose = { closed = true })
+        panel.showEmpty()
+
+        val tree = panel.tree
+        assertNotNull(tree)
+
+        val action = tree!!.getActionForKeyStroke(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_ESCAPE, 0))
+        assertNotNull(action)
+        action.actionPerformed(java.awt.event.ActionEvent(tree, java.awt.event.ActionEvent.ACTION_PERFORMED, ""))
+        assertTrue(closed)
+    }
+
     private val DependencyHierarchyTreeCellRenderer.renderedItems: List<String>
         get() = (0 until iterator().asSequence().count()).map {
             iterator().asSequence().toList()[it]

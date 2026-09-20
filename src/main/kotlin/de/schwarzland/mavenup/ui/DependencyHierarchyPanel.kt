@@ -107,7 +107,7 @@ class DependencyHierarchyPanel(
         removeAll()
 
         if (rootData.children.isEmpty()) {
-            val emptyTree = Tree(DefaultTreeModel(DefaultMutableTreeNode(rootData)))
+            val emptyTree = createEmptyTree()
             val hierarchyToolbar = createToolbar(emptyTree)
             this.toolbar = hierarchyToolbar
             this.tree = emptyTree
@@ -117,7 +117,9 @@ class DependencyHierarchyPanel(
                     cell(hierarchyToolbar.component)
                 }
                 row {
-                    cell(JBLabel(MyMessageBundle.message("dependency.hierarchy.dialog.empty", "$groupId:$artifactId")))
+                    cell(JBLabel(MyMessageBundle.message("dependency.hierarchy.dialog.empty", "$groupId:$artifactId")).apply {
+                        foreground = JBColor.GRAY
+                    })
                 }
             }
             add(emptyPanel, BorderLayout.CENTER)
@@ -126,6 +128,49 @@ class DependencyHierarchyPanel(
             return
         }
 
+        val newTree = createHierarchyTree(rootData, groupId, artifactId)
+        val hierarchyToolbar = createToolbar(newTree)
+        this.toolbar = hierarchyToolbar
+        this.tree = newTree
+
+        expandAllNodes(newTree)
+
+        val contentPanel = panel {
+            row {
+                cell(hierarchyToolbar.component)
+            }
+            row {
+                label(MyMessageBundle.message("dependency.hierarchy.dialog.header", "$groupId:$artifactId"))
+                    .bold()
+            }
+            row {
+                cell(JBScrollPane(newTree))
+                    .align(Align.FILL)
+            }.resizableRow()
+        }
+
+        add(contentPanel, BorderLayout.CENTER)
+        revalidate()
+        repaint()
+    }
+
+    private fun createEmptyTree(): Tree {
+        val emptyTree = Tree(DefaultTreeModel(DefaultMutableTreeNode()))
+        if (onClose != null) {
+            emptyTree.registerKeyboardAction(
+                { onClose.invoke() },
+                KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0),
+                JComponent.WHEN_FOCUSED
+            )
+        }
+        return emptyTree
+    }
+
+    private fun createHierarchyTree(
+        rootData: DependencyHierarchyNode,
+        groupId: String,
+        artifactId: String
+    ): Tree {
         val treeModel = buildTreeModel(rootData)
         val newTree = Tree(treeModel).apply {
             isRootVisible = true
@@ -138,12 +183,6 @@ class DependencyHierarchyPanel(
             val node = (path.lastPathComponent as? DefaultMutableTreeNode)?.userObject as? DependencyHierarchyNode
             node?.let { "${it.groupId}:${it.artifactId} ${it.version.orEmpty()}" } ?: path.lastPathComponent.toString()
         }
-
-        val hierarchyToolbar = createToolbar(newTree)
-        this.toolbar = hierarchyToolbar
-        this.tree = newTree
-
-        expandAllNodes(newTree)
 
         newTree.addMouseListener(object : MouseAdapter() {
             override fun mousePressed(e: MouseEvent) {
@@ -170,21 +209,54 @@ class DependencyHierarchyPanel(
             JComponent.WHEN_FOCUSED
         )
 
-        val contentPanel = panel {
+        if (onClose != null) {
+            newTree.registerKeyboardAction(
+                { onClose.invoke() },
+                KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0),
+                JComponent.WHEN_FOCUSED
+            )
+        }
+
+        return newTree
+    }
+
+    /**
+     * Zeigt einen informativen Empty State im Hierarchiepanel an, wenn für die aktuelle
+     * Tabellenselektion keine Hierarchie existiert oder keine Zeile ausgewählt ist.
+     *
+     * @param message Optionaler individueller Hinweistext.
+     */
+    fun showEmpty(message: String? = null) {
+        currentGroupId = null
+        currentArtifactId = null
+        currentIsPlugin = false
+
+        removeAll()
+
+        val emptyTree = Tree(DefaultTreeModel(DefaultMutableTreeNode()))
+        if (onClose != null) {
+            emptyTree.registerKeyboardAction(
+                { onClose.invoke() },
+                KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0),
+                JComponent.WHEN_FOCUSED
+            )
+        }
+        val hierarchyToolbar = createToolbar(emptyTree)
+        this.toolbar = hierarchyToolbar
+        this.tree = emptyTree
+
+        val emptyLabelText = message ?: MyMessageBundle.message("dependency.hierarchy.empty.noSelection")
+        val emptyPanel = panel {
             row {
                 cell(hierarchyToolbar.component)
             }
             row {
-                label(MyMessageBundle.message("dependency.hierarchy.dialog.header", "$groupId:$artifactId"))
-                    .bold()
+                cell(JBLabel(emptyLabelText).apply {
+                    foreground = JBColor.GRAY
+                })
             }
-            row {
-                cell(JBScrollPane(newTree))
-                    .align(Align.FILL)
-            }.resizableRow()
         }
-
-        add(contentPanel, BorderLayout.CENTER)
+        add(emptyPanel, BorderLayout.CENTER)
         revalidate()
         repaint()
     }
@@ -325,7 +397,7 @@ class DependencyHierarchyPanel(
                     add(object : AnAction(
                         MyMessageBundle.message("button.close"),
                         null,
-                        AllIcons.Actions.Cancel
+                        AllIcons.Actions.Close
                     ) {
                         override fun getActionUpdateThread() = ActionUpdateThread.EDT
                         override fun actionPerformed(event: AnActionEvent) {

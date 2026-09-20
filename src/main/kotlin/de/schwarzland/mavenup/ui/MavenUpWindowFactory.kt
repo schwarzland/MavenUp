@@ -30,6 +30,7 @@ import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.actionSystem.Separator
+import com.intellij.openapi.actionSystem.ToggleAction
 import com.intellij.openapi.actionSystem.ex.ActionUtil
 import com.intellij.openapi.actionSystem.impl.ActionButton
 import com.intellij.ide.HelpTooltip
@@ -561,6 +562,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
             table.selectionModel.addListSelectionListener { event ->
                 if (!event.valueIsAdjusting) {
                     refreshToolbar()
+                    if (isDependencyHierarchyVisible()) {
+                        syncDependencyHierarchySelection()
+                    }
                 }
             }
 
@@ -970,6 +974,39 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 }
             }
 
+            fun dynamicToggleAction(
+                icon: Icon,
+                isEnabled: () -> Boolean,
+                isSelected: () -> Boolean,
+                labelProvider: () -> String,
+                shortLabelKey: String? = null,
+                descriptionProvider: (() -> String)? = null,
+                onToggle: (Boolean) -> Unit
+            ): ToggleAction {
+                return object : ToggleAction(labelProvider(), descriptionProvider?.invoke() ?: labelProvider(), icon) {
+                    override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
+
+                    override fun isSelected(e: AnActionEvent): Boolean = isSelected()
+
+                    override fun setSelected(e: AnActionEvent, state: Boolean) {
+                        onToggle(state)
+                    }
+
+                    override fun update(e: AnActionEvent) {
+                        super.update(e)
+                        e.presentation.isEnabled = isEnabled()
+                        val label = labelProvider()
+                        val fullText = descriptionProvider?.invoke() ?: label
+                        val showText = isToolbarTextEnabled()
+                        val shortLabel = shortLabelKey?.let { MyMessageBundle.message(it) } ?: label
+                        e.presentation.text = shortLabel
+                        e.presentation.description = fullText
+                        e.presentation.putClientProperty(ActionButton.CUSTOM_HELP_TOOLTIP, HelpTooltip().withWrappingDescription(fullText))
+                        e.presentation.putClientProperty(ActionUtil.SHOW_TEXT_IN_TOOLBAR, showText)
+                    }
+                }
+            }
+
             fun toolbarAction(
                 messageKey: String,
                 icon: Icon,
@@ -1205,15 +1242,16 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_CONTEXT_MENU_NAVIGATE_TO_POM)
                     }
                 ) { navigateToPomForSelectedRow() })
-                add(toolbarAction(
-                    "toolwindow.MyToolWindow.dependencyHierarchy.button",
-                    AllIcons.Actions.ShowAsTree,
-                    { isDependencyHierarchyEnabled() },
+                add(dynamicToggleAction(
+                    icon = AllIcons.Actions.ShowAsTree,
+                    isEnabled = { isDependencyHierarchyEnabled() },
+                    isSelected = { isDependencyHierarchySelected() },
+                    labelProvider = { MyMessageBundle.message("toolwindow.MyToolWindow.dependencyHierarchy.button") },
                     shortLabelKey = "toolwindow.MyToolWindow.dependencyHierarchy.button.short",
                     descriptionProvider = {
                         MyMessageBundle.message("toolwindow.MyToolWindow.dependencyHierarchy.tooltip")
                     }
-                ) { openDependencyHierarchyForSelectedRow() })
+                ) { open -> toggleDependencyHierarchy(open) })
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.vulnerabilityDetails.button",
                     AllIcons.General.BalloonWarning,
@@ -3383,20 +3421,66 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
-         * Prüft, ob für die aktuell selektierte Zeile die Abhängigkeitshierarchie-Aktion verfügbar ist.
+         * Prüft, ob die Abhängigkeitshierarchie-Aktion in der Toolbar verfügbar ist.
          *
-         * In der Haupttabelle ist die Aktion für verwaltete Abhängigkeiten und verwaltete Plugins aktiv;
-         * in der transitiven Sicherheitslücken-Ansicht ist sie für alle selektierten Zeilen verfügbar.
+         * Die Umschaltaktion kann betätigt werden, solange keine Aktualisierung läuft.
          *
-         * @return `true`, wenn eine passende Zeile selektiert ist.
+         * @return `true`, wenn keine Aktualisierung läuft.
          */
-        internal fun isDependencyHierarchyEnabled(): Boolean {
-            if (isUpdating) return false
-            if (showingTransitiveView) return transitiveVulnerabilitiesView.hasSelectedRow()
+        internal fun isDependencyHierarchyEnabled(): Boolean = !isUpdating
+
+        /**
+         * Prüft, ob das Abhängigkeitshierarchie-Panel in der aktuell sichtbaren Ansicht geöffnet ist.
+         *
+         * @return `true`, wenn das Panel geöffnet ist.
+         */
+        internal fun isDependencyHierarchySelected(): Boolean =
+            if (showingTransitiveView) transitiveVulnerabilitiesView.isDependencyHierarchyVisible()
+            else isDependencyHierarchyVisible()
+
+        /**
+         * Schaltet das Abhängigkeitshierarchie-Panel ein oder aus.
+         *
+         * Wirkt je nach aktiver Ansicht auf die Haupttabelle oder die transitive Sicherheitslücken-Ansicht.
+         *
+         * @param open `true` zum Öffnen (inklusive Selektionssynchronisation), `false` zum Schließen.
+         */
+        internal fun toggleDependencyHierarchy(open: Boolean) {
+            if (showingTransitiveView) {
+                transitiveVulnerabilitiesView.toggleDependencyHierarchy(open)
+            } else {
+                if (open) {
+                    dependenciesSplitter.secondComponent = dependencyHierarchyPanel
+                    syncDependencyHierarchySelection()
+                    dependenciesSplitter.revalidate()
+                    dependenciesSplitter.repaint()
+                } else {
+                    hideDependencyHierarchy()
+                }
+                refreshToolbar()
+            }
+        }
+
+        /**
+         * Synchronisiert den Zustand des Hierarchiebaum-Panels mit der aktuell in der Haupttabelle selektierten Zeile.
+         *
+         * Zeigt die Hierarchie für verwaltete Einträge an; für Zeilen ohne Hierarchie oder bei
+         * fehlender Selektion wird ein informativer Empty State dargestellt.
+         */
+        internal fun syncDependencyHierarchySelection() {
             val row = table.selectedRow
-            if (row < 0) return false
-            val type = table.getValueAt(row, TYPE_COLUMN) as? String ?: return false
-            return isManagedEntryType(type)
+            if (row < 0 || table.selectedRowCount > 1) {
+                dependencyHierarchyPanel.showEmpty()
+                return
+            }
+            val groupId = table.getValueAt(row, GROUP_ID_COLUMN)?.toString().orEmpty()
+            val artifactId = table.getValueAt(row, ARTIFACT_ID_COLUMN)?.toString().orEmpty()
+            val type = table.getValueAt(row, TYPE_COLUMN) as? String ?: ""
+            if (isManagedEntryType(type) && groupId.isNotBlank() && artifactId.isNotBlank()) {
+                dependencyHierarchyPanel.showHierarchy(groupId, artifactId, type == MANAGED_PLUGIN)
+            } else {
+                dependencyHierarchyPanel.showEmpty()
+            }
         }
 
         /**
@@ -3446,24 +3530,13 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
-         * Öffnet den Abhängigkeitshierarchie-Dialog für die aktuell selektierte Zeile.
+         * Öffnet den Abhängigkeitshierarchie-Dialog bzw. schaltet das Panel für die aktuell selektierte Zeile um.
          *
          * Wirkt je nach aktiver Ansicht auf die Haupttabelle (für verwaltete Einträge) oder
          * die transitive Sicherheitslücken-Ansicht.
          */
         internal fun openDependencyHierarchyForSelectedRow() {
-            if (showingTransitiveView) {
-                transitiveVulnerabilitiesView.openSelectedDependencyHierarchy()
-                return
-            }
-            val row = table.selectedRow
-            if (row < 0) return
-            val groupId = table.getValueAt(row, GROUP_ID_COLUMN)?.toString().orEmpty()
-            val artifactId = table.getValueAt(row, ARTIFACT_ID_COLUMN)?.toString().orEmpty()
-            val type = table.getValueAt(row, TYPE_COLUMN) as? String ?: ""
-            if (isManagedEntryType(type) && groupId.isNotBlank() && artifactId.isNotBlank()) {
-                showDependencyHierarchy(groupId, artifactId, type == MANAGED_PLUGIN)
-            }
+            toggleDependencyHierarchy(!isDependencyHierarchySelected())
         }
 
         /**
@@ -3734,6 +3807,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             dependenciesSplitter.secondComponent = dependencyHierarchyPanel
             dependenciesSplitter.revalidate()
             dependenciesSplitter.repaint()
+            refreshToolbar()
         }
 
         /**
@@ -3743,6 +3817,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             dependenciesSplitter.secondComponent = null
             dependenciesSplitter.revalidate()
             dependenciesSplitter.repaint()
+            refreshToolbar()
         }
 
         /**

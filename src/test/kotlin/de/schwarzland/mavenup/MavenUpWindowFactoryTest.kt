@@ -1140,41 +1140,9 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         val model = table!!.model as DefaultTableModel
 
-        // Ohne Zeilen
-        assertFalse(
-            "Abhängigkeitshierarchie sollte ohne Selektion deaktiviert sein",
-            toolWindow.isDependencyHierarchyEnabled()
-        )
-
-        // Direkte Dependency (nicht managed)
-        model.addRow(arrayOf("com.example", "direct-lib", "", "dependency", null, "1.0.0", emptyList<String>()))
-        table.setRowSelectionInterval(0, 0)
-        assertFalse(
-            "Abhängigkeitshierarchie sollte für normale direkte Abhängigkeiten deaktiviert sein",
-            toolWindow.isDependencyHierarchyEnabled()
-        )
-
-        // Direktes Plugin (nicht managed)
-        model.addRow(arrayOf("com.example", "direct-plugin", "", "plugin", null, "1.0.0", emptyList<String>()))
-        table.setRowSelectionInterval(1, 1)
-        assertFalse(
-            "Abhängigkeitshierarchie sollte für normale Plugins deaktiviert sein",
-            toolWindow.isDependencyHierarchyEnabled()
-        )
-
-        // Managed Dependency
-        model.addRow(arrayOf("com.example", "managed-lib", "", "managed dependency", null, "1.0.0", emptyList<String>()))
-        table.setRowSelectionInterval(2, 2)
+        // Toolbar toggle action is enabled when not updating
         assertTrue(
-            "Abhängigkeitshierarchie sollte für verwaltete Abhängigkeiten aktiviert sein",
-            toolWindow.isDependencyHierarchyEnabled()
-        )
-
-        // Managed Plugin
-        model.addRow(arrayOf("com.example", "managed-plugin", "", "managed plugin", null, "1.0.0", emptyList<String>()))
-        table.setRowSelectionInterval(3, 3)
-        assertTrue(
-            "Abhängigkeitshierarchie sollte für verwaltete Plugins aktiviert sein",
+            "Abhängigkeitshierarchie-Umschaltaktion sollte bedienbar sein",
             toolWindow.isDependencyHierarchyEnabled()
         )
 
@@ -1182,17 +1150,51 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val updatingField = toolWindow.javaClass.getDeclaredField("isUpdating").apply { isAccessible = true }
         updatingField.setBoolean(toolWindow, true)
         assertFalse(
-            "Abhängigkeitshierarchie sollte während laufender Aktualisierung deaktiviert sein",
+            "Abhängigkeitshierarchie-Umschaltaktion sollte während laufender Aktualisierung deaktiviert sein",
             toolWindow.isDependencyHierarchyEnabled()
         )
         updatingField.setBoolean(toolWindow, false)
 
-        // Selektion aufheben
-        table.clearSelection()
-        assertFalse(
-            "Abhängigkeitshierarchie sollte ohne Selektion wieder deaktiviert sein",
-            toolWindow.isDependencyHierarchyEnabled()
-        )
+        model.addRow(arrayOf("com.example", "direct-lib", "", "dependency", null, "1.0.0", emptyList<String>()))
+        model.addRow(arrayOf("com.example", "direct-plugin", "", "plugin", null, "1.0.0", emptyList<String>()))
+        model.addRow(arrayOf("com.example", "managed-lib", "", "managed dependency", null, "1.0.0", emptyList<String>()))
+        model.addRow(arrayOf("com.example", "managed-plugin", "", "managed plugin", null, "1.0.0", emptyList<String>()))
+
+        // Context-Menu Aktionen prüfen
+        val directTarget = DependencyContextMenuTarget(0, "com.example", "direct-lib", "", "dependency", "1.0.0")
+        val directGroup = toolWindow.buildContextMenuGroup(directTarget)
+        val directAction = directGroup.getChildren(null).filterIsInstance<com.intellij.openapi.actionSystem.AnAction>()
+            .first { it.templatePresentation.text == MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.showDependencyHierarchy") }
+        val directEvent = com.intellij.testFramework.TestActionEvent.createTestEvent(directAction)
+        directAction.update(directEvent)
+        assertFalse("Kontextmenü für direkte Abhängigkeit sollte deaktiviert sein", directEvent.presentation.isEnabled)
+
+        val managedTarget = DependencyContextMenuTarget(0, "com.example", "managed-lib", "", "managed dependency", "1.0.0")
+        val managedGroup = toolWindow.buildContextMenuGroup(managedTarget)
+        val managedAction = managedGroup.getChildren(null).filterIsInstance<com.intellij.openapi.actionSystem.AnAction>()
+            .first { it.templatePresentation.text == MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.showDependencyHierarchy") }
+        val managedEvent = com.intellij.testFramework.TestActionEvent.createTestEvent(managedAction)
+        managedAction.update(managedEvent)
+        assertTrue("Kontextmenü für verwaltete Abhängigkeit sollte aktiviert sein", managedEvent.presentation.isEnabled)
+
+        // Toggle Split-View behavior
+        assertFalse(toolWindow.isDependencyHierarchyVisible())
+        toolWindow.toggleDependencyHierarchy(true)
+        assertTrue(toolWindow.isDependencyHierarchyVisible())
+
+        // Select managed entry
+        table.setRowSelectionInterval(2, 2)
+        toolWindow.syncDependencyHierarchySelection()
+        assertTrue(toolWindow.isDependencyHierarchyVisible())
+
+        // Select non-managed entry -> empty state, panel remains open
+        table.setRowSelectionInterval(0, 0)
+        toolWindow.syncDependencyHierarchySelection()
+        assertTrue(toolWindow.isDependencyHierarchyVisible())
+
+        // Toggle close
+        toolWindow.toggleDependencyHierarchy(false)
+        assertFalse(toolWindow.isDependencyHierarchyVisible())
     }
 
     fun testShowAndHideDependencyHierarchyPanel() {
@@ -1814,10 +1816,10 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         toolWindow.updateTransitiveVulnerabilitiesView()
         toolWindow.setTransitiveViewVisible(true)
 
-        // Without a selection in the transitive view the actions are disabled.
+        // Without a selection in the transitive view the actions are disabled (except hierarchy toggle).
         assertFalse(toolWindow.isOpenInRepositoryEnabled())
         assertFalse(toolWindow.isVulnerabilityDetailsEnabled())
-        assertFalse(toolWindow.isDependencyHierarchyEnabled())
+        assertTrue(toolWindow.isDependencyHierarchyEnabled())
 
         val view = toolWindow.javaClass.getDeclaredField("transitiveVulnerabilitiesView")
             .apply { isAccessible = true }.get(toolWindow) as TransitiveVulnerabilitiesView

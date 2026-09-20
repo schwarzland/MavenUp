@@ -21,7 +21,7 @@
 
 ### Changed
 
-- Changed the **Dependency Hierarchy** view from a modal dialog to an embedded side panel with its own toolbar next to the main table or the transitive CVE table, including a Close action to collapse the panel.
+- Changed the **Dependency Hierarchy** view into an interactive master-detail inspector panel (split-view) next to the main table or the transitive CVE table, toggled via the toolbar "Hierarchy" toggle button or context menu, reacting dynamically to table row selection changes with an informative empty state instead of abrupt collapsing.
 - Updated the "Remove managed..." bulk action labels, toolbar group tooltip, row context menu action ("Remove from pom.xml" / "Comment out in pom.xml"), and "New Version" column status ("Will be removed" / "Will be commented out") to adapt dynamically based on the "Comment out managed entries instead of deleting" setting.
 - Capitalized the **Dependency Hierarchy** toolbar and navigation action labels in accordance with IntelliJ action naming conventions.
 - Standardized all filter options to Sentence case, including dependency type labels while preserving their technical filter values.

@@ -355,6 +355,15 @@ internal class TransitiveVulnerabilitiesView(
             }
         })
 
+        table.selectionModel.addListSelectionListener { event ->
+            if (!event.valueIsAdjusting) {
+                onSelectionChanged()
+                if (isDependencyHierarchyVisible()) {
+                    syncDependencyHierarchySelection()
+                }
+            }
+        }
+
         splitter.firstComponent = JBScrollPane(table)
         add(filterPanel, BorderLayout.NORTH)
         add(splitter, BorderLayout.CENTER)
@@ -1118,11 +1127,50 @@ internal class TransitiveVulnerabilitiesView(
     }
 
     /**
+     * Synchronisiert den Zustand des Hierarchiebaum-Panels mit der aktuell in der Tabelle selektierten Zeile.
+     */
+    internal fun syncDependencyHierarchySelection() {
+        val row = table.selectedRow
+        if (row < 0 || table.selectedRowCount > 1) {
+            dependencyHierarchyPanel.showEmpty()
+            return
+        }
+        val modelRow = table.convertRowIndexToModel(row)
+        val groupId = tableModel.getValueAt(modelRow, TRANSITIVE_GROUP_ID_COLUMN)?.toString().orEmpty()
+        val artifactId = tableModel.getValueAt(modelRow, TRANSITIVE_ARTIFACT_ID_COLUMN)?.toString().orEmpty()
+        if (groupId.isNotBlank() && artifactId.isNotBlank()) {
+            dependencyHierarchyPanel.showHierarchy(groupId, artifactId, false)
+        } else {
+            dependencyHierarchyPanel.showEmpty()
+        }
+    }
+
+    /**
+     * Schaltet das Hierarchiepanel ein oder aus.
+     *
+     * @param open `true` zum Einblenden (inklusive Synchronisation mit der Selektion), `false` zum Ausblenden.
+     */
+    internal fun toggleDependencyHierarchy(open: Boolean) {
+        if (open) {
+            splitter.secondComponent = dependencyHierarchyPanel
+            syncDependencyHierarchySelection()
+            splitter.revalidate()
+            splitter.repaint()
+        } else {
+            hideDependencyHierarchy()
+        }
+        onSelectionChanged()
+    }
+
+    /**
      * Öffnet das Hierarchiebaum-Panel rechts neben der transitiven CVE-Tabelle für die Koordinate der angegebenen Sichtzeile.
      *
      * @param viewRow Der Zeilenindex in der (ggf. sortierten) Sicht.
      */
     internal fun openDependencyHierarchy(viewRow: Int) {
+        if (table.selectedRow != viewRow) {
+            table.setRowSelectionInterval(viewRow, viewRow)
+        }
         val modelRow = table.convertRowIndexToModel(viewRow)
         val groupId = tableModel.getValueAt(modelRow, TRANSITIVE_GROUP_ID_COLUMN) as? String ?: ""
         val artifactId = tableModel.getValueAt(modelRow, TRANSITIVE_ARTIFACT_ID_COLUMN) as? String ?: ""
@@ -1141,6 +1189,7 @@ internal class TransitiveVulnerabilitiesView(
         splitter.secondComponent = dependencyHierarchyPanel
         splitter.revalidate()
         splitter.repaint()
+        onSelectionChanged()
     }
 
     /**
@@ -1150,6 +1199,7 @@ internal class TransitiveVulnerabilitiesView(
         splitter.secondComponent = null
         splitter.revalidate()
         splitter.repaint()
+        onSelectionChanged()
     }
 
     /**
