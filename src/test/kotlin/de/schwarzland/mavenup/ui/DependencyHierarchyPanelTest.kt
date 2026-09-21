@@ -2,6 +2,7 @@ package de.schwarzland.mavenup.ui
 
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.actionSystem.Separator
+import com.intellij.openapi.util.IconLoader
 import com.intellij.psi.xml.XmlFile
 import com.intellij.testFramework.TestActionEvent
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
@@ -852,7 +853,29 @@ class DependencyHierarchyPanelTest : BasePlatformTestCase() {
             0,
             false
         )
-        assertNotSame(AllIcons.Nodes.Related, renderer.icon)
+        assertEquals(IconLoader.getDisabledIcon(AllIcons.Nodes.Related), renderer.icon)
+
+        renderer.getTreeCellRendererComponent(
+            Tree(),
+            DefaultMutableTreeNode(listedNode),
+            false,
+            false,
+            true,
+            0,
+            false
+        )
+        assertEquals(AllIcons.Nodes.Related, renderer.icon)
+
+        renderer.getTreeCellRendererComponent(
+            Tree(),
+            DefaultMutableTreeNode(directNode),
+            false,
+            false,
+            true,
+            0,
+            false
+        )
+        assertEquals(AllIcons.Nodes.PpLib, renderer.icon)
     }
 
     fun testFindAdvisoriesWithExactAndPrefixMatch() {

@@ -47,6 +47,7 @@
 
 ### Fixed
 
+- Fixed the dependency-hierarchy tree renderer test asserting instance inequality for disabled transitive icons, which failed in headless CI environments where the platform returns the original icon instance.
 - Kept the **Hierarchy** toolbar action available while a vulnerability scan runs, matching the context-menu behavior.
 - Fixed the transitive CVEs dependency-hierarchy split view showing **Select in Dependencies** instead of **Select in Transitive CVEs** for coordinates available only in the transitive CVEs table.
 - Fixed the dependency-hierarchy selection action to prefer **Select in Dependencies** when a transitive coordinate can also be selected in the main table.
