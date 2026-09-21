@@ -700,7 +700,9 @@ class DependencyHierarchyPanelTest : BasePlatformTestCase() {
         val renderedFragments = renderer.renderedItems
         assertTrue("Muss VULNERABLE: CRITICAL enthalten", renderedFragments.any { it.contains("VULNERABLE: CRITICAL") })
         assertNotNull(renderer.toolTipText)
-        assertTrue(renderer.toolTipText!!.contains("CVE-2023-9999"))
+        assertEquals("Vulnerable transitive dependency (CRITICAL, 1 advisory/advisories).", renderer.toolTipText)
+        assertFalse(renderer.toolTipText!!.contains("CVE-2023-9999"))
+        assertFalse(renderer.toolTipText!!.contains("Critical vulnerability in jackson-databind"))
 
         val safeTransitiveNode = DependencyHierarchyNode(
             type = DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY,

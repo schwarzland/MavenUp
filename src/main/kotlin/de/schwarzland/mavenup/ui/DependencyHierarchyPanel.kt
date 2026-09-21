@@ -618,7 +618,7 @@ class DependencyHierarchyPanel(
  * (z. B. `[Dependency Management]`, `[Direct Dependency]`), Koordinaten und Version dar.
  * Die Ziel-Abhängigkeit wird zur schnellen Orientierung farblich hervorgehoben.
  * Vulnerable transitive Abhängigkeiten werden nach einem Sicherheits-Scan mit einem Warn-Icon
- * und Fehlerdetails gesondert gekennzeichnet.
+ * und einem kompakten Hinweis zu Schweregrad und Anzahl der Befunde gesondert gekennzeichnet.
  *
  * @param targetGroupId Group-ID der Zielkomponente zur farblichen Hervorhebung.
  * @param targetArtifactId Artefakt-ID der Zielkomponente zur farblichen Hervorhebung.
@@ -699,17 +699,22 @@ class DependencyHierarchyTreeCellRenderer(
         )
     }
 
+    /**
+     * Setzt den kompakten Hinweis für vulnerable transitive Abhängigkeiten.
+     *
+     * Einzelne Advisory-Details werden bewusst nicht in den Tooltip aufgenommen, damit dieser
+     * auch bei vielen oder umfangreichen Befunden übersichtlich bleibt.
+     *
+     * @param isVulnerableTransitive Gibt an, ob der Knoten eine verwundbare transitive Abhängigkeit darstellt.
+     * @param advisories Die für den Knoten ermittelten Sicherheitswarnungen.
+     */
     private fun updateNodeTooltip(isVulnerableTransitive: Boolean, advisories: List<VulnerabilityAdvisory>) {
         if (isVulnerableTransitive) {
             val severity = worstSeverity(advisories)
-            val summary = advisories.joinToString("; ") { adv ->
-                if (adv.summary.isNotBlank()) "${adv.id}: ${adv.summary}" else adv.id
-            }
             toolTipText = MyMessageBundle.message(
                 "dependency.hierarchy.node.vulnerable.tooltip",
                 if (severity != VulnerabilitySeverity.UNKNOWN) severity.name else "-",
-                advisories.size,
-                summary
+                advisories.size
             )
         } else {
             toolTipText = MyMessageBundle.message("dependency.hierarchy.dialog.tree.tooltip")
