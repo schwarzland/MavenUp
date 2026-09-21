@@ -267,12 +267,13 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private val transitiveCurrentVersions = mutableMapOf<String, String>()
 
         /** Alternative Ansicht, die ausschließlich transitive, verwundbare Abhängigkeiten auflistet. */
-        private val transitiveVulnerabilitiesView = TransitiveVulnerabilitiesView(
+        internal val transitiveVulnerabilitiesView = TransitiveVulnerabilitiesView(
             project,
             { refreshToolbar() },
             { showDirectVulnerabilitiesInDependencies() },
             { groupId, artifactId -> navigateToDependencyInTable(groupId, artifactId) },
-            { groupId, artifactId -> isDependencyInAnyTable(groupId, artifactId) }
+            { groupId, artifactId -> isDependencyInAnyTable(groupId, artifactId) },
+            { groupId, artifactId -> tableNavigationActionLabel(groupId, artifactId) }
         )
 
         /** Wurzelkomponente des Tabs **Transitive CVEs**: Aktionsleiste über der transitiven Ansicht. */
@@ -294,11 +295,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 isDependencyInAnyTable(targetGroupId, targetArtifactId)
             },
             tableNavigationLabelProvider = { targetGroupId, targetArtifactId ->
-                if (transitiveVulnerabilitiesView.containsDependency(targetGroupId, targetArtifactId)) {
-                    MyMessageBundle.message("dependency.hierarchy.action.navigateToTransitiveCves")
-                } else {
-                    MyMessageBundle.message("dependency.hierarchy.action.navigateToDependencies")
-                }
+                tableNavigationActionLabel(targetGroupId, targetArtifactId)
             },
             onNavigateToTable = { targetGroupId, targetArtifactId ->
                 navigateToDependencyInTable(targetGroupId, targetArtifactId)
@@ -3836,9 +3833,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * Navigiert zur übergebenen Abhängigkeit, setzt die Filter der Zielansicht zurück und selektiert
          * die entsprechende Zeile.
          *
-         * Aktiviert bei Bedarf das Tool Window. Direkt deklarierte Komponenten werden im Tab
-         * **Dependencies** ausgewählt; ausschließlich durch den Scan bekannte transitive Komponenten im
-         * Tab **Transitive CVEs**.
+         * Aktiviert bei Bedarf das Tool Window. Komponenten, die in der Haupttabelle vorhanden sind,
+         * werden im Tab **Dependencies** ausgewählt; ausschließlich durch den Scan bekannte transitive
+         * Komponenten im Tab **Transitive CVEs**.
          *
          * @param groupId Group-ID der anzuspringenden Komponente.
          * @param artifactId Artefakt-ID der anzuspringenden Komponente.
@@ -3850,31 +3847,57 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 toolWindow.show()
             }
 
+            val targetModelRow = findDependencyModelRow(groupId, artifactId)
+            if (targetModelRow != null) {
+                setTransitiveViewVisible(false)
+                resetAllFilters()
+
+                val targetViewRow = table.convertRowIndexToView(targetModelRow)
+                if (targetViewRow >= 0) {
+                    table.setRowSelectionInterval(targetViewRow, targetViewRow)
+                    table.scrollRectToVisible(table.getCellRect(targetViewRow, 0, true))
+                    table.requestFocusInWindow()
+                    return true
+                }
+            }
+
             if (transitiveVulnerabilitiesView.containsDependency(groupId, artifactId)) {
                 setTransitiveViewVisible(true)
                 return transitiveVulnerabilitiesView.selectDependency(groupId, artifactId)
             }
 
+            return false
+        }
+
+        /**
+         * Sucht die Modellzeile einer Koordinate in der Haupttabelle unabhängig von aktiven Filtern.
+         *
+         * @param groupId Group-ID der gesuchten Komponente.
+         * @param artifactId Artefakt-ID der gesuchten Komponente.
+         * @return Den Index der Modellzeile oder `null`, wenn die Koordinate nicht in der Haupttabelle steht.
+         */
+        private fun findDependencyModelRow(groupId: String, artifactId: String): Int? {
             val model = table.model as DefaultTableModel
-            val targetModelRow = (0 until model.rowCount).firstOrNull { modelRow ->
+            return (0 until model.rowCount).firstOrNull { modelRow ->
                 val rowGroupId = model.getValueAt(modelRow, GROUP_ID_COLUMN)?.toString().orEmpty()
                 val rowArtifactId = model.getValueAt(modelRow, ARTIFACT_ID_COLUMN)?.toString().orEmpty()
                 rowGroupId == groupId && rowArtifactId == artifactId
-            } ?: return false
-
-            setTransitiveViewVisible(false)
-            resetAllFilters()
-
-            val targetViewRow = table.convertRowIndexToView(targetModelRow)
-            if (targetViewRow >= 0) {
-                table.setRowSelectionInterval(targetViewRow, targetViewRow)
-                table.scrollRectToVisible(table.getCellRect(targetViewRow, 0, true))
-                table.requestFocusInWindow()
-                return true
             }
-
-            return false
         }
+
+        /**
+         * Ermittelt die Beschriftung der Tabellennavigation anhand ihres tatsächlichen Ziels.
+         *
+         * @param groupId Group-ID der anzuspringenden Komponente.
+         * @param artifactId Artefakt-ID der anzuspringenden Komponente.
+         * @return Die lokalisierte Beschriftung für die Haupttabelle oder die Ansicht transitiver CVEs.
+         */
+        private fun tableNavigationActionLabel(groupId: String, artifactId: String): String =
+            if (findDependencyModelRow(groupId, artifactId) != null) {
+                MyMessageBundle.message("dependency.hierarchy.action.navigateToDependencies")
+            } else {
+                MyMessageBundle.message("dependency.hierarchy.action.navigateToTransitiveCves")
+            }
 
         /**
          * Prüft, ob eine Abhängigkeit mit den angegebenen Koordinaten in der Haupttabelle enthalten ist.
@@ -3884,7 +3907,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * @return `true`, wenn die Komponente in der Haupttabelle existiert, sonst `false`.
          */
         internal fun isDependencyInTable(groupId: String, artifactId: String): Boolean =
-            knownDependencies.containsKey("$groupId:$artifactId")
+            findDependencyModelRow(groupId, artifactId) != null
 
         /**
          * Prüft, ob eine Koordinate entweder in der Haupttabelle oder unter den transitiven

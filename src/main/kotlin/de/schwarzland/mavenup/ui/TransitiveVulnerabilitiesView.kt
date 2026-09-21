@@ -213,8 +213,9 @@ internal fun advisoriesBySeverity(advisories: List<VulnerabilityAdvisory>): List
  * (z. B. um die Aktionsleiste zu aktualisieren).
  * @param onShowDirectVulnerabilities Callback des Links im Empty State, der zu den ausschließlich
  * direkt deklarierten Befunden im Tab **Dependencies** wechselt.
- * @param onNavigateToTable Optionaler Callback zur Navigation zu einer Koordinate in der Haupttabelle.
- * @param isDependencyInTable Optionales Prädikat zur Prüfung, ob eine Koordinate in der Haupttabelle existiert.
+ * @param onNavigateToTable Optionaler Callback zur Navigation zu einer Koordinate in der passenden Tabellenansicht.
+ * @param isDependencyInTable Optionales Prädikat zur Prüfung, ob eine Koordinate in einer Tabellenansicht existiert.
+ * @param tableNavigationLabelProvider Optionaler Provider für die Beschriftung der Zieltabellenaktion.
  */
 @Suppress("TooManyFunctions")
 internal class TransitiveVulnerabilitiesView(
@@ -222,7 +223,8 @@ internal class TransitiveVulnerabilitiesView(
     private val onSelectionChanged: () -> Unit,
     private val onShowDirectVulnerabilities: () -> Unit,
     private val onNavigateToTable: ((String, String) -> Boolean)?,
-    private val isDependencyInTable: ((String, String) -> Boolean)? = null
+    private val isDependencyInTable: ((String, String) -> Boolean)? = null,
+    private val tableNavigationLabelProvider: ((String, String) -> String)? = null
 ) : JBPanel<JBPanel<*>>(BorderLayout()) {
 
     constructor(
@@ -299,9 +301,10 @@ internal class TransitiveVulnerabilitiesView(
     private val splitter = OnePixelSplitter(false, 1f - DEPENDENCY_HIERARCHY_PANEL_INITIAL_WIDTH_PROPORTION)
 
     /** Seitenpanel zur Anzeige des Hierarchiebaums einer ausgewählten transitiven Abhängigkeit. */
-    private val dependencyHierarchyPanel = DependencyHierarchyPanel(
+    internal val dependencyHierarchyPanel = DependencyHierarchyPanel(
         project = project,
         isDependencyInTable = isDependencyInTable,
+        tableNavigationLabelProvider = tableNavigationLabelProvider,
         onNavigateToTable = onNavigateToTable,
         onClose = { hideDependencyHierarchy() },
         vulnerabilityAdvisoriesProvider = { lastAdvisoriesByCoordinate }

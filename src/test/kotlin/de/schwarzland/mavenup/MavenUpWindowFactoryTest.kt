@@ -3691,6 +3691,58 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         toolWindow.updateTransitiveVulnerabilitiesView()
 
         assertTrue(toolWindow.navigateToDependencyInTable("org.transitive", "vulnerable-library"))
+        val hierarchyNode = de.schwarzland.mavenup.model.DependencyHierarchyNode(
+            type = de.schwarzland.mavenup.model.DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY,
+            groupId = "org.transitive",
+            artifactId = "vulnerable-library"
+        )
+        val hierarchyTree = com.intellij.ui.treeStructure.Tree(
+            javax.swing.tree.DefaultMutableTreeNode(hierarchyNode)
+        ).apply { setSelectionRow(0) }
+        assertEquals(
+            MyMessageBundle.message("dependency.hierarchy.action.navigateToTransitiveCves"),
+            toolWindow.transitiveVulnerabilitiesView.dependencyHierarchyPanel.tableNavigationActionLabel(hierarchyTree)
+        )
+    }
+
+    /**
+     * Stellt sicher, dass eine Koordinate in der Haupttabelle gegenüber einem gleichzeitigen
+     * transitiven Scan-Fund bevorzugt wird.
+     */
+    fun testNavigateToDependencyInTablePrefersDependenciesWhenCoordinateExistsInBothTables() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        val tableField = toolWindow.javaClass.getDeclaredField("table").apply { isAccessible = true }
+        val table = tableField.get(toolWindow) as javax.swing.JTable
+        val tableModel = table.model as DefaultTableModel
+        tableModel.addRow(
+            arrayOf("org.transitive", "vulnerable-library", "", "dependency", "", "1.0.0", emptyList<String>())
+        )
+        addTransitiveFinding(toolWindow, "org.transitive:vulnerable-library:1.0.0")
+        toolWindow.updateTransitiveVulnerabilitiesView()
+
+        assertTrue(toolWindow.navigateToDependencyInTable("org.transitive", "vulnerable-library"))
+        val hierarchyPanelField = toolWindow.javaClass.getDeclaredField("dependencyHierarchyPanel")
+            .apply { isAccessible = true }
+        val hierarchyPanel = hierarchyPanelField.get(toolWindow) as de.schwarzland.mavenup.ui.DependencyHierarchyPanel
+        val hierarchyNode = de.schwarzland.mavenup.model.DependencyHierarchyNode(
+            type = de.schwarzland.mavenup.model.DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY,
+            groupId = "org.transitive",
+            artifactId = "vulnerable-library"
+        )
+        val hierarchyTree = com.intellij.ui.treeStructure.Tree(
+            javax.swing.tree.DefaultMutableTreeNode(hierarchyNode)
+        ).apply { setSelectionRow(0) }
+        assertEquals(
+            MyMessageBundle.message("dependency.hierarchy.action.navigateToDependencies"),
+            hierarchyPanel.tableNavigationActionLabel(hierarchyTree)
+        )
+
+        val selectedRow = table.selectedRow
+        assertTrue(selectedRow >= 0)
+        assertEquals("org.transitive", table.getValueAt(selectedRow, GROUP_ID_COLUMN))
+        assertEquals("vulnerable-library", table.getValueAt(selectedRow, ARTIFACT_ID_COLUMN))
     }
 
     /**

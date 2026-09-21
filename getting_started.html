@@ -116,9 +116,10 @@
         <em>(recommended)</em> marker in the dropdown. In this view the toolbar's <strong>Select Highest Version</strong>
         dropdown (including <strong>Select Recommended Version</strong>) and <strong>Reset All to Current Versions</strong>
         act on the transitive coordinates, and a right-click offers <strong>Filter by "..."</strong> plus the same version
-        actions for a single coordinate. The hierarchy panel's <strong>Select in Dependencies</strong> or
-        <strong>Select in Transitive CVEs</strong> action names its target table, clears its filters, and selects the
-        matching row. The view has its own filter row with a text filter for GroupId and ArtifactId,
+        actions for a single coordinate. The hierarchy panel uses <strong>Select in Dependencies</strong> when the
+        coordinate exists in the main table; otherwise, <strong>Select in Transitive CVEs</strong> names the scanned
+        transitive target. The action clears the target table's filters and selects the matching row. The view has its
+        own filter row with a text filter for GroupId and ArtifactId,
         an <strong>Update</strong> and a <strong>Pending</strong> combo box, and a reset button; the bulk version
         actions apply only to the rows it leaves visible.
         Click a count to open

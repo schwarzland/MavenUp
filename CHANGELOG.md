@@ -45,6 +45,8 @@
 
 ### Fixed
 
+- Fixed the transitive CVEs dependency-hierarchy split view showing **Select in Dependencies** instead of **Select in Transitive CVEs** for coordinates available only in the transitive CVEs table.
+- Fixed the dependency-hierarchy selection action to prefer **Select in Dependencies** when a transitive coordinate can also be selected in the main table.
 - Fixed the dependency-hierarchy splitter resetting a manually resized side-panel width when a different dependency is selected.
 - Fixed angle brackets in the explanatory comment for commenting out managed entries on removal being parsed as HTML tags by escaping them as HTML entities.
 - Fixed the bulk version selection actions (**Select Highest Major Version**, **Select Highest Minor Version**, **Select Recommended Version**) in the transitive CVEs view not prompting whether to apply to all coordinates or only to the filtered ones when a filter is active, making its behavior consistent with the main dependencies table.
