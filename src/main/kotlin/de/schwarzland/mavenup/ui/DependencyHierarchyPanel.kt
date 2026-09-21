@@ -378,7 +378,7 @@ class DependencyHierarchyPanel(
                     add(object : AnAction(
                         MyMessageBundle.message("button.close"),
                         null,
-                        AllIcons.Actions.Close
+                        AllIcons.Actions.Cancel
                     ) {
                         override fun getActionUpdateThread() = ActionUpdateThread.EDT
                         override fun actionPerformed(event: AnActionEvent) {
