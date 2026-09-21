@@ -53,14 +53,14 @@ import javax.swing.tree.DefaultTreeModel
  *
  * Beinhaltet eine eigene Toolbar mit Aktionen zum Auf-/Zuklappen aller Knoten, zur
  * Navigation in die `pom.xml` (`Navigate to pom.xml`), zum Anspringen der Komponente in der
- * Haupttabelle (`Select in Table`) und zum Schließen des Seitenpanels.
+ * passenden Tabellenansicht (`Select in Table`) und zum Schließen des Seitenpanels.
  *
  * Ein Rechtsklick auf einen Baumknoten öffnet das entsprechende Kontextmenü;
  * zusätzlich kann per `Enter` oder `F4` direkt zur Deklaration in der `pom.xml` gesprungen werden.
  *
  * @property project Das zugehörige IntelliJ-Projekt.
- * @property isDependencyInTable Optionales Prädikat zur Prüfung, ob eine Koordinate in der Haupttabelle existiert.
- * @property onNavigateToTable Optionaler Callback zur Navigation in die Haupttabelle.
+ * @property isDependencyInTable Optionales Prädikat zur Prüfung, ob eine Koordinate in einer Tabellenansicht existiert.
+ * @property onNavigateToTable Optionaler Callback zur Navigation in die passende Tabellenansicht.
  * @property onClose Optionaler Callback beim Schließen des Seitenpanels.
  * @property vulnerabilityAdvisoriesProvider Optionaler Provider für bekannte Sicherheitswarnungen zur Kennzeichnung
  *           vulnerabler transitiver Abhängigkeiten.
@@ -321,11 +321,11 @@ class DependencyHierarchyPanel(
         }
 
     /**
-     * Prüft, ob für den aktuell ausgewählten Knoten eine Navigation in die Haupttabelle möglich ist.
+     * Prüft, ob für den aktuell ausgewählten Knoten eine Navigation in eine Tabellenansicht möglich ist.
      *
      * @param targetTree Der Baum mit der aktuellen Selektion.
      * @return `true`, wenn die Auswahl gültige Koordinaten für Group-ID und Artefakt-ID besitzt
-     *         und in der Haupttabelle enthalten ist.
+     *         und in einer Tabellenansicht enthalten ist.
      */
     internal fun canNavigateToTable(targetTree: JTree): Boolean {
         val selectedPath = targetTree.selectionPath ?: return false
@@ -517,7 +517,7 @@ class DependencyHierarchyPanel(
     }
 
     /**
-     * Springt in der Haupttabelle zur ausgewählten Komponente.
+     * Springt in der passenden Tabellenansicht zur ausgewählten Komponente.
      *
      * @param targetTree Der Baum mit der aktuellen Selektion.
      * @return `true`, wenn die Navigation ausgeführt wurde, sonst `false`.

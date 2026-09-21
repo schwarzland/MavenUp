@@ -3642,4 +3642,17 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val notFound = toolWindow.navigateToDependencyInTable("unknown.group", "unknown-artifact")
         assertFalse(notFound)
     }
+
+    /**
+     * Stellt sicher, dass die Navigation zu einer ausschließlich vom Scan bekannten transitiven
+     * Komponente den passenden Tab aktiviert, dessen Filter zurücksetzt und die Zeile selektiert.
+     */
+    fun testNavigateToDependencyInTableSelectsScannedTransitiveDependency() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+        addTransitiveFinding(toolWindow, "org.transitive:vulnerable-library:1.0.0")
+        toolWindow.updateTransitiveVulnerabilitiesView()
+
+        assertTrue(toolWindow.navigateToDependencyInTable("org.transitive", "vulnerable-library"))
+    }
 }

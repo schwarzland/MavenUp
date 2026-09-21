@@ -272,7 +272,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             { refreshToolbar() },
             { showDirectVulnerabilitiesInDependencies() },
             { groupId, artifactId -> navigateToDependencyInTable(groupId, artifactId) },
-            { groupId, artifactId -> isDependencyInTable(groupId, artifactId) }
+            { groupId, artifactId -> isDependencyInAnyTable(groupId, artifactId) }
         )
 
         /** Wurzelkomponente des Tabs **Transitive CVEs**: Aktionsleiste über der transitiven Ansicht. */
@@ -288,7 +288,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private val dependencyHierarchyPanel = DependencyHierarchyPanel(
             project = project,
             isDependencyInTable = { targetGroupId, targetArtifactId ->
-                isDependencyInTable(targetGroupId, targetArtifactId)
+                isDependencyInAnyTable(targetGroupId, targetArtifactId)
             },
             onNavigateToTable = { targetGroupId, targetArtifactId ->
                 navigateToDependencyInTable(targetGroupId, targetArtifactId)
@@ -3832,10 +3832,12 @@ class MavenUpWindowFactory : ToolWindowFactory {
         internal fun isDependencyHierarchyVisible(): Boolean = dependenciesSplitter.secondComponent != null
 
         /**
-         * Navigiert zur übergebenen Abhängigkeit in der Haupttabelle, setzt alle Filter zurück
-         * und selektiert die entsprechende Zeile.
+         * Navigiert zur übergebenen Abhängigkeit, setzt die Filter der Zielansicht zurück und selektiert
+         * die entsprechende Zeile.
          *
-         * Aktiviert bei Bedarf das Tool Window und wechselt in den Tab **Dependencies**.
+         * Aktiviert bei Bedarf das Tool Window. Direkt deklarierte Komponenten werden im Tab
+         * **Dependencies** ausgewählt; ausschließlich durch den Scan bekannte transitive Komponenten im
+         * Tab **Transitive CVEs**.
          *
          * @param groupId Group-ID der anzuspringenden Komponente.
          * @param artifactId Artefakt-ID der anzuspringenden Komponente.
@@ -3846,8 +3848,11 @@ class MavenUpWindowFactory : ToolWindowFactory {
             if (toolWindow != null && !toolWindow.isVisible) {
                 toolWindow.show()
             }
-            setTransitiveViewVisible(false)
-            resetAllFilters()
+
+            if (transitiveVulnerabilitiesView.containsDependency(groupId, artifactId)) {
+                setTransitiveViewVisible(true)
+                return transitiveVulnerabilitiesView.selectDependency(groupId, artifactId)
+            }
 
             val model = table.model as DefaultTableModel
             val targetModelRow = (0 until model.rowCount).firstOrNull { modelRow ->
@@ -3856,6 +3861,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 rowGroupId == groupId && rowArtifactId == artifactId
             } ?: return false
 
+            setTransitiveViewVisible(false)
+            resetAllFilters()
+
             val targetViewRow = table.convertRowIndexToView(targetModelRow)
             if (targetViewRow >= 0) {
                 table.setRowSelectionInterval(targetViewRow, targetViewRow)
@@ -3863,6 +3871,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 table.requestFocusInWindow()
                 return true
             }
+
             return false
         }
 
@@ -3875,5 +3884,17 @@ class MavenUpWindowFactory : ToolWindowFactory {
          */
         internal fun isDependencyInTable(groupId: String, artifactId: String): Boolean =
             knownDependencies.containsKey("$groupId:$artifactId")
+
+        /**
+         * Prüft, ob eine Koordinate entweder in der Haupttabelle oder unter den transitiven
+         * Sicherheitslücken des letzten Scans enthalten ist.
+         *
+         * @param groupId Group-ID der Komponente.
+         * @param artifactId Artefakt-ID der Komponente.
+         * @return `true`, wenn die Komponente in einer der beiden Ansichten existiert.
+         */
+        private fun isDependencyInAnyTable(groupId: String, artifactId: String): Boolean =
+            isDependencyInTable(groupId, artifactId) ||
+                transitiveVulnerabilitiesView.containsDependency(groupId, artifactId)
     }
 }

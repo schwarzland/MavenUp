@@ -82,6 +82,28 @@ class TransitiveVulnerabilitiesViewFilterTest : BasePlatformTestCase() {
         assertFalse(view.filterPanel.isResetFiltersEnabled())
     }
 
+    fun testSelectDependencyResetsFiltersAndSelectsMatchingRow() {
+        val view = buildView()
+        view.filterPanel.filterBy("org.other")
+        view.selectHighestMajorVersionForDependency("org.trans:lib")
+        view.filterPanel.updatesFilterComboBox.selectedItem = TriStateFilter.YES
+        view.filterPanel.changesFilterComboBox.selectedItem = TriStateFilter.YES
+
+        assertTrue(view.selectDependency("org.trans", "lib"))
+        assertEquals("", view.filterPanel.searchTextField.text)
+        assertEquals(TriStateFilter.ALL, view.filterPanel.updatesFilterComboBox.selectedItem)
+        assertEquals(TriStateFilter.ALL, view.filterPanel.changesFilterComboBox.selectedItem)
+        assertEquals(2, view.table.rowCount)
+        assertEquals("org.trans", view.table.getValueAt(view.table.selectedRow, TRANSITIVE_GROUP_ID_COLUMN))
+        assertEquals("lib", view.table.getValueAt(view.table.selectedRow, TRANSITIVE_ARTIFACT_ID_COLUMN))
+    }
+
+    fun testSelectDependencyReturnsFalseForUnknownCoordinate() {
+        val view = buildView()
+
+        assertFalse(view.selectDependency("unknown.group", "unknown-artifact"))
+    }
+
     fun testUpdatesFilterShowsOnlyRowsWithNewerVersion() {
         val view = buildView()
         assertTrue(view.filterPanel.updatesFilterComboBox.isEnabled)

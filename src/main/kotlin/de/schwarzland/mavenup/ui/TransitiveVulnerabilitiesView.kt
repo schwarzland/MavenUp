@@ -413,6 +413,51 @@ internal class TransitiveVulnerabilitiesView(
     }
 
     /**
+     * Prüft, ob die Tabelle eine Zeile für die übergebene Koordinate enthält.
+     *
+     * Die Prüfung erfolgt auf dem unfiltrierten Tabellenmodell, damit auch eine aktuell
+     * ausgeblendete Scan-Fundstelle als Navigationsziel verfügbar bleibt.
+     *
+     * @param groupId Group-ID der gesuchten Komponente.
+     * @param artifactId Artefakt-ID der gesuchten Komponente.
+     * @return `true`, wenn die Koordinate in den transitiven Scan-Funden enthalten ist.
+     */
+    internal fun containsDependency(groupId: String, artifactId: String): Boolean =
+        findModelRow(groupId, artifactId) != null
+
+    /**
+     * Setzt die Filter der Ansicht zurück und selektiert die übergebene Koordinate.
+     *
+     * @param groupId Group-ID der zu selektierenden Komponente.
+     * @param artifactId Artefakt-ID der zu selektierenden Komponente.
+     * @return `true`, wenn die Koordinate gefunden und selektiert wurde, sonst `false`.
+     */
+    internal fun selectDependency(groupId: String, artifactId: String): Boolean {
+        val targetModelRow = findModelRow(groupId, artifactId) ?: return false
+        filterPanel.resetAllFilters()
+        val targetViewRow = table.convertRowIndexToView(targetModelRow)
+        if (targetViewRow < 0) return false
+
+        table.setRowSelectionInterval(targetViewRow, targetViewRow)
+        table.scrollRectToVisible(table.getCellRect(targetViewRow, 0, true))
+        table.requestFocusInWindow()
+        return true
+    }
+
+    /**
+     * Ermittelt die Modellzeile zur übergebenen Maven-Koordinate.
+     *
+     * @param groupId Group-ID der gesuchten Komponente.
+     * @param artifactId Artefakt-ID der gesuchten Komponente.
+     * @return Der Modellindex der passenden Zeile oder `null`, wenn keine existiert.
+     */
+    private fun findModelRow(groupId: String, artifactId: String): Int? =
+        (0 until tableModel.rowCount).firstOrNull { modelRow ->
+            tableModel.getValueAt(modelRow, TRANSITIVE_GROUP_ID_COLUMN)?.toString() == groupId &&
+                tableModel.getValueAt(modelRow, TRANSITIVE_ARTIFACT_ID_COLUMN)?.toString() == artifactId
+        }
+
+    /**
      * Installiert Renderer und Editor der New-Version-Spalte analog zur Haupttabelle.
      *
      * Der Renderer zeigt Status-Glyph, farbcodierte Version und Tooltip; der Editor bietet eine
