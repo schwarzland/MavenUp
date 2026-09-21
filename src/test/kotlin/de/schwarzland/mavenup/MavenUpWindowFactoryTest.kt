@@ -1141,20 +1141,21 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         val model = table!!.model as DefaultTableModel
 
-        // Toolbar toggle action is enabled when not updating
+        // Toolbar toggle action is enabled when no version search is running.
         assertTrue(
             "Abhängigkeitshierarchie-Umschaltaktion sollte bedienbar sein",
-            toolWindow.isDependencyHierarchyEnabled()
+            toolWindow.isDependencyHierarchyEnabled(isSearchingVersions = false)
         )
 
-        // Deaktiviert während isUpdating
-        val updatingField = toolWindow.javaClass.getDeclaredField("isUpdating").apply { isAccessible = true }
-        updatingField.setBoolean(toolWindow, true)
-        assertFalse(
-            "Abhängigkeitshierarchie-Umschaltaktion sollte während laufender Aktualisierung deaktiviert sein",
-            toolWindow.isDependencyHierarchyEnabled()
+        // A vulnerability scan may run, but only a version search disables the action.
+        assertTrue(
+            "Abhängigkeitshierarchie-Umschaltaktion sollte während eines Vulnerability-Scans bedienbar sein",
+            toolWindow.isDependencyHierarchyEnabled(isSearchingVersions = false)
         )
-        updatingField.setBoolean(toolWindow, false)
+        assertFalse(
+            "Abhängigkeitshierarchie-Umschaltaktion sollte während einer Versionssuche deaktiviert sein",
+            toolWindow.isDependencyHierarchyEnabled(isSearchingVersions = true)
+        )
 
         model.addRow(arrayOf("com.example", "direct-lib", "", "dependency", null, "1.0.0", emptyList<String>()))
         model.addRow(arrayOf("com.example", "direct-plugin", "", "plugin", null, "1.0.0", emptyList<String>()))

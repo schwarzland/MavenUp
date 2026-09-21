@@ -3432,11 +3432,16 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /**
          * Prüft, ob die Abhängigkeitshierarchie-Aktion in der Toolbar verfügbar ist.
          *
-         * Die Umschaltaktion kann betätigt werden, solange keine Aktualisierung läuft.
+         * Die Umschaltaktion bleibt während eines Vulnerability-Scans verfügbar, weil dessen
+         * Hintergrundarbeit die Maven-Hierarchie nicht verändert. Während einer Versionssuche
+         * bleibt sie deaktiviert, weil die Haupttabelle dabei neu aufgebaut wird.
          *
-         * @return `true`, wenn keine Aktualisierung läuft.
+         * @param isSearchingVersions `true`, wenn eine Versionssuche läuft.
+         * @return `true`, wenn keine Versionssuche läuft.
          */
-        internal fun isDependencyHierarchyEnabled(): Boolean = !isUpdating
+        internal fun isDependencyHierarchyEnabled(
+            isSearchingVersions: Boolean = this.isSearchingVersions
+        ): Boolean = !isSearchingVersions
 
         /**
          * Prüft, ob das Abhängigkeitshierarchie-Panel in der aktuell sichtbaren Ansicht geöffnet ist.

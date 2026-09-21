@@ -46,6 +46,7 @@
 
 ### Fixed
 
+- Kept the **Hierarchy** toolbar action available while a vulnerability scan runs, matching the context-menu behavior.
 - Fixed the transitive CVEs dependency-hierarchy split view showing **Select in Dependencies** instead of **Select in Transitive CVEs** for coordinates available only in the transitive CVEs table.
 - Fixed the dependency-hierarchy selection action to prefer **Select in Dependencies** when a transitive coordinate can also be selected in the main table.
 - Fixed the dependency-hierarchy splitter resetting a manually resized side-panel width when a different dependency is selected.
