@@ -9,8 +9,8 @@
 - Added a configurable option in the "pom.xml Changes" settings page (enabled by default) to comment out managed dependencies and managed plugins as XML comments instead of deleting them when removed from pom.xml.
 - Added project-wide background version checks after Maven project load and every completed Maven import or resync, independent of whether the MavenUp tool window has been opened.
 - Added color highlighting for the target dependency across the tree in the **Dependency Hierarchy** dialog with automatic adaptation to Light and Dark themes.
-- Added a toolbar in the **Dependency Hierarchy** dialog with **Expand All**, **Collapse All**, **Navigate to pom.xml**, and **Select in Table** actions for quick tree navigation and jumping to the component in the main table.
-- Added a **Select in Table** action to the **Dependency Hierarchy** split view that resets all filters and selects the matching direct dependency or scanned transitive dependency in its corresponding table.
+- Added a toolbar in the **Dependency Hierarchy** dialog with **Expand All**, **Collapse All**, **Navigate to pom.xml**, and target-specific table-selection actions for quick tree navigation.
+- Added target-specific table-selection actions to the **Dependency Hierarchy** split view that reset filters and select the matching direct dependency or scanned transitive dependency in their named target table.
 - Added a **Show Dependency Hierarchy** toolbar action (with short label "Hierarchy" and abstract tree icon `AllIcons.Actions.ShowAsTree`) positioned between **Open on [Browser]** and **Vulnerability Details**, allowing inspection of the dependency hierarchy for a selected managed dependency or managed plugin in the main table, as well as any selected coordinate in the transitive CVEs table.
 - Added a modal **Show Dependency Hierarchy** dialog and context-menu action for managed dependencies and managed plugins in the main dependencies table and for every coordinate in the transitive CVEs table, visualizing the full resolution and inclusion paths, parent POMs, BOM imports, and intervening dependencies in an interactive tree with right-click context menu (**Navigate to pom.xml**) and `Enter` / `F4` keyboard navigation to the POM.
 - Added a context-menu action that marks managed dependencies and managed plugins for removal from `pom.xml` when the shared Update action is confirmed.
@@ -21,6 +21,7 @@
 
 ### Changed
 
+- Renamed the dependency-hierarchy table-selection actions to **Select in Dependencies** or **Select in Transitive CVEs** according to their actual navigation target.
 - Shortened vulnerability tooltips in the **Dependency Hierarchy** split view to the highest severity and advisory count.
 - Changed the **Dependency Hierarchy** view in the main table to support all dependencies and plugins (including direct dependencies and parent POMs, not only managed dependencies and managed plugins), displaying their full resolution, inclusion, and transitive dependency tree.
 - Added special highlighting and warning markers (warning balloon icon `AllIcons.General.BalloonWarning`, vulnerability details, worst severity badges, and tooltips) for vulnerable transitive dependencies in the **Dependency Hierarchy** split-view inspector following a vulnerability scan.

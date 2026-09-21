@@ -429,6 +429,54 @@ class DependencyHierarchyPanelTest : BasePlatformTestCase() {
         assertEquals("slf4j-api", navigatedArtifactId)
     }
 
+    fun testTableNavigationActionLabelUsesTargetTable() {
+        val dependenciesNode = DependencyHierarchyNode(
+            type = DependencyHierarchyNodeType.DIRECT_DEPENDENCY,
+            groupId = "com.example",
+            artifactId = "direct"
+        )
+        val transitiveNode = DependencyHierarchyNode(
+            type = DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY,
+            groupId = "com.example",
+            artifactId = "transitive"
+        )
+        val panel = DependencyHierarchyPanel(
+            project = project,
+            tableNavigationLabelProvider = { groupId, artifactId ->
+                if (groupId == "com.example" && artifactId == "transitive") {
+                    MyMessageBundle.message("dependency.hierarchy.action.navigateToTransitiveCves")
+                } else {
+                    MyMessageBundle.message("dependency.hierarchy.action.navigateToDependencies")
+                }
+            }
+        )
+
+        val dependenciesTree = Tree(DefaultMutableTreeNode(dependenciesNode)).apply { setSelectionRow(0) }
+        val transitiveTree = Tree(DefaultMutableTreeNode(transitiveNode)).apply { setSelectionRow(0) }
+
+        assertEquals(
+            MyMessageBundle.message("dependency.hierarchy.action.navigateToDependencies"),
+            panel.tableNavigationActionLabel(dependenciesTree)
+        )
+        assertEquals(
+            MyMessageBundle.message("dependency.hierarchy.action.navigateToTransitiveCves"),
+            panel.tableNavigationActionLabel(transitiveTree)
+        )
+
+        val transitiveLabel = MyMessageBundle.message("dependency.hierarchy.action.navigateToTransitiveCves")
+        val dependenciesLabel = MyMessageBundle.message("dependency.hierarchy.action.navigateToDependencies")
+        val toolbarAction = panel.createToolbar(transitiveTree).actionGroup
+            .getChildren(null)
+            .filterIsInstance<com.intellij.openapi.actionSystem.AnAction>()
+            .first { it.templatePresentation.text == transitiveLabel }
+        assertEquals(transitiveLabel, toolbarAction.templatePresentation.text)
+
+        val contextAction = panel.createContextMenuGroup(dependenciesTree).getChildren(null)
+            .filterIsInstance<com.intellij.openapi.actionSystem.AnAction>()
+            .first { it.templatePresentation.text == dependenciesLabel }
+        assertEquals(dependenciesLabel, contextAction.templatePresentation.text)
+    }
+
     fun testToolbarAndContextMenuActions() {
         val rootNode = DependencyHierarchyNode(
             type = DependencyHierarchyNodeType.ROOT,

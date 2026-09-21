@@ -290,6 +290,13 @@ class MavenUpWindowFactory : ToolWindowFactory {
             isDependencyInTable = { targetGroupId, targetArtifactId ->
                 isDependencyInAnyTable(targetGroupId, targetArtifactId)
             },
+            tableNavigationLabelProvider = { targetGroupId, targetArtifactId ->
+                if (transitiveVulnerabilitiesView.containsDependency(targetGroupId, targetArtifactId)) {
+                    MyMessageBundle.message("dependency.hierarchy.action.navigateToTransitiveCves")
+                } else {
+                    MyMessageBundle.message("dependency.hierarchy.action.navigateToDependencies")
+                }
+            },
             onNavigateToTable = { targetGroupId, targetArtifactId ->
                 navigateToDependencyInTable(targetGroupId, targetArtifactId)
             },

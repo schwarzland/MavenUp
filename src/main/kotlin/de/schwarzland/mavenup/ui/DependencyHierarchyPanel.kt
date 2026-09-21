@@ -53,13 +53,15 @@ import javax.swing.tree.DefaultTreeModel
  *
  * Beinhaltet eine eigene Toolbar mit Aktionen zum Auf-/Zuklappen aller Knoten, zur
  * Navigation in die `pom.xml` (`Navigate to pom.xml`), zum Anspringen der Komponente in der
- * passenden Tabellenansicht (`Select in Table`) und zum Schließen des Seitenpanels.
+ * passenden Tabellenansicht (`Select in Dependencies` oder `Select in Transitive CVEs`) und zum
+ * Schließen des Seitenpanels.
  *
  * Ein Rechtsklick auf einen Baumknoten öffnet das entsprechende Kontextmenü;
  * zusätzlich kann per `Enter` oder `F4` direkt zur Deklaration in der `pom.xml` gesprungen werden.
  *
  * @property project Das zugehörige IntelliJ-Projekt.
  * @property isDependencyInTable Optionales Prädikat zur Prüfung, ob eine Koordinate in einer Tabellenansicht existiert.
+ * @property tableNavigationLabelProvider Optionaler Provider für die Beschriftung der Zieltabellenaktion.
  * @property onNavigateToTable Optionaler Callback zur Navigation in die passende Tabellenansicht.
  * @property onClose Optionaler Callback beim Schließen des Seitenpanels.
  * @property vulnerabilityAdvisoriesProvider Optionaler Provider für bekannte Sicherheitswarnungen zur Kennzeichnung
@@ -68,6 +70,7 @@ import javax.swing.tree.DefaultTreeModel
 class DependencyHierarchyPanel(
     private val project: Project,
     private val isDependencyInTable: ((groupId: String, artifactId: String) -> Boolean)? = null,
+    private val tableNavigationLabelProvider: ((groupId: String, artifactId: String) -> String)? = null,
     private val onNavigateToTable: ((groupId: String, artifactId: String) -> Boolean)? = null,
     private val onClose: (() -> Unit)? = null,
     private val vulnerabilityAdvisoriesProvider: (() -> Map<String, List<VulnerabilityAdvisory>>)? = null
@@ -384,12 +387,13 @@ class DependencyHierarchyPanel(
                     }
                 })
                 add(object : AnAction(
-                    MyMessageBundle.message("dependency.hierarchy.action.navigateToTable"),
+                    tableNavigationActionLabel(targetTree),
                     null,
                     SELECT_IN_TABLE_ICON
                 ) {
                     override fun getActionUpdateThread() = ActionUpdateThread.EDT
                     override fun update(event: AnActionEvent) {
+                        event.presentation.text = tableNavigationActionLabel(targetTree)
                         event.presentation.isEnabled = canNavigateToTable(targetTree)
                     }
                     override fun actionPerformed(event: AnActionEvent) {
@@ -436,9 +440,10 @@ class DependencyHierarchyPanel(
                     }
                 }
             })
-            add(object : AnAction(MyMessageBundle.message("dependency.hierarchy.action.navigateToTable")) {
+            add(object : AnAction(tableNavigationActionLabel(targetTree)) {
                 override fun getActionUpdateThread() = ActionUpdateThread.EDT
                 override fun update(event: AnActionEvent) {
+                    event.presentation.text = tableNavigationActionLabel(targetTree)
                     event.presentation.isEnabled = canNavigateToTable(targetTree)
                 }
                 override fun actionPerformed(event: AnActionEvent) {
@@ -515,6 +520,22 @@ class DependencyHierarchyPanel(
             targetTree.collapseRow(row)
         }
     }
+
+    /**
+     * Ermittelt die lokalisierte Beschriftung der Aktion für die Zieltabellen-Navigation.
+     *
+     * @param targetTree Der Baum mit der aktuellen Selektion.
+     * @return Die Beschriftung für die tatsächliche Zieltabellenansicht.
+     */
+     internal fun tableNavigationActionLabel(targetTree: JTree): String {
+         val defaultLabel = MyMessageBundle.message("dependency.hierarchy.action.navigateToDependencies")
+         val selectedPath = targetTree.selectionPath ?: return defaultLabel
+         val treeNode = selectedPath.lastPathComponent as? DefaultMutableTreeNode ?: return defaultLabel
+         val node = treeNode.userObject as? DependencyHierarchyNode ?: return defaultLabel
+         if (node.groupId.isBlank() || node.artifactId.isBlank()) return defaultLabel
+
+         return tableNavigationLabelProvider?.invoke(node.groupId, node.artifactId) ?: defaultLabel
+     }
 
     /**
      * Springt in der passenden Tabellenansicht zur ausgewählten Komponente.
