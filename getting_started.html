@@ -78,7 +78,7 @@
         <strong>Set Highest Minor Version</strong> for just that dependency (available once its versions have been
         retrieved via "Refresh and Search for New Versions"), <strong>Set Recommended Version</strong> to jump to the fix version
         recommended for that dependency's own security findings, <strong>Reset to Current Version</strong> to discard that
-        dependency's selection, <strong>Show Dependency Hierarchy</strong> (visualizes the parent POM, BOM imports, and inclusion hierarchy for managed entries; it is also available for every coordinate in the <strong>Transitive CVEs</strong> tab), and <strong>Show Vulnerability Details</strong> (disabled when the dependency has no
+        dependency's selection, <strong>Show Dependency Hierarchy</strong> (visualizes the parent POM, BOM imports, and inclusion hierarchy for managed entries; it first opens paths that lead to a table entry or CVE finding while keeping unreferenced transitive-only branches available but collapsed, and is also available for every coordinate in the <strong>Transitive CVEs</strong> tab), and <strong>Show Vulnerability Details</strong> (disabled when the dependency has no
         findings). All entries stay visible and only toggle their enabled state.</li>
     <li><strong>Open the current artifact page</strong>: Select a row and use the top action toolbar to open the current
         version in the configured repository browser, such as <strong>MVN Repository</strong> or
@@ -88,7 +88,8 @@
 <h3>Check for security issues</h3>
 <ol>
     <li><strong>Run a vulnerability scan</strong>: Click <strong>Scan for Vulnerabilities</strong> to check the direct
-        dependencies and, when enabled, their resolved transitive dependencies. Results are shown in the
+        dependencies and, when enabled, their resolved transitive dependencies. You can keep using
+        <strong>Hierarchy</strong> in the toolbar or context menu while the scan runs. Results are shown in the
         <strong>Vulnerabilities</strong> column, shown directly before <strong>Current Version</strong>. If nothing is found,
         a closable banner above the table confirms the clean result and names the number of scanned coordinates.</li>
     <li><strong>Watch for failed lookups</strong>: If a request to OSV.dev, Sonatype OSS Index, or a Maven repository
@@ -116,7 +117,10 @@
         <em>(recommended)</em> marker in the dropdown. In this view the toolbar's <strong>Select Highest Version</strong>
         dropdown (including <strong>Select Recommended Version</strong>) and <strong>Reset All to Current Versions</strong>
         act on the transitive coordinates, and a right-click offers <strong>Filter by "..."</strong> plus the same version
-        actions for a single coordinate. The view has its own filter row with a text filter for GroupId and ArtifactId,
+        actions for a single coordinate. The hierarchy panel uses <strong>Select in Dependencies</strong> when the
+        coordinate exists in the main table; otherwise, <strong>Select in Transitive CVEs</strong> names the scanned
+        transitive target. The action clears the target table's filters and selects the matching row. The view has its
+        own filter row with a text filter for GroupId and ArtifactId,
         an <strong>Update</strong> and a <strong>Pending</strong> combo box, and a reset button; the bulk version
         actions apply only to the rows it leaves visible.
         Click a count to open

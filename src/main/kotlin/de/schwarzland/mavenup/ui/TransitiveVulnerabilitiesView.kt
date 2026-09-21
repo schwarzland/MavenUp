@@ -8,6 +8,7 @@ import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.ComboBox
+import com.intellij.ui.OnePixelSplitter
 import com.intellij.ui.SimpleTextAttributes
 import com.intellij.ui.components.JBPanel
 import com.intellij.ui.components.JBScrollPane
@@ -46,6 +47,21 @@ internal const val TRANSITIVE_VERSION_COLUMN = 4
 
 /** Spaltenindex der auszuwählenden neuen Version in der Tabelle der transitiven Sicherheitslücken. */
 internal const val TRANSITIVE_NEW_VERSION_COLUMN = 5
+
+/** Anteil der verfügbaren Breite, den das Hierarchiepanel beim Öffnen einnimmt. */
+internal const val DEPENDENCY_HIERARCHY_PANEL_INITIAL_WIDTH_PROPORTION = 1f / 3f
+
+/**
+ * Setzt die anfängliche Breite des Hierarchiepanels zurück.
+ *
+ * Die erste Komponente des horizontalen Splitters ist die Tabelle. Daher erhält sie den Anteil,
+ * der nach der für das Hierarchiepanel vorgesehenen Breite verbleibt.
+ *
+ * @param splitter Der Splitter zwischen Tabelle und Hierarchiepanel.
+ */
+internal fun resetDependencyHierarchySplitterWidth(splitter: OnePixelSplitter) {
+    splitter.proportion = 1f - DEPENDENCY_HIERARCHY_PANEL_INITIAL_WIDTH_PROPORTION
+}
 
 /**
  * Eine Zeile der Ansicht der transitiven, verwundbaren Abhängigkeiten.
@@ -197,8 +213,9 @@ internal fun advisoriesBySeverity(advisories: List<VulnerabilityAdvisory>): List
  * (z. B. um die Aktionsleiste zu aktualisieren).
  * @param onShowDirectVulnerabilities Callback des Links im Empty State, der zu den ausschließlich
  * direkt deklarierten Befunden im Tab **Dependencies** wechselt.
- * @param onNavigateToTable Optionaler Callback zur Navigation zu einer Koordinate in der Haupttabelle.
- * @param isDependencyInTable Optionales Prädikat zur Prüfung, ob eine Koordinate in der Haupttabelle existiert.
+ * @param onNavigateToTable Optionaler Callback zur Navigation zu einer Koordinate in der passenden Tabellenansicht.
+ * @param isDependencyInTable Optionales Prädikat zur Prüfung, ob eine Koordinate in einer Tabellenansicht existiert.
+ * @param tableNavigationLabelProvider Optionaler Provider für die Beschriftung der Zieltabellenaktion.
  */
 @Suppress("TooManyFunctions")
 internal class TransitiveVulnerabilitiesView(
@@ -206,7 +223,8 @@ internal class TransitiveVulnerabilitiesView(
     private val onSelectionChanged: () -> Unit,
     private val onShowDirectVulnerabilities: () -> Unit,
     private val onNavigateToTable: ((String, String) -> Boolean)?,
-    private val isDependencyInTable: ((String, String) -> Boolean)? = null
+    private val isDependencyInTable: ((String, String) -> Boolean)? = null,
+    private val tableNavigationLabelProvider: ((String, String) -> String)? = null
 ) : JBPanel<JBPanel<*>>(BorderLayout()) {
 
     constructor(
@@ -276,6 +294,22 @@ internal class TransitiveVulnerabilitiesView(
      */
     private val rowSorter: TableRowSorter<DefaultTableModel>
 
+    /** Letzte bekannte Zuordnung aller Koordinaten zu ihren Sicherheitswarnungen. */
+    private var lastAdvisoriesByCoordinate: Map<String, List<VulnerabilityAdvisory>> = emptyMap()
+
+    /** Splitter für die transitive Tabelle und das optionale Hierarchiepanel. */
+    private val splitter = OnePixelSplitter(false, 1f - DEPENDENCY_HIERARCHY_PANEL_INITIAL_WIDTH_PROPORTION)
+
+    /** Seitenpanel zur Anzeige des Hierarchiebaums einer ausgewählten transitiven Abhängigkeit. */
+    internal val dependencyHierarchyPanel = DependencyHierarchyPanel(
+        project = project,
+        isDependencyInTable = isDependencyInTable,
+        tableNavigationLabelProvider = tableNavigationLabelProvider,
+        onNavigateToTable = onNavigateToTable,
+        onClose = { hideDependencyHierarchy() },
+        vulnerabilityAdvisoriesProvider = { lastAdvisoriesByCoordinate }
+    )
+
     init {
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION)
         table.tableHeader.reorderingAllowed = false
@@ -343,8 +377,18 @@ internal class TransitiveVulnerabilitiesView(
             }
         })
 
+        table.selectionModel.addListSelectionListener { event ->
+            if (!event.valueIsAdjusting) {
+                onSelectionChanged()
+                if (isDependencyHierarchyVisible()) {
+                    syncDependencyHierarchySelection()
+                }
+            }
+        }
+
+        splitter.firstComponent = JBScrollPane(table)
         add(filterPanel, BorderLayout.NORTH)
-        add(JBScrollPane(table), BorderLayout.CENTER)
+        add(splitter, BorderLayout.CENTER)
         updateEmptyText()
         applyRowFilter()
     }
@@ -385,6 +429,51 @@ internal class TransitiveVulnerabilitiesView(
         }
         filterPanel.refreshResetAction()
     }
+
+    /**
+     * Prüft, ob die Tabelle eine Zeile für die übergebene Koordinate enthält.
+     *
+     * Die Prüfung erfolgt auf dem unfiltrierten Tabellenmodell, damit auch eine aktuell
+     * ausgeblendete Scan-Fundstelle als Navigationsziel verfügbar bleibt.
+     *
+     * @param groupId Group-ID der gesuchten Komponente.
+     * @param artifactId Artefakt-ID der gesuchten Komponente.
+     * @return `true`, wenn die Koordinate in den transitiven Scan-Funden enthalten ist.
+     */
+    internal fun containsDependency(groupId: String, artifactId: String): Boolean =
+        findModelRow(groupId, artifactId) != null
+
+    /**
+     * Setzt die Filter der Ansicht zurück und selektiert die übergebene Koordinate.
+     *
+     * @param groupId Group-ID der zu selektierenden Komponente.
+     * @param artifactId Artefakt-ID der zu selektierenden Komponente.
+     * @return `true`, wenn die Koordinate gefunden und selektiert wurde, sonst `false`.
+     */
+    internal fun selectDependency(groupId: String, artifactId: String): Boolean {
+        val targetModelRow = findModelRow(groupId, artifactId) ?: return false
+        filterPanel.resetAllFilters()
+        val targetViewRow = table.convertRowIndexToView(targetModelRow)
+        if (targetViewRow < 0) return false
+
+        table.setRowSelectionInterval(targetViewRow, targetViewRow)
+        table.scrollRectToVisible(table.getCellRect(targetViewRow, 0, true))
+        table.requestFocusInWindow()
+        return true
+    }
+
+    /**
+     * Ermittelt die Modellzeile zur übergebenen Maven-Koordinate.
+     *
+     * @param groupId Group-ID der gesuchten Komponente.
+     * @param artifactId Artefakt-ID der gesuchten Komponente.
+     * @return Der Modellindex der passenden Zeile oder `null`, wenn keine existiert.
+     */
+    private fun findModelRow(groupId: String, artifactId: String): Int? =
+        (0 until tableModel.rowCount).firstOrNull { modelRow ->
+            tableModel.getValueAt(modelRow, TRANSITIVE_GROUP_ID_COLUMN)?.toString() == groupId &&
+                tableModel.getValueAt(modelRow, TRANSITIVE_ARTIFACT_ID_COLUMN)?.toString() == artifactId
+        }
 
     /**
      * Installiert Renderer und Editor der New-Version-Spalte analog zur Haupttabelle.
@@ -1027,6 +1116,7 @@ internal class TransitiveVulnerabilitiesView(
         this.availableVersions = availableVersions
         this.scanPerformed = scanPerformed
         this.hasDirectFindings = hasDirectFindings
+        this.lastAdvisoriesByCoordinate = advisoriesByCoordinate
         val transitiveTypeLabel = MyMessageBundle.message("toolwindow.TransitiveVulnerabilities.type.transitive")
         val rows = collectTransitiveVulnerabilityRows(
             advisoriesByCoordinate,
@@ -1065,6 +1155,9 @@ internal class TransitiveVulnerabilitiesView(
         updateEmptyText()
         filterPanel.updateAvailability()
         applyRowFilter()
+        if (isDependencyHierarchyVisible()) {
+            syncDependencyHierarchySelection()
+        }
     }
 
     /**
@@ -1105,23 +1198,86 @@ internal class TransitiveVulnerabilitiesView(
     }
 
     /**
-     * Öffnet den Hierarchiebaum-Dialog für die Koordinate der angegebenen Sichtzeile.
+     * Synchronisiert den Zustand des Hierarchiebaum-Panels mit der aktuell in der Tabelle selektierten Zeile.
+     */
+    internal fun syncDependencyHierarchySelection() {
+        val row = table.selectedRow
+        if (row < 0 || table.selectedRowCount > 1) {
+            dependencyHierarchyPanel.showEmpty()
+            return
+        }
+        val modelRow = table.convertRowIndexToModel(row)
+        val groupId = tableModel.getValueAt(modelRow, TRANSITIVE_GROUP_ID_COLUMN)?.toString().orEmpty()
+        val artifactId = tableModel.getValueAt(modelRow, TRANSITIVE_ARTIFACT_ID_COLUMN)?.toString().orEmpty()
+        if (groupId.isNotBlank() && artifactId.isNotBlank()) {
+            dependencyHierarchyPanel.showHierarchy(groupId, artifactId, false)
+        } else {
+            dependencyHierarchyPanel.showEmpty()
+        }
+    }
+
+    /**
+     * Schaltet das Hierarchiepanel ein oder aus.
+     *
+     * @param open `true` zum Einblenden (inklusive Synchronisation mit der Selektion), `false` zum Ausblenden.
+     */
+    internal fun toggleDependencyHierarchy(open: Boolean) {
+        if (open) {
+            splitter.secondComponent = dependencyHierarchyPanel
+            syncDependencyHierarchySelection()
+            splitter.revalidate()
+            splitter.repaint()
+        } else {
+            hideDependencyHierarchy()
+        }
+        onSelectionChanged()
+    }
+
+    /**
+     * Öffnet das Hierarchiebaum-Panel rechts neben der transitiven CVE-Tabelle für die Koordinate der angegebenen Sichtzeile.
      *
      * @param viewRow Der Zeilenindex in der (ggf. sortierten) Sicht.
      */
     internal fun openDependencyHierarchy(viewRow: Int) {
+        if (table.selectedRow != viewRow) {
+            table.setRowSelectionInterval(viewRow, viewRow)
+        }
         val modelRow = table.convertRowIndexToModel(viewRow)
         val groupId = tableModel.getValueAt(modelRow, TRANSITIVE_GROUP_ID_COLUMN) as? String ?: ""
         val artifactId = tableModel.getValueAt(modelRow, TRANSITIVE_ARTIFACT_ID_COLUMN) as? String ?: ""
-        DependencyHierarchyDialog(
-            project = project,
-            groupId = groupId,
-            artifactId = artifactId,
-            isPlugin = false,
-            isDependencyInTable = isDependencyInTable,
-            onNavigateToTable = onNavigateToTable
-        ).show()
+        showDependencyHierarchy(groupId, artifactId, false)
     }
+
+    /**
+     * Zeigt das Hierarchiebaum-Panel für die angegebene Koordinate rechts neben der transitiven Tabelle an.
+     *
+     * @param groupId Group-ID der Komponente.
+     * @param artifactId Artefakt-ID der Komponente.
+     * @param isPlugin `true` für Plugins, sonst `false`.
+     */
+    internal fun showDependencyHierarchy(groupId: String, artifactId: String, isPlugin: Boolean = false) {
+        dependencyHierarchyPanel.showHierarchy(groupId, artifactId, isPlugin)
+        splitter.secondComponent = dependencyHierarchyPanel
+        splitter.revalidate()
+        splitter.repaint()
+        onSelectionChanged()
+    }
+
+    /**
+     * Schließt das Hierarchiebaum-Panel neben der transitiven Tabelle.
+     */
+    internal fun hideDependencyHierarchy() {
+        splitter.secondComponent = null
+        resetDependencyHierarchySplitterWidth(splitter)
+        splitter.revalidate()
+        splitter.repaint()
+        onSelectionChanged()
+    }
+
+    /**
+     * Prüft, ob das Hierarchiebaum-Panel neben der transitiven Tabelle aktuell eingeblendet ist.
+     */
+    internal fun isDependencyHierarchyVisible(): Boolean = splitter.secondComponent != null
 
     /**
      * Öffnet den Detaildialog für die Sicherheitslücken der angeklickten Sichtzeile.

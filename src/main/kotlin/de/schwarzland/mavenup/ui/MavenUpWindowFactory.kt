@@ -30,6 +30,7 @@ import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.actionSystem.Separator
+import com.intellij.openapi.actionSystem.ToggleAction
 import com.intellij.openapi.actionSystem.ex.ActionUtil
 import com.intellij.openapi.actionSystem.impl.ActionButton
 import com.intellij.ide.HelpTooltip
@@ -54,6 +55,7 @@ import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.ui.DocumentAdapter
 import com.intellij.ui.EditorNotificationPanel
 import com.intellij.ui.InlineBanner
+import com.intellij.ui.OnePixelSplitter
 import com.intellij.ui.SearchTextField
 import com.intellij.ui.components.JBPanel
 import com.intellij.ui.components.JBScrollPane
@@ -265,12 +267,13 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private val transitiveCurrentVersions = mutableMapOf<String, String>()
 
         /** Alternative Ansicht, die ausschließlich transitive, verwundbare Abhängigkeiten auflistet. */
-        private val transitiveVulnerabilitiesView = TransitiveVulnerabilitiesView(
+        internal val transitiveVulnerabilitiesView = TransitiveVulnerabilitiesView(
             project,
             { refreshToolbar() },
             { showDirectVulnerabilitiesInDependencies() },
             { groupId, artifactId -> navigateToDependencyInTable(groupId, artifactId) },
-            { groupId, artifactId -> isDependencyInTable(groupId, artifactId) }
+            { groupId, artifactId -> isDependencyInAnyTable(groupId, artifactId) },
+            { groupId, artifactId -> tableNavigationActionLabel(groupId, artifactId) }
         )
 
         /** Wurzelkomponente des Tabs **Transitive CVEs**: Aktionsleiste über der transitiven Ansicht. */
@@ -278,6 +281,28 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
         /** Container für die Aktionsleiste des Tabs **Transitive CVEs**. */
         private val transitiveTopPanel = JBPanel<JBPanel<*>>(BorderLayout())
+
+        /** Splitter für die Haupttabelle und das optionale Hierarchiepanel. */
+        private val dependenciesSplitter = OnePixelSplitter(
+            false,
+            1f - DEPENDENCY_HIERARCHY_PANEL_INITIAL_WIDTH_PROPORTION
+        )
+
+        /** Seitenpanel zur Anzeige des Hierarchiebaums einer ausgewählten Abhängigkeit. */
+        private val dependencyHierarchyPanel = DependencyHierarchyPanel(
+            project = project,
+            isDependencyInTable = { targetGroupId, targetArtifactId ->
+                isDependencyInAnyTable(targetGroupId, targetArtifactId)
+            },
+            tableNavigationLabelProvider = { targetGroupId, targetArtifactId ->
+                tableNavigationActionLabel(targetGroupId, targetArtifactId)
+            },
+            onNavigateToTable = { targetGroupId, targetArtifactId ->
+                navigateToDependencyInTable(targetGroupId, targetArtifactId)
+            },
+            onClose = { hideDependencyHierarchy() },
+            vulnerabilityAdvisoriesProvider = { vulnerabilityAdvisories }
+        )
 
         /** ContentManager des Tool Windows; erst nach [bindTabs] gesetzt. */
         private var contentManager: ContentManager? = null
@@ -545,6 +570,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
             table.selectionModel.addListSelectionListener { event ->
                 if (!event.valueIsAdjusting) {
                     refreshToolbar()
+                    if (isDependencyHierarchyVisible()) {
+                        syncDependencyHierarchySelection()
+                    }
                 }
             }
 
@@ -912,7 +940,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
             automaticVersionSearchCoordinator.latestState()?.let(::applyAutomaticVersionSearchState)
                 ?: refreshAction(false, true, true)
 
-            add(JBScrollPane(table), BorderLayout.CENTER)
+            dependenciesSplitter.firstComponent = JBScrollPane(table)
+            add(dependenciesSplitter, BorderLayout.CENTER)
             transitiveContent.add(transitiveTopPanel, BorderLayout.NORTH)
             transitiveContent.add(transitiveVulnerabilitiesView, BorderLayout.CENTER)
 
@@ -950,6 +979,39 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     }
 
                     override fun actionPerformed(e: AnActionEvent) = onPerform()
+                }
+            }
+
+            fun dynamicToggleAction(
+                icon: Icon,
+                isEnabled: () -> Boolean,
+                isSelected: () -> Boolean,
+                labelProvider: () -> String,
+                shortLabelKey: String? = null,
+                descriptionProvider: (() -> String)? = null,
+                onToggle: (Boolean) -> Unit
+            ): ToggleAction {
+                return object : ToggleAction(labelProvider(), descriptionProvider?.invoke() ?: labelProvider(), icon) {
+                    override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
+
+                    override fun isSelected(e: AnActionEvent): Boolean = isSelected()
+
+                    override fun setSelected(e: AnActionEvent, state: Boolean) {
+                        onToggle(state)
+                    }
+
+                    override fun update(e: AnActionEvent) {
+                        super.update(e)
+                        e.presentation.isEnabled = isEnabled()
+                        val label = labelProvider()
+                        val fullText = descriptionProvider?.invoke() ?: label
+                        val showText = isToolbarTextEnabled()
+                        val shortLabel = shortLabelKey?.let { MyMessageBundle.message(it) } ?: label
+                        e.presentation.text = shortLabel
+                        e.presentation.description = fullText
+                        e.presentation.putClientProperty(ActionButton.CUSTOM_HELP_TOOLTIP, HelpTooltip().withWrappingDescription(fullText))
+                        e.presentation.putClientProperty(ActionUtil.SHOW_TEXT_IN_TOOLBAR, showText)
+                    }
                 }
             }
 
@@ -1188,15 +1250,16 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_CONTEXT_MENU_NAVIGATE_TO_POM)
                     }
                 ) { navigateToPomForSelectedRow() })
-                add(toolbarAction(
-                    "toolwindow.MyToolWindow.dependencyHierarchy.button",
-                    AllIcons.Actions.ShowAsTree,
-                    { isDependencyHierarchyEnabled() },
+                add(dynamicToggleAction(
+                    icon = AllIcons.Actions.ShowAsTree,
+                    isEnabled = { isDependencyHierarchyEnabled() },
+                    isSelected = { isDependencyHierarchySelected() },
+                    labelProvider = { MyMessageBundle.message("toolwindow.MyToolWindow.dependencyHierarchy.button") },
                     shortLabelKey = "toolwindow.MyToolWindow.dependencyHierarchy.button.short",
                     descriptionProvider = {
                         MyMessageBundle.message("toolwindow.MyToolWindow.dependencyHierarchy.tooltip")
                     }
-                ) { openDependencyHierarchyForSelectedRow() })
+                ) { open -> toggleDependencyHierarchy(open) })
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.vulnerabilityDetails.button",
                     AllIcons.General.BalloonWarning,
@@ -1459,14 +1522,15 @@ class MavenUpWindowFactory : ToolWindowFactory {
          */
         private fun addContextVulnerabilityAction(group: DefaultActionGroup, target: DependencyContextMenuTarget) {
             val hasVulnerabilities = target.vulnerabilityCell?.allAdvisories?.isNotEmpty() == true
-            val hierarchyEnabled = isManagedEntryType(target.type)
+            val hierarchyEnabled = target.groupId.isNotBlank() && target.artifactId.isNotBlank()
             group.addSeparator()
             addContextMenuAction(
                 group,
                 MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.showDependencyHierarchy"),
                 hierarchyEnabled
             ) {
-                showDependencyHierarchy(target.groupId, target.artifactId, target.type == MANAGED_PLUGIN)
+                val isPlugin = target.type == MANAGED_PLUGIN || target.type == "plugin"
+                showDependencyHierarchy(target.groupId, target.artifactId, isPlugin)
             }
             addContextMenuAction(
                 group,
@@ -3366,20 +3430,72 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
-         * Prüft, ob für die aktuell selektierte Zeile die Abhängigkeitshierarchie-Aktion verfügbar ist.
+         * Prüft, ob die Abhängigkeitshierarchie-Aktion in der Toolbar verfügbar ist.
          *
-         * In der Haupttabelle ist die Aktion für verwaltete Abhängigkeiten und verwaltete Plugins aktiv;
-         * in der transitiven Sicherheitslücken-Ansicht ist sie für alle selektierten Zeilen verfügbar.
+         * Die Umschaltaktion bleibt während eines Vulnerability-Scans verfügbar, weil dessen
+         * Hintergrundarbeit die Maven-Hierarchie nicht verändert. Während einer Versionssuche
+         * bleibt sie deaktiviert, weil die Haupttabelle dabei neu aufgebaut wird.
          *
-         * @return `true`, wenn eine passende Zeile selektiert ist.
+         * @param isSearchingVersions `true`, wenn eine Versionssuche läuft.
+         * @return `true`, wenn keine Versionssuche läuft.
          */
-        internal fun isDependencyHierarchyEnabled(): Boolean {
-            if (isUpdating) return false
-            if (showingTransitiveView) return transitiveVulnerabilitiesView.hasSelectedRow()
+        internal fun isDependencyHierarchyEnabled(
+            isSearchingVersions: Boolean = this.isSearchingVersions
+        ): Boolean = !isSearchingVersions
+
+        /**
+         * Prüft, ob das Abhängigkeitshierarchie-Panel in der aktuell sichtbaren Ansicht geöffnet ist.
+         *
+         * @return `true`, wenn das Panel geöffnet ist.
+         */
+        internal fun isDependencyHierarchySelected(): Boolean =
+            if (showingTransitiveView) transitiveVulnerabilitiesView.isDependencyHierarchyVisible()
+            else isDependencyHierarchyVisible()
+
+        /**
+         * Schaltet das Abhängigkeitshierarchie-Panel ein oder aus.
+         *
+         * Wirkt je nach aktiver Ansicht auf die Haupttabelle oder die transitive Sicherheitslücken-Ansicht.
+         *
+         * @param open `true` zum Öffnen (inklusive Selektionssynchronisation), `false` zum Schließen.
+         */
+        internal fun toggleDependencyHierarchy(open: Boolean) {
+            if (showingTransitiveView) {
+                transitiveVulnerabilitiesView.toggleDependencyHierarchy(open)
+            } else {
+                if (open) {
+                    dependenciesSplitter.secondComponent = dependencyHierarchyPanel
+                    syncDependencyHierarchySelection()
+                    dependenciesSplitter.revalidate()
+                    dependenciesSplitter.repaint()
+                } else {
+                    hideDependencyHierarchy()
+                }
+                refreshToolbar()
+            }
+        }
+
+        /**
+         * Synchronisiert den Zustand des Hierarchiebaum-Panels mit der aktuell in der Haupttabelle selektierten Zeile.
+         *
+         * Zeigt die Hierarchie für die ausgewählte Komponente an; bei fehlender Selektion oder mehreren selektierten
+         * Zeilen wird ein informativer Empty State dargestellt.
+         */
+        internal fun syncDependencyHierarchySelection() {
             val row = table.selectedRow
-            if (row < 0) return false
-            val type = table.getValueAt(row, TYPE_COLUMN) as? String ?: return false
-            return isManagedEntryType(type)
+            if (row < 0 || table.selectedRowCount > 1) {
+                dependencyHierarchyPanel.showEmpty()
+                return
+            }
+            val groupId = table.getValueAt(row, GROUP_ID_COLUMN)?.toString().orEmpty()
+            val artifactId = table.getValueAt(row, ARTIFACT_ID_COLUMN)?.toString().orEmpty()
+            val type = table.getValueAt(row, TYPE_COLUMN) as? String ?: ""
+            if (groupId.isNotBlank() && artifactId.isNotBlank()) {
+                val isPlugin = type == MANAGED_PLUGIN || type == "plugin"
+                dependencyHierarchyPanel.showHierarchy(groupId, artifactId, isPlugin)
+            } else {
+                dependencyHierarchyPanel.showEmpty()
+            }
         }
 
         /**
@@ -3426,27 +3542,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
             val artifactId = table.getValueAt(row, ARTIFACT_ID_COLUMN)?.toString().orEmpty()
             val currentVersion = table.getValueAt(row, CURRENT_VERSION_COLUMN)?.toString().orEmpty()
             openInMavenRepository(groupId, artifactId, currentVersion)
-        }
-
-        /**
-         * Öffnet den Abhängigkeitshierarchie-Dialog für die aktuell selektierte Zeile.
-         *
-         * Wirkt je nach aktiver Ansicht auf die Haupttabelle (für verwaltete Einträge) oder
-         * die transitive Sicherheitslücken-Ansicht.
-         */
-        internal fun openDependencyHierarchyForSelectedRow() {
-            if (showingTransitiveView) {
-                transitiveVulnerabilitiesView.openSelectedDependencyHierarchy()
-                return
-            }
-            val row = table.selectedRow
-            if (row < 0) return
-            val groupId = table.getValueAt(row, GROUP_ID_COLUMN)?.toString().orEmpty()
-            val artifactId = table.getValueAt(row, ARTIFACT_ID_COLUMN)?.toString().orEmpty()
-            val type = table.getValueAt(row, TYPE_COLUMN) as? String ?: ""
-            if (isManagedEntryType(type) && groupId.isNotBlank() && artifactId.isNotBlank()) {
-                showDependencyHierarchy(groupId, artifactId, type == MANAGED_PLUGIN)
-            }
         }
 
         /**
@@ -3635,6 +3730,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
             vulnerabilityScanPerformed = true
             lastScannedCount = scanTargets.dependencies.size
             updateTransitiveVulnerabilitiesView()
+            if (isDependencyHierarchyVisible()) {
+                syncDependencyHierarchySelection()
+            }
         }
 
         /**
@@ -3705,32 +3803,44 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
-         * Öffnet den Hierarchiebaum-Dialog für eine Managed Dependency oder ein Managed Plugin.
+         * Öffnet das Hierarchiebaum-Panel für eine Managed Dependency oder ein Managed Plugin
+         * rechts neben der Haupttabelle.
          *
          * @param groupId Group-ID der Komponente.
          * @param artifactId Artefakt-ID der Komponente.
          * @param isPlugin `true` für Managed Plugins, `false` für Managed Dependencies.
          */
         internal fun showDependencyHierarchy(groupId: String, artifactId: String, isPlugin: Boolean = false) {
-            DependencyHierarchyDialog(
-                project = project,
-                groupId = groupId,
-                artifactId = artifactId,
-                isPlugin = isPlugin,
-                isDependencyInTable = { targetGroupId, targetArtifactId ->
-                    isDependencyInTable(targetGroupId, targetArtifactId)
-                },
-                onNavigateToTable = { targetGroupId, targetArtifactId ->
-                    navigateToDependencyInTable(targetGroupId, targetArtifactId)
-                }
-            ).show()
+            dependencyHierarchyPanel.showHierarchy(groupId, artifactId, isPlugin)
+            dependenciesSplitter.secondComponent = dependencyHierarchyPanel
+            dependenciesSplitter.revalidate()
+            dependenciesSplitter.repaint()
+            refreshToolbar()
         }
 
         /**
-         * Navigiert zur übergebenen Abhängigkeit in der Haupttabelle, setzt alle Filter zurück
-         * und selektiert die entsprechende Zeile.
+         * Schließt das Hierarchiebaum-Panel neben der Haupttabelle.
+         */
+        internal fun hideDependencyHierarchy() {
+            dependenciesSplitter.secondComponent = null
+            resetDependencyHierarchySplitterWidth(dependenciesSplitter)
+            dependenciesSplitter.revalidate()
+            dependenciesSplitter.repaint()
+            refreshToolbar()
+        }
+
+        /**
+         * Prüft, ob das Hierarchiebaum-Panel der Haupttabelle aktuell eingeblendet ist.
+         */
+        internal fun isDependencyHierarchyVisible(): Boolean = dependenciesSplitter.secondComponent != null
+
+        /**
+         * Navigiert zur übergebenen Abhängigkeit, setzt die Filter der Zielansicht zurück und selektiert
+         * die entsprechende Zeile.
          *
-         * Aktiviert bei Bedarf das Tool Window und wechselt in den Tab **Dependencies**.
+         * Aktiviert bei Bedarf das Tool Window. Komponenten, die in der Haupttabelle vorhanden sind,
+         * werden im Tab **Dependencies** ausgewählt; ausschließlich durch den Scan bekannte transitive
+         * Komponenten im Tab **Transitive CVEs**.
          *
          * @param groupId Group-ID der anzuspringenden Komponente.
          * @param artifactId Artefakt-ID der anzuspringenden Komponente.
@@ -3741,25 +3851,58 @@ class MavenUpWindowFactory : ToolWindowFactory {
             if (toolWindow != null && !toolWindow.isVisible) {
                 toolWindow.show()
             }
-            setTransitiveViewVisible(false)
-            resetAllFilters()
 
+            val targetModelRow = findDependencyModelRow(groupId, artifactId)
+            if (targetModelRow != null) {
+                setTransitiveViewVisible(false)
+                resetAllFilters()
+
+                val targetViewRow = table.convertRowIndexToView(targetModelRow)
+                if (targetViewRow >= 0) {
+                    table.setRowSelectionInterval(targetViewRow, targetViewRow)
+                    table.scrollRectToVisible(table.getCellRect(targetViewRow, 0, true))
+                    table.requestFocusInWindow()
+                    return true
+                }
+            }
+
+            if (transitiveVulnerabilitiesView.containsDependency(groupId, artifactId)) {
+                setTransitiveViewVisible(true)
+                return transitiveVulnerabilitiesView.selectDependency(groupId, artifactId)
+            }
+
+            return false
+        }
+
+        /**
+         * Sucht die Modellzeile einer Koordinate in der Haupttabelle unabhängig von aktiven Filtern.
+         *
+         * @param groupId Group-ID der gesuchten Komponente.
+         * @param artifactId Artefakt-ID der gesuchten Komponente.
+         * @return Den Index der Modellzeile oder `null`, wenn die Koordinate nicht in der Haupttabelle steht.
+         */
+        private fun findDependencyModelRow(groupId: String, artifactId: String): Int? {
             val model = table.model as DefaultTableModel
-            val targetModelRow = (0 until model.rowCount).firstOrNull { modelRow ->
+            return (0 until model.rowCount).firstOrNull { modelRow ->
                 val rowGroupId = model.getValueAt(modelRow, GROUP_ID_COLUMN)?.toString().orEmpty()
                 val rowArtifactId = model.getValueAt(modelRow, ARTIFACT_ID_COLUMN)?.toString().orEmpty()
                 rowGroupId == groupId && rowArtifactId == artifactId
-            } ?: return false
-
-            val targetViewRow = table.convertRowIndexToView(targetModelRow)
-            if (targetViewRow >= 0) {
-                table.setRowSelectionInterval(targetViewRow, targetViewRow)
-                table.scrollRectToVisible(table.getCellRect(targetViewRow, 0, true))
-                table.requestFocusInWindow()
-                return true
             }
-            return false
         }
+
+        /**
+         * Ermittelt die Beschriftung der Tabellennavigation anhand ihres tatsächlichen Ziels.
+         *
+         * @param groupId Group-ID der anzuspringenden Komponente.
+         * @param artifactId Artefakt-ID der anzuspringenden Komponente.
+         * @return Die lokalisierte Beschriftung für die Haupttabelle oder die Ansicht transitiver CVEs.
+         */
+        private fun tableNavigationActionLabel(groupId: String, artifactId: String): String =
+            if (findDependencyModelRow(groupId, artifactId) != null) {
+                MyMessageBundle.message("dependency.hierarchy.action.navigateToDependencies")
+            } else {
+                MyMessageBundle.message("dependency.hierarchy.action.navigateToTransitiveCves")
+            }
 
         /**
          * Prüft, ob eine Abhängigkeit mit den angegebenen Koordinaten in der Haupttabelle enthalten ist.
@@ -3769,6 +3912,18 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * @return `true`, wenn die Komponente in der Haupttabelle existiert, sonst `false`.
          */
         internal fun isDependencyInTable(groupId: String, artifactId: String): Boolean =
-            knownDependencies.containsKey("$groupId:$artifactId")
+            findDependencyModelRow(groupId, artifactId) != null
+
+        /**
+         * Prüft, ob eine Koordinate entweder in der Haupttabelle oder unter den transitiven
+         * Sicherheitslücken des letzten Scans enthalten ist.
+         *
+         * @param groupId Group-ID der Komponente.
+         * @param artifactId Artefakt-ID der Komponente.
+         * @return `true`, wenn die Komponente in einer der beiden Ansichten existiert.
+         */
+        private fun isDependencyInAnyTable(groupId: String, artifactId: String): Boolean =
+            isDependencyInTable(groupId, artifactId) ||
+                transitiveVulnerabilitiesView.containsDependency(groupId, artifactId)
     }
 }

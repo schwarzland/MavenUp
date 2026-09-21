@@ -43,7 +43,7 @@ class DependencyHierarchyService(private val project: Project) {
             isManaged = true
         )
 
-        val mavenProjects = MavenProjectsManager.getInstance(project).projects
+        val mavenProjects = MavenProjectsManager.getInstance(project).projects.toList()
         for (mavenProject in mavenProjects) {
             val projectNode = buildProjectHierarchy(mavenProject, targetGroupId, targetArtifactId, isPlugin)
             if (projectNode.children.isNotEmpty()) {
@@ -399,32 +399,34 @@ class DependencyHierarchyService(private val project: Project) {
                 val directNode = path.first()
                 val g = directNode.artifact.groupId
                 val a = directNode.artifact.artifactId
-                val alreadyAdded = projectNode.children.any {
+                val directTag = rootTag?.findFirstSubTag("dependencies")?.findSubTags("dependency")?.find { tag ->
+                    val depG = tag.findFirstSubTag("groupId")?.value?.text?.trim().orEmpty()
+                    val depA = tag.findFirstSubTag("artifactId")?.value?.text?.trim().orEmpty()
+                    depG == g && depA == a
+                }
+                val rawVersion = directTag?.findFirstSubTag("version")?.value?.trimmedText
+                val propName = extractPropertyName(rawVersion)
+                val isManaged = directTag?.findFirstSubTag("version")?.value?.text?.trim().isNullOrBlank()
+
+                var directDep = projectNode.children.firstOrNull {
                     it.type == DependencyHierarchyNodeType.DIRECT_DEPENDENCY && it.groupId == g && it.artifactId == a
                 }
-                if (!alreadyAdded) {
-                    val directTag = rootTag?.findFirstSubTag("dependencies")?.findSubTags("dependency")?.find { tag ->
-                        val depG = tag.findFirstSubTag("groupId")?.value?.text?.trim().orEmpty()
-                        val depA = tag.findFirstSubTag("artifactId")?.value?.text?.trim().orEmpty()
-                        depG == g && depA == a
-                    }
-                    val rawVersion = directTag?.findFirstSubTag("version")?.value?.trimmedText
-                    val propName = extractPropertyName(rawVersion)
-                    projectNode.children.add(
-                        DependencyHierarchyNode(
-                            type = DependencyHierarchyNodeType.DIRECT_DEPENDENCY,
-                            groupId = g,
-                            artifactId = a,
-                            version = directNode.artifact.version,
-                            rawVersion = rawVersion,
-                            propertyName = propName,
-                            scope = directTag?.findFirstSubTag("scope")?.value?.text?.trim() ?: directNode.artifact.scope,
-                            isManaged = true,
-                            pomFile = mavenProject.file,
-                            xmlTag = directTag
-                        )
-                    )
+                if (directDep == null) {
+                    directDep = DependencyHierarchyNode(
+                        type = DependencyHierarchyNodeType.DIRECT_DEPENDENCY,
+                        groupId = g,
+                        artifactId = a,
+                        version = directNode.artifact.version,
+                        rawVersion = rawVersion,
+                        propertyName = propName,
+                        scope = directTag?.findFirstSubTag("scope")?.value?.text?.trim() ?: directNode.artifact.scope,
+                        isManaged = isManaged,
+                        pomFile = mavenProject.file,
+                        xmlTag = directTag
+                    ).also { projectNode.children.add(it) }
                 }
+
+                attachTransitiveChildren(directDep, directNode, mavenProject.file, mutableSetOf(directNode))
                 continue
             }
 
@@ -482,10 +484,43 @@ class DependencyHierarchyService(private val project: Project) {
         if (path.isEmpty()) return
 
         val rootArtifactNode = path.first()
+        var currentParent = findOrCreateDirectDependencyNode(projectNode, rootArtifactNode, pomFile, rootTag)
+
+        for (i in 1 until path.size) {
+            val node = path[i]
+            val g = node.artifact.groupId
+            val a = node.artifact.artifactId
+            val isTarget = (i == path.size - 1)
+
+            val nextNode = currentParent.children.firstOrNull {
+                it.type == DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY && it.groupId == g && it.artifactId == a
+            } ?: DependencyHierarchyNode(
+                type = DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY,
+                groupId = g,
+                artifactId = a,
+                version = node.artifact.version,
+                scope = node.artifact.scope,
+                isManaged = isTarget,
+                pomFile = pomFile
+            ).also { currentParent.children.add(it) }
+
+            if (isTarget) {
+                attachTransitiveChildren(nextNode, node, pomFile, mutableSetOf(node))
+            }
+
+            currentParent = nextNode
+        }
+    }
+
+    private fun findOrCreateDirectDependencyNode(
+        projectNode: DependencyHierarchyNode,
+        rootArtifactNode: MavenArtifactNode,
+        pomFile: VirtualFile,
+        rootTag: XmlTag?
+    ): DependencyHierarchyNode {
         val rootG = rootArtifactNode.artifact.groupId
         val rootA = rootArtifactNode.artifact.artifactId
-
-        var currentParent: DependencyHierarchyNode = projectNode.children.firstOrNull {
+        return projectNode.children.firstOrNull {
             it.type == DependencyHierarchyNodeType.DIRECT_DEPENDENCY && it.groupId == rootG && it.artifactId == rootA
         } ?: run {
             val directTag = rootTag?.findFirstSubTag("dependencies")?.findSubTags("dependency")?.find { tag ->
@@ -507,26 +542,43 @@ class DependencyHierarchyService(private val project: Project) {
                 xmlTag = directTag
             ).also { projectNode.children.add(it) }
         }
+    }
 
-        for (i in 1 until path.size) {
-            val node = path[i]
-            val g = node.artifact.groupId
-            val a = node.artifact.artifactId
-            val isTarget = (i == path.size - 1)
+    /**
+     * Fügt alle transitiven Unterabhängigkeiten eines Artefaktknotens rekursiv in den Hierarchieknoten ein.
+     *
+     * @param parentNode Der übergeordnete Hierarchieknoten.
+     * @param artifactNode Der Maven-Artefaktknoten mit seinen Unterabhängigkeiten.
+     * @param pomFile Die `pom.xml` des Projekts zur Navigation.
+     * @param visited Menge bereits besuchter Artefaktknoten zur Vermeidung von Zyklen.
+     */
+    internal fun attachTransitiveChildren(
+        parentNode: DependencyHierarchyNode,
+        artifactNode: MavenArtifactNode,
+        pomFile: VirtualFile,
+        visited: MutableSet<MavenArtifactNode>
+    ) {
+        for (childArtifactNode in artifactNode.dependencies) {
+            if (childArtifactNode in visited) continue
+            val childArt = childArtifactNode.artifact
+            val childG = childArt.groupId
+            val childA = childArt.artifactId
 
-            val nextNode = currentParent.children.firstOrNull {
-                it.type == DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY && it.groupId == g && it.artifactId == a
+            val childNode = parentNode.children.firstOrNull {
+                it.type == DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY && it.groupId == childG && it.artifactId == childA
             } ?: DependencyHierarchyNode(
                 type = DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY,
-                groupId = g,
-                artifactId = a,
-                version = node.artifact.version,
-                scope = node.artifact.scope,
-                isManaged = isTarget,
+                groupId = childG,
+                artifactId = childA,
+                version = childArt.version,
+                scope = childArt.scope,
+                isManaged = false,
                 pomFile = pomFile
-            ).also { currentParent.children.add(it) }
+            ).also { parentNode.children.add(it) }
 
-            currentParent = nextNode
+            visited.add(childArtifactNode)
+            attachTransitiveChildren(childNode, childArtifactNode, pomFile, visited)
+            visited.remove(childArtifactNode)
         }
     }
 

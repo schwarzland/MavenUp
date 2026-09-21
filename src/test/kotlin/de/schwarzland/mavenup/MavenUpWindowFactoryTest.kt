@@ -8,6 +8,7 @@ import de.schwarzland.mavenup.model.DependencyUpdate
 import de.schwarzland.mavenup.service.MavenUpSettings
 import de.schwarzland.mavenup.service.MavenRepositoryBrowser
 import de.schwarzland.mavenup.service.VersionAutoSelectionMode
+import de.schwarzland.mavenup.ui.DEPENDENCY_HIERARCHY_PANEL_INITIAL_WIDTH_PROPORTION
 import de.schwarzland.mavenup.ui.DependencyContextMenuTarget
 import de.schwarzland.mavenup.ui.buildMavenRepositoryUrl
 import de.schwarzland.mavenup.ui.GROUP_ID_COLUMN
@@ -1140,58 +1141,110 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         val model = table!!.model as DefaultTableModel
 
-        // Ohne Zeilen
-        assertFalse(
-            "Abhängigkeitshierarchie sollte ohne Selektion deaktiviert sein",
-            toolWindow.isDependencyHierarchyEnabled()
+        // Toolbar toggle action is enabled when no version search is running.
+        assertTrue(
+            "Abhängigkeitshierarchie-Umschaltaktion sollte bedienbar sein",
+            toolWindow.isDependencyHierarchyEnabled(isSearchingVersions = false)
         )
 
-        // Direkte Dependency (nicht managed)
+        // A vulnerability scan may run, but only a version search disables the action.
+        assertTrue(
+            "Abhängigkeitshierarchie-Umschaltaktion sollte während eines Vulnerability-Scans bedienbar sein",
+            toolWindow.isDependencyHierarchyEnabled(isSearchingVersions = false)
+        )
+        assertFalse(
+            "Abhängigkeitshierarchie-Umschaltaktion sollte während einer Versionssuche deaktiviert sein",
+            toolWindow.isDependencyHierarchyEnabled(isSearchingVersions = true)
+        )
+
         model.addRow(arrayOf("com.example", "direct-lib", "", "dependency", null, "1.0.0", emptyList<String>()))
-        table.setRowSelectionInterval(0, 0)
-        assertFalse(
-            "Abhängigkeitshierarchie sollte für normale direkte Abhängigkeiten deaktiviert sein",
-            toolWindow.isDependencyHierarchyEnabled()
-        )
-
-        // Direktes Plugin (nicht managed)
         model.addRow(arrayOf("com.example", "direct-plugin", "", "plugin", null, "1.0.0", emptyList<String>()))
-        table.setRowSelectionInterval(1, 1)
-        assertFalse(
-            "Abhängigkeitshierarchie sollte für normale Plugins deaktiviert sein",
-            toolWindow.isDependencyHierarchyEnabled()
-        )
-
-        // Managed Dependency
         model.addRow(arrayOf("com.example", "managed-lib", "", "managed dependency", null, "1.0.0", emptyList<String>()))
-        table.setRowSelectionInterval(2, 2)
-        assertTrue(
-            "Abhängigkeitshierarchie sollte für verwaltete Abhängigkeiten aktiviert sein",
-            toolWindow.isDependencyHierarchyEnabled()
-        )
-
-        // Managed Plugin
         model.addRow(arrayOf("com.example", "managed-plugin", "", "managed plugin", null, "1.0.0", emptyList<String>()))
-        table.setRowSelectionInterval(3, 3)
-        assertTrue(
-            "Abhängigkeitshierarchie sollte für verwaltete Plugins aktiviert sein",
-            toolWindow.isDependencyHierarchyEnabled()
+
+        // Context-Menu Aktionen prüfen
+        val directTarget = DependencyContextMenuTarget(0, "com.example", "direct-lib", "", "dependency", "1.0.0")
+        val directGroup = toolWindow.buildContextMenuGroup(directTarget)
+        val directAction = directGroup.getChildren(null).filterIsInstance<com.intellij.openapi.actionSystem.AnAction>()
+            .first { it.templatePresentation.text == MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.showDependencyHierarchy") }
+        val directEvent = com.intellij.testFramework.TestActionEvent.createTestEvent(directAction)
+        directAction.update(directEvent)
+        assertTrue("Kontextmenü für direkte Abhängigkeit sollte aktiviert sein", directEvent.presentation.isEnabled)
+
+        val managedTarget = DependencyContextMenuTarget(0, "com.example", "managed-lib", "", "managed dependency", "1.0.0")
+        val managedGroup = toolWindow.buildContextMenuGroup(managedTarget)
+        val managedAction = managedGroup.getChildren(null).filterIsInstance<com.intellij.openapi.actionSystem.AnAction>()
+            .first { it.templatePresentation.text == MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.showDependencyHierarchy") }
+        val managedEvent = com.intellij.testFramework.TestActionEvent.createTestEvent(managedAction)
+        managedAction.update(managedEvent)
+        assertTrue("Kontextmenü für verwaltete Abhängigkeit sollte aktiviert sein", managedEvent.presentation.isEnabled)
+
+        // Toggle Split-View behavior
+        assertFalse(toolWindow.isDependencyHierarchyVisible())
+        toolWindow.toggleDependencyHierarchy(true)
+        assertTrue(toolWindow.isDependencyHierarchyVisible())
+
+        // Select managed entry
+        table.setRowSelectionInterval(2, 2)
+        toolWindow.syncDependencyHierarchySelection()
+        assertTrue(toolWindow.isDependencyHierarchyVisible())
+
+        // Select direct entry -> hierarchy displayed, panel remains open
+        table.setRowSelectionInterval(0, 0)
+        toolWindow.syncDependencyHierarchySelection()
+        assertTrue(toolWindow.isDependencyHierarchyVisible())
+
+        // Toggle close
+        toolWindow.toggleDependencyHierarchy(false)
+        assertFalse(toolWindow.isDependencyHierarchyVisible())
+    }
+
+    fun testShowAndHideDependencyHierarchyPanel() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val content = toolWindow.getContent()
+        val splitter = findHierarchySplitter(content)
+
+        assertFalse(toolWindow.isDependencyHierarchyVisible())
+
+        toolWindow.showDependencyHierarchy("org.springframework.boot", "spring-boot-starter-web", false)
+        assertTrue(toolWindow.isDependencyHierarchyVisible())
+        assertEquals(
+            "Beim Öffnen soll das Hierarchiepanel ein Drittel der verfügbaren Breite einnehmen",
+            DEPENDENCY_HIERARCHY_PANEL_INITIAL_WIDTH_PROPORTION,
+            1f - splitter.proportion,
+            0.001f
         )
 
-        // Deaktiviert während isUpdating
-        val updatingField = toolWindow.javaClass.getDeclaredField("isUpdating").apply { isAccessible = true }
-        updatingField.setBoolean(toolWindow, true)
-        assertFalse(
-            "Abhängigkeitshierarchie sollte während laufender Aktualisierung deaktiviert sein",
-            toolWindow.isDependencyHierarchyEnabled()
+        splitter.proportion = 0.5f
+        toolWindow.showDependencyHierarchy("org.springframework.boot", "spring-boot-starter-web", false)
+        assertEquals(
+            "Eine manuell angepasste Breite muss bis zum Schließen erhalten bleiben",
+            0.5f,
+            1f - splitter.proportion,
+            0.001f
         )
-        updatingField.setBoolean(toolWindow, false)
 
-        // Selektion aufheben
-        table.clearSelection()
-        assertFalse(
-            "Abhängigkeitshierarchie sollte ohne Selektion wieder deaktiviert sein",
-            toolWindow.isDependencyHierarchyEnabled()
+        val table = findTable(content)!!
+        val model = table.model as DefaultTableModel
+        model.addRow(arrayOf("org.springframework.boot", "spring-boot-starter-web", "", "dependency", null, "1.0.0", emptyList<String>()))
+        table.setRowSelectionInterval(0, 0)
+        toolWindow.syncDependencyHierarchySelection()
+        assertEquals(
+            "Eine neue Tabellenselektion darf die manuell angepasste Breite nicht verändern",
+            0.5f,
+            1f - splitter.proportion,
+            0.001f
+        )
+
+        toolWindow.hideDependencyHierarchy()
+        assertFalse(toolWindow.isDependencyHierarchyVisible())
+
+        toolWindow.showDependencyHierarchy("org.springframework.boot", "spring-boot-starter-web", false)
+        assertEquals(
+            "Nach dem erneuten Öffnen soll wieder die anfängliche Ein-Drittel-Breite gelten",
+            DEPENDENCY_HIERARCHY_PANEL_INITIAL_WIDTH_PROPORTION,
+            1f - splitter.proportion,
+            0.001f
         )
     }
 
@@ -1801,10 +1854,10 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         toolWindow.updateTransitiveVulnerabilitiesView()
         toolWindow.setTransitiveViewVisible(true)
 
-        // Without a selection in the transitive view the actions are disabled.
+        // Without a selection in the transitive view the actions are disabled (except hierarchy toggle).
         assertFalse(toolWindow.isOpenInRepositoryEnabled())
         assertFalse(toolWindow.isVulnerabilityDetailsEnabled())
-        assertFalse(toolWindow.isDependencyHierarchyEnabled())
+        assertTrue(toolWindow.isDependencyHierarchyEnabled())
 
         val view = toolWindow.javaClass.getDeclaredField("transitiveVulnerabilitiesView")
             .apply { isAccessible = true }.get(toolWindow) as TransitiveVulnerabilitiesView
@@ -3626,5 +3679,95 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         // Navigation zu nicht existierender Koordinate liefert false
         val notFound = toolWindow.navigateToDependencyInTable("unknown.group", "unknown-artifact")
         assertFalse(notFound)
+    }
+
+    /**
+     * Stellt sicher, dass die Navigation zu einer ausschließlich vom Scan bekannten transitiven
+     * Komponente den passenden Tab aktiviert, dessen Filter zurücksetzt und die Zeile selektiert.
+     */
+    fun testNavigateToDependencyInTableSelectsScannedTransitiveDependency() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+        addTransitiveFinding(toolWindow, "org.transitive:vulnerable-library:1.0.0")
+        toolWindow.updateTransitiveVulnerabilitiesView()
+
+        assertTrue(toolWindow.navigateToDependencyInTable("org.transitive", "vulnerable-library"))
+        val hierarchyNode = de.schwarzland.mavenup.model.DependencyHierarchyNode(
+            type = de.schwarzland.mavenup.model.DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY,
+            groupId = "org.transitive",
+            artifactId = "vulnerable-library"
+        )
+        val hierarchyTree = com.intellij.ui.treeStructure.Tree(
+            javax.swing.tree.DefaultMutableTreeNode(hierarchyNode)
+        ).apply { setSelectionRow(0) }
+        assertEquals(
+            MyMessageBundle.message("dependency.hierarchy.action.navigateToTransitiveCves"),
+            toolWindow.transitiveVulnerabilitiesView.dependencyHierarchyPanel.tableNavigationActionLabel(hierarchyTree)
+        )
+    }
+
+    /**
+     * Stellt sicher, dass eine Koordinate in der Haupttabelle gegenüber einem gleichzeitigen
+     * transitiven Scan-Fund bevorzugt wird.
+     */
+    fun testNavigateToDependencyInTablePrefersDependenciesWhenCoordinateExistsInBothTables() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        val tableField = toolWindow.javaClass.getDeclaredField("table").apply { isAccessible = true }
+        val table = tableField.get(toolWindow) as javax.swing.JTable
+        val tableModel = table.model as DefaultTableModel
+        tableModel.addRow(
+            arrayOf("org.transitive", "vulnerable-library", "", "dependency", "", "1.0.0", emptyList<String>())
+        )
+        addTransitiveFinding(toolWindow, "org.transitive:vulnerable-library:1.0.0")
+        toolWindow.updateTransitiveVulnerabilitiesView()
+
+        assertTrue(toolWindow.navigateToDependencyInTable("org.transitive", "vulnerable-library"))
+        val hierarchyPanelField = toolWindow.javaClass.getDeclaredField("dependencyHierarchyPanel")
+            .apply { isAccessible = true }
+        val hierarchyPanel = hierarchyPanelField.get(toolWindow) as de.schwarzland.mavenup.ui.DependencyHierarchyPanel
+        val hierarchyNode = de.schwarzland.mavenup.model.DependencyHierarchyNode(
+            type = de.schwarzland.mavenup.model.DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY,
+            groupId = "org.transitive",
+            artifactId = "vulnerable-library"
+        )
+        val hierarchyTree = com.intellij.ui.treeStructure.Tree(
+            javax.swing.tree.DefaultMutableTreeNode(hierarchyNode)
+        ).apply { setSelectionRow(0) }
+        assertEquals(
+            MyMessageBundle.message("dependency.hierarchy.action.navigateToDependencies"),
+            hierarchyPanel.tableNavigationActionLabel(hierarchyTree)
+        )
+
+        val selectedRow = table.selectedRow
+        assertTrue(selectedRow >= 0)
+        assertEquals("org.transitive", table.getValueAt(selectedRow, GROUP_ID_COLUMN))
+        assertEquals("vulnerable-library", table.getValueAt(selectedRow, ARTIFACT_ID_COLUMN))
+    }
+
+    /**
+     * Ermittelt den Splitter zwischen der Haupttabelle und dem Hierarchiepanel.
+     *
+     * @param component Die Wurzelkomponente des Tool Windows.
+     * @return Der hierarchiebezogene [com.intellij.ui.OnePixelSplitter].
+     */
+    private fun findHierarchySplitter(component: java.awt.Component): com.intellij.ui.OnePixelSplitter {
+        return findHierarchySplitterOrNull(component)
+            ?: error("Kein Hierarchie-Splitter im Tool-Window-Inhalt gefunden")
+    }
+
+    /**
+     * Durchsucht eine Komponente rekursiv nach dem Hierarchie-Splitter.
+     *
+     * @param component Die aktuell zu prüfende Komponente.
+     * @return Den gefundenen Splitter oder `null`, wenn die Komponente keinen enthält.
+     */
+    private fun findHierarchySplitterOrNull(
+        component: java.awt.Component
+    ): com.intellij.ui.OnePixelSplitter? {
+        if (component is com.intellij.ui.OnePixelSplitter) return component
+        val container = component as? Container ?: return null
+        return container.components.firstNotNullOfOrNull(::findHierarchySplitterOrNull)
     }
 }

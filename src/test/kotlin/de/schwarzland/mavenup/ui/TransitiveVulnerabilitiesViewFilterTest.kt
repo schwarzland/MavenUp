@@ -1,6 +1,7 @@
 package de.schwarzland.mavenup.ui
 
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import com.intellij.ui.OnePixelSplitter
 import de.schwarzland.mavenup.model.VulnerabilityAdvisory
 import de.schwarzland.mavenup.model.VulnerabilitySeverity
 
@@ -80,6 +81,28 @@ class TransitiveVulnerabilitiesViewFilterTest : BasePlatformTestCase() {
         assertEquals(TriStateFilter.ALL, view.filterPanel.changesFilterComboBox.selectedItem)
         assertEquals(2, view.table.rowCount)
         assertFalse(view.filterPanel.isResetFiltersEnabled())
+    }
+
+    fun testSelectDependencyResetsFiltersAndSelectsMatchingRow() {
+        val view = buildView()
+        view.filterPanel.filterBy("org.other")
+        view.selectHighestMajorVersionForDependency("org.trans:lib")
+        view.filterPanel.updatesFilterComboBox.selectedItem = TriStateFilter.YES
+        view.filterPanel.changesFilterComboBox.selectedItem = TriStateFilter.YES
+
+        assertTrue(view.selectDependency("org.trans", "lib"))
+        assertEquals("", view.filterPanel.searchTextField.text)
+        assertEquals(TriStateFilter.ALL, view.filterPanel.updatesFilterComboBox.selectedItem)
+        assertEquals(TriStateFilter.ALL, view.filterPanel.changesFilterComboBox.selectedItem)
+        assertEquals(2, view.table.rowCount)
+        assertEquals("org.trans", view.table.getValueAt(view.table.selectedRow, TRANSITIVE_GROUP_ID_COLUMN))
+        assertEquals("lib", view.table.getValueAt(view.table.selectedRow, TRANSITIVE_ARTIFACT_ID_COLUMN))
+    }
+
+    fun testSelectDependencyReturnsFalseForUnknownCoordinate() {
+        val view = buildView()
+
+        assertFalse(view.selectDependency("unknown.group", "unknown-artifact"))
     }
 
     fun testUpdatesFilterShowsOnlyRowsWithNewerVersion() {
@@ -226,5 +249,35 @@ class TransitiveVulnerabilitiesViewFilterTest : BasePlatformTestCase() {
         view.table.clearSelection()
         // Darf ohne Selektion keine Exception werfen
         view.openSelectedDependencyHierarchy()
+    }
+
+    fun testShowAndHideDependencyHierarchy() {
+        val view = buildView()
+        val splitter = view.components.filterIsInstance<OnePixelSplitter>().single()
+        assertFalse(view.isDependencyHierarchyVisible())
+
+        view.showDependencyHierarchy("org.trans", "lib", false)
+        assertTrue(view.isDependencyHierarchyVisible())
+
+        splitter.proportion = 0.5f
+        view.table.setRowSelectionInterval(1, 1)
+        assertEquals(
+            "Eine neue Tabellenselektion darf die manuell angepasste Breite nicht verändern",
+            0.5f,
+            1f - splitter.proportion,
+            0.001f
+        )
+
+        view.hideDependencyHierarchy()
+        assertFalse(view.isDependencyHierarchyVisible())
+    }
+
+    fun testOpenDependencyHierarchyForSelectedRow() {
+        val view = buildView()
+        assertFalse(view.isDependencyHierarchyVisible())
+
+        view.table.setRowSelectionInterval(0, 0)
+        view.openSelectedDependencyHierarchy()
+        assertTrue(view.isDependencyHierarchyVisible())
     }
 }

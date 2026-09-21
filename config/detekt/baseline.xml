@@ -5,7 +5,6 @@
     <ID>CyclomaticComplexMethod:DependencyFilterModel.kt$internal fun rowMatchesFilter(row: FilterRow, criteria: FilterCriteria): Boolean</ID>
     <ID>CyclomaticComplexMethod:RefreshSnapshotCollector.kt$RefreshSnapshotCollector$internal fun collectRefreshSnapshot(managedDependencyType: String): RefreshSnapshot</ID>
     <ID>LargeClass:MavenUpWindowFactoryTest.kt$MavenUpWindowFactoryTest : BasePlatformTestCase</ID>
-    <ID>LongMethod:DependencyHierarchyDialogTest.kt$DependencyHierarchyDialogTest$fun testCanNavigateToSelectedNodeDependsOnSelection()</ID>
     <ID>LongMethod:RefreshSnapshotCollector.kt$RefreshSnapshotCollector$internal fun collectRefreshSnapshot(managedDependencyType: String): RefreshSnapshot</ID>
     <ID>LongMethod:RowMatchesFilterTest.kt$RowMatchesFilterTest$@Test fun testAllFiltersCombinedMatching()</ID>
     <ID>LoopWithTooManyJumpStatements:MavenUpWindowFactory.kt$MavenUpWindowFactory.MyToolWindow$for</ID>

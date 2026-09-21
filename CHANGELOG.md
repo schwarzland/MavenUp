@@ -2,15 +2,15 @@
 
 # MavenUp Changelog
 
-## 3.3.0
+## [Unreleased]
 
 ### Added
 
 - Added a configurable option in the "pom.xml Changes" settings page (enabled by default) to comment out managed dependencies and managed plugins as XML comments instead of deleting them when removed from pom.xml.
 - Added project-wide background version checks after Maven project load and every completed Maven import or resync, independent of whether the MavenUp tool window has been opened.
 - Added color highlighting for the target dependency across the tree in the **Dependency Hierarchy** dialog with automatic adaptation to Light and Dark themes.
-- Added a toolbar in the **Dependency Hierarchy** dialog with **Expand All**, **Collapse All**, **Navigate to pom.xml**, and **Select in Table** actions for quick tree navigation and jumping to the component in the main table.
-- Added a **Select in Table** action to the toolbar and context menu of the **Dependency Hierarchy** dialog that closes the dialog, resets all filters, and selects the matching row in the main dependencies table.
+- Added a toolbar in the **Dependency Hierarchy** dialog with **Expand All**, **Collapse All**, **Navigate to pom.xml**, and target-specific table-selection actions for quick tree navigation.
+- Added target-specific table-selection actions to the **Dependency Hierarchy** split view that reset filters and select the matching direct dependency or scanned transitive dependency in their named target table.
 - Added a **Show Dependency Hierarchy** toolbar action (with short label "Hierarchy" and abstract tree icon `AllIcons.Actions.ShowAsTree`) positioned between **Open on [Browser]** and **Vulnerability Details**, allowing inspection of the dependency hierarchy for a selected managed dependency or managed plugin in the main table, as well as any selected coordinate in the transitive CVEs table.
 - Added a modal **Show Dependency Hierarchy** dialog and context-menu action for managed dependencies and managed plugins in the main dependencies table and for every coordinate in the transitive CVEs table, visualizing the full resolution and inclusion paths, parent POMs, BOM imports, and intervening dependencies in an interactive tree with right-click context menu (**Navigate to pom.xml**) and `Enter` / `F4` keyboard navigation to the POM.
 - Added a context-menu action that marks managed dependencies and managed plugins for removal from `pom.xml` when the shared Update action is confirmed.
@@ -21,6 +21,15 @@
 
 ### Changed
 
+- Collapsed unreferenced transitive-only dependency-hierarchy branches by default while retaining expanded paths to table entries and transitive CVE findings.
+- De-emphasized safe transitive dependency context that is absent from both tool-window tables in the dependency-hierarchy split view.
+- Shortened the direct and transitive node prefixes in the dependency-hierarchy split view.
+- Changed the dependency-hierarchy side panel to open at one third of the available width, retain manual resizing while open, and reset that width when closed.
+- Renamed the dependency-hierarchy table-selection actions to **Select in Dependencies** or **Select in Transitive CVEs** according to their actual navigation target.
+- Shortened vulnerability tooltips in the **Dependency Hierarchy** split view to the highest severity and advisory count.
+- Changed the **Dependency Hierarchy** view in the main table to support all dependencies and plugins (including direct dependencies and parent POMs, not only managed dependencies and managed plugins), displaying their full resolution, inclusion, and transitive dependency tree.
+- Added special highlighting and warning markers (warning balloon icon `AllIcons.General.BalloonWarning`, vulnerability details, worst severity badges, and tooltips) for vulnerable transitive dependencies in the **Dependency Hierarchy** split-view inspector following a vulnerability scan.
+- Changed the **Dependency Hierarchy** view into an interactive master-detail inspector panel (split-view) next to the main table or the transitive CVE table, toggled via the toolbar "Hierarchy" toggle button or context menu, reacting dynamically to table row selection changes with an informative empty state instead of abrupt collapsing.
 - Updated the "Remove managed..." bulk action labels, toolbar group tooltip, row context menu action ("Remove from pom.xml" / "Comment out in pom.xml"), and "New Version" column status ("Will be removed" / "Will be commented out") to adapt dynamically based on the "Comment out managed entries instead of deleting" setting.
 - Capitalized the **Dependency Hierarchy** toolbar and navigation action labels in accordance with IntelliJ action naming conventions.
 - Standardized all filter options to Sentence case, including dependency type labels while preserving their technical filter values.
@@ -38,6 +47,11 @@
 
 ### Fixed
 
+- Fixed the dependency-hierarchy tree renderer test asserting instance inequality for disabled transitive icons, which failed in headless CI environments where the platform returns the original icon instance.
+- Kept the **Hierarchy** toolbar action available while a vulnerability scan runs, matching the context-menu behavior.
+- Fixed the transitive CVEs dependency-hierarchy split view showing **Select in Dependencies** instead of **Select in Transitive CVEs** for coordinates available only in the transitive CVEs table.
+- Fixed the dependency-hierarchy selection action to prefer **Select in Dependencies** when a transitive coordinate can also be selected in the main table.
+- Fixed the dependency-hierarchy splitter resetting a manually resized side-panel width when a different dependency is selected.
 - Fixed angle brackets in the explanatory comment for commenting out managed entries on removal being parsed as HTML tags by escaping them as HTML entities.
 - Fixed the bulk version selection actions (**Select Highest Major Version**, **Select Highest Minor Version**, **Select Recommended Version**) in the transitive CVEs view not prompting whether to apply to all coordinates or only to the filtered ones when a filter is active, making its behavior consistent with the main dependencies table.
 - Fixed the **Dependency Hierarchy** dialog toolbar using the focused component instead of its hierarchy tree to update local actions.
