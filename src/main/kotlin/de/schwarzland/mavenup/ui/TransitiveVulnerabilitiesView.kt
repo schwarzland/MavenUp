@@ -48,6 +48,21 @@ internal const val TRANSITIVE_VERSION_COLUMN = 4
 /** Spaltenindex der auszuwählenden neuen Version in der Tabelle der transitiven Sicherheitslücken. */
 internal const val TRANSITIVE_NEW_VERSION_COLUMN = 5
 
+/** Anteil der verfügbaren Breite, den das Hierarchiepanel beim Öffnen einnimmt. */
+internal const val DEPENDENCY_HIERARCHY_PANEL_INITIAL_WIDTH_PROPORTION = 1f / 3f
+
+/**
+ * Setzt die anfängliche Breite des Hierarchiepanels zurück.
+ *
+ * Die erste Komponente des horizontalen Splitters ist die Tabelle. Daher erhält sie den Anteil,
+ * der nach der für das Hierarchiepanel vorgesehenen Breite verbleibt.
+ *
+ * @param splitter Der Splitter zwischen Tabelle und Hierarchiepanel.
+ */
+internal fun resetDependencyHierarchySplitterWidth(splitter: OnePixelSplitter) {
+    splitter.proportion = 1f - DEPENDENCY_HIERARCHY_PANEL_INITIAL_WIDTH_PROPORTION
+}
+
 /**
  * Eine Zeile der Ansicht der transitiven, verwundbaren Abhängigkeiten.
  *
@@ -281,7 +296,7 @@ internal class TransitiveVulnerabilitiesView(
     private var lastAdvisoriesByCoordinate: Map<String, List<VulnerabilityAdvisory>> = emptyMap()
 
     /** Splitter für die transitive Tabelle und das optionale Hierarchiepanel. */
-    private val splitter = OnePixelSplitter(false, 0.65f)
+    private val splitter = OnePixelSplitter(false, 1f - DEPENDENCY_HIERARCHY_PANEL_INITIAL_WIDTH_PROPORTION)
 
     /** Seitenpanel zur Anzeige des Hierarchiebaums einer ausgewählten transitiven Abhängigkeit. */
     private val dependencyHierarchyPanel = DependencyHierarchyPanel(
@@ -1250,6 +1265,7 @@ internal class TransitiveVulnerabilitiesView(
      */
     internal fun hideDependencyHierarchy() {
         splitter.secondComponent = null
+        resetDependencyHierarchySplitterWidth(splitter)
         splitter.revalidate()
         splitter.repaint()
         onSelectionChanged()

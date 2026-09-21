@@ -282,7 +282,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private val transitiveTopPanel = JBPanel<JBPanel<*>>(BorderLayout())
 
         /** Splitter für die Haupttabelle und das optionale Hierarchiepanel. */
-        private val dependenciesSplitter = OnePixelSplitter(false, 0.65f)
+        private val dependenciesSplitter = OnePixelSplitter(
+            false,
+            1f - DEPENDENCY_HIERARCHY_PANEL_INITIAL_WIDTH_PROPORTION
+        )
 
         /** Seitenpanel zur Anzeige des Hierarchiebaums einer ausgewählten Abhängigkeit. */
         private val dependencyHierarchyPanel = DependencyHierarchyPanel(
@@ -3540,16 +3543,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
-         * Öffnet den Abhängigkeitshierarchie-Dialog bzw. schaltet das Panel für die aktuell selektierte Zeile um.
-         *
-         * Wirkt je nach aktiver Ansicht auf die Haupttabelle (für verwaltete Einträge) oder
-         * die transitive Sicherheitslücken-Ansicht.
-         */
-        internal fun openDependencyHierarchyForSelectedRow() {
-            toggleDependencyHierarchy(!isDependencyHierarchySelected())
-        }
-
-        /**
          * Öffnet den Vulnerability-Details-Dialog für die aktuell selektierte Abhängigkeit.
          *
          * Wirkt je nach aktiver Ansicht auf die Haupttabelle oder die transitive Sicherheitslücken-Ansicht.
@@ -3828,6 +3821,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
          */
         internal fun hideDependencyHierarchy() {
             dependenciesSplitter.secondComponent = null
+            resetDependencyHierarchySplitterWidth(dependenciesSplitter)
             dependenciesSplitter.revalidate()
             dependenciesSplitter.repaint()
             refreshToolbar()

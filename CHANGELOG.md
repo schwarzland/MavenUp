@@ -21,6 +21,7 @@
 
 ### Changed
 
+- Changed the dependency-hierarchy side panel to open at one third of the available width, retain manual resizing while open, and reset that width when closed.
 - Renamed the dependency-hierarchy table-selection actions to **Select in Dependencies** or **Select in Transitive CVEs** according to their actual navigation target.
 - Shortened vulnerability tooltips in the **Dependency Hierarchy** split view to the highest severity and advisory count.
 - Changed the **Dependency Hierarchy** view in the main table to support all dependencies and plugins (including direct dependencies and parent POMs, not only managed dependencies and managed plugins), displaying their full resolution, inclusion, and transitive dependency tree.

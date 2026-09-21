@@ -8,6 +8,7 @@ import de.schwarzland.mavenup.model.DependencyUpdate
 import de.schwarzland.mavenup.service.MavenUpSettings
 import de.schwarzland.mavenup.service.MavenRepositoryBrowser
 import de.schwarzland.mavenup.service.VersionAutoSelectionMode
+import de.schwarzland.mavenup.ui.DEPENDENCY_HIERARCHY_PANEL_INITIAL_WIDTH_PROPORTION
 import de.schwarzland.mavenup.ui.DependencyContextMenuTarget
 import de.schwarzland.mavenup.ui.buildMavenRepositoryUrl
 import de.schwarzland.mavenup.ui.GROUP_ID_COLUMN
@@ -1199,15 +1200,39 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
     fun testShowAndHideDependencyHierarchyPanel() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
-        toolWindow.getContent()
+        val content = toolWindow.getContent()
+        val splitter = findHierarchySplitter(content)
 
         assertFalse(toolWindow.isDependencyHierarchyVisible())
 
         toolWindow.showDependencyHierarchy("org.springframework.boot", "spring-boot-starter-web", false)
         assertTrue(toolWindow.isDependencyHierarchyVisible())
+        assertEquals(
+            "Beim Öffnen soll das Hierarchiepanel ein Drittel der verfügbaren Breite einnehmen",
+            DEPENDENCY_HIERARCHY_PANEL_INITIAL_WIDTH_PROPORTION,
+            1f - splitter.proportion,
+            0.001f
+        )
+
+        splitter.proportion = 0.5f
+        toolWindow.showDependencyHierarchy("org.springframework.boot", "spring-boot-starter-web", false)
+        assertEquals(
+            "Eine manuell angepasste Breite muss bis zum Schließen erhalten bleiben",
+            0.5f,
+            1f - splitter.proportion,
+            0.001f
+        )
 
         toolWindow.hideDependencyHierarchy()
         assertFalse(toolWindow.isDependencyHierarchyVisible())
+
+        toolWindow.showDependencyHierarchy("org.springframework.boot", "spring-boot-starter-web", false)
+        assertEquals(
+            "Nach dem erneuten Öffnen soll wieder die anfängliche Ein-Drittel-Breite gelten",
+            DEPENDENCY_HIERARCHY_PANEL_INITIAL_WIDTH_PROPORTION,
+            1f - splitter.proportion,
+            0.001f
+        )
     }
 
     fun testActionToolbarIsPresentAtTop() {
@@ -3654,5 +3679,30 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         toolWindow.updateTransitiveVulnerabilitiesView()
 
         assertTrue(toolWindow.navigateToDependencyInTable("org.transitive", "vulnerable-library"))
+    }
+
+    /**
+     * Ermittelt den Splitter zwischen der Haupttabelle und dem Hierarchiepanel.
+     *
+     * @param component Die Wurzelkomponente des Tool Windows.
+     * @return Der hierarchiebezogene [com.intellij.ui.OnePixelSplitter].
+     */
+    private fun findHierarchySplitter(component: java.awt.Component): com.intellij.ui.OnePixelSplitter {
+        return findHierarchySplitterOrNull(component)
+            ?: error("Kein Hierarchie-Splitter im Tool-Window-Inhalt gefunden")
+    }
+
+    /**
+     * Durchsucht eine Komponente rekursiv nach dem Hierarchie-Splitter.
+     *
+     * @param component Die aktuell zu prüfende Komponente.
+     * @return Den gefundenen Splitter oder `null`, wenn die Komponente keinen enthält.
+     */
+    private fun findHierarchySplitterOrNull(
+        component: java.awt.Component
+    ): com.intellij.ui.OnePixelSplitter? {
+        if (component is com.intellij.ui.OnePixelSplitter) return component
+        val container = component as? java.awt.Container ?: return null
+        return container.components.firstNotNullOfOrNull(::findHierarchySplitterOrNull)
     }
 }
