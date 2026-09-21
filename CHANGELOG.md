@@ -2,67 +2,32 @@
 
 # MavenUp Changelog
 
-## [Unreleased]
+## 3.3.0
 
 ### Added
 
-- Added a configurable option in the "pom.xml Changes" settings page (enabled by default) to comment out managed dependencies and managed plugins as XML comments instead of deleting them when removed from pom.xml.
-- Added project-wide background version checks after Maven project load and every completed Maven import or resync, independent of whether the MavenUp tool window has been opened.
-- Added color highlighting for the target dependency across the tree in the **Dependency Hierarchy** dialog with automatic adaptation to Light and Dark themes.
-- Added a toolbar in the **Dependency Hierarchy** dialog with **Expand All**, **Collapse All**, **Navigate to pom.xml**, and target-specific table-selection actions for quick tree navigation.
-- Added target-specific table-selection actions to the **Dependency Hierarchy** split view that reset filters and select the matching direct dependency or scanned transitive dependency in their named target table.
-- Added a **Show Dependency Hierarchy** toolbar action (with short label "Hierarchy" and abstract tree icon `AllIcons.Actions.ShowAsTree`) positioned between **Open on [Browser]** and **Vulnerability Details**, allowing inspection of the dependency hierarchy for a selected managed dependency or managed plugin in the main table, as well as any selected coordinate in the transitive CVEs table.
-- Added a modal **Show Dependency Hierarchy** dialog and context-menu action for managed dependencies and managed plugins in the main dependencies table and for every coordinate in the transitive CVEs table, visualizing the full resolution and inclusion paths, parent POMs, BOM imports, and intervening dependencies in an interactive tree with right-click context menu (**Navigate to pom.xml**) and `Enter` / `F4` keyboard navigation to the POM.
-- Added a context-menu action that marks managed dependencies and managed plugins for removal from `pom.xml` when the shared Update action is confirmed.
+- Added an interactive **Dependency Hierarchy** inspector panel (split view) for dependencies, plugins, parent POMs, and transitive CVEs, visualizing inclusion paths, BOM imports, and intervening dependencies with direct POM navigation (`Enter` / `F4`).
+- Added support for removing or commenting out managed dependencies and plugins from `pom.xml`, including a configurable option in the **pom.xml Changes** settings to comment them out instead of deleting.
+- Added automatic background version checks on Maven project load and sync, updating the tool window badge and showing notification summaries for discovered versions and security advisories.
+- Added input validation for configured private GroupId prefixes with inline error highlighting and feedback.
 - Added a dedicated dark theme plugin icon for the JetBrains Marketplace and IDE Plugin Manager.
-- Added IDE notifications reporting the number of versions found for the checked dependencies after a version search, and the number of direct/indirect vulnerabilities found after a vulnerability scan.
-- Added input validation on OK and Apply for the private GroupId prefixes field in the settings dialog, verifying that comma-separated entries only contain lowercase letters, numbers, dots, hyphens, and underscores (`[a-z0-9._-]`), highlighting the field with a red error outline, and showing a red error message below the field otherwise.
-- Added a dynamic tooltip to the **Scan for Vulnerabilities** toolbar action indicating whether resolved transitive dependencies are included and whether Sonatype OSS Index is queried as an additional source next to OSV.dev.
 
 ### Changed
 
-- Collapsed unreferenced transitive-only dependency-hierarchy branches by default while retaining expanded paths to table entries and transitive CVE findings.
-- De-emphasized safe transitive dependency context that is absent from both tool-window tables in the dependency-hierarchy split view.
-- Shortened the direct and transitive node prefixes in the dependency-hierarchy split view.
-- Changed the dependency-hierarchy side panel to open at one third of the available width, retain manual resizing while open, and reset that width when closed.
-- Renamed the dependency-hierarchy table-selection actions to **Select in Dependencies** or **Select in Transitive CVEs** according to their actual navigation target.
-- Shortened vulnerability tooltips in the **Dependency Hierarchy** split view to the highest severity and advisory count.
-- Changed the **Dependency Hierarchy** view in the main table to support all dependencies and plugins (including direct dependencies and parent POMs, not only managed dependencies and managed plugins), displaying their full resolution, inclusion, and transitive dependency tree.
-- Added special highlighting and warning markers (warning balloon icon `AllIcons.General.BalloonWarning`, vulnerability details, worst severity badges, and tooltips) for vulnerable transitive dependencies in the **Dependency Hierarchy** split-view inspector following a vulnerability scan.
-- Changed the **Dependency Hierarchy** view into an interactive master-detail inspector panel (split-view) next to the main table or the transitive CVE table, toggled via the toolbar "Hierarchy" toggle button or context menu, reacting dynamically to table row selection changes with an informative empty state instead of abrupt collapsing.
-- Updated the "Remove managed..." bulk action labels, toolbar group tooltip, row context menu action ("Remove from pom.xml" / "Comment out in pom.xml"), and "New Version" column status ("Will be removed" / "Will be commented out") to adapt dynamically based on the "Comment out managed entries instead of deleting" setting.
-- Capitalized the **Dependency Hierarchy** toolbar and navigation action labels in accordance with IntelliJ action naming conventions.
-- Standardized all filter options to Sentence case, including dependency type labels while preserving their technical filter values.
-- Changed navigation in the **Dependency Hierarchy** dialog to use a right-click context menu (**Navigate to pom.xml**) and `Enter` / `F4` shortcuts, removing the conflicting double-click mouse handler and the hint text.
-- Reordered the main table row context menu so that **Show Dependency Hierarchy** is positioned directly above **Show Vulnerability Details**, consistent with the transitive CVEs table context menu.
-- Updated the Marketplace plugin icons with a shield and checkmark motif for vulnerability checks.
-- Removed the redundant Keep in pom.xml context-menu action and preserved property-linked version selections when marking a managed entry for removal.
-- Extended the main-table Pending filter with All Changes and Will be removed options for pending managed-entry removals.
-- Changed each single-entry version-selection action to cancel a pending managed-entry removal before selecting its target version.
-- Updated the **Select Highest Version** toolbar tooltip to clarify that an active filter offers a choice between applying the action to all dependencies or only the visible subset.
-- Changed the public plugin and settings display name from "MavenUp" to "Maven Up".
-- Reworked the Marketplace plugin icon to match the tool window icon layout while incorporating Apache Maven's distinctive "m" mark.
-- Enlarged the Marketplace and tool window icons so their artwork fills the available canvas.
-- Stripped `*` and `$` characters from configured private GroupId prefixes and evaluated private GroupIds case-insensitively when determining whether a GroupId is private.
+- Changed the plugin and settings display name to "Maven Up".
+- Enhanced the **Dependency Hierarchy** view with visual warning markers for vulnerable transitive dependencies, smart branch collapsing, and dedicated cross-table navigation actions (**Select in Dependencies** / **Select in Transitive CVEs**).
+- Refined tool window bulk actions, row context menus, status indicators, and filter options to adapt dynamically when managed entries are marked for removal or commenting out.
+- Standardized filter labels to sentence case and refreshed plugin icons for improved clarity across light and dark themes.
+- Clarified tooltips for bulk version selection and vulnerability scanning actions.
 
 ### Fixed
 
-- Fixed the dependency-hierarchy tree renderer test asserting instance inequality for disabled transitive icons, which failed in headless CI environments where the platform returns the original icon instance.
-- Kept the **Hierarchy** toolbar action available while a vulnerability scan runs, matching the context-menu behavior.
-- Fixed the transitive CVEs dependency-hierarchy split view showing **Select in Dependencies** instead of **Select in Transitive CVEs** for coordinates available only in the transitive CVEs table.
-- Fixed the dependency-hierarchy selection action to prefer **Select in Dependencies** when a transitive coordinate can also be selected in the main table.
-- Fixed the dependency-hierarchy splitter resetting a manually resized side-panel width when a different dependency is selected.
-- Fixed angle brackets in the explanatory comment for commenting out managed entries on removal being parsed as HTML tags by escaping them as HTML entities.
-- Fixed the bulk version selection actions (**Select Highest Major Version**, **Select Highest Minor Version**, **Select Recommended Version**) in the transitive CVEs view not prompting whether to apply to all coordinates or only to the filtered ones when a filter is active, making its behavior consistent with the main dependencies table.
-- Fixed the **Dependency Hierarchy** dialog toolbar using the focused component instead of its hierarchy tree to update local actions.
-- Fixed the **Type** filter dropping to only **All** after automatic version refreshes by always retaining the known dependency types as available filter options.
-- Fixed the MavenUp tool-window badge not indicating available updates after a background version search completed before the window was opened.
-- Fixed automatic version checks accessing Maven PSI without an IntelliJ read action.
-- Fixed the **Show Dependency Hierarchy** context-menu action to stay visible while correctly disabling it for non-managed rows in the main dependency table and keeping it available for every transitive CVEs row.
-- Refactored dependency-table tooltips and context-menu construction to satisfy detekt method-length and return-count limits without changing their behavior.
-- Fixed Reset to Current Version in a row context menu so it only cancels the pending removal of that selected managed entry.
-- Fixed an IntelliJ platform inspection warning in `MavenUpConfigurable` by moving the sub-page link definitions and display name from a companion object to top-level declarations.
-- Fixed IntelliJ platform inspection warnings in `MavenUpWindowFactoryTest` regarding direct `AnAction.update(AnActionEvent)` test invocations by suppressing the `OverrideOnly` inspection on the affected test methods.
+- Fixed the tool window badge not updating when a background version search completed before opening the tool window.
+- Fixed the **Type** filter unexpectedly resetting to only **All** after automatic version refreshes.
+- Fixed bulk version selection actions in the Transitive CVEs view to prompt for filtered vs. all coordinates, matching the main table behavior.
+- Fixed selection and navigation behavior in the **Dependency Hierarchy** split view, ensuring correct cross-table targeting and preserving resized panel widths.
+- Kept the **Hierarchy** action available in the toolbar while a vulnerability scan is running in the background.
+- Fixed **Reset to Current Version** in the row context menu to properly cancel a pending removal for the selected managed entry.
 
 ## 3.2.0
 
