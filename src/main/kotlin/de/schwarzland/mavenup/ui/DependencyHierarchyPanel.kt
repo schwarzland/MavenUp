@@ -8,15 +8,8 @@ import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.actionSystem.Separator
-import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.fileEditor.FileEditorManager
-import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.IconLoader
-import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.psi.PsiManager
-import com.intellij.psi.xml.XmlFile
-import com.intellij.psi.xml.XmlTag
 import com.intellij.ui.ColoredTreeCellRenderer
 import com.intellij.ui.JBColor
 import com.intellij.ui.SimpleTextAttributes
@@ -32,7 +25,6 @@ import de.schwarzland.mavenup.model.DependencyHierarchyNodeType
 import de.schwarzland.mavenup.model.VulnerabilityAdvisory
 import de.schwarzland.mavenup.model.VulnerabilitySeverity
 import de.schwarzland.mavenup.service.DependencyHierarchyService
-import de.schwarzland.mavenup.service.PomNavigationService
 import java.awt.BorderLayout
 import java.awt.Color
 import java.awt.Dimension
@@ -79,6 +71,11 @@ class DependencyHierarchyPanel(
     private val onClose: (() -> Unit)? = null,
     private val vulnerabilityAdvisoriesProvider: (() -> Map<String, List<VulnerabilityAdvisory>>)? = null
 ) : JBPanel<JBPanel<*>>(BorderLayout()) {
+
+    private val hierarchyNavigation = DependencyHierarchyNavigation(project)
+    private val expansionPolicy = DependencyHierarchyExpansionPolicy { groupId, artifactId ->
+        isDependencyInTable?.invoke(groupId, artifactId) ?: false
+    }
 
     init {
         minimumSize = Dimension(0, 0)
@@ -149,7 +146,7 @@ class DependencyHierarchyPanel(
         this.toolbar = hierarchyToolbar
         this.tree = newTree
 
-        expandAllNodes(newTree)
+        expansionPolicy.applyInitialExpansion(newTree)
 
         val contentPanel = panel {
             row {
@@ -188,7 +185,7 @@ class DependencyHierarchyPanel(
         artifactId: String,
         vulnerabilityAdvisories: Map<String, List<VulnerabilityAdvisory>> = emptyMap()
     ): Tree {
-        val treeModel = buildTreeModel(rootData)
+        val treeModel = DependencyHierarchyTreeModelBuilder().build(rootData)
         val newTree = Tree(treeModel).apply {
             isRootVisible = true
             showsRootHandles = true
@@ -294,47 +291,8 @@ class DependencyHierarchyPanel(
         val selectedPath = targetTree.selectionPath ?: return false
         val treeNode = selectedPath.lastPathComponent as? DefaultMutableTreeNode ?: return false
         val node = treeNode.userObject as? DependencyHierarchyNode ?: return false
-        return isNodeInPom(node)
+        return hierarchyNavigation.isNodeInPom(node)
     }
-
-    /**
-     * Prüft, ob der übergebene Hierarchieknoten in einer `pom.xml` des Projekts deklariert ist.
-     *
-     * Modulknoten ([DependencyHierarchyNodeType.PROJECT]) unterstützen keine Navigation.
-     * Transitive Abhängigkeiten ([DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY]) können angesprungen werden,
-     * wenn sie als verwaltete Abhängigkeit im `<dependencyManagement>` vorhanden sind.
-     *
-     * @param node Der zu prüfende Hierarchieknoten.
-     * @return `true`, wenn eine passende Deklaration in einer `pom.xml` existiert.
-     */
-    internal fun isNodeInPom(node: DependencyHierarchyNode): Boolean {
-        if (node.type == DependencyHierarchyNodeType.PROJECT) return false
-        if (node.xmlTag != null && node.xmlTag.isValid) return true
-        if (node.groupId.isBlank() || node.artifactId.isBlank()) return false
-        return isDeclaredInProjectPoms(node)
-    }
-
-    private fun isDeclaredInProjectPoms(node: DependencyHierarchyNode): Boolean {
-        val pomFile = node.pomFile
-        if (pomFile != null) {
-            val targetTag = ApplicationManager.getApplication().runReadAction<XmlTag?> {
-                val psiFile = PsiManager.getInstance(project).findFile(pomFile) as? XmlFile
-                findTargetTag(psiFile?.document?.rootTag, node)
-            }
-            if (targetTag != null && targetTag.isValid) return true
-        }
-        return isDeclaredInAnyMavenProjectPom(node)
-    }
-
-    private fun isDeclaredInAnyMavenProjectPom(node: DependencyHierarchyNode): Boolean =
-        ApplicationManager.getApplication().runReadAction<Boolean> {
-            val mavenProjects = org.jetbrains.idea.maven.project.MavenProjectsManager.getInstance(project).projects.toList()
-            mavenProjects.any { mavenProject ->
-                val psiFile = PsiManager.getInstance(project).findFile(mavenProject.file) as? XmlFile
-                val targetTag = findTargetTag(psiFile?.document?.rootTag, node)
-                targetTag != null && targetTag.isValid
-            }
-        }
 
     /**
      * Prüft, ob für den aktuell ausgewählten Knoten eine Navigation in eine Tabellenansicht möglich ist.
@@ -485,32 +443,6 @@ class DependencyHierarchyPanel(
     }
 
     /**
-     * Baut das Swing-[DefaultTreeModel] aus dem Hierarchieknoten-Datenmodell auf.
-     *
-     * @param rootData Der Wurzelknoten der Hierarchie.
-     * @return Das initialisierte Baummodell.
-     */
-    internal fun buildTreeModel(rootData: DependencyHierarchyNode): DefaultTreeModel {
-        val rootTreeNode = DefaultMutableTreeNode(rootData)
-        populateTreeNodes(rootTreeNode, rootData)
-        return DefaultTreeModel(rootTreeNode)
-    }
-
-    /**
-     * Befüllt die Kindknoten rekursiv im Swing-Baum.
-     *
-     * @param parentTreeNode Der übergeordnete Swing-Baumknoten.
-     * @param parentData Das zugehörige Datenmodell.
-     */
-    private fun populateTreeNodes(parentTreeNode: DefaultMutableTreeNode, parentData: DependencyHierarchyNode) {
-        for (childData in parentData.children) {
-            val childTreeNode = DefaultMutableTreeNode(childData)
-            parentTreeNode.add(childTreeNode)
-            populateTreeNodes(childTreeNode, childData)
-        }
-    }
-
-    /**
      * Klappt alle Knoten des Baums vollständig auf.
      *
      * @param targetTree Der zu expandierende Baum.
@@ -575,69 +507,7 @@ class DependencyHierarchyPanel(
         val treeNode = selectedPath.lastPathComponent as? DefaultMutableTreeNode ?: return
         val node = treeNode.userObject as? DependencyHierarchyNode ?: return
 
-        if (!isNodeInPom(node)) return
-
-        when {
-            node.xmlTag != null && node.pomFile != null && node.xmlTag.isValid -> {
-                openInEditor(node.pomFile, node.xmlTag)
-            }
-            node.groupId.isNotBlank() && node.artifactId.isNotBlank() -> {
-                val navType = resolveNavType(node.type)
-                val pomFile = node.pomFile
-                if (pomFile != null) {
-                    val targetTag = ApplicationManager.getApplication().runReadAction<XmlTag?> {
-                        val psiFile = PsiManager.getInstance(project).findFile(pomFile) as? XmlFile
-                        findTargetTag(psiFile?.document?.rootTag, node)
-                    }
-                    if (targetTag != null) {
-                        openInEditor(pomFile, targetTag)
-                        return
-                    }
-                }
-                PomNavigationService(project).navigateToDependency(node.groupId, node.artifactId, navType)
-            }
-        }
-    }
-
-    private fun resolveNavType(nodeType: DependencyHierarchyNodeType): String = when (nodeType) {
-        DependencyHierarchyNodeType.DEPENDENCY_MANAGEMENT -> "managed dependency"
-        DependencyHierarchyNodeType.PLUGIN_MANAGEMENT -> "managed plugin"
-        DependencyHierarchyNodeType.DIRECT_PLUGIN -> "plugin"
-        DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY -> "managed dependency"
-        else -> "dependency"
-    }
-
-    private fun openInEditor(pomFile: VirtualFile, xmlTag: XmlTag) {
-        val offset = ApplicationManager.getApplication().runReadAction<Int> {
-            xmlTag.textOffset
-        }
-        OpenFileDescriptor(project, pomFile, offset).navigate(true)
-        FileEditorManager.getInstance(project).openFile(pomFile, true)
-    }
-
-    private fun findTargetTag(rootTag: XmlTag?, node: DependencyHierarchyNode): XmlTag? {
-        if (rootTag == null) return null
-        if (node.type == DependencyHierarchyNodeType.PARENT_POM && rootTag.name == "parent") {
-            val gId = rootTag.findFirstSubTag("groupId")?.value?.trimmedText.orEmpty()
-            val aId = rootTag.findFirstSubTag("artifactId")?.value?.trimmedText.orEmpty()
-            if (gId == node.groupId && aId == node.artifactId) return rootTag
-        }
-        val tagName = when (node.type) {
-            DependencyHierarchyNodeType.PARENT_POM -> "parent"
-            DependencyHierarchyNodeType.PLUGIN_MANAGEMENT, DependencyHierarchyNodeType.DIRECT_PLUGIN -> "plugin"
-            else -> "dependency"
-        }
-        val tags = rootTag.findSubTags(tagName)
-        for (tag in tags) {
-            val gId = tag.findFirstSubTag("groupId")?.value?.trimmedText.orEmpty()
-            val aId = tag.findFirstSubTag("artifactId")?.value?.trimmedText.orEmpty()
-            if (gId == node.groupId && aId == node.artifactId) return tag
-        }
-        for (subTag in rootTag.subTags) {
-            val found = findTargetTag(subTag, node)
-            if (found != null) return found
-        }
-        return null
+        hierarchyNavigation.navigateToNode(node)
     }
 
     companion object {
@@ -855,6 +725,12 @@ class DependencyHierarchyTreeCellRenderer(
         DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY -> AllIcons.Nodes.Related
     }
 
+    /**
+     * Liefert das kompakte, lokalisierte Präfix für einen Hierarchieknotentyp.
+     *
+     * @param type Der Typ des Hierarchieknotens.
+     * @return Das anzuzeigende Präfix.
+     */
     private fun nodePrefix(type: DependencyHierarchyNodeType): String = when (type) {
         DependencyHierarchyNodeType.ROOT -> MyMessageBundle.message("dependency.hierarchy.node.root")
         DependencyHierarchyNodeType.PROJECT -> MyMessageBundle.message("dependency.hierarchy.node.project")
@@ -872,6 +748,13 @@ class DependencyHierarchyTreeCellRenderer(
             MyMessageBundle.message("dependency.hierarchy.node.transitiveDependency")
     }
 
+    /**
+     * Baut die ergänzenden Detailinformationen eines Hierarchieknotens auf.
+     *
+     * @param node Der zu formatierende Hierarchieknoten.
+     * @param advisories Die bekannten Sicherheitswarnungen des Knotens.
+     * @return Die durch Kommata getrennten Detailinformationen.
+     */
     internal fun formatNodeDetails(
         node: DependencyHierarchyNode,
         advisories: List<VulnerabilityAdvisory> = emptyList()

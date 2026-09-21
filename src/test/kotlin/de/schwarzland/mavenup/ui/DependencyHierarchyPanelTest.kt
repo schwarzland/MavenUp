@@ -49,8 +49,7 @@ class DependencyHierarchyPanelTest : BasePlatformTestCase() {
         projectNode.children.add(dmNode)
         rootNode.children.add(projectNode)
 
-        val panel = DependencyHierarchyPanel(project)
-        val treeModel = panel.buildTreeModel(rootNode)
+        val treeModel = DependencyHierarchyTreeModelBuilder().build(rootNode)
 
         val rootTreeNode = treeModel.root as DefaultMutableTreeNode
         assertEquals(rootNode, rootTreeNode.userObject)
@@ -79,7 +78,7 @@ class DependencyHierarchyPanelTest : BasePlatformTestCase() {
         rootNode.children.add(childNode)
 
         val panel = DependencyHierarchyPanel(project)
-        val treeModel = panel.buildTreeModel(rootNode)
+        val treeModel = DependencyHierarchyTreeModelBuilder().build(rootNode)
         val tree = Tree(treeModel).apply {
             isRootVisible = true
             showsRootHandles = true
@@ -104,7 +103,7 @@ class DependencyHierarchyPanelTest : BasePlatformTestCase() {
         rootNode.children.add(childNode)
 
         val panel = DependencyHierarchyPanel(project)
-        val treeModel = panel.buildTreeModel(rootNode)
+        val treeModel = DependencyHierarchyTreeModelBuilder().build(rootNode)
         val tree = Tree(treeModel).apply {
             isRootVisible = true
             showsRootHandles = true
@@ -114,6 +113,49 @@ class DependencyHierarchyPanelTest : BasePlatformTestCase() {
         assertTrue(tree.isExpanded(0))
         panel.collapseAllNodes(tree)
         assertFalse(tree.isExpanded(0))
+    }
+
+    fun testInitialExpansionCollapsesUnreferencedTransitiveOnlyBranch() {
+        val root = DependencyHierarchyNode(DependencyHierarchyNodeType.ROOT, "com.example", "root")
+        val direct = DependencyHierarchyNode(DependencyHierarchyNodeType.DIRECT_DEPENDENCY, "com.example", "direct")
+        val unreferencedTransitive = DependencyHierarchyNode(
+            DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY,
+            "com.example",
+            "unreferenced"
+        )
+        val nestedUnreferencedTransitive = DependencyHierarchyNode(
+            DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY,
+            "com.example",
+            "nested-unreferenced"
+        )
+        unreferencedTransitive.children.add(nestedUnreferencedTransitive)
+        direct.children.add(unreferencedTransitive)
+        root.children.add(direct)
+
+        val tree = Tree(DependencyHierarchyTreeModelBuilder().build(root))
+        DependencyHierarchyExpansionPolicy { _, _ -> false }.applyInitialExpansion(tree)
+
+        assertTrue(tree.isExpanded(0))
+        assertFalse(tree.isExpanded(1))
+    }
+
+    fun testInitialExpansionOpensPathToTransitiveCveFinding() {
+        val root = DependencyHierarchyNode(DependencyHierarchyNodeType.ROOT, "com.example", "root")
+        val direct = DependencyHierarchyNode(DependencyHierarchyNodeType.DIRECT_DEPENDENCY, "com.example", "direct")
+        val vulnerableTransitive = DependencyHierarchyNode(
+            DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY,
+            "com.example",
+            "vulnerable"
+        )
+        direct.children.add(vulnerableTransitive)
+        root.children.add(direct)
+
+        val tree = Tree(DependencyHierarchyTreeModelBuilder().build(root))
+        DependencyHierarchyExpansionPolicy { _, artifactId -> artifactId == "vulnerable" }
+            .applyInitialExpansion(tree)
+
+        assertTrue(tree.isExpanded(0))
+        assertTrue(tree.isExpanded(1))
     }
 
     fun testRendererCustomizesTextAndDetails() {
@@ -287,7 +329,7 @@ class DependencyHierarchyPanelTest : BasePlatformTestCase() {
         )
 
         val panel = DependencyHierarchyPanel(project)
-        val treeModel = panel.buildTreeModel(node)
+        val treeModel = DependencyHierarchyTreeModelBuilder().build(node)
         val tree = Tree(treeModel)
         tree.setSelectionRow(0)
 
@@ -321,7 +363,7 @@ class DependencyHierarchyPanelTest : BasePlatformTestCase() {
         )
 
         val panel = DependencyHierarchyPanel(project)
-        val treeModel = panel.buildTreeModel(node)
+        val treeModel = DependencyHierarchyTreeModelBuilder().build(node)
         val tree = Tree(treeModel)
         tree.setSelectionRow(0)
 
@@ -596,7 +638,7 @@ class DependencyHierarchyPanelTest : BasePlatformTestCase() {
             """.trimIndent()
         ) as XmlFile
 
-        val panel = DependencyHierarchyPanel(project)
+        val navigation = DependencyHierarchyNavigation(project)
 
         val directNode = DependencyHierarchyNode(
             type = DependencyHierarchyNodeType.DIRECT_DEPENDENCY,
@@ -605,7 +647,7 @@ class DependencyHierarchyPanelTest : BasePlatformTestCase() {
             version = "1.0.0",
             pomFile = psiFile.virtualFile
         )
-        assertTrue(panel.isNodeInPom(directNode))
+        assertTrue(navigation.isNodeInPom(directNode))
 
         val parentNode = DependencyHierarchyNode(
             type = DependencyHierarchyNodeType.PARENT_POM,
@@ -614,7 +656,7 @@ class DependencyHierarchyPanelTest : BasePlatformTestCase() {
             version = "3.2.0",
             pomFile = psiFile.virtualFile
         )
-        assertTrue(panel.isNodeInPom(parentNode))
+        assertTrue(navigation.isNodeInPom(parentNode))
 
         val managedTransitiveNode = DependencyHierarchyNode(
             type = DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY,
@@ -623,7 +665,7 @@ class DependencyHierarchyPanelTest : BasePlatformTestCase() {
             version = "2.0.7",
             pomFile = psiFile.virtualFile
         )
-        assertTrue(panel.isNodeInPom(managedTransitiveNode))
+        assertTrue(navigation.isNodeInPom(managedTransitiveNode))
 
         val unmanagedTransitiveNode = DependencyHierarchyNode(
             type = DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY,
@@ -632,7 +674,7 @@ class DependencyHierarchyPanelTest : BasePlatformTestCase() {
             version = "3.12.0",
             pomFile = psiFile.virtualFile
         )
-        assertFalse(panel.isNodeInPom(unmanagedTransitiveNode))
+        assertFalse(navigation.isNodeInPom(unmanagedTransitiveNode))
 
         val notInPomNode = DependencyHierarchyNode(
             type = DependencyHierarchyNodeType.DIRECT_DEPENDENCY,
@@ -641,7 +683,7 @@ class DependencyHierarchyPanelTest : BasePlatformTestCase() {
             version = "1.0.0",
             pomFile = psiFile.virtualFile
         )
-        assertFalse(panel.isNodeInPom(notInPomNode))
+        assertFalse(navigation.isNodeInPom(notInPomNode))
     }
 
     fun testNavigateToSelectedNodeIgnoresProjectNode() {
