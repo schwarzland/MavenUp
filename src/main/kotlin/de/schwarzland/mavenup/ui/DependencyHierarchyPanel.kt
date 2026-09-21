@@ -192,7 +192,12 @@ class DependencyHierarchyPanel(
         val newTree = Tree(treeModel).apply {
             isRootVisible = true
             showsRootHandles = true
-            cellRenderer = DependencyHierarchyTreeCellRenderer(groupId, artifactId, vulnerabilityAdvisories)
+            cellRenderer = DependencyHierarchyTreeCellRenderer(
+                groupId,
+                artifactId,
+                vulnerabilityAdvisories,
+                isDependencyInTable
+            )
             toolTipText = MyMessageBundle.message("dependency.hierarchy.dialog.tree.tooltip")
         }
 
@@ -644,7 +649,7 @@ class DependencyHierarchyPanel(
  * Zell-Renderer für den [DependencyHierarchyPanel]-Hierarchiebaum.
  *
  * Stellt Knoten typabhängig mit passendem Icon, einem vorangestellten Typ-Präfix
- * (z. B. `[Dependency Management]`, `[Direct]`), Koordinaten und Version dar.
+ * (z. B. `[Dependency Management]`, `DD`), Koordinaten und Version dar.
  * Die Ziel-Abhängigkeit wird zur schnellen Orientierung farblich hervorgehoben.
  * Vulnerable transitive Abhängigkeiten werden nach einem Sicherheits-Scan mit einem Warn-Icon
  * und einem kompakten Hinweis zu Schweregrad und Anzahl der Befunde gesondert gekennzeichnet.
@@ -652,11 +657,14 @@ class DependencyHierarchyPanel(
  * @param targetGroupId Group-ID der Zielkomponente zur farblichen Hervorhebung.
  * @param targetArtifactId Artefakt-ID der Zielkomponente zur farblichen Hervorhebung.
  * @param vulnerabilityAdvisories Zuordnung aller bekannten Koordinaten zu ihren Warnungen.
+ * @param isDependencyInTable Prüft, ob eine Koordinate in der Haupttabelle oder der Tabelle
+ *        transitiver CVEs vorkommt.
  */
 class DependencyHierarchyTreeCellRenderer(
     private val targetGroupId: String? = null,
     private val targetArtifactId: String? = null,
-    private val vulnerabilityAdvisories: Map<String, List<VulnerabilityAdvisory>> = emptyMap()
+    private val vulnerabilityAdvisories: Map<String, List<VulnerabilityAdvisory>> = emptyMap(),
+    private val isDependencyInTable: ((groupId: String, artifactId: String) -> Boolean)? = null
 ) : ColoredTreeCellRenderer() {
 
     override fun customizeCellRenderer(
@@ -676,12 +684,22 @@ class DependencyHierarchyTreeCellRenderer(
         }
     }
 
+    /**
+     * Formatiert einen Hierarchieknoten entsprechend seiner Relevanz für die Tabellenansichten.
+     *
+     * @param node Der darzustellende Hierarchieknoten.
+     */
     private fun renderHierarchyNode(node: DependencyHierarchyNode) {
         val advisories = findAdvisories(node)
         val isVulnerableTransitive = advisories.isNotEmpty() &&
             node.type == DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY
+        val isUnlistedTransitive = isUnlistedTransitiveDependency(node, isVulnerableTransitive)
 
-        icon = if (isVulnerableTransitive) AllIcons.General.BalloonWarning else nodeIcon(node.type)
+        icon = when {
+            isVulnerableTransitive -> AllIcons.General.BalloonWarning
+            isUnlistedTransitive -> IconLoader.getDisabledIcon(nodeIcon(node.type))
+            else -> nodeIcon(node.type)
+        }
 
         val prefix = nodePrefix(node.type)
         if (prefix.isNotBlank()) {
@@ -689,7 +707,11 @@ class DependencyHierarchyTreeCellRenderer(
         }
 
         val isTarget = isTargetDependency(node)
-        val (coordAttributes, versionAttributes) = determineAttributes(isTarget, isVulnerableTransitive)
+        val (coordAttributes, versionAttributes) = determineAttributes(
+            isTarget,
+            isVulnerableTransitive,
+            isUnlistedTransitive
+        )
 
         append("${node.groupId}:${node.artifactId}", coordAttributes)
 
@@ -710,9 +732,18 @@ class DependencyHierarchyTreeCellRenderer(
         updateNodeTooltip(isVulnerableTransitive, advisories)
     }
 
+    /**
+     * Ermittelt die Textattribute für Ziel-, Sicherheits- und Kontextknoten.
+     *
+     * @param isTarget Gibt an, ob der Knoten die ausgewählte Zielkomponente darstellt.
+     * @param isVulnerable Gibt an, ob der Knoten einen bekannten Sicherheitsbefund besitzt.
+     * @param isUnlistedTransitive Gibt an, ob der Knoten nur als transitive Kontextinformation vorliegt.
+     * @return Die Attribute für Koordinate und Version.
+     */
     private fun determineAttributes(
         isTarget: Boolean,
-        isVulnerable: Boolean
+        isVulnerable: Boolean,
+        isUnlistedTransitive: Boolean
     ): Pair<SimpleTextAttributes, SimpleTextAttributes> = when {
         isTarget -> Pair(
             SimpleTextAttributes(SimpleTextAttributes.STYLE_PLAIN, TARGET_DEPENDENCY_COLOR),
@@ -721,6 +752,10 @@ class DependencyHierarchyTreeCellRenderer(
         isVulnerable -> Pair(
             SimpleTextAttributes(SimpleTextAttributes.STYLE_PLAIN, VULNERABLE_TEXT_COLOR),
             SimpleTextAttributes(SimpleTextAttributes.STYLE_BOLD, VULNERABLE_TEXT_COLOR)
+        )
+        isUnlistedTransitive -> Pair(
+            SimpleTextAttributes.GRAYED_ATTRIBUTES,
+            SimpleTextAttributes.GRAYED_ATTRIBUTES
         )
         else -> Pair(
             SimpleTextAttributes.REGULAR_ATTRIBUTES,
@@ -783,6 +818,31 @@ class DependencyHierarchyTreeCellRenderer(
         return node.groupId == targetGroupId && node.artifactId == targetArtifactId
     }
 
+    /**
+     * Prüft, ob ein transitiver Knoten ausschließlich als Kontext dient und deshalb zurückhaltend
+     * dargestellt werden soll.
+     *
+     * Sicherheitsbefunde und Knoten ohne verfügbares Tabellen-Prädikat behalten ihre reguläre
+     * Darstellung, damit keine relevante Information oder bestehende Einbettung abgeschwächt wird.
+     *
+     * @param node Der zu prüfende Hierarchieknoten.
+     * @param isVulnerableTransitive Gibt an, ob der Knoten einen bekannten Sicherheitsbefund besitzt.
+     * @return `true`, wenn der Knoten transitiv, nicht verwundbar und in keiner Tabelle vorhanden ist.
+     */
+    internal fun isUnlistedTransitiveDependency(
+        node: DependencyHierarchyNode,
+        isVulnerableTransitive: Boolean
+    ): Boolean =
+        node.type == DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY &&
+            !isVulnerableTransitive &&
+            isDependencyInTable?.invoke(node.groupId, node.artifactId) == false
+
+    /**
+     * Liefert das zur Art des Hierarchieknotens passende Icon.
+     *
+     * @param type Der Typ des Hierarchieknotens.
+     * @return Das passende IntelliJ-Icon.
+     */
     private fun nodeIcon(type: DependencyHierarchyNodeType): javax.swing.Icon = when (type) {
         DependencyHierarchyNodeType.ROOT -> AllIcons.Nodes.PpLib
         DependencyHierarchyNodeType.PROJECT -> AllIcons.Nodes.Module

@@ -194,9 +194,9 @@ class DependencyHierarchyPanelTest : BasePlatformTestCase() {
             DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY
         )
         val compactPrefixes = mapOf(
-            DependencyHierarchyNodeType.DIRECT_DEPENDENCY to "[Direct]",
-            DependencyHierarchyNodeType.DIRECT_PLUGIN to "[Direct]",
-            DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY to "[Transitive]"
+            DependencyHierarchyNodeType.DIRECT_DEPENDENCY to "[DD]",
+            DependencyHierarchyNodeType.DIRECT_PLUGIN to "[DP]",
+            DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY to "[TD]"
         )
 
         val renderer = DependencyHierarchyTreeCellRenderer("org.example", "target-lib")
@@ -781,6 +781,36 @@ class DependencyHierarchyPanelTest : BasePlatformTestCase() {
         assertEquals(AllIcons.Nodes.Related, renderer.icon)
         val safeFragments = renderer.renderedItems
         assertFalse("Darf kein VULNERABLE enthalten", safeFragments.any { it.contains("VULNERABLE") })
+    }
+
+    fun testRendererDeemphasizesOnlyUnlistedSafeTransitiveDependencies() {
+        val unlistedNode = DependencyHierarchyNode(
+            type = DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY,
+            groupId = "org.example",
+            artifactId = "context-only",
+            version = "1.0.0"
+        )
+        val listedNode = unlistedNode.copy(artifactId = "listed")
+        val directNode = unlistedNode.copy(type = DependencyHierarchyNodeType.DIRECT_DEPENDENCY)
+        val renderer = DependencyHierarchyTreeCellRenderer(
+            isDependencyInTable = { _, artifactId -> artifactId == "listed" }
+        )
+
+        assertTrue(renderer.isUnlistedTransitiveDependency(unlistedNode, isVulnerableTransitive = false))
+        assertFalse(renderer.isUnlistedTransitiveDependency(listedNode, isVulnerableTransitive = false))
+        assertFalse(renderer.isUnlistedTransitiveDependency(directNode, isVulnerableTransitive = false))
+        assertFalse(renderer.isUnlistedTransitiveDependency(unlistedNode, isVulnerableTransitive = true))
+
+        renderer.getTreeCellRendererComponent(
+            Tree(),
+            DefaultMutableTreeNode(unlistedNode),
+            false,
+            false,
+            true,
+            0,
+            false
+        )
+        assertNotSame(AllIcons.Nodes.Related, renderer.icon)
     }
 
     fun testFindAdvisoriesWithExactAndPrefixMatch() {
