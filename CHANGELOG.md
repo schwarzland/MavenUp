@@ -21,6 +21,7 @@
 
 ### Changed
 
+- Shortened the direct and transitive node prefixes in the dependency-hierarchy split view.
 - Changed the dependency-hierarchy side panel to open at one third of the available width, retain manual resizing while open, and reset that width when closed.
 - Renamed the dependency-hierarchy table-selection actions to **Select in Dependencies** or **Select in Transitive CVEs** according to their actual navigation target.
 - Shortened vulnerability tooltips in the **Dependency Hierarchy** split view to the highest severity and advisory count.

@@ -193,6 +193,11 @@ class DependencyHierarchyPanelTest : BasePlatformTestCase() {
             DependencyHierarchyNodeType.DIRECT_PLUGIN,
             DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY
         )
+        val compactPrefixes = mapOf(
+            DependencyHierarchyNodeType.DIRECT_DEPENDENCY to "[Direct]",
+            DependencyHierarchyNodeType.DIRECT_PLUGIN to "[Direct]",
+            DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY to "[Transitive]"
+        )
 
         val renderer = DependencyHierarchyTreeCellRenderer("org.example", "target-lib")
         val tree = Tree()
@@ -212,6 +217,12 @@ class DependencyHierarchyPanelTest : BasePlatformTestCase() {
             assertNotNull("Icon für $type darf nicht null sein", renderer.icon)
             val rendered = renderer.renderedItems
             assertTrue("Text für $type muss Koordinate enthalten", rendered.any { it.contains("artifact-$index") })
+            compactPrefixes[type]?.let { prefix ->
+                assertTrue(
+                    "Text für $type muss das kompakte Präfix $prefix enthalten",
+                    rendered.any { it.contains(prefix) }
+                )
+            }
         }
     }
 

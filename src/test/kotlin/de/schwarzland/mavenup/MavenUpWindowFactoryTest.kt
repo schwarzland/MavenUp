@@ -3714,7 +3714,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         component: java.awt.Component
     ): com.intellij.ui.OnePixelSplitter? {
         if (component is com.intellij.ui.OnePixelSplitter) return component
-        val container = component as? java.awt.Container ?: return null
+        val container = component as? Container ?: return null
         return container.components.firstNotNullOfOrNull(::findHierarchySplitterOrNull)
     }
 }

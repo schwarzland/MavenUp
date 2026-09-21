@@ -644,7 +644,7 @@ class DependencyHierarchyPanel(
  * Zell-Renderer für den [DependencyHierarchyPanel]-Hierarchiebaum.
  *
  * Stellt Knoten typabhängig mit passendem Icon, einem vorangestellten Typ-Präfix
- * (z. B. `[Dependency Management]`, `[Direct Dependency]`), Koordinaten und Version dar.
+ * (z. B. `[Dependency Management]`, `[Direct]`), Koordinaten und Version dar.
  * Die Ziel-Abhängigkeit wird zur schnellen Orientierung farblich hervorgehoben.
  * Vulnerable transitive Abhängigkeiten werden nach einem Sicherheits-Scan mit einem Warn-Icon
  * und einem kompakten Hinweis zu Schweregrad und Anzahl der Befunde gesondert gekennzeichnet.
