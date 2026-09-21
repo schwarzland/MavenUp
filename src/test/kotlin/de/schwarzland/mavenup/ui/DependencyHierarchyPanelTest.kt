@@ -236,9 +236,9 @@ class DependencyHierarchyPanelTest : BasePlatformTestCase() {
             DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY
         )
         val compactPrefixes = mapOf(
-            DependencyHierarchyNodeType.DIRECT_DEPENDENCY to "[DD]",
-            DependencyHierarchyNodeType.DIRECT_PLUGIN to "[DP]",
-            DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY to "[TD]"
+            DependencyHierarchyNodeType.DIRECT_DEPENDENCY to "",
+            DependencyHierarchyNodeType.DIRECT_PLUGIN to "",
+            DependencyHierarchyNodeType.TRANSITIVE_DEPENDENCY to ""
         )
 
         val renderer = DependencyHierarchyTreeCellRenderer("org.example", "target-lib")
