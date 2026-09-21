@@ -35,6 +35,7 @@ import de.schwarzland.mavenup.service.DependencyHierarchyService
 import de.schwarzland.mavenup.service.PomNavigationService
 import java.awt.BorderLayout
 import java.awt.Color
+import java.awt.Dimension
 import java.awt.event.KeyEvent
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
@@ -56,6 +57,9 @@ import javax.swing.tree.DefaultTreeModel
  * passenden Tabellenansicht (`Select in Dependencies` oder `Select in Transitive CVEs`) und zum
  * Schließen des Seitenpanels.
  *
+ * Die Mindestbreite bleibt bei null, damit der umgebende Splitter die vom Nutzer gewählte Breite
+ * auch nach dem Neuaufbau des Inhalts bei einer geänderten Tabellenselektion beibehält.
+ *
  * Ein Rechtsklick auf einen Baumknoten öffnet das entsprechende Kontextmenü;
  * zusätzlich kann per `Enter` oder `F4` direkt zur Deklaration in der `pom.xml` gesprungen werden.
  *
@@ -75,6 +79,10 @@ class DependencyHierarchyPanel(
     private val onClose: (() -> Unit)? = null,
     private val vulnerabilityAdvisoriesProvider: (() -> Map<String, List<VulnerabilityAdvisory>>)? = null
 ) : JBPanel<JBPanel<*>>(BorderLayout()) {
+
+    init {
+        minimumSize = Dimension(0, 0)
+    }
 
     /** Group-ID der aktuell angezeigten Zielkomponente. */
     var currentGroupId: String? = null

@@ -1223,6 +1223,18 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
             0.001f
         )
 
+        val table = findTable(content)!!
+        val model = table.model as DefaultTableModel
+        model.addRow(arrayOf("org.springframework.boot", "spring-boot-starter-web", "", "dependency", null, "1.0.0", emptyList<String>()))
+        table.setRowSelectionInterval(0, 0)
+        toolWindow.syncDependencyHierarchySelection()
+        assertEquals(
+            "Eine neue Tabellenselektion darf die manuell angepasste Breite nicht verändern",
+            0.5f,
+            1f - splitter.proportion,
+            0.001f
+        )
+
         toolWindow.hideDependencyHierarchy()
         assertFalse(toolWindow.isDependencyHierarchyVisible())
 

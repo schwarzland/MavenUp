@@ -1,6 +1,7 @@
 package de.schwarzland.mavenup.ui
 
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import com.intellij.ui.OnePixelSplitter
 import de.schwarzland.mavenup.model.VulnerabilityAdvisory
 import de.schwarzland.mavenup.model.VulnerabilitySeverity
 
@@ -252,10 +253,20 @@ class TransitiveVulnerabilitiesViewFilterTest : BasePlatformTestCase() {
 
     fun testShowAndHideDependencyHierarchy() {
         val view = buildView()
+        val splitter = view.components.filterIsInstance<OnePixelSplitter>().single()
         assertFalse(view.isDependencyHierarchyVisible())
 
         view.showDependencyHierarchy("org.trans", "lib", false)
         assertTrue(view.isDependencyHierarchyVisible())
+
+        splitter.proportion = 0.5f
+        view.table.setRowSelectionInterval(1, 1)
+        assertEquals(
+            "Eine neue Tabellenselektion darf die manuell angepasste Breite nicht verändern",
+            0.5f,
+            1f - splitter.proportion,
+            0.001f
+        )
 
         view.hideDependencyHierarchy()
         assertFalse(view.isDependencyHierarchyVisible())

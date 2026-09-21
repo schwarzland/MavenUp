@@ -27,7 +27,7 @@
         <p><b>Advanced Capabilities:</b></p>
         <ul>
             <li><b>Property-Aware Versions:</b> Recognizes and updates Maven properties (e.g., <code>${spring.version}</code>) across all references while resolving placeholders accurately.</li>
-            <li><b>Dependency Hierarchy Inspection:</b> Inspect the full parent, BOM, management, and inclusion paths in a searchable side panel that opens at one third of the tool window and retains manual resizing until closed.</li>
+            <li><b>Dependency Hierarchy Inspection:</b> Inspect the full parent, BOM, management, and inclusion paths in a searchable side panel that opens at one third of the tool window and retains manual resizing across selection changes until closed.</li>
             <li><b>Detailed Security Reports:</b> View advisories in a master-detail split view with severity, CVSS scores and vectors, CWE identifiers, affected version ranges, fixed versions, and advisory references.</li>
             <li><b>Safe Update Workflow:</b> Review all planned version updates and managed-entry removals in a sortable confirmation dialog with optional automatic Maven re-sync.</li>
             <li><b>Flexible Filtering & Sorting:</b> Filter by name, type, inheritance, pending updates, or security findings, and sort columns ascending, descending, or in original POM order.</li>

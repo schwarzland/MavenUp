@@ -17,6 +17,13 @@ import javax.swing.tree.DefaultMutableTreeNode
  */
 class DependencyHierarchyPanelTest : BasePlatformTestCase() {
 
+    fun testMinimumSizeDoesNotConstrainHostingSplitter() {
+        val panel = DependencyHierarchyPanel(project)
+
+        assertEquals(0, panel.minimumSize.width)
+        assertEquals(0, panel.minimumSize.height)
+    }
+
     fun testBuildTreeModelConstructsFullHierarchy() {
         val rootNode = DependencyHierarchyNode(
             type = DependencyHierarchyNodeType.ROOT,
