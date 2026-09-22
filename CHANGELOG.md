@@ -8,6 +8,10 @@
 
 - Require an IDE restart after MavenUp is installed, updated, or disabled instead of relying on dynamic plugin unloading.
 
+### Fixed
+
+- Bumped the `org.jetbrains.kotlin.jvm` Gradle plugin from 2.4.10 to 2.4.20 to resolve an unsafe deserialization vulnerability in the Kotlin build cache.
+
 ## 3.3.0
 
 ### Added
