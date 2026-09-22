@@ -11,9 +11,9 @@ import org.jetbrains.idea.maven.project.MavenProject
  * Maven-Import verfügbar macht.
  *
  * Der Listener wird deklarativ über `<projectListeners>` in der `plugin.xml` registriert.
- * Dadurch wird er beim Entladen des Plugins automatisch wieder abgemeldet – im Gegensatz zu
- * einer programmatischen Registrierung auf dem Projekt-Message-Bus, die eine Referenz auf den
- * Plugin-Klassenlader halten und so ein dynamisches Update ohne IDE-Neustart verhindern würde.
+ * Dadurch verwaltet die Plattform seinen Lebenszyklus – im Gegensatz zu einer programmatischen
+ * Registrierung auf dem Projekt-Message-Bus, die eine Referenz auf den Plugin-Klassenlader
+ * halten kann. Der Plugin-Descriptor fordert unabhängig davon einen IDE-Neustart an.
  *
  * @property project Das Projekt, für das der Listener registriert ist.
  * @see MavenUpToolWindowActivator

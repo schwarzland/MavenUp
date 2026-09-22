@@ -19,7 +19,7 @@ MavenUp is an IntelliJ plugin built specifically for Maven projects to simplify 
 
 ## Installation
 
-Install **MavenUp** from the JetBrains Marketplace via `Settings > Plugins > Marketplace`, or download the plugin ZIP from the [releases](https://github.com/schwarzland/MavenUp/releases) and install it via `Settings > Plugins > Install Plugin from Disk…`.
+Install **MavenUp** from the JetBrains Marketplace via `Settings > Plugins > Marketplace`, or download the plugin ZIP from the [releases](https://github.com/schwarzland/MavenUp/releases) and install it via `Settings > Plugins > Install Plugin from Disk…`. Restart the IDE after installing, updating, or disabling MavenUp.
 
 ## Quick start
 

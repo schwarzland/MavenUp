@@ -20,7 +20,7 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
   von `.github/workflows/dependency-graph-submit.yml` per `workflow_run` gemeldet (fork-sicher).
   `.github/workflows/dependency-review.yml` prüft Pull Requests mit
   `actions/dependency-review-action` gegen die GitHub Advisory Database.
-- Plugin-Descriptor: `src/main/resources/META-INF/plugin.xml`
+- Plugin-Descriptor: `src/main/resources/META-INF/plugin.xml`; er deklariert `require-restart="true"`, sodass Installation, Updates und Deaktivierung einen IDE-Neustart erfordern.
 - Plugin-Icon (Marketplace/Plugin Manager): `src/main/resources/META-INF/pluginIcon.svg` (Light) und `pluginIcon_dark.svg` (Dark).
 - Tool-Window-Icon: `src/main/resources/icons/mavenUpToolWindow.svg` (Light) und `mavenUpToolWindow_dark.svg` (Dark), in `plugin.xml` über das `icon`-Attribut des `<toolWindow>` referenziert.
 

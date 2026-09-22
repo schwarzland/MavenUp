@@ -1,5 +1,5 @@
 <!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
-<idea-plugin>
+<idea-plugin require-restart="true">
     <!-- Unique identifier of the plugin. It should be FQN. It cannot be changed between the plugin versions. -->
     <id>de.schwarzland.mavenup</id>
 
@@ -41,6 +41,7 @@
             <li><b>Secure Token Storage:</b> Stores Sonatype OSS Index API tokens safely in IntelliJ Password Safe.</li>
             <li><b>Global Settings:</b> Configure version lookup strategies, vulnerability scanners, and POM modification preferences under <b>Settings | Tools | Maven Up</b>.</li>
             <li><b>Privacy-First Design:</b> Only Maven coordinates are transmitted over HTTPS for version checks and vulnerability scans—your source code remains private.</li>
+            <li><b>Reliable Plugin Lifecycle:</b> Requires an IDE restart after installing, updating, or disabling the plugin.</li>
         </ul>
         ]]></description>
 
@@ -88,8 +89,8 @@
                             bundle="messages.MyMessageBundle" key="notification.group.name"/>
     </extensions>
 
-    <!-- Projektgebundene Listener. Deklarativ registriert, damit sie beim Entladen des Plugins
-         automatisch abgemeldet werden und ein dynamisches Update ohne IDE-Neustart möglich bleibt. -->
+    <!-- Projektgebundene Listener. Die deklarative Registrierung verwaltet ihren Lebenszyklus
+         gemeinsam mit dem Plugin; der Descriptor fordert dennoch stets einen IDE-Neustart an. -->
     <projectListeners>
         <listener class="de.schwarzland.mavenup.service.MavenUpMavenImportListener"
                   topic="org.jetbrains.idea.maven.project.MavenImportListener"/>

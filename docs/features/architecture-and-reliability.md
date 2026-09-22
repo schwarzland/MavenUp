@@ -1,6 +1,6 @@
 # Architecture & Reliability
 
-Features covering background execution, logging, dynamic plugin loading, and the internal code structure.
+Features covering background execution, logging, plugin lifecycle reliability, and the internal code structure.
 
 Back to the [feature overview](../../FEATURES.md).
 
@@ -10,7 +10,7 @@ Back to the [feature overview](../../FEATURES.md).
 - **Project-scoped automatic search coordination**: A project service runs configuration-gated version lookups after startup and Maven imports, retains the newest completed snapshot for the tool window, and prevents stale import generations from publishing results.
 - **Safe action availability**: Disables **Scan for Vulnerabilities** while a refresh or update check is running to prevent overlapping background operations.
 - **Compact logging and diagnostics**: Logs parsing errors, credential resolution issues, and repository request failures (including HTTP status), while limiting verbose version and component lists to truncated DEBUG messages.
-- **Restart-free installation and updates**: Uses only dynamic extension points and registers the Maven import listener declaratively, so the plugin can be loaded, unloaded, and updated without restarting the IDE.
+- **Reliable plugin lifecycle**: Explicitly requires an IDE restart after plugin installation, updates, or disablement instead of relying on dynamic loading and unloading.
 
 ## Architecture
 
