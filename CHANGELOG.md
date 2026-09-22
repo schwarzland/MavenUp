@@ -2,15 +2,11 @@
 
 # MavenUp Changelog
 
-## [Unreleased]
-
-### Added
+## 3.3.1
 
 ### Changed
 
 - Require an IDE restart after MavenUp is installed, updated, or disabled instead of relying on dynamic plugin unloading.
-
-### Fixed
 
 ## 3.3.0
 
