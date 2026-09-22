@@ -40,6 +40,12 @@ The IntelliJ Platform Gradle Plugin pulls jsoup and Jackson transitively onto th
 
 When bumping the IntelliJ Platform Gradle Plugin, verify both lists still match the version you want and drop entries whose transitive version is already patched.
 
+## Test classpath dependency pinning
+
+The `com.jetbrains.intellij.platform:test-framework` artifact (pulled in via `testFramework(TestFrameworkType.Platform)`) transitively brings an older, vulnerable Jackson version onto `testCompileClasspath`/`testRuntimeClasspath` through its `jackson-bom` platform constraint. These artifacts run at test time only and are never packaged into the plugin JAR.
+
+`build.gradle.kts` pins `jackson-core` and `jackson-databind` on those two configurations the same way as the settings buildscript classpath (explicit `testImplementation(...)` declaration plus `resolutionStrategy.force(...)` scoped to `testCompileClasspath`/`testRuntimeClasspath`). The force is intentionally **not** applied via `configurations.all` and does **not** include `jackson-module-kotlin`: forcing a newer `jackson-module-kotlin` pulls in an incompatible `kotlin-reflect`/`kotlin-stdlib` pair that breaks coroutine-based `BasePlatformTestCase` tests with a "Debug metadata version mismatch" error. Since the plugin code never uses Jackson directly, pinning only the two vulnerable artifacts is sufficient.
+
 ## Gradle proxy configuration
 
 If access to Maven Central in a corporate network only works via a proxy, proxy settings should **not** be maintained in the project-wide `gradle.properties`.

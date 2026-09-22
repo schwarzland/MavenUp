@@ -23,6 +23,17 @@ dependencies {
     implementation(libs.cvss.calculator)
     testImplementation(libs.junit)
 
+    // Die von der IntelliJ Platform Gradle Plugin Dependencies Extension bezogene
+    // "test-framework"-Artefaktgruppe (testFramework(TestFrameworkType.Platform) unten) zieht
+    // auf testCompileClasspath/testRuntimeClasspath transitiv als verwundbar gemeldete
+    // Jackson-Versionen ueber ihre jackson-bom-Plattform-Constraint. Diese Artefakte laufen
+    // ausschliesslich zur Testzeit und werden nie in das Plugin-JAR gepackt. Die Versionen
+    // werden zusaetzlich explizit deklariert, damit Dependency-Scanner und Dependabot die
+    // gepinnte Version sehen - `resolutionStrategy.force` allein wird von diesen Werkzeugen
+    // nicht ausgewertet.
+    testImplementation("com.fasterxml.jackson.core:jackson-core:2.22.2")
+    testImplementation("com.fasterxml.jackson.core:jackson-databind:2.22.2")
+
     // IntelliJ Platform Gradle Plugin Dependencies Extension - read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-dependencies-extension.html
     intellijPlatform {
         intellijIdea("2025.3.5")
@@ -31,6 +42,24 @@ dependencies {
         // Add plugin dependencies for compilation here:
         bundledPlugin("com.intellij.java")
         bundledPlugin("org.jetbrains.idea.maven")
+    }
+}
+
+// Nur die Test-Konfigurationen werden gepinnt: `configurations.all` wuerde auch die intern von
+// der IntelliJ Platform Gradle Plugin verwalteten Sandbox-/Plattform-Konfigurationen erfassen.
+// jackson-module-kotlin wird bewusst NICHT erzwungen: Eine neuere Version zieht eine inkompatible
+// kotlin-reflect/kotlin-stdlib-Variante nach sich, was im IDE-Testprozess zu "Debug metadata
+// version mismatch"-Fehlern bei coroutine-basierten Tests fuehrt. Da im Produktivcode kein
+// jackson-module-kotlin verwendet wird, genuegt es, die tatsaechlich verwundbaren Artefakte
+// jackson-core und jackson-databind zu pinnen.
+listOf("testCompileClasspath", "testRuntimeClasspath").forEach { configurationName ->
+    configurations.named(configurationName) {
+        resolutionStrategy {
+            force(
+                "com.fasterxml.jackson.core:jackson-core:2.22.2",
+                "com.fasterxml.jackson.core:jackson-databind:2.22.2",
+            )
+        }
     }
 }
 
