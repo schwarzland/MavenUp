@@ -11,6 +11,7 @@
 ### Fixed
 
 - Bumped the `org.jetbrains.kotlin.jvm` Gradle plugin from 2.4.10 to 2.4.20 to resolve an unsafe deserialization vulnerability in the Kotlin build cache.
+- Forced `jackson-core` and `jackson-databind` to the patched `2.22.2` release on the test classpath, fixing vulnerabilities in the older `2.19.0` versions pulled in transitively by the IntelliJ Platform test framework; these test-only artifacts are never bundled into the plugin JAR.
 
 ## 3.3.0
 
