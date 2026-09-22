@@ -9,7 +9,8 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
 - **MavenUpMavenImportListener**: deklarativ über `<projectListeners>` registrierter
   `MavenImportListener`, der das Tool-Window nach abgeschlossenem Maven-Import verfügbar macht und
   die automatische Versionssuche anstößt;
-  die deklarative Registrierung ermöglicht Plugin-Updates ohne IDE-Neustart.
+  sein Lebenszyklus wird durch die Plattform verwaltet, während der Plugin-Descriptor für
+  Installation, Updates und Deaktivierung dennoch einen IDE-Neustart verlangt.
 - **AutomaticVersionSearchCoordinator**: projektgebundener Service, der nach Projektstart und
   abgeschlossenen Maven-Imports einen PSI-Schnappschuss innerhalb einer IntelliJ-Read-Action erfasst und bei aktivierter Einstellung
   `autoSearchVersions` die Versionsabfrage im Hintergrund ausführt, ohne das Tool-Window zu
