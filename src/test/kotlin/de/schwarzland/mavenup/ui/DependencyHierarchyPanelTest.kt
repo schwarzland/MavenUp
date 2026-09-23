@@ -565,6 +565,7 @@ class DependencyHierarchyPanelTest : BasePlatformTestCase() {
         assertTrue(closed)
     }
 
+    @Suppress("UnstableApiUsage")
     fun testToolbarTargetComponentIsPanelNotOrphanedTree() {
         // Die Toolbar-Aktionen (u. a. "Close") müssen ein Ziel referenzieren, das tatsächlich Teil
         // der Swing-Komponentenhierarchie ist. Referenzierte das Ziel stattdessen einen Baum, der
@@ -583,6 +584,7 @@ class DependencyHierarchyPanelTest : BasePlatformTestCase() {
         )
     }
 
+    @Suppress("UnstableApiUsage")
     fun testShowEmptyKeepsToolbarActionable() {
         val panel = DependencyHierarchyPanel(project)
         panel.showEmpty()
@@ -595,6 +597,7 @@ class DependencyHierarchyPanelTest : BasePlatformTestCase() {
         )
     }
 
+    @Suppress("UnstableApiUsage")
     fun testShowHierarchyWithEmptyRootKeepsToolbarActionable() {
         val panel = DependencyHierarchyPanel(project)
         panel.showHierarchy("nonexistent.group", "nonexistent-artifact", false)
