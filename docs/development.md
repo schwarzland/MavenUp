@@ -15,7 +15,7 @@ Notes:
 
 Static analysis and test coverage are integrated via Gradle:
 
-- **detekt** (static code analysis): runs automatically as part of `./gradlew check`/`build`. The configuration lives under `config/detekt/detekt.yml` (among others `LargeClass = 800` expressing the 800–1000 line rule). Existing findings are frozen in `config/detekt/baseline.xml` so that only **newly** introduced violations fail the build. Manually:
+- **detekt 2.0.0-alpha.6** (static code analysis): runs automatically as part of `./gradlew check`/`build`. The configuration lives under `config/detekt/detekt.yml` (among others `LargeClass = 800` expressing the 800–1000 line rule). Existing findings are frozen in `config/detekt/baseline.xml` so that only **newly** introduced violations fail the build. Manually:
   ```
   ./gradlew detekt
   ```

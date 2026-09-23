@@ -5,7 +5,7 @@ plugins {
     id("org.jetbrains.kotlin.jvm")
     id("org.jetbrains.changelog")
     id("org.jetbrains.intellij.platform")
-    id("io.gitlab.arturbosch.detekt")
+    id("dev.detekt")
     id("org.jetbrains.kotlinx.kover")
 }
 
@@ -87,10 +87,10 @@ tasks.named<org.jetbrains.intellij.platform.gradle.tasks.PrepareSandboxTask>("pr
 // Befunde ein, sodass nur neu eingeführte Verstöße den Build scheitern lassen. Die Schwellenwerte
 // (u. a. LargeClass = 800) in config/detekt/detekt.yml spiegeln die 800–1000-Zeilen-Regel wider.
 detekt {
-    buildUponDefaultConfig = true
+    buildUponDefaultConfig.set(true)
     config.setFrom(files("config/detekt/detekt.yml"))
-    baseline = file("config/detekt/baseline.xml")
-    basePath = rootDir.absolutePath
+    baseline.set(layout.projectDirectory.file("config/detekt/baseline.xml"))
+    basePath.set(layout.projectDirectory)
 }
 
 // Test-Coverage-Messung via Kover. Erzeugt HTML-/XML-Reports über `koverHtmlReport` bzw.
@@ -103,4 +103,3 @@ kover {
         }
     }
 }
-
