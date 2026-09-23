@@ -1,7 +1,10 @@
 package de.schwarzland.mavenup.ui
 
 import com.intellij.icons.AllIcons
+import com.intellij.openapi.actionSystem.ActionManager
+import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.actionSystem.Separator
+import com.intellij.openapi.actionSystem.ex.ActionUtil
 import com.intellij.openapi.util.IconLoader
 import com.intellij.psi.xml.XmlFile
 import com.intellij.testFramework.TestActionEvent
@@ -526,13 +529,13 @@ class DependencyHierarchyPanelTest : BasePlatformTestCase() {
 
         val transitiveLabel = MyMessageBundle.message("dependency.hierarchy.action.navigateToTransitiveCves")
         val dependenciesLabel = MyMessageBundle.message("dependency.hierarchy.action.navigateToDependencies")
-        val toolbarAction = panel.createToolbar(transitiveTree).actionGroup
-            .getChildren(null)
+        val toolbarAction = (panel.createToolbar(transitiveTree).actionGroup as DefaultActionGroup)
+            .getChildren(ActionManager.getInstance())
             .filterIsInstance<com.intellij.openapi.actionSystem.AnAction>()
             .first { it.templatePresentation.text == transitiveLabel }
         assertEquals(transitiveLabel, toolbarAction.templatePresentation.text)
 
-        val contextAction = panel.createContextMenuGroup(dependenciesTree).getChildren(null)
+        val contextAction = panel.createContextMenuGroup(dependenciesTree).getChildren(ActionManager.getInstance())
             .filterIsInstance<com.intellij.openapi.actionSystem.AnAction>()
             .first { it.templatePresentation.text == dependenciesLabel }
         assertEquals(dependenciesLabel, contextAction.templatePresentation.text)
@@ -556,12 +559,12 @@ class DependencyHierarchyPanelTest : BasePlatformTestCase() {
         assertEquals(2, contextGroup.childrenCount)
 
         // Close action in toolbar
-        val actions = panel.createToolbar(tree).actionGroup.getChildren(null)
+        val actions = (panel.createToolbar(tree).actionGroup as DefaultActionGroup).getChildren(ActionManager.getInstance())
         val closeAction = actions.filterIsInstance<com.intellij.openapi.actionSystem.AnAction>()
             .lastOrNull { it !is Separator }
         assertNotNull(closeAction)
         val event = TestActionEvent.createTestEvent()
-        closeAction?.actionPerformed(event)
+        closeAction?.let { ActionUtil.performAction(it, event) }
         assertTrue(closed)
     }
 
