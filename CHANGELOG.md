@@ -9,6 +9,7 @@
 - Fixed the Gradle 9.7 deprecation warning emitted by Detekt's reporting configuration by upgrading to Detekt 2.0.0-alpha.6.
 - Fixed the row selection in the **Dependencies** table being permanently lost after every refresh (e.g., after a vulnerability scan finishes), which left an open **Dependency Hierarchy** split view empty and unusable.
 - Fixed the **Dependency Hierarchy** split view's toolbar (including the **Close** button and the toolbar toggle) becoming entirely unresponsive whenever the panel showed its empty state, because its actions targeted a tree component that was never actually displayed.
+- Fixed IDE warnings about calling `AnAction.update`/`actionPerformed` directly in tests by routing test-driven action invocations through `ActionUtil.updateAction`/`ActionUtil.performAction`.
 
 ## 3.3.1
 
