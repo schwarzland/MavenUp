@@ -565,6 +565,48 @@ class DependencyHierarchyPanelTest : BasePlatformTestCase() {
         assertTrue(closed)
     }
 
+    fun testToolbarTargetComponentIsPanelNotOrphanedTree() {
+        // Die Toolbar-Aktionen (u. a. "Close") müssen ein Ziel referenzieren, das tatsächlich Teil
+        // der Swing-Komponentenhierarchie ist. Referenzierte das Ziel stattdessen einen Baum, der
+        // (wie im Empty State) nie in die Hierarchie eingehängt wird, verweigert ActionManagerImpl
+        // jede Toolbar-Aktion mit "target component is not showing", inkl. des Schließen-Buttons.
+        val panel = DependencyHierarchyPanel(project)
+        val tree = Tree(DefaultMutableTreeNode())
+
+        val toolbar = panel.createToolbar(tree)
+
+        assertSame(
+            "Das Aktionsziel der Toolbar muss das Panel selbst sein, nicht der (ggf. nie " +
+                "angezeigte) Baum, damit Aktionen wie Close auch im Empty State ausführbar bleiben",
+            panel,
+            toolbar.targetComponent
+        )
+    }
+
+    fun testShowEmptyKeepsToolbarActionable() {
+        val panel = DependencyHierarchyPanel(project)
+        panel.showEmpty()
+
+        assertSame(
+            "Auch im Empty State (showEmpty) muss die Toolbar auf das Panel zielen, statt auf " +
+                "den nie angezeigten leeren Baum",
+            panel,
+            panel.toolbar?.targetComponent
+        )
+    }
+
+    fun testShowHierarchyWithEmptyRootKeepsToolbarActionable() {
+        val panel = DependencyHierarchyPanel(project)
+        panel.showHierarchy("nonexistent.group", "nonexistent-artifact", false)
+
+        assertSame(
+            "Auch wenn die Hierarchie keine Kindknoten hat (Empty State von showHierarchy) muss " +
+                "die Toolbar auf das Panel zielen, statt auf den nie angezeigten leeren Baum",
+            panel,
+            panel.toolbar?.targetComponent
+        )
+    }
+
     fun testShowHierarchyUpdatesPanel() {
         myFixture.configureByText(
             "pom.xml",

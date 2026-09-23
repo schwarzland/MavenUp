@@ -344,6 +344,14 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private var refreshGeneration = 0
 
         /**
+         * Koordinate der vor einem Tabellen-Refresh (z. B. durch einen Vulnerability-Scan) selektierten
+         * Zeile der Haupttabelle. Wird nach dem Wiederaufbau der Tabelle genutzt, um die Selektion und
+         * damit ein ggf. geöffnetes Hierarchiebaum-Panel auf derselben Komponente zu erhalten, statt sie
+         * unwiderruflich zu verlieren.
+         */
+        private var selectedCoordinateBeforeRefresh: Pair<String, String>? = null
+
+        /**
          * Zuletzt bekannter Wert der Auto-Selektionsstrategie.
          *
          * Dient dazu, bei einer Einstellungsänderung nur dann die "New Version"-Auswahl
@@ -834,6 +842,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 updateVersionSourceFilterState()
                 updateTransitiveVulnerabilitiesView()
                 trimColumnWidthsToContent(table)
+                restoreSelectionAfterRefresh()
 
                 isRefreshing = false
                 updateTableEmptyText()
@@ -861,6 +870,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 }
                 refreshToolbar()
                 cancelActiveCellEditing()
+                captureSelectionBeforeRefresh()
                 tableModel.setRowCount(0)
                 updateTableEmptyText()
                 resetRefreshState(clearData, clearVulnerabilities)
@@ -3887,6 +3897,47 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 val rowGroupId = model.getValueAt(modelRow, GROUP_ID_COLUMN)?.toString().orEmpty()
                 val rowArtifactId = model.getValueAt(modelRow, ARTIFACT_ID_COLUMN)?.toString().orEmpty()
                 rowGroupId == groupId && rowArtifactId == artifactId
+            }
+        }
+
+        /**
+         * Merkt sich die Koordinate der aktuell in der Haupttabelle selektierten Zeile in
+         * [selectedCoordinateBeforeRefresh], bevor ein Tabellen-Refresh sie leert.
+         *
+         * Wird genau eine Zeile mit vollständiger Group-/Artifact-ID selektiert, bleibt die Koordinate
+         * bis zum nächsten Aufruf von [restoreSelectionAfterRefresh] erhalten. Andernfalls (keine oder
+         * mehrere Zeilen selektiert) bleibt ein zuvor gemerkter Wert unverändert, damit ein bereits
+         * laufender zweistufiger Refresh (z. B. mit anschließender Versionssuche) seine ursprünglich
+         * gemerkte Koordinate nicht verliert.
+         */
+        internal fun captureSelectionBeforeRefresh() {
+            if (table.selectedRowCount != 1) return
+            val modelRow = table.convertRowIndexToModel(table.selectedRow)
+            val model = table.model as DefaultTableModel
+            val groupId = model.getValueAt(modelRow, GROUP_ID_COLUMN) as? String
+            val artifactId = model.getValueAt(modelRow, ARTIFACT_ID_COLUMN) as? String
+            if (!groupId.isNullOrBlank() && !artifactId.isNullOrBlank()) {
+                selectedCoordinateBeforeRefresh = groupId to artifactId
+            }
+        }
+
+        /**
+         * Stellt nach dem Wiederaufbau der Haupttabelle (z. B. nach einem Vulnerability-Scan) die
+         * zuvor über [captureSelectionBeforeRefresh] gemerkte Zeilenselektion wieder her, sofern die
+         * Koordinate weiterhin vorhanden ist.
+         *
+         * Ohne diese Wiederherstellung geht eine bestehende Selektion bei jedem Refresh verloren und
+         * ein zuvor geöffnetes Hierarchiebaum-Panel bliebe dauerhaft leer, obwohl die betrachtete
+         * Komponente weiterhin existiert.
+         */
+        internal fun restoreSelectionAfterRefresh() {
+            val (groupId, artifactId) = selectedCoordinateBeforeRefresh ?: return
+            selectedCoordinateBeforeRefresh = null
+            val modelRow = findDependencyModelRow(groupId, artifactId) ?: return
+            val viewRow = table.convertRowIndexToView(modelRow)
+            if (viewRow >= 0) {
+                table.setRowSelectionInterval(viewRow, viewRow)
+                table.scrollRectToVisible(table.getCellRect(viewRow, 0, true))
             }
         }
 

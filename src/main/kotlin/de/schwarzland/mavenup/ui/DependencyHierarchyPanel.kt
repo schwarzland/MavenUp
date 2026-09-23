@@ -389,7 +389,12 @@ class DependencyHierarchyPanel(
             },
             true
         ).apply {
-            targetComponent = targetTree
+            // Der Baum selbst wird im Empty State (siehe [showEmpty] und der leere Zweig von
+            // [showHierarchy]) nicht in die Komponentenhierarchie eingehängt und wäre daher nie
+            // "showing". Die ActionManagerImpl verweigert dann jede Toolbar-Aktion (auch das
+            // Schließen) mit der Warnung "target component is not showing". Das Panel selbst ist
+            // dagegen immer sichtbar, solange die Split-View geöffnet ist.
+            targetComponent = this@DependencyHierarchyPanel
         }
 
     /**

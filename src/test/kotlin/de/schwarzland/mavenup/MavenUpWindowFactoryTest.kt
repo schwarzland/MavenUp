@@ -1199,6 +1199,113 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertFalse(toolWindow.isDependencyHierarchyVisible())
     }
 
+    fun testDependencyHierarchyClosableAfterVulnerabilityScanClearsTable() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val content = toolWindow.getContent()
+        val table = findTable(content)!!
+        val model = table.model as DefaultTableModel
+        model.addRow(arrayOf("com.example", "lib", "", "dependency", null, "1.0.0", emptyList<String>()))
+        table.setRowSelectionInterval(0, 0)
+
+        val hierarchyAction = toolWindow.topToolbarActions()
+            .first { it.templatePresentation.icon == AllIcons.Actions.ShowAsTree }
+
+        // Öffnen über die echte Toggle-Aktion (wie ein realer Klick).
+        var event = com.intellij.testFramework.TestActionEvent.createTestEvent(hierarchyAction)
+        hierarchyAction.actionPerformed(event)
+        assertTrue(
+            "Split-View sollte nach dem ersten Klick geöffnet sein",
+            toolWindow.isDependencyHierarchyVisible()
+        )
+
+        // Simuliert einen abgeschlossenen Vulnerability-Scan ohne Funde: Tabelle wird geleert
+        // und die Selektion geht verloren, ohne dass die Split-View explizit geschlossen wird.
+        model.setRowCount(0)
+
+        // Schließen über die echte Toggle-Aktion muss trotz leerer Tabelle funktionieren.
+        event = com.intellij.testFramework.TestActionEvent.createTestEvent(hierarchyAction)
+        hierarchyAction.actionPerformed(event)
+        assertFalse(
+            "Split-View sollte sich nach einem Scan ohne Funde weiterhin über den Toggle-Button schließen lassen",
+            toolWindow.isDependencyHierarchyVisible()
+        )
+    }
+
+    fun testCaptureAndRestoreSelectionSurvivesTableRebuild() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val content = toolWindow.getContent()
+        val table = findTable(content)!!
+        val model = table.model as DefaultTableModel
+        model.addRow(arrayOf("com.example", "lib", "", "dependency", null, "1.0.0", emptyList<String>()))
+        model.addRow(arrayOf("com.example", "other", "", "dependency", null, "2.0.0", emptyList<String>()))
+        table.setRowSelectionInterval(1, 1)
+        toolWindow.showDependencyHierarchy("com.example", "other", false)
+        assertTrue(toolWindow.isDependencyHierarchyVisible())
+
+        // Ein Vulnerability-Scan (auch ohne Funde) leert die Tabelle vollständig und baut sie neu auf.
+        toolWindow.captureSelectionBeforeRefresh()
+        model.setRowCount(0)
+        assertEquals(-1, table.selectedRow)
+
+        model.addRow(arrayOf("com.example", "lib", "", "dependency", null, "1.0.0", emptyList<String>()))
+        model.addRow(arrayOf("com.example", "other", "", "dependency", null, "2.0.0", emptyList<String>()))
+        toolWindow.restoreSelectionAfterRefresh()
+
+        assertEquals(
+            "Die zuvor selektierte Zeile muss nach dem Wiederaufbau der Tabelle erneut selektiert sein",
+            1,
+            table.selectedRow
+        )
+        assertEquals("com.example", model.getValueAt(table.selectedRow, GROUP_ID_COLUMN))
+        assertEquals("other", model.getValueAt(table.selectedRow, ARTIFACT_ID_COLUMN))
+    }
+
+    fun testRestoreSelectionAfterRefreshDoesNothingWhenCoordinateIsGone() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val content = toolWindow.getContent()
+        val table = findTable(content)!!
+        val model = table.model as DefaultTableModel
+        model.addRow(arrayOf("com.example", "lib", "", "dependency", null, "1.0.0", emptyList<String>()))
+        table.setRowSelectionInterval(0, 0)
+
+        toolWindow.captureSelectionBeforeRefresh()
+        model.setRowCount(0)
+
+        // Die zuvor selektierte Komponente ist nach dem Refresh nicht mehr vorhanden (z. B. entfernt).
+        model.addRow(arrayOf("com.example", "different", "", "dependency", null, "1.0.0", emptyList<String>()))
+        toolWindow.restoreSelectionAfterRefresh()
+
+        assertEquals(-1, table.selectedRow)
+    }
+
+    fun testCaptureSelectionBeforeRefreshIgnoresMultiSelectionAndKeepsPreviousCoordinate() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val content = toolWindow.getContent()
+        val table = findTable(content)!!
+        val model = table.model as DefaultTableModel
+        model.addRow(arrayOf("com.example", "lib", "", "dependency", null, "1.0.0", emptyList<String>()))
+        model.addRow(arrayOf("com.example", "other", "", "dependency", null, "2.0.0", emptyList<String>()))
+        table.setRowSelectionInterval(0, 0)
+        toolWindow.captureSelectionBeforeRefresh()
+
+        // Ein zweistufiger Refresh (z. B. mit anschließender Versionssuche) ruft die Erfassung erneut
+        // auf, während die Tabelle bereits geleert bzw. neu aufgebaut, aber noch nichts selektiert ist.
+        model.setRowCount(0)
+        toolWindow.captureSelectionBeforeRefresh()
+
+        model.addRow(arrayOf("com.example", "lib", "", "dependency", null, "1.0.0", emptyList<String>()))
+        model.addRow(arrayOf("com.example", "other", "", "dependency", null, "2.0.0", emptyList<String>()))
+        toolWindow.restoreSelectionAfterRefresh()
+
+        assertEquals(
+            "Die ursprünglich gemerkte Koordinate darf durch einen erneuten Erfassungsaufruf ohne " +
+                "Selektion nicht verloren gehen",
+            0,
+            table.selectedRow
+        )
+        assertEquals("lib", model.getValueAt(table.selectedRow, ARTIFACT_ID_COLUMN))
+    }
+
     fun testShowAndHideDependencyHierarchyPanel() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         val content = toolWindow.getContent()
@@ -1645,6 +1752,48 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
                 contentManager.selectedContent
             )
             assertEquals("Transitive CVEs", transitiveTab.displayName)
+        }
+    }
+
+    /**
+     * Reproduziert den gemeldeten Fehler: Ist die Hierarchie-Split-View im Tab **Transitive CVEs**
+     * geöffnet und ein erneuter Scan findet keine Vulnerabilities mehr (Tabelle wird geleert), muss
+     * sich die Split-View weiterhin über die echte Toggle-Aktion aus der Toolbar schließen lassen.
+     */
+    fun testDependencyHierarchyClosableInTransitiveTabAfterScanClearsFindings() {
+        withBoundToolWindow { toolWindow, _, _, _ ->
+            val coords = toolWindow.javaClass.getDeclaredField("transitiveCoordinates")
+                .apply { isAccessible = true }.get(toolWindow) as MutableSet<String>
+            val advisories = toolWindow.javaClass.getDeclaredField("vulnerabilityAdvisories")
+                .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, List<VulnerabilityAdvisory>>
+
+            addTransitiveFinding(toolWindow)
+            toolWindow.updateTransitiveVulnerabilitiesView()
+            toolWindow.setTransitiveViewVisible(true)
+
+            val transitiveTable = toolWindow.transitiveVulnerabilitiesView.table
+            transitiveTable.setRowSelectionInterval(0, 0)
+
+            val hierarchyAction = toolWindow.topToolbarActions()
+                .first { it.templatePresentation.icon == AllIcons.Actions.ShowAsTree }
+
+            hierarchyAction.actionPerformed(com.intellij.testFramework.TestActionEvent.createTestEvent(hierarchyAction))
+            assertTrue(
+                "Split-View sollte im Transitive-CVEs-Tab geöffnet sein",
+                toolWindow.transitiveVulnerabilitiesView.isDependencyHierarchyVisible()
+            )
+
+            // Erneuter Scan findet keine Vulnerabilities mehr -> Tabelle wird geleert.
+            coords.clear()
+            advisories.clear()
+            toolWindow.updateTransitiveVulnerabilitiesView()
+            assertEquals(0, transitiveTable.rowCount)
+
+            hierarchyAction.actionPerformed(com.intellij.testFramework.TestActionEvent.createTestEvent(hierarchyAction))
+            assertFalse(
+                "Split-View sollte sich nach einem Scan ohne Funde weiterhin über den Toggle-Button schließen lassen",
+                toolWindow.transitiveVulnerabilitiesView.isDependencyHierarchyVisible()
+            )
         }
     }
 

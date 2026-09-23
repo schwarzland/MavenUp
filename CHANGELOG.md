@@ -2,6 +2,13 @@
 
 # MavenUp Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- Fixed the row selection in the **Dependencies** table being permanently lost after every refresh (e.g., after a vulnerability scan finishes), which left an open **Dependency Hierarchy** split view empty and unusable.
+- Fixed the **Dependency Hierarchy** split view's toolbar (including the **Close** button and the toolbar toggle) becoming entirely unresponsive whenever the panel showed its empty state, because its actions targeted a tree component that was never actually displayed.
+
 ## 3.3.1
 
 ### Changed
