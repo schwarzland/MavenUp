@@ -22,6 +22,7 @@
 - Fixed the **Dependency Hierarchy** split view's toolbar (including the **Close** button and the toolbar toggle) becoming entirely unresponsive whenever the panel showed its empty state, because its actions targeted a tree component that was never actually displayed.
 - Fixed IDE warnings about calling `AnAction.update`/`actionPerformed` directly in tests by routing test-driven action invocations through `ActionUtil.updateAction`/`ActionUtil.performAction`.
 - Fixed opening the tool window (and other automatic refreshes such as applying updates or a Maven reimport) unexpectedly triggering a network vulnerability scan on cache misses; auto-rescan-on-cache-miss now only applies once a manual **Check vulnerabilities** scan has completed successfully in the current session.
+- Fixed the vulnerability cache not invalidating dependencies whose own version stayed the same but whose resolved transitive dependency set changed because a shared transitive dependency was converged to a new version by bumping a *different* dependency.
 
 ## 3.3.1
 
