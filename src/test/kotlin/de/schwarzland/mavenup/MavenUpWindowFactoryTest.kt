@@ -163,6 +163,108 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         }
     }
 
+    fun testAutomaticRefreshDoesNotAutoRescanCacheMissesWithoutPriorManualScan() {
+        val settings = MavenUpSettings.getInstance()
+        val originalState = settings.state.copy()
+        val cache = VulnerabilityCacheService.getInstance(project)
+        try {
+            settings.state.checkTransitiveDependencies = false
+            settings.state.ossIndexEnabled = false
+            // Auto-Rescan ist aktiviert, darf aber ohne einen zuvor erfolgreich abgeschlossenen
+            // manuellen Scan nicht greifen - unabhängig davon, ob es der erste oder ein späterer
+            // automatischer Refresh ist.
+            settings.state.autoRescanVulnerabilitiesOnCacheMiss = true
+            cache.clear()
+
+            val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+            val table = findTable(toolWindow.getContent())!!
+            toolWindow.applyAutomaticVersionSearchState(
+                AutomaticVersionSearchState(
+                    RefreshSnapshot(
+                        rows = listOf(
+                            RefreshRow(
+                                groupId = "com.example",
+                                artifactId = "uncached-library",
+                                propertyName = "",
+                                type = "dependency",
+                                currentVersion = "1.0.0"
+                            )
+                        ),
+                        dependencyProperties = emptyMap()
+                    ),
+                    versionSearchResult = null,
+                    repositoryError = null
+                )
+            )
+
+            val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
+            while (table.model.rowCount != 1 && System.nanoTime() < deadline) {
+                UIUtil.dispatchAllInvocationEvents()
+                Thread.sleep(10)
+            }
+            UIUtil.dispatchAllInvocationEvents()
+
+            val scanPerformedField = toolWindow.javaClass
+                .getDeclaredField("vulnerabilityScanPerformed").apply { isAccessible = true }
+
+            assertEquals(1, table.model.rowCount)
+            assertFalse(
+                "An automatic refresh must not trigger a network scan before a manual scan ran.",
+                scanPerformedField.getBoolean(toolWindow)
+            )
+            assertEquals(
+                emptyList<VulnerabilityAdvisory>(),
+                (table.model.getValueAt(0, VULNERABILITIES_COLUMN) as VulnerabilityCell).allAdvisories
+            )
+        } finally {
+            cache.clear()
+            settings.loadState(originalState)
+        }
+    }
+
+    fun testManualVulnerabilityScanActionMarksSessionAsManuallyScanned() {
+        val settings = MavenUpSettings.getInstance()
+        val originalState = settings.state.copy()
+        val cache = VulnerabilityCacheService.getInstance(project)
+        try {
+            settings.state.checkTransitiveDependencies = false
+            settings.state.ossIndexEnabled = false
+            cache.clear()
+            assertFalse(cache.hasCompletedManualScan())
+
+            val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+            toolWindow.getContent()
+            val scanAction = toolWindow.topToolbarActions()
+                .first {
+                    it.templatePresentation.text ==
+                        MyMessageBundle.message("toolwindow.MyToolWindow.checkVulnerabilities.button")
+                }
+
+            // Ohne bekannte Abhängigkeiten (leere pom.xml-Erfassung) prüft der manuelle Scan keine
+            // Koordinaten und ruft daher keinen echten Netzwerkdienst auf, markiert die Sitzung aber
+            // dennoch als erfolgreich manuell gescannt.
+            ActionUtil.performAction(
+                scanAction,
+                com.intellij.testFramework.TestActionEvent.createTestEvent(scanAction)
+            )
+
+            val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
+            while (!cache.hasCompletedManualScan() && System.nanoTime() < deadline) {
+                UIUtil.dispatchAllInvocationEvents()
+                Thread.sleep(10)
+            }
+            UIUtil.dispatchAllInvocationEvents()
+
+            assertTrue(
+                "A completed manual scan must mark the session-scoped cache accordingly.",
+                cache.hasCompletedManualScan()
+            )
+        } finally {
+            cache.clear()
+            settings.loadState(originalState)
+        }
+    }
+
     fun testDependencyTableEmptyTextKeyPrefersRunningOperations() {
         assertEquals(
             EMPTY_TEXT_KEY_SEARCHING,

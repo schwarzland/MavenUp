@@ -3720,8 +3720,12 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * Führt den Vulnerability-Scan für die erfassten Abhängigkeiten durch.
          *
          * Ein manueller Scan ignoriert bewusst den Cache und erneuert alle Einträge. Ein
-         * Refresh verwendet dagegen ausschließlich frische Einträge und fragt nur fehlende oder
-         * invalidierte Koordinaten erneut ab, sofern dies in den Einstellungen aktiviert ist.
+         * Refresh verwendet dagegen ausschließlich frische Einträge und fragt fehlende oder
+         * invalidierte Koordinaten nur dann automatisch erneut ab, wenn zuvor bereits mindestens
+         * ein manueller Scan in dieser Projekt-Sitzung erfolgreich war und die Einstellung
+         * `autoRescanVulnerabilitiesOnCacheMiss` aktiviert ist. Ohne einen vorangegangenen
+         * manuellen Scan bleibt die Sicherheitsansicht bei einem Cache-Miss unvollständig, damit
+         * z. B. das Öffnen des Tool-Windows niemals von sich aus einen Netzwerk-Scan auslöst.
          *
          * @param forceRescan `true` für einen vom Benutzer gestarteten vollständigen Scan.
          * @param onFinished Callback nach der Übernahme des Ergebnisses auf dem EDT.
@@ -3754,8 +3758,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         )
                     }
                     val dependencies = cacheLookup.missingCoordinates
-                    val canRescanMisses =
-                        forceRescan || MavenUpSettings.getInstance().state.autoRescanVulnerabilitiesOnCacheMiss
+                    val canRescanMisses = forceRescan || (
+                        vulnerabilityCacheService.hasCompletedManualScan() &&
+                            MavenUpSettings.getInstance().state.autoRescanVulnerabilitiesOnCacheMiss
+                        )
                     if (dependencies.isNotEmpty() && !canRescanMisses) {
                         ApplicationManager.getApplication().invokeLater(onFinished)
                         return
@@ -3778,6 +3784,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     val freshResults = VulnerabilityMerger.merge(osvResults, ossIndexScan.advisories)
                     if (!indicator.isCanceled && osvError.get() == null && ossIndexScan.error == null) {
                         vulnerabilityCacheService.store(dependencies, scanSources, freshResults)
+                        if (forceRescan) {
+                            vulnerabilityCacheService.markManualScanCompleted()
+                        }
                     }
                     val results = VulnerabilityMerger.merge(cacheLookup.cachedAdvisories, freshResults)
                     val vulnerableEntries = results.values.count { it.isNotEmpty() }
