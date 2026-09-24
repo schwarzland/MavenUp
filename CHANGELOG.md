@@ -12,6 +12,7 @@
 ### Changed
 
 - Added a hierarchy-toolbar toggle to show or hide Maven GroupIds for a compact artifact-focused view.
+- Log every OSV.dev and Sonatype OSS Index vulnerability request at DEBUG level without exposing API tokens.
 
 ### Fixed
 

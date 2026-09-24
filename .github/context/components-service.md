@@ -78,7 +78,8 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   konfigurierte URI) über einen durchgereichten `onError`-Callback als strukturierten `ApiError`
   (Quelle `OSV`, Ursache `HttpStatus`/`Failure`), damit auch ein Fehler bei der Detailanreicherung als
   rotes Banner sichtbar wird statt still verworfen zu werden; die Formulierung des Anzeigetexts bleibt
-  der UI überlassen (`ui/ApiErrorMessages.kt`).
+  der UI überlassen (`ui/ApiErrorMessages.kt`). Jede Batch- und Detailabfrage wird zusätzlich auf
+  DEBUG-Ebene mit Ziel-URL und Abfrageinhalt protokolliert.
 - **LogSummary**: Hilfsfunktion `summarizeForDebugLog`, die lange String-Listen (z. B. Versionslisten)
   für Debug-Logs auf maximal zehn Einträge kürzt und die Anzahl ausgelassener Elemente anhängt.
 - **DependencyApiService**: Liest Maven-Repository-Infos und Server-Credentials aus `settings.xml`,
@@ -106,7 +107,8 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
 - **OssIndexApiService / OssIndexCredentialService**: optionale Sonatype-Abfrage über Maven-purl
   und sichere Zugangsdatenablage; wirft `OssIndexAuthenticationException` bei ungültigem/abgelaufenem
   Token (HTTP 401/403) und `OssIndexRequestException` (mit HTTP-Status) bei sonstigen HTTP-Fehlern
-  (z. B. 5xx) für eine qualifizierte Fehlermeldung.
+  (z. B. 5xx) für eine qualifizierte Fehlermeldung. Jede OSS-Index-Abfrage wird auf DEBUG-Ebene
+  mit Ziel-URL und PURL-Abfrageinhalt protokolliert; das API-Token wird nicht geloggt.
 
 ## Sicherheitsdatenmodell (`model`)
 - **ApiError / ApiErrorSource / ApiErrorCause**: strukturierte Beschreibung eines fehlgeschlagenen

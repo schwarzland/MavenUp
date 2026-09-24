@@ -120,6 +120,10 @@ class OssIndexApiService {
             add("coordinates", JsonArray().apply { coordinateToKey.keys.forEach(::add) })
         }
         val requestJson = Gson().toJson(requestBody)
+        OSS_INDEX_LOG.debug(
+            "Sonatype OSS Index vulnerability query: url=$reportUrl, " +
+                "coordinates=${coordinateToKey.values.joinToString(", ")}, body=$requestJson"
+        )
         val connection = (URI(reportUrl).toURL().openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             connectTimeout = 10000
