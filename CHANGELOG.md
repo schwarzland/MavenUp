@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- Added a configurable, project-session vulnerability cache that reuses fresh scan results and can rescan cache misses automatically during refreshes.
+
 ### Changed
 
 - Added a hierarchy-toolbar toggle to show or hide Maven GroupIds for a compact artifact-focused view.

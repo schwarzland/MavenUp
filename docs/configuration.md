@@ -42,6 +42,8 @@ Tools
 ### Vulnerability Check
 
 - **Include resolved transitive dependencies**: By default, includes the resolved Maven dependency tree in the vulnerability check.
+- **Vulnerability cache retention (hours)**: Retains successful vulnerability results for the current project in memory for 4 hours by default. The cache is discarded when the project closes and accepts whole-hour values from 1 to 168.
+- **Rescan missing or expired cache entries during refresh**: Determines whether a refresh automatically checks coordinates without a fresh vulnerability-cache result (default: on). Disable it to restore only complete fresh cache results and run **Scan for Vulnerabilities** manually for the missing coordinates.
 - **Use Sonatype OSS Index as an additional source**: Enables the optional second data source. Sonatype authenticates requests exclusively via the API token; therefore only the token is required and is shown as a mandatory field when the option is enabled. The token is stored exclusively in the IntelliJ Password Safe, loaded off the Event Dispatch Thread, and not written to `mavenup_settings.xml`. Until the token has been loaded, the option and the token field stay disabled. If the token is missing for an already saved configuration, the OSS Index query is skipped; OSV.dev is still queried. If the token is invalid or expired, a qualified error message is shown. A link opens the Sonatype account settings for creating or copying a token.
 
 ### pom.xml Changes

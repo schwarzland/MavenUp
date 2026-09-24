@@ -6,6 +6,7 @@ MavenUp places great importance on transparency and data minimization when acces
 - **Maven coordinates only:** For version checks and vulnerability scans, only the standard Maven coordinates (`groupId`, `artifactId`, `version`) of the components declared or resolved in the project are transmitted over HTTPS.
 - **No sensitive project data:** **No source code, file contents, file paths, passwords, or user data** is transmitted to external services.
 - **Secure credential handling:** Credentials for private repositories (from `settings.xml`) remain local or are used exclusively against the respective configured repository server. The optional API token for Sonatype OSS Index is stored securely in the IntelliJ Password Safe and is not placed in configuration files.
+- **Session-only vulnerability cache:** Successful vulnerability results are retained only in memory for the open project, keyed by Maven coordinates and active scan sources. They are never persisted to project files or configuration storage, and fresh cache hits do not send coordinates to vulnerability services.
 
 ## External services and endpoints
 1. **Maven Central & repositories (`repo1.maven.org` / configured servers):**

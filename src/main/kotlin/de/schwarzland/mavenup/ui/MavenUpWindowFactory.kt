@@ -18,6 +18,10 @@ import de.schwarzland.mavenup.service.VulnerabilityScanService
 import de.schwarzland.mavenup.service.VersionAutoSelectionMode
 import de.schwarzland.mavenup.service.VulnerabilityApiService
 import de.schwarzland.mavenup.service.VulnerabilityMerger
+import de.schwarzland.mavenup.service.VulnerabilityCacheLookup
+import de.schwarzland.mavenup.service.VulnerabilityCacheService
+import de.schwarzland.mavenup.service.VulnerabilityScanSources
+import de.schwarzland.mavenup.service.OssIndexScanResult
 import de.schwarzland.mavenup.service.MavenUpNotifications
 import de.schwarzland.mavenup.service.AutomaticVersionSearchCoordinator
 import de.schwarzland.mavenup.service.AutomaticVersionSearchState
@@ -76,6 +80,7 @@ import java.awt.Font
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 import java.util.concurrent.atomic.AtomicReference
+import java.time.Duration
 import javax.swing.*
 import javax.swing.event.DocumentEvent
 import javax.swing.table.DefaultTableModel
@@ -189,6 +194,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
     internal inner class MyToolWindow(private val project: Project) : Disposable {
         private val vulnerabilityApiService = VulnerabilityApiService()
         private val vulnerabilityScanService = VulnerabilityScanService(project)
+        private val vulnerabilityCacheService = VulnerabilityCacheService.getInstance(project)
         private val dependencyApiService = DependencyApiService(project)
         private val dependencyVersionService = DependencyVersionService(
             project,
@@ -473,6 +479,12 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
         /** Anzahl der beim letzten Scan geprüften Koordinaten; speist den Text des Scan-Hinweises. */
         private var lastScannedCount = 0
+
+        /**
+         * Kennzeichnet einen Refresh, nach dem der Vulnerability-Cache für den neuen Maven-Graph
+         * wiederhergestellt oder fehlende Einträge abhängig von der Einstellung nachgescannt werden.
+         */
+        private var restoreVulnerabilityCacheAfterRefresh = false
 
         /** Aktionsleiste am Ende der Filterzeile zum Zurücksetzen aller Filter. */
         private var filterResetToolbar: ActionToolbar? = null
@@ -760,6 +772,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
             table.columnModel.getColumn(VULNERABILITIES_COLUMN).cellRenderer = vulnerabilityCellRenderer()
 
+            lateinit var refreshWithoutClearing: () -> Unit
+
             /**
              * Verwirft je nach Flags die zwischengespeicherten Versions- und Vulnerability-Daten
              * und setzt die für einen Refresh stets zu leerenden Strukturen zurück.
@@ -847,6 +861,12 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 isRefreshing = false
                 updateTableEmptyText()
                 refreshToolbar()
+                if (restoreVulnerabilityCacheAfterRefresh) {
+                    restoreVulnerabilityCacheAfterRefresh = false
+                    restoreVulnerabilitiesFromCacheOrRescan {
+                        refreshWithoutClearing()
+                    }
+                }
             }
 
             /**
@@ -868,6 +888,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 if (checkUpdates) {
                     isSearchingVersions = true
                 }
+                restoreVulnerabilityCacheAfterRefresh =
+                    restoreVulnerabilityCacheAfterRefresh || clearVulnerabilities
                 refreshToolbar()
                 cancelActiveCellEditing()
                 captureSelectionBeforeRefresh()
@@ -887,6 +909,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     }
                     .submit(AppExecutorUtil.getAppExecutorService())
             }
+
+            refreshWithoutClearing = { refreshAction(false, false, false) }
 
             val updateAction = {
                 if (!isUpdating && (hasSelectedUpdates() || transitiveVulnerabilitiesView.hasPendingUpdates())) {
@@ -3635,10 +3659,34 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
-         * Führt den Vulnerability-Scan für die erfassten Abhängigkeiten durch.
-         * Nutzt OSV und optional den Sonatype OSS Index.
+         * Stellt nach einem Refresh frische Cache-Ergebnisse wieder her und startet bei Bedarf einen
+         * konfigurierbaren gezielten Nachscan für Cache-Misses.
          */
-        private fun performVulnerabilityCheck(onFinished: () -> Unit) {
+        private fun restoreVulnerabilitiesFromCacheOrRescan(onFinished: () -> Unit) {
+            if (isUpdating) return
+            isUpdating = true
+            refreshToolbar()
+            performVulnerabilityCheck(forceRescan = false) {
+                isUpdating = false
+                onFinished()
+                refreshToolbar()
+            }
+        }
+
+        /**
+         * Führt den Vulnerability-Scan für die erfassten Abhängigkeiten durch.
+         *
+         * Ein manueller Scan ignoriert bewusst den Cache und erneuert alle Einträge. Ein
+         * Refresh verwendet dagegen ausschließlich frische Einträge und fragt nur fehlende oder
+         * invalidierte Koordinaten erneut ab, sofern dies in den Einstellungen aktiviert ist.
+         *
+         * @param forceRescan `true` für einen vom Benutzer gestarteten vollständigen Scan.
+         * @param onFinished Callback nach der Übernahme des Ergebnisses auf dem EDT.
+         */
+        private fun performVulnerabilityCheck(
+            forceRescan: Boolean = true,
+            onFinished: () -> Unit
+        ) {
             ProgressManager.getInstance().run(object : Task.Backgroundable(
                 project,
                 MyMessageBundle.message("toolwindow.MyToolWindow.checkVulnerabilities.progress"),
@@ -3649,16 +3697,46 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         .filter { it.value.isNotEmpty() }
                         .map { (key, version) -> Triple(key.substringBefore(":"), key.substringAfter(":"), version) }
                     val scanTargets = vulnerabilityScanService.collectVulnerabilityScanTargets(directDependencies)
-                    val dependencies = scanTargets.dependencies
-                    LOG.info("Starting vulnerability check for ${dependencies.size} dependencies/plugins.")
+                    val scanSources = VulnerabilityScanSources(MavenUpSettings.getInstance().state.ossIndexEnabled)
+                    vulnerabilityCacheService.reconcileDependencyGraph(scanTargets)
+                    val cacheLookup = if (forceRescan) {
+                        VulnerabilityCacheLookup(emptyMap(), scanTargets.dependencies)
+                    } else {
+                        vulnerabilityCacheService.lookup(
+                            scanTargets.dependencies,
+                            scanSources,
+                            Duration.ofHours(
+                                MavenUpSettings.getInstance().state.vulnerabilityCacheRetentionHours.toLong()
+                            )
+                        )
+                    }
+                    val dependencies = cacheLookup.missingCoordinates
+                    val canRescanMisses =
+                        forceRescan || MavenUpSettings.getInstance().state.autoRescanVulnerabilitiesOnCacheMiss
+                    if (dependencies.isNotEmpty() && !canRescanMisses) {
+                        ApplicationManager.getApplication().invokeLater(onFinished)
+                        return
+                    }
+                    LOG.info(
+                        "Starting vulnerability check for ${dependencies.size} dependencies/plugins " +
+                            "(${cacheLookup.cachedAdvisories.size} cache hits)."
+                    )
 
                     val osvError = AtomicReference<ApiError?>()
                     val osvResults = vulnerabilityApiService.fetchVulnerabilityAdvisories(
                         dependencies.toList(),
                         indicator
                     ) { error -> osvError.compareAndSet(null, error) }
-                    val ossIndexScan = vulnerabilityScanService.resolveOssIndexResults(dependencies.toList(), indicator)
-                    val results = VulnerabilityMerger.merge(osvResults, ossIndexScan.advisories)
+                    val ossIndexScan = if (dependencies.isEmpty()) {
+                        OssIndexScanResult(emptyMap(), null)
+                    } else {
+                        vulnerabilityScanService.resolveOssIndexResults(dependencies.toList(), indicator)
+                    }
+                    val freshResults = VulnerabilityMerger.merge(osvResults, ossIndexScan.advisories)
+                    if (!indicator.isCanceled && osvError.get() == null && ossIndexScan.error == null) {
+                        vulnerabilityCacheService.store(dependencies, scanSources, freshResults)
+                    }
+                    val results = VulnerabilityMerger.merge(cacheLookup.cachedAdvisories, freshResults)
                     val vulnerableEntries = results.values.count { it.isNotEmpty() }
                     LOG.info(
                         "Finished vulnerability check. " +

@@ -13,7 +13,7 @@
     <li><strong>Refresh and check for newer versions</strong>: When enabled, MavenUp checks in the background after Maven
         project load and after every finished Maven import or resync, even before you open the tool window, so the
         <strong>New Version</strong> column is filled without further interaction. You can also click <strong>Refresh and Search for New Versions</strong> at any
-        time to reload the current project state, discard previously selected update values and vulnerability results, and
+        time to reload the current project state, discard previously selected update values, restore fresh vulnerability results from the project-session cache, and
         query Maven repositories again. A green checkmark ("✓") means the item already matches the latest known version; an
         upwards arrow ("↑") shows that a newer release is available. While a refresh or a version search is running, the
         table stays empty and names the running operation, and the rows appear again once it has finished. The automatic
@@ -136,6 +136,6 @@
     You can choose the repository
     browser, enable single-click navigation, decide whether the tool window icon shows a status badge, choose a three-state auto-selection strategy for updates (keep current version, highest version, or latest minor in the current major line), filter out unstable releases, choose
     whether to stop after a successful Maven Central lookup, exclude private GroupId prefixes from Maven Central
-    queries, decide how the explanatory comment for
+    queries, choose how long successful vulnerability results remain in the project-session cache and whether refreshes rescan cache misses automatically, decide how the explanatory comment for
     newly pinned vulnerability fixes looks (its text, which identifiers it lists, and how many), and configure an optional Sonatype OSS Index API token. These
     options are meant to make first-time use fast and keep the tool window practical for everyday dependency maintenance.</p>

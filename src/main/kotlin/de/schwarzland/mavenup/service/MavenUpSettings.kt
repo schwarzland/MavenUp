@@ -114,6 +114,8 @@ class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
      * @property hiddenVersionQualifiers Kommagetrennte Liste von Qualifizierern (z.B. "beta", "alpha"), die als instabil gelten.
      * @property ossIndexEnabled Gibt an, ob die Prüfung auf Sicherheitslücken via Sonatype OSS Index aktiviert ist.
      * @property checkTransitiveDependencies Bestimmt, ob auch transitive Abhängigkeiten auf Updates geprüft werden sollen.
+     * @property vulnerabilityCacheRetentionHours Bestimmt die Vorhaltezeit erfolgreicher Vulnerability-Scans im sitzungsflüchtigen Cache in Stunden.
+     * @property autoRescanVulnerabilitiesOnCacheMiss Bestimmt, ob ein Refresh fehlende, abgelaufene oder invalidierte Vulnerability-Cache-Einträge automatisch erneut prüft.
      * @property repositoryBrowser Der Maven-Repository-Browser, der für Links auf Abhängigkeits-Versionsseiten verwendet wird.
      * @property toolbarShowText Bestimmt, ob die Aktionsleisten Text-Buttons statt reiner Icon-Buttons anzeigen.
      * @property syncMavenAfterUpdate Bestimmt, ob nach dem Schreiben der `pom.xml` automatisch der Maven-Sync der IDE ausgelöst wird.
@@ -137,6 +139,8 @@ class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
         var hiddenVersionQualifiers: String = "rc,beta,alpha,ea,milestone,preview,cr,nightly,snapshot",
         var ossIndexEnabled: Boolean = false,
         var checkTransitiveDependencies: Boolean = true,
+        var vulnerabilityCacheRetentionHours: Int = DEFAULT_VULNERABILITY_CACHE_RETENTION_HOURS,
+        var autoRescanVulnerabilitiesOnCacheMiss: Boolean = true,
         var repositoryBrowser: MavenRepositoryBrowser = MavenRepositoryBrowser.MVN_REPOSITORY,
         var toolbarShowText: Boolean = true,
         var syncMavenAfterUpdate: Boolean = true,
@@ -192,6 +196,19 @@ class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
             addVulnerabilityFixComment = vulnerabilityCommentMode != VulnerabilityCommentMode.NONE
             return this
         }
+
+        /**
+         * Normalisiert die Vorhaltezeit des Vulnerability-Caches aus älteren oder manuell
+         * bearbeiteten Einstellungsdateien auf einen gültigen positiven Stundenwert.
+         *
+         * @return Der normalisierte Zustand (dieselbe Instanz).
+         */
+        fun normalizeVulnerabilityCacheSettings(): State {
+            if (vulnerabilityCacheRetentionHours < 1) {
+                vulnerabilityCacheRetentionHours = DEFAULT_VULNERABILITY_CACHE_RETENTION_HOURS
+            }
+            return this
+        }
     }
 
     private var myState = State()
@@ -205,7 +222,9 @@ class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
      * Lädt einen gespeicherten Zustand in die Komponente. Wird vom IntelliJ-Framework aufgerufen.
      */
     override fun loadState(state: State) {
-        myState = state.migrateLegacyAutoSelection().migrateLegacyVulnerabilityComment()
+        myState = state.migrateLegacyAutoSelection()
+            .migrateLegacyVulnerabilityComment()
+            .normalizeVulnerabilityCacheSettings()
     }
 
     companion object {

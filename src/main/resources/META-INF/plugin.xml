@@ -18,7 +18,7 @@
         <p><b>Core Features:</b></p>
         <ul>
             <li><b>Find & Update Versions:</b> Discover newer versions in Maven Central and private repositories, apply configurable auto-selection strategies, and bulk-update dependencies, plugins, and parent POMs directly from the tool window.</li>
-            <li><b>Vulnerability Scanning:</b> Check dependencies, plugins, and resolved transitive components for known vulnerabilities via OSV.dev and Sonatype OSS Index with severity ratings, CVSS scores, and affected version ranges.</li>
+            <li><b>Vulnerability Scanning:</b> Check dependencies, plugins, and resolved transitive components for known vulnerabilities via OSV.dev and Sonatype OSS Index with severity ratings, CVSS scores, affected version ranges, and configurable session-only result caching.</li>
             <li><b>One-Click Vulnerability Fixes:</b> Apply recommended fix versions for direct findings and pin vulnerable transitive dependencies in <code>dependencyManagement</code> with configurable explanatory comments.</li>
             <li><b>Complete Dependency Overview:</b> Displays all dependencies, plugins, and parent POMs across Maven modules in an organized table, marking entries inherited from parent POMs or BOM imports.</li>
             <li><b>Transitive Vulnerabilities View:</b> Inspect, filter, and remediate vulnerable transitive dependencies in a dedicated tool window tab with highlighted recommended fix versions.</li>

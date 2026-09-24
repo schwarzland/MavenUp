@@ -28,7 +28,7 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
 
 ### Paketstruktur
 - **`model`**: `DependencyUpdate`, `VulnerabilityAdvisory`, `VulnerabilitySeverity`, `AffectedVersionRange`, `DependencyHierarchyNode`, `DependencyHierarchyNodeType` – reine Daten-DTOs ohne Logik.
-- **`service`**: Alle externen API-Zugriffe, Settings, Startup-Logik, Abhängigkeitshierarchie-Analyse und Hilfsfunktionen.
+- **`service`**: Alle externen API-Zugriffe, Settings, Startup-Logik, den projektgebundenen Vulnerability-Cache, Abhängigkeitshierarchie-Analyse und Hilfsfunktionen.
 - **`ui`**: Tool-Window, Dialoge, Settings-UI, I18n-Bundle sowie ausgelagerte, zustandslose UI-Hilfsdateien.
 
 ### Komponentenreferenz
@@ -42,7 +42,7 @@ Wird eine Klasse hinzugefügt, umbenannt oder entfernt, ist sie in der thematisc
 
 ## Tests
 `src/test/kotlin/de/schwarzland/mavenup/` spiegelt die Paketstruktur (`model`, `service`, `ui`).
-Reine Logik nutzt JUnit (z. B. `VulnerabilityApiServiceTest`, `VersionAutoSelectionTest`), Tests mit
+Reine Logik nutzt JUnit (z. B. `VulnerabilityApiServiceTest`, `VulnerabilityCacheServiceTest`, `VersionAutoSelectionTest`), Tests mit
 Projekt-/PSI-Umgebung erben von `BasePlatformTestCase` (z. B. `MavenUpWindowFactoryTest`,
 `RefreshSnapshotCollectorTest`, `PomNavigationServiceTest`, `PomUpdateServiceTest`, `VersionStatusUiTest`,
 `InheritedVersionUiTest`,

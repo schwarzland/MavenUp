@@ -34,7 +34,8 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
 ## Einstellungen und Message-Bus
 - **MavenUpSettings**: `PersistentStateComponent` auf Anwendungsebene (`Service.Level.APP`), global für alle Projekte gespeichert in `mavenup_settings.xml`
   (`jumpOnSingleClick`, `versionAutoSelectionMode` mit `DISABLED`, `LATEST`, `LATEST_MINOR`, `hideUnstableVersions`, `hiddenVersionQualifiers`,
-  `ossIndexEnabled`, `checkTransitiveDependencies`, `repositoryBrowser`, `toolbarShowText`,
+  `ossIndexEnabled`, `checkTransitiveDependencies`, `vulnerabilityCacheRetentionHours`,
+  `autoRescanVulnerabilitiesOnCacheMiss`, `repositoryBrowser`, `toolbarShowText`,
   `syncMavenAfterUpdate`, `commentOutManagedEntriesOnRemoval`, `stopAfterCentralSuccess`, `offerAllVersions`, `confirmVersionReset`,
   `autoSearchVersions`, `vulnerabilityCommentMode` mit `NONE`, `TEXT_ONLY`, `ADVISORY_IDS`, `ALIASES`, `ALL_IDS`,
   `vulnerabilityCommentPrefix`, `vulnerabilityCommentMaxIds`,
@@ -157,6 +158,10 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   Netzwerk-/Exception-Fehlern (z. B. ein unauflösbarer Host durch eine falsch konfigurierte URI). Das
   Feld `OssIndexScanResult.error` ersetzt die frühere Kombination aus `errorMessage`/`isTokenError`;
   ob der Fehler über die Einstellungen behebbar ist, liefert `ApiError.isTokenError`.
+  `VulnerabilityCacheService` ist ein projektgebundener, sitzungsflüchtiger Cache für erfolgreiche
+  Scan-Ergebnisse nach vollständiger Maven-Koordinate und Quellenkonfiguration; er verwirft
+  abgelaufene Einträge, hält saubere Ergebnisse fest und invalidiert zuvor erreichte transitive
+  Koordinaten, wenn sich eine direkte Dependency-Version ändert oder entfällt.
   Die reine Farbzuordnung `vulnerabilityColor` liegt als Top-Level-Helfer in `VulnerabilityCellModel`.
 - **DependencyVersionService**: fragt über `searchVersions` die verfügbaren Versionen aller
   Dependencies/Plugins ab (inkl. PSI-Erfassung verwalteter Einträge und Property-Schnittmengen)
