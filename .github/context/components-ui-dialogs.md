@@ -144,6 +144,10 @@ liefert die DSL. Abhängige Felder werden über `enabledIf` gesteuert.
   `beforeApply()` mit einer `ConfigurationException` ab. Das Token ist nicht über die UI-DSL gebunden: Es wird
   außerhalb des EDT aus dem Password Safe geladen (`OssIndexCredentialStore`), für `isModified()` gecacht und in
   `afterApply()` gespeichert; bis zum Abschluss des Ladens bleiben Checkbox und Token-Feld deaktiviert.
+  Die Schaltfläche **Show current cache** öffnet den rein lesbaren `VulnerabilityCacheDialog` mit gültigen
+  Cache-Einträgen, Quellen, Advisory-IDs sowie Scan- und Ablaufzeitpunkten.
+- **VulnerabilityCacheDialog**: Read-only-Tabelle des projektgebundenen Vulnerability-Caches mit ausschließlich
+  einer **Close**-Aktion; abgelaufene Einträge werden vor der Anzeige aus der Momentaufnahme entfernt.
 - **MavenUpPomChangesConfigurable**: Unterseite **pom.xml Changes** mit `syncMavenAfterUpdate`,
   `commentOutManagedEntriesOnRemoval` (steuert das Auskommentieren als XML-Kommentar statt Löschen beim Entfernen
   verwalteter Einträge, Standard aktiv) und der Combobox

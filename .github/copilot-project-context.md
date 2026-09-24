@@ -28,8 +28,8 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
 
 ### Paketstruktur
 - **`model`**: `DependencyUpdate`, `VulnerabilityAdvisory`, `VulnerabilitySeverity`, `AffectedVersionRange`, `DependencyHierarchyNode`, `DependencyHierarchyNodeType` – reine Daten-DTOs ohne Logik.
-- **`service`**: Alle externen API-Zugriffe, Settings, Startup-Logik, den projektgebundenen Vulnerability-Cache, Abhängigkeitshierarchie-Analyse und Hilfsfunktionen.
-- **`ui`**: Tool-Window, Dialoge, Settings-UI, I18n-Bundle sowie ausgelagerte, zustandslose UI-Hilfsdateien.
+- **`service`**: Alle externen API-Zugriffe, Settings, Startup-Logik, den projektgebundenen Vulnerability-Cache, Abhängigkeitshierarchie-Analyse und Hilfsfunktionen; der Cache stellt für die Settings-Ansicht eine Momentaufnahme gültiger Einträge bereit.
+- **`ui`**: Tool-Window, Dialoge, Settings-UI, I18n-Bundle sowie ausgelagerte, zustandslose UI-Hilfsdateien; die Vulnerability-Settings enthalten eine schreibgeschützte Cache-Ansicht.
 
 ### Komponentenreferenz
 Die ausführliche Beschreibung aller Klassen ist nach Package aufgeteilt:

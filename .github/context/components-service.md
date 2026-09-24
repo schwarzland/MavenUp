@@ -161,7 +161,9 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   `VulnerabilityCacheService` ist ein projektgebundener, sitzungsflüchtiger Cache für erfolgreiche
   Scan-Ergebnisse nach vollständiger Maven-Koordinate und Quellenkonfiguration; er verwirft
   abgelaufene Einträge, hält saubere Ergebnisse fest und invalidiert zuvor erreichte transitive
-  Koordinaten, wenn sich eine direkte Dependency-Version ändert oder entfällt.
+  Koordinaten, wenn sich eine direkte Dependency-Version ändert oder entfällt. `snapshot` liefert
+  eine sortierte Momentaufnahme gültiger Einträge mit Quellen, Advisories, Scanzeit und Ablaufzeit
+  für die Cache-Ansicht in den Einstellungen.
   Die reine Farbzuordnung `vulnerabilityColor` liegt als Top-Level-Helfer in `VulnerabilityCellModel`.
 - **DependencyVersionService**: fragt über `searchVersions` die verfügbaren Versionen aller
   Dependencies/Plugins ab (inkl. PSI-Erfassung verwalteter Einträge und Property-Schnittmengen)

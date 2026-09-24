@@ -29,6 +29,9 @@ Install **MavenUp** from the JetBrains Marketplace via `Settings > Plugins > Mar
 
 See the [usage guide](docs/usage.md) for details.
 
+Open **Settings > Tools > Maven Up > Vulnerability Check** to configure scanning, inspect the current
+project-session vulnerability cache, and manage optional OSS Index access.
+
 ## Documentation
 
 - [Features](FEATURES.md) — feature index (single source of truth), split by area under [docs/features/](docs/features/).

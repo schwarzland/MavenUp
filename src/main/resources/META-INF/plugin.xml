@@ -39,6 +39,7 @@
             <li><b>Repository Browser Options:</b> Choose between MVN Repository and Sonatype Central for artifact links.</li>
             <li><b>Transparent Error Handling:</b> Report failed API or repository requests in closable banners with direct links to settings when credentials require attention.</li>
             <li><b>Secure Token Storage:</b> Stores Sonatype OSS Index API tokens safely in IntelliJ Password Safe.</li>
+            <li><b>Cache Inspection:</b> Shows valid project-session vulnerability-cache entries, their scan sources, findings, and expiry times in a read-only settings view.</li>
             <li><b>Global Settings:</b> Configure version lookup strategies, vulnerability scanners, and POM modification preferences under <b>Settings | Tools | Maven Up</b>.</li>
             <li><b>Privacy-First Design:</b> Only Maven coordinates are transmitted over HTTPS for version checks and vulnerability scans—your source code remains private.</li>
             <li><b>Reliable Plugin Lifecycle:</b> Requires an IDE restart after installing, updating, or disabling the plugin.</li>

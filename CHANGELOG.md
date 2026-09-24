@@ -7,6 +7,7 @@
 ### Added
 
 - Added a configurable, project-session vulnerability cache that reuses fresh scan results and can rescan cache misses automatically during refreshes.
+- Added a read-only settings view for inspecting valid project-session vulnerability-cache entries and their expiry times.
 
 ### Changed
 
