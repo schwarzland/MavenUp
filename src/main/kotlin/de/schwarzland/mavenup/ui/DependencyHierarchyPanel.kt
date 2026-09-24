@@ -349,8 +349,8 @@ class DependencyHierarchyPanel(
                 })
                 add(object : ToggleAction(
                     MyMessageBundle.message("dependency.hierarchy.toolbar.groupIds"),
-                    MyMessageBundle.message("dependency.hierarchy.toolbar.groupIds.tooltip"),
-                    AllIcons.Actions.ShowAsTree
+                    null,
+                    AllIcons.Actions.ToggleVisibility
                 ) {
                     override fun getActionUpdateThread() = ActionUpdateThread.EDT
                     override fun isSelected(event: AnActionEvent): Boolean = groupIdsVisible
