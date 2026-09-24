@@ -2200,7 +2200,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
          *
          * @param state Der nach Projektstart oder Maven-Import erfasste Zustand.
          */
-        private fun applyAutomaticVersionSearchState(state: AutomaticVersionSearchState) {
+        internal fun applyAutomaticVersionSearchState(state: AutomaticVersionSearchState) {
             if (isUpdating || project.isDisposed) return
 
             refreshGeneration++
@@ -2257,6 +2257,49 @@ class MavenUpWindowFactory : ToolWindowFactory {
             updateTableEmptyText()
             updateToolWindowBadge()
             refreshToolbar()
+            restoreVulnerabilitiesFromCacheOrRescan {
+                updateVulnerabilityCellsFromCurrentRows()
+                updateVulnerabilitiesFilterState()
+                updateTransitiveVulnerabilitiesView()
+                updateToolWindowBadge()
+                refreshToolbar()
+            }
+        }
+
+        /**
+         * Ersetzt die Vulnerability-Zellen der bestehenden Tabelle durch die Ergebnisse eines
+         * Cache-Hits oder gezielten Nachscans, ohne den gerade übernommenen automatischen
+         * Versionssuch-Schnappschuss erneut aus PSI lesen zu müssen.
+         */
+        private fun updateVulnerabilityCellsFromCurrentRows() {
+            val tableModel = table.model as DefaultTableModel
+            val declaredCoordinates = (0 until tableModel.rowCount)
+                .mapNotNullTo(linkedSetOf()) { row ->
+                    val groupId = tableModel.getValueAt(row, GROUP_ID_COLUMN) as? String
+                    val artifactId = tableModel.getValueAt(row, ARTIFACT_ID_COLUMN) as? String
+                    val version = tableModel.getValueAt(row, CURRENT_VERSION_COLUMN) as? String
+                    if (groupId.isNullOrEmpty() || artifactId.isNullOrEmpty() || version.isNullOrEmpty()) {
+                        null
+                    } else {
+                        "$groupId:$artifactId:$version"
+                    }
+                }
+            for (row in 0 until tableModel.rowCount) {
+                val groupId = tableModel.getValueAt(row, GROUP_ID_COLUMN) as? String ?: continue
+                val artifactId = tableModel.getValueAt(row, ARTIFACT_ID_COLUMN) as? String ?: continue
+                val version = tableModel.getValueAt(row, CURRENT_VERSION_COLUMN) as? String ?: continue
+                val coordinate = "$groupId:$artifactId:$version"
+                tableModel.setValueAt(
+                    buildVulnerabilityCell(
+                        coordinate,
+                        vulnerabilityAdvisories,
+                        transitiveDependenciesByDirect[coordinate].orEmpty(),
+                        declaredCoordinates
+                    ),
+                    row,
+                    VULNERABILITIES_COLUMN
+                )
+            }
         }
 
         /**

@@ -7,7 +7,10 @@ import de.schwarzland.mavenup.model.VulnerabilitySeverity
 import de.schwarzland.mavenup.model.DependencyUpdate
 import de.schwarzland.mavenup.service.MavenUpSettings
 import de.schwarzland.mavenup.service.MavenRepositoryBrowser
+import de.schwarzland.mavenup.service.AutomaticVersionSearchState
 import de.schwarzland.mavenup.service.VersionAutoSelectionMode
+import de.schwarzland.mavenup.service.VulnerabilityCacheService
+import de.schwarzland.mavenup.service.VulnerabilityScanSources
 import de.schwarzland.mavenup.ui.DEPENDENCY_HIERARCHY_PANEL_INITIAL_WIDTH_PROPORTION
 import de.schwarzland.mavenup.ui.DependencyContextMenuTarget
 import de.schwarzland.mavenup.ui.buildMavenRepositoryUrl
@@ -22,6 +25,9 @@ import de.schwarzland.mavenup.ui.UpdateConfirmationDialog
 import de.schwarzland.mavenup.service.RefreshSnapshotCollector
 import de.schwarzland.mavenup.ui.MyMessageBundle
 import de.schwarzland.mavenup.ui.RefreshSnapshot
+import de.schwarzland.mavenup.ui.RefreshRow
+import de.schwarzland.mavenup.ui.VulnerabilityCell
+import de.schwarzland.mavenup.ui.VULNERABILITIES_COLUMN
 import de.schwarzland.mavenup.ui.VulnerabilityOrigin
 import de.schwarzland.mavenup.ui.buildVulnerabilityCell
 import de.schwarzland.mavenup.ui.canCheckVulnerabilities
@@ -50,6 +56,7 @@ import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.openapi.application.ReadAction
 import com.intellij.util.concurrency.AppExecutorUtil
+import com.intellij.util.ui.UIUtil
 import com.intellij.ui.table.JBTable
 import com.intellij.ui.content.Content
 import com.intellij.ui.content.ContentFactory
@@ -89,6 +96,71 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertFalse(canCheckVulnerabilities(isRefreshing = true, isUpdating = false))
         assertFalse(canCheckVulnerabilities(isRefreshing = false, isUpdating = true))
         assertFalse(canCheckVulnerabilities(isRefreshing = true, isUpdating = true))
+    }
+
+    fun testAutomaticVersionSearchRestoresCachedVulnerabilities() {
+        val settings = MavenUpSettings.getInstance()
+        val originalState = settings.state.copy()
+        val cache = VulnerabilityCacheService.getInstance(project)
+        val coordinate = "com.example:cached-library:1.0.0"
+        val advisory = VulnerabilityAdvisory(
+            id = "CVE-CACHED",
+            severity = VulnerabilitySeverity.HIGH,
+            sources = setOf("OSV")
+        )
+        try {
+            settings.state.checkTransitiveDependencies = false
+            settings.state.ossIndexEnabled = false
+            settings.state.autoRescanVulnerabilitiesOnCacheMiss = true
+            cache.clear()
+            cache.store(
+                setOf(Triple("com.example", "cached-library", "1.0.0")),
+                VulnerabilityScanSources(ossIndexEnabled = false),
+                mapOf(coordinate to listOf(advisory))
+            )
+
+            val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+            val table = findTable(toolWindow.getContent())!!
+            toolWindow.applyAutomaticVersionSearchState(
+                AutomaticVersionSearchState(
+                    RefreshSnapshot(
+                        rows = listOf(
+                            RefreshRow(
+                                groupId = "com.example",
+                                artifactId = "cached-library",
+                                propertyName = "",
+                                type = "dependency",
+                                currentVersion = "1.0.0"
+                            )
+                        ),
+                        dependencyProperties = emptyMap()
+                    ),
+                    versionSearchResult = null,
+                    repositoryError = null
+                )
+            )
+
+            val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5)
+            while (
+                (table.model.rowCount != 1 ||
+                    ((table.model.getValueAt(0, VULNERABILITIES_COLUMN) as? VulnerabilityCell)
+                        ?.allAdvisories != listOf(advisory))) &&
+                System.nanoTime() < deadline
+            ) {
+                UIUtil.dispatchAllInvocationEvents()
+                Thread.sleep(10)
+            }
+
+            assertEquals(1, table.model.rowCount)
+            assertEquals(
+                listOf(advisory),
+                (table.model.getValueAt(0, VULNERABILITIES_COLUMN) as VulnerabilityCell).allAdvisories
+            )
+            assertTrue(toolWindow.transitiveVulnerabilitiesView.table.model.rowCount == 0)
+        } finally {
+            cache.clear()
+            settings.loadState(originalState)
+        }
     }
 
     fun testDependencyTableEmptyTextKeyPrefersRunningOperations() {
