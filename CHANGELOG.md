@@ -4,6 +4,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Added a hierarchy-toolbar toggle to show or hide Maven GroupIds for a compact artifact-focused view.
+
 ### Fixed
 
 - Fixed the Gradle 9.7 deprecation warning emitted by Detekt's reporting configuration by upgrading to Detekt 2.0.0-alpha.6.
