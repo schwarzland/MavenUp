@@ -8,6 +8,7 @@ import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.actionSystem.Separator
+import com.intellij.openapi.actionSystem.ToggleAction
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.util.IconLoader
 import com.intellij.ui.ColoredTreeCellRenderer
@@ -47,7 +48,7 @@ import javax.swing.tree.DefaultTreeModel
  * Beinhaltet eine eigene Toolbar mit Aktionen zum Auf-/Zuklappen aller Knoten, zur
  * Navigation in die `pom.xml` (`Navigate to pom.xml`), zum Anspringen der Komponente in der
  * passenden Tabellenansicht (`Select in Dependencies` oder `Select in Transitive CVEs`) und zum
- * Schließen des Seitenpanels.
+ * Ein- oder Ausblenden der Group-IDs sowie zum Schließen des Seitenpanels.
  *
  * Die Mindestbreite bleibt bei null, damit der umgebende Splitter die vom Nutzer gewählte Breite
  * auch nach dem Neuaufbau des Inhalts bei einer geänderten Tabellenselektion beibehält.
@@ -99,6 +100,10 @@ class DependencyHierarchyPanel(
 
     /** Die Aktionsleiste des Hierarchiepanels. */
     var toolbar: ActionToolbar? = null
+        private set
+
+    /** `true`, wenn die Group-IDs im Hierarchiebaum angezeigt werden. */
+    var groupIdsVisible: Boolean = true
         private set
 
     /**
@@ -193,7 +198,8 @@ class DependencyHierarchyPanel(
                 groupId,
                 artifactId,
                 vulnerabilityAdvisories,
-                isDependencyInTable
+                isDependencyInTable,
+                groupIdsVisible
             )
             toolTipText = MyMessageBundle.message("dependency.hierarchy.dialog.tree.tooltip")
         }
@@ -341,6 +347,17 @@ class DependencyHierarchyPanel(
                         collapseAllNodes(targetTree)
                     }
                 })
+                add(object : ToggleAction(
+                    MyMessageBundle.message("dependency.hierarchy.toolbar.groupIds"),
+                    null,
+                    AllIcons.Actions.ToggleVisibility
+                ) {
+                    override fun getActionUpdateThread() = ActionUpdateThread.EDT
+                    override fun isSelected(event: AnActionEvent): Boolean = groupIdsVisible
+                    override fun setSelected(event: AnActionEvent, state: Boolean) {
+                        setGroupIdsVisible(targetTree, state)
+                    }
+                })
                 add(Separator.getInstance())
                 add(object : AnAction(
                     MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.navigateToPom"),
@@ -396,6 +413,18 @@ class DependencyHierarchyPanel(
             // dagegen immer sichtbar, solange die Split-View geöffnet ist.
             targetComponent = this@DependencyHierarchyPanel
         }
+
+    /**
+     * Schaltet die Darstellung der Group-IDs im angegebenen Hierarchiebaum.
+     *
+     * @param targetTree Der Hierarchiebaum, dessen Renderer aktualisiert werden soll.
+     * @param visible `true`, um Group-IDs anzuzeigen, sonst `false`.
+     */
+    internal fun setGroupIdsVisible(targetTree: JTree, visible: Boolean) {
+        groupIdsVisible = visible
+        (targetTree.cellRenderer as? DependencyHierarchyTreeCellRenderer)?.groupIdsVisible = visible
+        targetTree.repaint()
+    }
 
     /**
      * Erstellt die Aktionsgruppe für das Kontextmenü des Hierarchiebaums.
@@ -534,12 +563,14 @@ class DependencyHierarchyPanel(
  * @param vulnerabilityAdvisories Zuordnung aller bekannten Koordinaten zu ihren Warnungen.
  * @param isDependencyInTable Prüft, ob eine Koordinate in der Haupttabelle oder der Tabelle
  *        transitiver CVEs vorkommt.
+ * @param groupIdsVisible `true`, wenn Group-IDs vor den Artefakt-IDs angezeigt werden.
  */
 class DependencyHierarchyTreeCellRenderer(
     private val targetGroupId: String? = null,
     private val targetArtifactId: String? = null,
     private val vulnerabilityAdvisories: Map<String, List<VulnerabilityAdvisory>> = emptyMap(),
-    private val isDependencyInTable: ((groupId: String, artifactId: String) -> Boolean)? = null
+    private val isDependencyInTable: ((groupId: String, artifactId: String) -> Boolean)? = null,
+    var groupIdsVisible: Boolean = true
 ) : ColoredTreeCellRenderer() {
 
     override fun customizeCellRenderer(
@@ -588,7 +619,12 @@ class DependencyHierarchyTreeCellRenderer(
             isUnlistedTransitive
         )
 
-        append("${node.groupId}:${node.artifactId}", coordAttributes)
+        val coordinate = if (groupIdsVisible) {
+            "${node.groupId}:${node.artifactId}"
+        } else {
+            node.artifactId
+        }
+        append(coordinate, coordAttributes)
 
         if (!node.version.isNullOrBlank()) {
             append(":${node.version}", versionAttributes)

@@ -305,6 +305,39 @@ class DependencyHierarchyPanelTest : BasePlatformTestCase() {
         assertTrue(renderer.renderedItems.any { it.contains("other-lib") })
     }
 
+    fun testRendererCanHideGroupIds() {
+        val renderer = DependencyHierarchyTreeCellRenderer(groupIdsVisible = false)
+        val tree = Tree()
+        val node = DependencyHierarchyNode(
+            type = DependencyHierarchyNodeType.DIRECT_DEPENDENCY,
+            groupId = "com.example",
+            artifactId = "demo",
+            version = "1.0.0"
+        )
+
+        renderer.getTreeCellRendererComponent(tree, DefaultMutableTreeNode(node), false, false, true, 0, false)
+
+        assertTrue(renderer.renderedItems.any { it.contains("demo") })
+        assertFalse(renderer.renderedItems.any { it.contains("com.example") })
+    }
+
+    fun testGroupIdToggleUpdatesRenderer() {
+        val panel = DependencyHierarchyPanel(project)
+        val node = DependencyHierarchyNode(
+            type = DependencyHierarchyNodeType.DIRECT_DEPENDENCY,
+            groupId = "com.example",
+            artifactId = "demo",
+            version = "1.0.0"
+        )
+        val renderer = DependencyHierarchyTreeCellRenderer()
+        val tree = Tree(DefaultMutableTreeNode(node)).apply { cellRenderer = renderer }
+
+        panel.setGroupIdsVisible(tree, false)
+
+        assertFalse(panel.groupIdsVisible)
+        assertFalse(renderer.groupIdsVisible)
+    }
+
     fun testNavigateToSelectedNodeWithTag() {
         val psiFile = myFixture.configureByText(
             "pom.xml",
@@ -553,6 +586,16 @@ class DependencyHierarchyPanelTest : BasePlatformTestCase() {
 
         val toolbar = panel.createToolbar(tree)
         assertNotNull(toolbar)
+
+        val groupIdsAction = (toolbar.actionGroup as DefaultActionGroup)
+            .getChildren(ActionManager.getInstance())
+            .filterIsInstance<com.intellij.openapi.actionSystem.AnAction>()
+            .first { it.templatePresentation.text == MyMessageBundle.message("dependency.hierarchy.toolbar.groupIds") }
+        val groupIdsEvent = TestActionEvent.createTestEvent()
+        ActionUtil.performAction(groupIdsAction, groupIdsEvent)
+        assertFalse(panel.groupIdsVisible)
+        ActionUtil.performAction(groupIdsAction, TestActionEvent.createTestEvent())
+        assertTrue(panel.groupIdsVisible)
 
         val contextGroup = panel.createContextMenuGroup(tree)
         assertNotNull(contextGroup)
