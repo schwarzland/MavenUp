@@ -43,6 +43,7 @@ import de.schwarzland.mavenup.ui.VulnerabilityFilter
 import de.schwarzland.mavenup.ui.sortableHeaderIcon
 import com.intellij.icons.AllIcons
 import com.intellij.openapi.actionSystem.DefaultActionGroup
+import com.intellij.openapi.actionSystem.ex.ActionUtil
 import com.intellij.openapi.wm.RegisterToolWindowTask
 import com.intellij.openapi.wm.ToolWindowAnchor
 import com.intellij.openapi.wm.ToolWindowManager
@@ -979,7 +980,6 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         )
     }
 
-    @Suppress("OverrideOnly")
     fun testNavigateToPomActionEnabledOnlyForSelectedMainTableRows() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         val content = toolWindow.getContent()
@@ -989,7 +989,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val pomAction = toolWindow.topToolbarActions()
             .first { it.templatePresentation.icon == AllIcons.General.Locate }
         val pomEvent = com.intellij.testFramework.TestActionEvent.createTestEvent(pomAction)
-        pomAction.update(pomEvent)
+        ActionUtil.updateAction(pomAction, pomEvent)
         assertEquals(
             "Die Toolbar-Aktion sollte die kurze Bezeichnung 'Locate' anzeigen",
             MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.navigateToPom.short"),
@@ -1046,7 +1046,6 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         settings.state.repositoryBrowser = MavenRepositoryBrowser.MVN_REPOSITORY
     }
 
-    @Suppress("OverrideOnly")
     fun testDependencyHierarchyToolbarActionPropertiesAndPosition() {
         val settings = MavenUpSettings.getInstance()
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
@@ -1071,7 +1070,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val navigatePomIndex = hierarchyIndex - 1
         val navigatePomAction = allActions[navigatePomIndex]
         val navigatePomEvent = com.intellij.testFramework.TestActionEvent.createTestEvent(navigatePomAction)
-        navigatePomAction.update(navigatePomEvent)
+        ActionUtil.updateAction(navigatePomAction, navigatePomEvent)
         assertEquals(
             "Die Aktion direkt vor Hierarchy muss die pom.xml-Navigation sein",
             MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.navigateToPom.short"),
@@ -1086,7 +1085,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val openIndex = navigatePomIndex - 1
         val openAction = allActions[openIndex]
         val openEvent = com.intellij.testFramework.TestActionEvent.createTestEvent(openAction)
-        openAction.update(openEvent)
+        ActionUtil.updateAction(openAction, openEvent)
         assertEquals(
             "Die Aktion direkt vor der pom.xml-Navigation muss die Open-In-Repository-Aktion sein",
             "Open",
@@ -1109,7 +1108,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         settings.state.toolbarShowText = false
         val iconEvent = com.intellij.testFramework.TestActionEvent.createTestEvent(hierarchyAction)
-        hierarchyAction.update(iconEvent)
+        ActionUtil.updateAction(hierarchyAction, iconEvent)
         assertEquals(
             "Im Icon-Modus muss der lange Text in der Beschreibung stehen",
             expectedTooltip,
@@ -1118,7 +1117,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         settings.state.toolbarShowText = true
         val textEvent = com.intellij.testFramework.TestActionEvent.createTestEvent(hierarchyAction)
-        hierarchyAction.update(textEvent)
+        ActionUtil.updateAction(hierarchyAction, textEvent)
         assertEquals(
             "Bei aktiven Textbeschriftungen zeigt der Button die Kurzform 'Hierarchy'",
             "Hierarchy",
@@ -1168,7 +1167,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val directAction = directGroup.getChildren(null).filterIsInstance<com.intellij.openapi.actionSystem.AnAction>()
             .first { it.templatePresentation.text == MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.showDependencyHierarchy") }
         val directEvent = com.intellij.testFramework.TestActionEvent.createTestEvent(directAction)
-        directAction.update(directEvent)
+        ActionUtil.updateAction(directAction, directEvent)
         assertTrue("Kontextmenü für direkte Abhängigkeit sollte aktiviert sein", directEvent.presentation.isEnabled)
 
         val managedTarget = DependencyContextMenuTarget(0, "com.example", "managed-lib", "", "managed dependency", "1.0.0")
@@ -1176,7 +1175,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val managedAction = managedGroup.getChildren(null).filterIsInstance<com.intellij.openapi.actionSystem.AnAction>()
             .first { it.templatePresentation.text == MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.showDependencyHierarchy") }
         val managedEvent = com.intellij.testFramework.TestActionEvent.createTestEvent(managedAction)
-        managedAction.update(managedEvent)
+        ActionUtil.updateAction(managedAction, managedEvent)
         assertTrue("Kontextmenü für verwaltete Abhängigkeit sollte aktiviert sein", managedEvent.presentation.isEnabled)
 
         // Toggle Split-View behavior
@@ -1197,6 +1196,113 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         // Toggle close
         toolWindow.toggleDependencyHierarchy(false)
         assertFalse(toolWindow.isDependencyHierarchyVisible())
+    }
+
+    fun testDependencyHierarchyClosableAfterVulnerabilityScanClearsTable() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val content = toolWindow.getContent()
+        val table = findTable(content)!!
+        val model = table.model as DefaultTableModel
+        model.addRow(arrayOf("com.example", "lib", "", "dependency", null, "1.0.0", emptyList<String>()))
+        table.setRowSelectionInterval(0, 0)
+
+        val hierarchyAction = toolWindow.topToolbarActions()
+            .first { it.templatePresentation.icon == AllIcons.Actions.ShowAsTree }
+
+        // Öffnen über die echte Toggle-Aktion (wie ein realer Klick).
+        var event = com.intellij.testFramework.TestActionEvent.createTestEvent(hierarchyAction)
+        ActionUtil.performAction(hierarchyAction, event)
+        assertTrue(
+            "Split-View sollte nach dem ersten Klick geöffnet sein",
+            toolWindow.isDependencyHierarchyVisible()
+        )
+
+        // Simuliert einen abgeschlossenen Vulnerability-Scan ohne Funde: Tabelle wird geleert
+        // und die Selektion geht verloren, ohne dass die Split-View explizit geschlossen wird.
+        model.setRowCount(0)
+
+        // Schließen über die echte Toggle-Aktion muss trotz leerer Tabelle funktionieren.
+        event = com.intellij.testFramework.TestActionEvent.createTestEvent(hierarchyAction)
+        ActionUtil.performAction(hierarchyAction, event)
+        assertFalse(
+            "Split-View sollte sich nach einem Scan ohne Funde weiterhin über den Toggle-Button schließen lassen",
+            toolWindow.isDependencyHierarchyVisible()
+        )
+    }
+
+    fun testCaptureAndRestoreSelectionSurvivesTableRebuild() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val content = toolWindow.getContent()
+        val table = findTable(content)!!
+        val model = table.model as DefaultTableModel
+        model.addRow(arrayOf("com.example", "lib", "", "dependency", null, "1.0.0", emptyList<String>()))
+        model.addRow(arrayOf("com.example", "other", "", "dependency", null, "2.0.0", emptyList<String>()))
+        table.setRowSelectionInterval(1, 1)
+        toolWindow.showDependencyHierarchy("com.example", "other", false)
+        assertTrue(toolWindow.isDependencyHierarchyVisible())
+
+        // Ein Vulnerability-Scan (auch ohne Funde) leert die Tabelle vollständig und baut sie neu auf.
+        toolWindow.captureSelectionBeforeRefresh()
+        model.setRowCount(0)
+        assertEquals(-1, table.selectedRow)
+
+        model.addRow(arrayOf("com.example", "lib", "", "dependency", null, "1.0.0", emptyList<String>()))
+        model.addRow(arrayOf("com.example", "other", "", "dependency", null, "2.0.0", emptyList<String>()))
+        toolWindow.restoreSelectionAfterRefresh()
+
+        assertEquals(
+            "Die zuvor selektierte Zeile muss nach dem Wiederaufbau der Tabelle erneut selektiert sein",
+            1,
+            table.selectedRow
+        )
+        assertEquals("com.example", model.getValueAt(table.selectedRow, GROUP_ID_COLUMN))
+        assertEquals("other", model.getValueAt(table.selectedRow, ARTIFACT_ID_COLUMN))
+    }
+
+    fun testRestoreSelectionAfterRefreshDoesNothingWhenCoordinateIsGone() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val content = toolWindow.getContent()
+        val table = findTable(content)!!
+        val model = table.model as DefaultTableModel
+        model.addRow(arrayOf("com.example", "lib", "", "dependency", null, "1.0.0", emptyList<String>()))
+        table.setRowSelectionInterval(0, 0)
+
+        toolWindow.captureSelectionBeforeRefresh()
+        model.setRowCount(0)
+
+        // Die zuvor selektierte Komponente ist nach dem Refresh nicht mehr vorhanden (z. B. entfernt).
+        model.addRow(arrayOf("com.example", "different", "", "dependency", null, "1.0.0", emptyList<String>()))
+        toolWindow.restoreSelectionAfterRefresh()
+
+        assertEquals(-1, table.selectedRow)
+    }
+
+    fun testCaptureSelectionBeforeRefreshIgnoresMultiSelectionAndKeepsPreviousCoordinate() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val content = toolWindow.getContent()
+        val table = findTable(content)!!
+        val model = table.model as DefaultTableModel
+        model.addRow(arrayOf("com.example", "lib", "", "dependency", null, "1.0.0", emptyList<String>()))
+        model.addRow(arrayOf("com.example", "other", "", "dependency", null, "2.0.0", emptyList<String>()))
+        table.setRowSelectionInterval(0, 0)
+        toolWindow.captureSelectionBeforeRefresh()
+
+        // Ein zweistufiger Refresh (z. B. mit anschließender Versionssuche) ruft die Erfassung erneut
+        // auf, während die Tabelle bereits geleert bzw. neu aufgebaut, aber noch nichts selektiert ist.
+        model.setRowCount(0)
+        toolWindow.captureSelectionBeforeRefresh()
+
+        model.addRow(arrayOf("com.example", "lib", "", "dependency", null, "1.0.0", emptyList<String>()))
+        model.addRow(arrayOf("com.example", "other", "", "dependency", null, "2.0.0", emptyList<String>()))
+        toolWindow.restoreSelectionAfterRefresh()
+
+        assertEquals(
+            "Die ursprünglich gemerkte Koordinate darf durch einen erneuten Erfassungsaufruf ohne " +
+                "Selektion nicht verloren gehen",
+            0,
+            table.selectedRow
+        )
+        assertEquals("lib", model.getValueAt(table.selectedRow, ARTIFACT_ID_COLUMN))
     }
 
     fun testShowAndHideDependencyHierarchyPanel() {
@@ -1276,7 +1382,6 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         )
     }
 
-    @Suppress("OverrideOnly")
     fun testResetTooltipUsesWrappingDescriptionInIconMode() {
         val settings = MavenUpSettings.getInstance()
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
@@ -1289,7 +1394,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         settings.state.toolbarShowText = false
         val iconEvent = com.intellij.testFramework.TestActionEvent.createTestEvent(resetAction)
-        resetAction.update(iconEvent)
+        ActionUtil.updateAction(resetAction, iconEvent)
         assertEquals(
             "Im Icon-Modus muss der lange Text in der (umbrechenden) Beschreibung stehen",
             longTooltip,
@@ -1302,7 +1407,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         settings.state.toolbarShowText = true
         val textEvent = com.intellij.testFramework.TestActionEvent.createTestEvent(resetAction)
-        resetAction.update(textEvent)
+        ActionUtil.updateAction(resetAction, textEvent)
         assertEquals(
             "Bei aktiven Textbeschriftungen zeigt der Button die Kurzform",
             "Reset",
@@ -1397,7 +1502,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         settings.state.toolbarShowText = false
     }
 
-    @Suppress("UnstableApiUsage", "OverrideOnly")
+    @Suppress("UnstableApiUsage")
     fun testToolbarTooltipsAreIdenticalRegardlessOfTextLabels() {
         val settings = MavenUpSettings.getInstance()
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
@@ -1412,7 +1517,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
             settings.state.toolbarShowText = showText
             return actions.map { action ->
                 val event = com.intellij.testFramework.TestActionEvent.createTestEvent(action)
-                action.update(event)
+                ActionUtil.updateAction(action, event)
                 val custom = event.presentation.getClientProperty(
                     com.intellij.openapi.actionSystem.impl.ActionButton.CUSTOM_HELP_TOOLTIP
                 )
@@ -1436,7 +1541,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         settings.state.toolbarShowText = false
     }
 
-    @Suppress("UnstableApiUsage", "OverrideOnly")
+    @Suppress("UnstableApiUsage")
     fun testCheckVulnerabilitiesToolbarTooltipReflectsSettings() {
         val settings = MavenUpSettings.getInstance()
         val originalTransitive = settings.state.checkTransitiveDependencies
@@ -1450,7 +1555,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         fun currentTooltip(): String? {
             val event = com.intellij.testFramework.TestActionEvent.createTestEvent(scanAction)
-            scanAction.update(event)
+            ActionUtil.updateAction(scanAction, event)
             val custom = event.presentation.getClientProperty(
                 com.intellij.openapi.actionSystem.impl.ActionButton.CUSTOM_HELP_TOOLTIP
             )
@@ -1645,6 +1750,48 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
                 contentManager.selectedContent
             )
             assertEquals("Transitive CVEs", transitiveTab.displayName)
+        }
+    }
+
+    /**
+     * Reproduziert den gemeldeten Fehler: Ist die Hierarchie-Split-View im Tab **Transitive CVEs**
+     * geöffnet und ein erneuter Scan findet keine Vulnerabilities mehr (Tabelle wird geleert), muss
+     * sich die Split-View weiterhin über die echte Toggle-Aktion aus der Toolbar schließen lassen.
+     */
+    fun testDependencyHierarchyClosableInTransitiveTabAfterScanClearsFindings() {
+        withBoundToolWindow { toolWindow, _, _, _ ->
+            val coords = toolWindow.javaClass.getDeclaredField("transitiveCoordinates")
+                .apply { isAccessible = true }.get(toolWindow) as MutableSet<String>
+            val advisories = toolWindow.javaClass.getDeclaredField("vulnerabilityAdvisories")
+                .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, List<VulnerabilityAdvisory>>
+
+            addTransitiveFinding(toolWindow)
+            toolWindow.updateTransitiveVulnerabilitiesView()
+            toolWindow.setTransitiveViewVisible(true)
+
+            val transitiveTable = toolWindow.transitiveVulnerabilitiesView.table
+            transitiveTable.setRowSelectionInterval(0, 0)
+
+            val hierarchyAction = toolWindow.topToolbarActions()
+                .first { it.templatePresentation.icon == AllIcons.Actions.ShowAsTree }
+
+            ActionUtil.performAction(hierarchyAction, com.intellij.testFramework.TestActionEvent.createTestEvent(hierarchyAction))
+            assertTrue(
+                "Split-View sollte im Transitive-CVEs-Tab geöffnet sein",
+                toolWindow.transitiveVulnerabilitiesView.isDependencyHierarchyVisible()
+            )
+
+            // Erneuter Scan findet keine Vulnerabilities mehr -> Tabelle wird geleert.
+            coords.clear()
+            advisories.clear()
+            toolWindow.updateTransitiveVulnerabilitiesView()
+            assertEquals(0, transitiveTable.rowCount)
+
+            ActionUtil.performAction(hierarchyAction, com.intellij.testFramework.TestActionEvent.createTestEvent(hierarchyAction))
+            assertFalse(
+                "Split-View sollte sich nach einem Scan ohne Funde weiterhin über den Toggle-Button schließen lassen",
+                toolWindow.transitiveVulnerabilitiesView.isDependencyHierarchyVisible()
+            )
         }
     }
 
@@ -3551,7 +3698,6 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
      * Stellt sicher, dass "Remove from pom.xml" im Kontextmenü der Haupttabelle stets vorhanden ist
      * und für nicht verwaltete Einträge deaktiviert ist.
      */
-    @Suppress("OverrideOnly")
     fun testContextMenuRemoveFromPomAlwaysPresentAndDisabledForStandardEntries() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         toolWindow.getContent()
@@ -3573,7 +3719,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         assertNotNull("Die Aktion zum Entfernen/Auskommentieren muss im Kontextmenü immer vorhanden sein", removeAction)
         val event = com.intellij.testFramework.TestActionEvent.createTestEvent(removeAction!!)
-        removeAction.update(event)
+        ActionUtil.updateAction(removeAction, event)
         assertFalse("Für normale (nicht verwaltete) Abhängigkeiten muss die Aktion deaktiviert sein", event.presentation.isEnabled)
         assertFalse(toolWindow.isManagedEntryRemovalEnabled("com.example:regular-lib", "dependency"))
     }
@@ -3582,7 +3728,6 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
      * Stellt sicher, dass die Aktion zum Entfernen/Auskommentieren für verwaltete Einträge aktiviert ist,
      * nach dem Vormerken deaktiviert wird und bei laufender Aktualisierung ebenfalls deaktiviert ist.
      */
-    @Suppress("OverrideOnly")
     fun testContextMenuRemoveFromPomEnabledForManagedEntriesAndDisabledWhenMarkedOrUpdating() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         toolWindow.getContent()
@@ -3604,7 +3749,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
             }
 
         val event = com.intellij.testFramework.TestActionEvent.createTestEvent(removeAction)
-        removeAction.update(event)
+        ActionUtil.updateAction(removeAction, event)
         assertTrue("Für verwaltete Abhängigkeiten muss die Aktion aktiviert sein", event.presentation.isEnabled)
         assertTrue(toolWindow.isManagedEntryRemovalEnabled("com.example:managed-lib", managedDependencyType))
 
@@ -3617,7 +3762,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
                 it.templatePresentation.text == toolWindow.managedEntryContextMenuLabel()
             }
         val eventAfterRemoval = com.intellij.testFramework.TestActionEvent.createTestEvent(removeActionAfterRemoval)
-        removeActionAfterRemoval.update(eventAfterRemoval)
+        ActionUtil.updateAction(removeActionAfterRemoval, eventAfterRemoval)
         assertFalse("Nach Vormerkung zur Entfernung muss die Aktion deaktiviert sein", eventAfterRemoval.presentation.isEnabled)
         assertFalse(toolWindow.isManagedEntryRemovalEnabled("com.example:managed-lib", managedDependencyType))
 
@@ -3634,7 +3779,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
                 it.templatePresentation.text == toolWindow.managedEntryContextMenuLabel()
             }
         val eventWhileUpdating = com.intellij.testFramework.TestActionEvent.createTestEvent(removeActionWhileUpdating)
-        removeActionWhileUpdating.update(eventWhileUpdating)
+        ActionUtil.updateAction(removeActionWhileUpdating, eventWhileUpdating)
         assertFalse("Während eines laufenden Updates muss die Aktion deaktiviert sein", eventWhileUpdating.presentation.isEnabled)
         assertFalse(toolWindow.isManagedEntryRemovalEnabled("com.example:managed-lib", managedDependencyType))
 

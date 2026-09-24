@@ -1,7 +1,10 @@
 package de.schwarzland.mavenup.ui
 
 import com.intellij.icons.AllIcons
+import com.intellij.openapi.actionSystem.ActionManager
+import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.actionSystem.Separator
+import com.intellij.openapi.actionSystem.ex.ActionUtil
 import com.intellij.openapi.util.IconLoader
 import com.intellij.psi.xml.XmlFile
 import com.intellij.testFramework.TestActionEvent
@@ -526,13 +529,13 @@ class DependencyHierarchyPanelTest : BasePlatformTestCase() {
 
         val transitiveLabel = MyMessageBundle.message("dependency.hierarchy.action.navigateToTransitiveCves")
         val dependenciesLabel = MyMessageBundle.message("dependency.hierarchy.action.navigateToDependencies")
-        val toolbarAction = panel.createToolbar(transitiveTree).actionGroup
-            .getChildren(null)
+        val toolbarAction = (panel.createToolbar(transitiveTree).actionGroup as DefaultActionGroup)
+            .getChildren(ActionManager.getInstance())
             .filterIsInstance<com.intellij.openapi.actionSystem.AnAction>()
             .first { it.templatePresentation.text == transitiveLabel }
         assertEquals(transitiveLabel, toolbarAction.templatePresentation.text)
 
-        val contextAction = panel.createContextMenuGroup(dependenciesTree).getChildren(null)
+        val contextAction = panel.createContextMenuGroup(dependenciesTree).getChildren(ActionManager.getInstance())
             .filterIsInstance<com.intellij.openapi.actionSystem.AnAction>()
             .first { it.templatePresentation.text == dependenciesLabel }
         assertEquals(dependenciesLabel, contextAction.templatePresentation.text)
@@ -556,13 +559,58 @@ class DependencyHierarchyPanelTest : BasePlatformTestCase() {
         assertEquals(2, contextGroup.childrenCount)
 
         // Close action in toolbar
-        val actions = panel.createToolbar(tree).actionGroup.getChildren(null)
+        val actions = (panel.createToolbar(tree).actionGroup as DefaultActionGroup).getChildren(ActionManager.getInstance())
         val closeAction = actions.filterIsInstance<com.intellij.openapi.actionSystem.AnAction>()
             .lastOrNull { it !is Separator }
         assertNotNull(closeAction)
         val event = TestActionEvent.createTestEvent()
-        closeAction?.actionPerformed(event)
+        closeAction?.let { ActionUtil.performAction(it, event) }
         assertTrue(closed)
+    }
+
+    @Suppress("UnstableApiUsage")
+    fun testToolbarTargetComponentIsPanelNotOrphanedTree() {
+        // Die Toolbar-Aktionen (u. a. "Close") müssen ein Ziel referenzieren, das tatsächlich Teil
+        // der Swing-Komponentenhierarchie ist. Referenzierte das Ziel stattdessen einen Baum, der
+        // (wie im Empty State) nie in die Hierarchie eingehängt wird, verweigert ActionManagerImpl
+        // jede Toolbar-Aktion mit "target component is not showing", inkl. des Schließen-Buttons.
+        val panel = DependencyHierarchyPanel(project)
+        val tree = Tree(DefaultMutableTreeNode())
+
+        val toolbar = panel.createToolbar(tree)
+
+        assertSame(
+            "Das Aktionsziel der Toolbar muss das Panel selbst sein, nicht der (ggf. nie " +
+                "angezeigte) Baum, damit Aktionen wie Close auch im Empty State ausführbar bleiben",
+            panel,
+            toolbar.targetComponent
+        )
+    }
+
+    @Suppress("UnstableApiUsage")
+    fun testShowEmptyKeepsToolbarActionable() {
+        val panel = DependencyHierarchyPanel(project)
+        panel.showEmpty()
+
+        assertSame(
+            "Auch im Empty State (showEmpty) muss die Toolbar auf das Panel zielen, statt auf " +
+                "den nie angezeigten leeren Baum",
+            panel,
+            panel.toolbar?.targetComponent
+        )
+    }
+
+    @Suppress("UnstableApiUsage")
+    fun testShowHierarchyWithEmptyRootKeepsToolbarActionable() {
+        val panel = DependencyHierarchyPanel(project)
+        panel.showHierarchy("nonexistent.group", "nonexistent-artifact", false)
+
+        assertSame(
+            "Auch wenn die Hierarchie keine Kindknoten hat (Empty State von showHierarchy) muss " +
+                "die Toolbar auf das Panel zielen, statt auf den nie angezeigten leeren Baum",
+            panel,
+            panel.toolbar?.targetComponent
+        )
     }
 
     fun testShowHierarchyUpdatesPanel() {

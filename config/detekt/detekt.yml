@@ -8,21 +8,21 @@ complexity:
   # als zu groß und sollen im Sinne eines Redesigns aufgeteilt werden.
   LargeClass:
     active: true
-    threshold: 800
+    allowedLines: 800
   LongMethod:
     active: true
-    threshold: 80
+    allowedLines: 80
   LongParameterList:
     active: true
-    functionThreshold: 8
-    constructorThreshold: 8
+    allowedFunctionParameters: 8
+    allowedConstructorParameters: 8
   TooManyFunctions:
     active: true
-    thresholdInFiles: 40
-    thresholdInClasses: 40
-    thresholdInObjects: 40
-    thresholdInInterfaces: 40
-    thresholdInEnums: 40
+    allowedFunctionsPerFile: 40
+    allowedFunctionsPerClass: 40
+    allowedFunctionsPerObject: 40
+    allowedFunctionsPerInterface: 40
+    allowedFunctionsPerEnum: 40
 
 style:
   MaxLineLength:
