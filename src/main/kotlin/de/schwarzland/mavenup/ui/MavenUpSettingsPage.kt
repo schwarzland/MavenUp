@@ -6,7 +6,6 @@ import com.intellij.ui.SimpleListCellRenderer
 import de.schwarzland.mavenup.service.MAVEN_UP_SETTINGS_TOPIC
 import de.schwarzland.mavenup.service.MavenUpSettings
 import de.schwarzland.mavenup.service.VersionMetadataCache
-import de.schwarzland.mavenup.service.VulnerabilityResultCache
 import javax.swing.JList
 
 /**
@@ -43,17 +42,21 @@ abstract class MavenUpSettingsPage internal constructor(
      * Übernimmt die Eingaben der Seite in die Einstellungen und benachrichtigt anschließend
      * alle Zuhörer über den Message-Bus.
      *
-     * Leert zusätzlich die anwendungsweiten Zwischenspeicher für Versionslisten und
-     * Vulnerability-Scan-Ergebnisse, da praktisch jede Einstellungsänderung (z. B. Repository-,
-     * Filter- oder OSS-Index-Einstellungen) das Ergebnis einer erneuten Abfrage beeinflussen kann;
-     * die nächste Versionssuche bzw. der nächste Scan füllt die Zwischenspeicher live neu.
+     * Leert den Versionscache nur, wenn sich die konfigurierten privaten GroupId-Präfixe oder die
+     * Central-first-Strategie ändern, da diese Einstellungen beeinflussen, welche Repositories
+     * Versionsdaten liefern. Der Vulnerability-Cache ist von Einstellungsänderungen nicht betroffen.
      */
     override fun apply() {
         beforeApply()
+        val previousPrivateGroupIds = state.privateGroupIds
+        val previousStopAfterCentralSuccess = state.stopAfterCentralSuccess
         super.apply()
         afterApply()
-        VersionMetadataCache.getInstance().clear()
-        VulnerabilityResultCache.getInstance().clear()
+        if (state.privateGroupIds != previousPrivateGroupIds ||
+            state.stopAfterCentralSuccess != previousStopAfterCentralSuccess
+        ) {
+            VersionMetadataCache.getInstance().clear()
+        }
         project.messageBus.syncPublisher(MAVEN_UP_SETTINGS_TOPIC).run()
     }
 

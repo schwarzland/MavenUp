@@ -139,15 +139,43 @@ class MavenUpVersionsConfigurableTest : BasePlatformTestCase() {
         assertEquals(0, settings.state.versionCacheTtlMinutes)
     }
 
-    fun testApplyClearsVersionAndVulnerabilityCaches() {
+    /** Prüft, dass eine Änderung an der automatischen Suche keinen der beiden Caches leert. */
+    fun testUnrelatedSettingChangePreservesBothCaches() {
         VersionMetadataCache.getInstance().getOrFetch("com.example", "artifact", ttlMinutes = 60) { listOf("1.0.0") }
         VulnerabilityResultCache.getInstance().put("com.example:artifact:1.0.0", emptyList())
 
         val configurable = createConfigurable()
+        configurable.autoSearchVersionsCheckBox!!.isSelected = false
+        configurable.apply()
+
+        assertEquals(1, VersionMetadataCache.getInstance().size())
+        assertEquals(1, VulnerabilityResultCache.getInstance().size())
+    }
+
+    /** Prüft, dass geänderte private GroupId-Präfixe nur den Versionscache leeren. */
+    fun testPrivateGroupIdsChangeClearsOnlyVersionCache() {
+        VersionMetadataCache.getInstance().getOrFetch("com.example", "artifact", ttlMinutes = 60) { listOf("1.0.0") }
+        VulnerabilityResultCache.getInstance().put("com.example:artifact:1.0.0", emptyList())
+
+        val configurable = createConfigurable()
+        configurable.privateGroupIdsField!!.text = "com.example"
         configurable.apply()
 
         assertEquals(0, VersionMetadataCache.getInstance().size())
-        assertEquals(0, VulnerabilityResultCache.getInstance().size())
+        assertEquals(1, VulnerabilityResultCache.getInstance().size())
+    }
+
+    /** Prüft, dass eine geänderte Central-first-Strategie nur den Versionscache leert. */
+    fun testCentralFirstSettingChangeClearsOnlyVersionCache() {
+        VersionMetadataCache.getInstance().getOrFetch("com.example", "artifact", ttlMinutes = 60) { listOf("1.0.0") }
+        VulnerabilityResultCache.getInstance().put("com.example:artifact:1.0.0", emptyList())
+
+        val configurable = createConfigurable()
+        configurable.stopAfterCentralSuccessCheckBox!!.isSelected = false
+        configurable.apply()
+
+        assertEquals(0, VersionMetadataCache.getInstance().size())
+        assertEquals(1, VulnerabilityResultCache.getInstance().size())
     }
 
     fun testOfferAllVersionsDefaultIsFalse() {

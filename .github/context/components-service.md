@@ -50,9 +50,10 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
 - **MAVEN_UP_SETTINGS_TOPIC**: `Topic<Runnable>` in `service`, über das `MavenUpConfigurable.apply()`
   Einstellungsänderungen veröffentlicht, damit offene UI-Komponenten (z.B. die Tool-Window-Aktionsleiste
   und die Versionsvorauswahl) sofort reagieren können. `MavenUpSettingsPage.apply()` (Basisklasse aller
-  Einstellungsseiten) leert vor der Veröffentlichung zusätzlich `VersionMetadataCache` und
-  `VulnerabilityResultCache` vollständig, da praktisch jede Einstellungsänderung das Ergebnis einer
-  erneuten Abfrage beeinflussen kann. Beim Empfang wird die Toolbar neu aufgebaut,
+  Einstellungsseiten) leert vor der Veröffentlichung `VersionMetadataCache` nur dann vollständig, wenn
+  sich `privateGroupIds` oder `stopAfterCentralSuccess` geändert hat, da beide Einstellungen beeinflussen
+  können, welche Repositories Versionsdaten liefern; der `VulnerabilityResultCache` bleibt bei
+  Einstellungsänderungen erhalten. Beim Empfang wird die Toolbar neu aufgebaut,
   der Tool-Window-Badge aktualisiert und
   `applySelectLatestVersionSetting()` nur dann aufgerufen, wenn sich `versionAutoSelectionMode`
   tatsächlich geändert hat, damit andere Einstellungsänderungen die bereits getroffene **New Version**-Auswahl
