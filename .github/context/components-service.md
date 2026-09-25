@@ -65,9 +65,10 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   (`OFF`, `VULNERABILITIES`, `VULNERABILITIES_AND_UPDATES`).
 - **MavenUpNotifications**: kapselt den Versand von IDE-Benachrichtigungen über die in `plugin.xml`
   registrierte `notificationGroup` „Maven Up". `notifyVersionsFound` meldet nach einer Versionssuche die
-  Anzahl gefundener Versionen für die betroffenen Abhängigkeiten, `notifyVulnerabilitiesFound` meldet
-  nach einem Scan die Anzahl direkter/indirekter (transitiver) Sicherheitswarnungen und die Gesamtzahl
-  betroffener Abhängigkeiten; beide unterdrücken die Meldung, wenn nichts gefunden wurde.
+  Anzahl gefundener Versionen, die betroffenen Abhängigkeiten und wie viele ihrer Versionslisten aus dem
+  Cache stammen; `notifyVulnerabilitiesFound` meldet nach einem Scan die Anzahl direkter/indirekter
+  (transitiver) Sicherheitswarnungen, die Gesamtzahl betroffener Abhängigkeiten und wie viele geprüfte
+  Koordinaten aus dem Cache stammen. Beide unterdrücken die Meldung, wenn nichts gefunden wurde.
 
 ## API- und Sicherheitsservices
 - **VulnerabilityApiService**: OSV-Batchabfrage plus Detailanreicherung und Filterung

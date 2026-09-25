@@ -13,6 +13,7 @@
 
 ### Changed
 
+- Version-search and vulnerability-scan notifications now report how many dependency results were served from cache.
 - Added a hierarchy-toolbar toggle to show or hide Maven GroupIds for a compact artifact-focused view.
 - Automatic version searches triggered by project startup or Maven imports reuse the version metadata cache.
 

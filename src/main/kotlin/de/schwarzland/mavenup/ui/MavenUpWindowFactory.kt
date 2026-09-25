@@ -195,11 +195,12 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private val versionMetadataCache = VersionMetadataCache.getInstance()
         private val dependencyVersionService = DependencyVersionService(
             project,
-            fetchAllVersions = { groupId, artifactId ->
+            fetchAllVersions = { groupId, artifactId, onCacheHit ->
                 versionMetadataCache.getOrFetch(
                     groupId,
                     artifactId,
-                    MavenUpSettings.getInstance().state.versionCacheTtlMinutes
+                    MavenUpSettings.getInstance().state.versionCacheTtlMinutes,
+                    onCacheHit = onCacheHit
                 ) {
                     dependencyApiService.fetchAllVersions(groupId, artifactId, onError = ::reportRepositoryApiError)
                 }
@@ -3719,7 +3720,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         MavenUpNotifications.notifyVulnerabilitiesFound(
                             project,
                             directVulnerabilityCount(),
-                            transitiveVulnerabilityCount()
+                            transitiveVulnerabilityCount(),
+                            cachePartition.cachedResults.size
                         )
                         onFinished()
                     }
@@ -3805,7 +3807,12 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         refreshApiErrorBanner()
                         val dependenciesWithVersions = result.availableVersions.values.count { it.isNotEmpty() }
                         val versionCount = result.availableVersions.values.sumOf { it.size }
-                        MavenUpNotifications.notifyVersionsFound(project, versionCount, dependenciesWithVersions)
+                        MavenUpNotifications.notifyVersionsFound(
+                            project,
+                            versionCount,
+                            dependenciesWithVersions,
+                            result.cachedArtifactCount
+                        )
                         onFinished()
                     }
                 }

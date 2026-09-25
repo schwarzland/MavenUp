@@ -189,11 +189,12 @@ internal class AutomaticVersionSearchCoordinator(private val project: Project) {
         val dependencyApiService = DependencyApiService(project)
         val dependencyVersionService = DependencyVersionService(
             project,
-            fetchAllVersions = { groupId, artifactId ->
+            fetchAllVersions = { groupId, artifactId, onCacheHit ->
                 versionMetadataCache.getOrFetch(
                     groupId,
                     artifactId,
-                    MavenUpSettings.getInstance().state.versionCacheTtlMinutes
+                    MavenUpSettings.getInstance().state.versionCacheTtlMinutes,
+                    onCacheHit = onCacheHit
                 ) {
                     dependencyApiService.fetchAllVersions(groupId, artifactId) { error ->
                         repositoryError.compareAndSet(null, error)

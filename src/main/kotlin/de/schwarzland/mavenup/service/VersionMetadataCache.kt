@@ -47,6 +47,7 @@ internal class VersionMetadataCache {
      * @param artifactId Die ArtifactId des Artefakts.
      * @param ttlMinutes Die konfigurierte Gültigkeitsdauer in Minuten; `<= 0` deaktiviert den Zwischenspeicher.
      * @param nowMillis Der aktuelle Zeitpunkt in Millisekunden (injizierbar für Tests).
+     * @param onCacheHit Wird bei einem gültigen Cache-Treffer aufgerufen.
      * @param fetch Ruft die Versionen live ab, wenn kein gültiger Eintrag vorhanden ist.
      * @return Die Versionsliste aus dem Zwischenspeicher oder von [fetch].
      */
@@ -55,6 +56,7 @@ internal class VersionMetadataCache {
         artifactId: String,
         ttlMinutes: Int,
         nowMillis: Long = System.currentTimeMillis(),
+        onCacheHit: () -> Unit = {},
         fetch: () -> List<String>
     ): List<String> {
         val key = keyOf(groupId, artifactId)
@@ -63,6 +65,7 @@ internal class VersionMetadataCache {
             if (cached != null) {
                 if (nowMillis - cached.timestampMillis <= ttlMinutes * MILLIS_PER_MINUTE) {
                     LOG.debug("Version cache hit for $key: using ${cached.versions.size} cached versions")
+                    onCacheHit()
                     return cached.versions
                 }
                 LOG.debug("Version cache expired for $key: fetching live version metadata")

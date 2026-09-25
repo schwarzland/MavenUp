@@ -19,10 +19,10 @@ class VersionLookupLoggingTest : BasePlatformTestCase() {
         var requests = 0
         val fetch = { requests++; listOf("1.0") }
         val messages = captureDebugLogs(VersionMetadataCache::class.java) {
-            cache.getOrFetch("g", "a", 1, 0L, fetch)
-            cache.getOrFetch("g", "a", 1, 1_000L, fetch)
-            cache.getOrFetch("g", "a", 1, 60_001L, fetch)
-            cache.getOrFetch("g", "a", 0, 60_002L, fetch)
+            cache.getOrFetch("g", "a", 1, 0L, fetch = fetch)
+            cache.getOrFetch("g", "a", 1, 1_000L, fetch = fetch)
+            cache.getOrFetch("g", "a", 1, 60_001L, fetch = fetch)
+            cache.getOrFetch("g", "a", 0, 60_002L, fetch = fetch)
         }
         assertEquals(3, requests)
         assertEquals(4, messages.size)

@@ -42,7 +42,7 @@
             <li><b>Global Settings:</b> Configure version lookup strategies, vulnerability scanners, and POM modification preferences under <b>Settings | Tools | Maven Up</b>.</li>
             <li><b>Privacy-First Design:</b> Only Maven coordinates are transmitted over HTTPS for version checks and vulnerability scans—your source code remains private.</li>
             <li><b>Reliable Plugin Lifecycle:</b> Requires an IDE restart after installing, updating, or disabling the plugin.</li>
-            <li><b>Reduced API Traffic:</b> Caches fetched version lists and vulnerability scan results with configurable durations, so unchanged dependencies are served from cache while updated versions automatically trigger a fresh, targeted query.</li>
+            <li><b>Reduced API Traffic:</b> Caches fetched version lists and vulnerability scan results with configurable durations, so unchanged dependencies are served from cache while updated versions automatically trigger a fresh, targeted query; search and scan notifications report how many results came from cache.</li>
             <li><b>Cache Management:</b> Inspect cached entries and remaining TTL in sortable tables and invalidate the active tab's cache across all projects.</li>
             <li><b>Request Diagnostics:</b> Trace cache usage and individual version and vulnerability API requests through DEBUG logs.</li>
         </ul>

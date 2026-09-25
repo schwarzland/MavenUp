@@ -38,6 +38,25 @@ class VersionMetadataCacheTest {
     }
 
     @Test
+    fun testGetOrFetchReportsValidCacheHit() {
+        val cache = VersionMetadataCache()
+        var cacheHitCount = 0
+        cache.getOrFetch("com.example", "artifact", ttlMinutes = 60, nowMillis = 0L) { listOf("1.0.0") }
+
+        cache.getOrFetch(
+            "com.example",
+            "artifact",
+            ttlMinutes = 60,
+            nowMillis = 1_000L,
+            onCacheHit = { cacheHitCount++ }
+        ) {
+            error("A valid cache hit must not fetch versions")
+        }
+
+        assertEquals(1, cacheHitCount)
+    }
+
+    @Test
     fun testGetOrFetchRefetchesAfterTtlExpiry() {
         val cache = VersionMetadataCache()
         var fetchCount = 0
