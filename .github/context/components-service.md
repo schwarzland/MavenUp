@@ -40,8 +40,8 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   `vulnerabilityCommentPrefix`, `vulnerabilityCommentMaxIds`,
   `toolWindowBadgeMode` mit `OFF`, `VULNERABILITIES`, `VULNERABILITIES_AND_UPDATES`,
   `privateGroupIds` (kommagetrennte private/unternehmensinterne GroupId-Präfixe, Standard leer),
-  `versionCacheTtlMinutes` (Gültigkeitsdauer des `VersionMetadataCache` in Minuten, Standard 60, `<= 0` deaktiviert den Zwischenspeicher),
-  `vulnerabilityCacheTtlMinutes` (Gültigkeitsdauer des `VulnerabilityResultCache` in Minuten, Standard 1440, `<= 0` deaktiviert den Zwischenspeicher);
+  `versionCacheTtlMinutes` (Gültigkeitsdauer des `VersionMetadataCache` in Minuten, Standard 120, `<= 0` deaktiviert den Zwischenspeicher),
+  `vulnerabilityCacheTtlMinutes` (Gültigkeitsdauer des `VulnerabilityResultCache` in Minuten, Standard 180, `<= 0` deaktiviert den Zwischenspeicher);
   Legacy-Migrationsfelder: `selectLatestVersion`, `selectLatestMinorVersion`, `addVulnerabilityFixComment`).
   Für die OSS-Index-Abfrage ist nur das Token erforderlich; Sonatype wertet bei der HTTP-Basic-Authentifizierung
   nur das Token aus, weshalb ein fester Platzhalter-Benutzername verwendet wird.

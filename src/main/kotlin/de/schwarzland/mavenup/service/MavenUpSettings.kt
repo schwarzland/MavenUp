@@ -95,10 +95,10 @@ const val DEFAULT_VULNERABILITY_COMMENT_PREFIX = "Pinned by Maven Up to fix:"
 const val DEFAULT_VULNERABILITY_COMMENT_MAX_IDS = 3
 
 /** Standard-Gültigkeitsdauer (in Minuten) des Zwischenspeichers für Versionslisten. */
-const val DEFAULT_VERSION_CACHE_TTL_MINUTES = 60
+const val DEFAULT_VERSION_CACHE_TTL_MINUTES = 120
 
 /** Standard-Gültigkeitsdauer (in Minuten) des Zwischenspeichers für Vulnerability-Scan-Ergebnisse. */
-const val DEFAULT_VULNERABILITY_CACHE_TTL_MINUTES = 1440
+const val DEFAULT_VULNERABILITY_CACHE_TTL_MINUTES = 180
 
 /**
  * Diese Klasse verwaltet die persistenten Einstellungen für das MavenUp-Plugin global auf Anwendungsebene.

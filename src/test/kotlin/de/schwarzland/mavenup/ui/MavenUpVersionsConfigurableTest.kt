@@ -112,7 +112,7 @@ class MavenUpVersionsConfigurableTest : BasePlatformTestCase() {
     }
 
     fun testVersionCacheTtlMinutesDefaultIsSixty() {
-        assertEquals(60, MavenUpSettings.State().versionCacheTtlMinutes)
+        assertEquals(120, MavenUpSettings.State().versionCacheTtlMinutes)
     }
 
     fun testVersionCacheTtlMinutesIsPersistedOnApply() {
