@@ -186,9 +186,10 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   verwundbaren transitiven Koordinaten nach einem Scan). Versionsabfrage (`fetchAllVersions`) und
   Einstellungsfilter (`applyVersionSettings`) sind als Funktions-Seams per Konstruktor injizierbar
   (netzwerkfreie Tests). `MavenUpWindowFactory` umschließt die injizierte `fetchAllVersions`-Lambda mit
-  `VersionMetadataCache.getOrFetch(groupId, artifactId, versionCacheTtlMinutes) { ... }`, sodass sowohl
-  die manuelle/automatische Versionssuche als auch die gezielte Abfrage für verwundbare transitive
-  Koordinaten denselben, nach `groupId:artifactId` geschlüsselten Zwischenspeicher nutzen. Die zustandslosen
+  `VersionMetadataCache.getOrFetch(groupId, artifactId, versionCacheTtlMinutes) { ... }`; die automatische
+  Suche bindet denselben Cache über `AutomaticVersionSearchCoordinator` ein. Dadurch nutzen sowohl die
+  manuelle/automatische Versionssuche als auch die gezielte Abfrage für verwundbare transitive
+  Koordinaten denselben, nach `groupId:artifactId` geschlüsselten Zwischenspeicher. Die zustandslosen
   Auto-Selektions-Helfer (`chooseAutoSelectedVersion`, `latestVersionWithinSameMajor`,
   `extractLeadingMajorNumber`, `selectableRecommendedVersion`) liegen als Top-Level-Funktionen in `ui/VersionAutoSelection`.
 - **VersionMetadataCache**: anwendungsweiter (`Service.Level.APP`) Zwischenspeicher für ungefilterte

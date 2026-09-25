@@ -86,9 +86,10 @@ internal fun hasAvailableVersionUpdates(
  *
  * Die Komponente erfasst nach Projektstart und jedem abgeschlossenen Maven-Import zunächst einen
  * konsistenten PSI-Schnappschuss. Ist die automatische Suche aktiviert, werden daraufhin die
- * Repository-Abfragen im Hintergrund durchgeführt. Mehrere dicht aufeinanderfolgende Trigger
- * werden über eine Generation entwertet, sodass ausschließlich das jüngste Ergebnis veröffentlicht
- * und von geöffneten Tool Windows dargestellt wird.
+ * Repository-Abfragen im Hintergrund durchgeführt. Die Versionslisten werden dabei über den
+ * anwendungsweiten [VersionMetadataCache] wiederverwendet. Mehrere dicht aufeinanderfolgende
+ * Trigger werden über eine Generation entwertet, sodass ausschließlich das jüngste Ergebnis
+ * veröffentlicht und von geöffneten Tool Windows dargestellt wird.
  *
  * @property project Das Maven-Projekt, dessen Versionen geprüft werden.
  */
@@ -99,6 +100,7 @@ internal class AutomaticVersionSearchCoordinator(private val project: Project) {
     private val repositoryError = AtomicReference<ApiError?>()
     private val generation = AtomicInteger()
     private val activeIndicator = AtomicReference<ProgressIndicator?>()
+    private val versionMetadataCache = VersionMetadataCache.getInstance()
 
     @Volatile
     private var latestState: AutomaticVersionSearchState? = null
@@ -188,8 +190,14 @@ internal class AutomaticVersionSearchCoordinator(private val project: Project) {
         val dependencyVersionService = DependencyVersionService(
             project,
             fetchAllVersions = { groupId, artifactId ->
-                dependencyApiService.fetchAllVersions(groupId, artifactId) { error ->
-                    repositoryError.compareAndSet(null, error)
+                versionMetadataCache.getOrFetch(
+                    groupId,
+                    artifactId,
+                    MavenUpSettings.getInstance().state.versionCacheTtlMinutes
+                ) {
+                    dependencyApiService.fetchAllVersions(groupId, artifactId) { error ->
+                        repositoryError.compareAndSet(null, error)
+                    }
                 }
             }
         )

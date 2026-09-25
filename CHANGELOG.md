@@ -13,6 +13,7 @@
 ### Changed
 
 - Added a hierarchy-toolbar toggle to show or hide Maven GroupIds for a compact artifact-focused view.
+- Automatic version searches triggered by project startup or Maven imports now reuse the version metadata cache.
 
 ### Fixed
 
