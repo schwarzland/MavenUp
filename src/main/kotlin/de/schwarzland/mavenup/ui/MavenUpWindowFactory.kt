@@ -15,7 +15,9 @@ import de.schwarzland.mavenup.service.ToolWindowBadgeService
 import de.schwarzland.mavenup.service.MAVEN_UP_TOOL_WINDOW_ID
 import de.schwarzland.mavenup.service.determineBadgeState
 import de.schwarzland.mavenup.service.VulnerabilityScanService
+import de.schwarzland.mavenup.service.OssIndexScanResult
 import de.schwarzland.mavenup.service.VersionAutoSelectionMode
+import de.schwarzland.mavenup.service.VersionMetadataCache
 import de.schwarzland.mavenup.service.VulnerabilityApiService
 import de.schwarzland.mavenup.service.VulnerabilityMerger
 import de.schwarzland.mavenup.service.MavenUpNotifications
@@ -190,10 +192,17 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private val vulnerabilityApiService = VulnerabilityApiService()
         private val vulnerabilityScanService = VulnerabilityScanService(project)
         private val dependencyApiService = DependencyApiService(project)
+        private val versionMetadataCache = VersionMetadataCache.getInstance()
         private val dependencyVersionService = DependencyVersionService(
             project,
             fetchAllVersions = { groupId, artifactId ->
-                dependencyApiService.fetchAllVersions(groupId, artifactId, onError = ::reportRepositoryApiError)
+                versionMetadataCache.getOrFetch(
+                    groupId,
+                    artifactId,
+                    MavenUpSettings.getInstance().state.versionCacheTtlMinutes
+                ) {
+                    dependencyApiService.fetchAllVersions(groupId, artifactId, onError = ::reportRepositoryApiError)
+                }
             }
         )
 
@@ -1277,6 +1286,15 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     shortLabelKey = "toolwindow.MyToolWindow.vulnerabilityDetails.button.short"
                 ) { openVulnerabilityDetailsForSelectedRow() })
                 add(Separator.getInstance())
+                add(toolbarAction(
+                    "toolwindow.MyToolWindow.cacheContents.button",
+                    AllIcons.Actions.PreviewDetails,
+                    { true },
+                    shortLabelKey = "toolwindow.MyToolWindow.cacheContents.button.short",
+                    descriptionProvider = {
+                        MyMessageBundle.message("toolwindow.MyToolWindow.cacheContents.tooltip")
+                    }
+                ) { openCacheContents() })
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.settings.button",
                     AllIcons.General.Settings,
@@ -3652,13 +3670,30 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     val dependencies = scanTargets.dependencies
                     LOG.info("Starting vulnerability check for ${dependencies.size} dependencies/plugins.")
 
+                    val cachePartition = vulnerabilityScanService.partitionByCache(dependencies)
+                    val toQuery = cachePartition.uncachedDependencies
+                    LOG.info(
+                        "Vulnerability cache hit for ${cachePartition.cachedResults.size} of " +
+                            "${dependencies.size} coordinates; querying ${toQuery.size} coordinates live."
+                    )
+
                     val osvError = AtomicReference<ApiError?>()
-                    val osvResults = vulnerabilityApiService.fetchVulnerabilityAdvisories(
-                        dependencies.toList(),
-                        indicator
-                    ) { error -> osvError.compareAndSet(null, error) }
-                    val ossIndexScan = vulnerabilityScanService.resolveOssIndexResults(dependencies.toList(), indicator)
-                    val results = VulnerabilityMerger.merge(osvResults, ossIndexScan.advisories)
+                    val osvResults = if (toQuery.isEmpty()) {
+                        emptyMap()
+                    } else {
+                        vulnerabilityApiService.fetchVulnerabilityAdvisories(
+                            toQuery,
+                            indicator
+                        ) { error -> osvError.compareAndSet(null, error) }
+                    }
+                    val ossIndexScan = if (toQuery.isEmpty()) {
+                        OssIndexScanResult(emptyMap(), null)
+                    } else {
+                        vulnerabilityScanService.resolveOssIndexResults(toQuery, indicator)
+                    }
+                    val freshResults = VulnerabilityMerger.merge(osvResults, ossIndexScan.advisories)
+                    vulnerabilityScanService.storeResults(freshResults)
+                    val results = cachePartition.cachedResults + freshResults
                     val vulnerableEntries = results.values.count { it.isNotEmpty() }
                     LOG.info(
                         "Finished vulnerability check. " +
@@ -3793,6 +3828,15 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private fun openSettings() {
             com.intellij.openapi.options.ShowSettingsUtil.getInstance()
                 .showSettingsDialog(project, MavenUpConfigurable::class.java)
+        }
+
+        /**
+         * Öffnet den Cache-Inhalte-Dialog mit einem frischen Schnappschuss der Version- und
+         * Vulnerability-Zwischenspeicher, z. B. zur Diagnose, warum eine Koordinate erneut abgefragt
+         * wurde oder unerwartet aus dem Zwischenspeicher bedient wird.
+         */
+        internal fun openCacheContents() {
+            CacheContentsDialog(project).show()
         }
 
         /**

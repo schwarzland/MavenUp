@@ -4,12 +4,16 @@ import com.intellij.openapi.ui.DialogPanel
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.schwarzland.mavenup.service.MavenUpSettings
 import de.schwarzland.mavenup.service.VersionAutoSelectionMode
+import de.schwarzland.mavenup.service.VersionMetadataCache
+import de.schwarzland.mavenup.service.VulnerabilityResultCache
 
 class MavenUpVersionsConfigurableTest : BasePlatformTestCase() {
 
     override fun tearDown() {
         try {
             MavenUpSettings.getInstance().loadState(MavenUpSettings.State())
+            VersionMetadataCache.getInstance().clear()
+            VulnerabilityResultCache.getInstance().clear()
         } finally {
             super.tearDown()
         }
@@ -105,6 +109,45 @@ class MavenUpVersionsConfigurableTest : BasePlatformTestCase() {
         configurable.apply()
 
         assertFalse(settings.state.stopAfterCentralSuccess)
+    }
+
+    fun testVersionCacheTtlMinutesDefaultIsSixty() {
+        assertEquals(60, MavenUpSettings.State().versionCacheTtlMinutes)
+    }
+
+    fun testVersionCacheTtlMinutesIsPersistedOnApply() {
+        val settings = MavenUpSettings.getInstance()
+        settings.state.versionCacheTtlMinutes = 60
+
+        val configurable = createConfigurable()
+        configurable.versionCacheTtlMinutesSpinner!!.number = 30
+        assertTrue("Änderung des Spinners sollte isModified() true machen", configurable.isModified)
+
+        configurable.apply()
+
+        assertEquals(30, settings.state.versionCacheTtlMinutes)
+    }
+
+    fun testVersionCacheTtlMinutesZeroDisablesCaching() {
+        val settings = MavenUpSettings.getInstance()
+        settings.state.versionCacheTtlMinutes = 60
+
+        val configurable = createConfigurable()
+        configurable.versionCacheTtlMinutesSpinner!!.number = 0
+        configurable.apply()
+
+        assertEquals(0, settings.state.versionCacheTtlMinutes)
+    }
+
+    fun testApplyClearsVersionAndVulnerabilityCaches() {
+        VersionMetadataCache.getInstance().getOrFetch("com.example", "artifact", ttlMinutes = 60) { listOf("1.0.0") }
+        VulnerabilityResultCache.getInstance().put("com.example:artifact:1.0.0", emptyList())
+
+        val configurable = createConfigurable()
+        configurable.apply()
+
+        assertEquals(0, VersionMetadataCache.getInstance().size())
+        assertEquals(0, VulnerabilityResultCache.getInstance().size())
     }
 
     fun testOfferAllVersionsDefaultIsFalse() {
@@ -271,5 +314,6 @@ class MavenUpVersionsConfigurableTest : BasePlatformTestCase() {
         assertNull(configurable.autoSearchVersionsCheckBox)
         assertNull(configurable.hiddenVersionQualifiersField)
         assertNull(configurable.versionAutoSelectionModeComboBox)
+        assertNull(configurable.versionCacheTtlMinutesSpinner)
     }
 }

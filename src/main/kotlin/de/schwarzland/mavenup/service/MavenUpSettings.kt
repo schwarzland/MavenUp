@@ -94,6 +94,12 @@ const val DEFAULT_VULNERABILITY_COMMENT_PREFIX = "Pinned by Maven Up to fix:"
 /** Standardanzahl der höchstens aufgelisteten Kennungen; `0` bedeutet „unbegrenzt". */
 const val DEFAULT_VULNERABILITY_COMMENT_MAX_IDS = 3
 
+/** Standard-Gültigkeitsdauer (in Minuten) des Zwischenspeichers für Versionslisten. */
+const val DEFAULT_VERSION_CACHE_TTL_MINUTES = 60
+
+/** Standard-Gültigkeitsdauer (in Minuten) des Zwischenspeichers für Vulnerability-Scan-Ergebnisse. */
+const val DEFAULT_VULNERABILITY_CACHE_TTL_MINUTES = 1440
+
 /**
  * Diese Klasse verwaltet die persistenten Einstellungen für das MavenUp-Plugin global auf Anwendungsebene.
  *
@@ -129,6 +135,8 @@ class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
      * @property vulnerabilityCommentMaxIds Die Höchstzahl der aufgelisteten Kennungen; darüber hinausgehende Kennungen werden durch einen „and more"-Hinweis ersetzt. `0` bedeutet „unbegrenzt".
      * @property toolWindowBadgeMode Bestimmt, welche Zustände als farbiger Badge auf dem Stripe-Icon des Tool-Windows signalisiert werden.
      * @property privateGroupIds Kommagetrennte Liste privater/unternehmensinterner GroupId-Präfixe (z. B. "com.myCompany, de.meineFirma.produkt"). Abhängigkeiten, Plugins, verwaltete Abhängigkeiten/Plugins und Parent-POMs mit übereinstimmender GroupId werden von Abfragen an Maven Central (repo1.maven.org) ausgeschlossen.
+     * @property versionCacheTtlMinutes Gültigkeitsdauer (in Minuten) des anwendungsweiten Zwischenspeichers für Repository-Versionslisten je `groupId:artifactId`; `0` deaktiviert den Zwischenspeicher, sodass jede Versionssuche stets live abfragt.
+     * @property vulnerabilityCacheTtlMinutes Gültigkeitsdauer (in Minuten) des anwendungsweiten Zwischenspeichers für zusammengeführte Vulnerability-Scan-Ergebnisse je `groupId:artifactId:version`; `0` deaktiviert den Zwischenspeicher, sodass jeder Scan stets alle Koordinaten live abfragt.
      */
     data class State(
         var jumpOnSingleClick: Boolean = false,
@@ -152,7 +160,9 @@ class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
         var vulnerabilityCommentPrefix: String = DEFAULT_VULNERABILITY_COMMENT_PREFIX,
         var vulnerabilityCommentMaxIds: Int = DEFAULT_VULNERABILITY_COMMENT_MAX_IDS,
         var toolWindowBadgeMode: ToolWindowBadgeMode = ToolWindowBadgeMode.VULNERABILITIES_AND_UPDATES,
-        var privateGroupIds: String = ""
+        var privateGroupIds: String = "",
+        var versionCacheTtlMinutes: Int = DEFAULT_VERSION_CACHE_TTL_MINUTES,
+        var vulnerabilityCacheTtlMinutes: Int = DEFAULT_VULNERABILITY_CACHE_TTL_MINUTES
     ) {
         /**
          * Normalisiert den geladenen Zustand und migriert Legacy-Bool-Flags auf [versionAutoSelectionMode].

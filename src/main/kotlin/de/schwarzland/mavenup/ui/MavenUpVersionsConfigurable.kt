@@ -4,12 +4,14 @@ import com.intellij.openapi.options.ConfigurationException
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.ComboBox
 import com.intellij.openapi.ui.DialogPanel
+import com.intellij.ui.JBIntSpinner
 import com.intellij.ui.components.JBCheckBox
 import com.intellij.ui.components.JBTextField
 import com.intellij.ui.dsl.builder.Align
 import com.intellij.ui.dsl.builder.COLUMNS_MEDIUM
 import com.intellij.ui.dsl.builder.Cell
 import com.intellij.ui.dsl.builder.Panel
+import com.intellij.ui.dsl.builder.bindIntValue
 import com.intellij.ui.dsl.builder.bindItem
 import com.intellij.ui.dsl.builder.bindSelected
 import com.intellij.ui.dsl.builder.bindText
@@ -23,6 +25,9 @@ internal const val OUTLINE_PROPERTY = "JComponent.outline"
 
 /** Wert für die rote Fehler-Umrandung. */
 internal const val OUTLINE_ERROR = "error"
+
+/** Obergrenze für die konfigurierbare Gültigkeitsdauer des Versions-Zwischenspeichers (in Minuten). */
+private const val VERSION_CACHE_TTL_MINUTES_LIMIT = 10_080
 
 /**
  * Regulärer Ausdruck für zulässige private GroupId-Präfixe.
@@ -62,6 +67,10 @@ class MavenUpVersionsConfigurable(project: Project) :
 
     /** Schalter, der weitere Repository-Abfragen nach erfolgreicher Central-Abfrage unterbindet. */
     internal var stopAfterCentralSuccessCheckBox: JBCheckBox? = null
+        private set
+
+    /** Eingabefeld für die Gültigkeitsdauer des Versions-Zwischenspeichers (in Minuten). */
+    internal var versionCacheTtlMinutesSpinner: JBIntSpinner? = null
         private set
 
     /** Eingabefeld für private GroupId-Präfixe. */
@@ -115,6 +124,14 @@ class MavenUpVersionsConfigurable(project: Project) :
                         .bindSelected({ state.stopAfterCentralSuccess }, { state.stopAfterCentralSuccess = it })
                         .component
             }.rowComment(MyMessageBundle.message("settings.stopAfterCentralSuccess.comment"))
+            row(MyMessageBundle.message("settings.versionCacheTtlMinutes")) {
+                versionCacheTtlMinutesSpinner = spinner(0..VERSION_CACHE_TTL_MINUTES_LIMIT)
+                    .bindIntValue(
+                        { state.versionCacheTtlMinutes },
+                        { state.versionCacheTtlMinutes = it.coerceAtLeast(0) }
+                    )
+                    .component
+            }.rowComment(MyMessageBundle.message("settings.versionCacheTtlMinutes.comment"))
         }
     }
 
@@ -232,6 +249,7 @@ class MavenUpVersionsConfigurable(project: Project) :
     override fun disposeUIResources() {
         autoSearchVersionsCheckBox = null
         stopAfterCentralSuccessCheckBox = null
+        versionCacheTtlMinutesSpinner = null
         privateGroupIdsField = null
         offerAllVersionsCheckBox = null
         hideUnstableVersionsCheckBox = null
