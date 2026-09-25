@@ -13,6 +13,7 @@
 
 - Added a hierarchy-toolbar toggle to show or hide Maven GroupIds for a compact artifact-focused view.
 - Log every OSV.dev and Sonatype OSS Index vulnerability request at DEBUG level without exposing API tokens.
+- Changed vulnerability caching to be session-wide, minute-configurable, and activated for automatic rescans only after a successful manual scan.
 
 ### Fixed
 
@@ -23,6 +24,7 @@
 - Fixed IDE warnings about calling `AnAction.update`/`actionPerformed` directly in tests by routing test-driven action invocations through `ActionUtil.updateAction`/`ActionUtil.performAction`.
 - Fixed opening the tool window (and other automatic refreshes such as applying updates or a Maven reimport) unexpectedly triggering a network vulnerability scan on cache misses; auto-rescan-on-cache-miss now only applies once a manual **Check vulnerabilities** scan has completed successfully in the current session.
 - Fixed the vulnerability cache not invalidating dependencies whose own version stayed the same but whose resolved transitive dependency set changed because a shared transitive dependency was converged to a new version by bumping a *different* dependency.
+- Fixed vulnerability rescans after dependency version changes to invalidate the complete dependency graph while retaining previous cache entries when an automatic scan fails.
 
 ## 3.3.1
 

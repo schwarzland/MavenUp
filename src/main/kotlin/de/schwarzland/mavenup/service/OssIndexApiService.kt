@@ -112,6 +112,9 @@ class OssIndexApiService {
             OSS_INDEX_LOG.warn("Skipping OSS Index request because the API token is missing.")
             return emptyMap()
         }
+        chunk.forEach { (groupId, artifactId, version) ->
+            OSS_INDEX_LOG.info("Searching Sonatype OSS Index vulnerabilities for $groupId:$artifactId:$version.")
+        }
 
         val coordinateToKey = chunk.associate { (groupId, artifactId, version) ->
             buildPackageUrl(groupId, artifactId, version) to "$groupId:$artifactId:$version"

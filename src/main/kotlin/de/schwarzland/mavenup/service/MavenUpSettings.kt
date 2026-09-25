@@ -93,6 +93,9 @@ const val DEFAULT_VULNERABILITY_COMMENT_PREFIX = "Pinned by Maven Up to fix:"
 
 /** Standardanzahl der höchstens aufgelisteten Kennungen; `0` bedeutet „unbegrenzt". */
 const val DEFAULT_VULNERABILITY_COMMENT_MAX_IDS = 3
+const val DEFAULT_VULNERABILITY_CACHE_RETENTION_MINUTES = 240
+const val MIN_VULNERABILITY_CACHE_RETENTION_MINUTES = 1
+const val MAX_VULNERABILITY_CACHE_RETENTION_MINUTES = 1440
 
 /**
  * Diese Klasse verwaltet die persistenten Einstellungen für das MavenUp-Plugin global auf Anwendungsebene.
@@ -114,7 +117,7 @@ class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
      * @property hiddenVersionQualifiers Kommagetrennte Liste von Qualifizierern (z.B. "beta", "alpha"), die als instabil gelten.
      * @property ossIndexEnabled Gibt an, ob die Prüfung auf Sicherheitslücken via Sonatype OSS Index aktiviert ist.
      * @property checkTransitiveDependencies Bestimmt, ob auch transitive Abhängigkeiten auf Updates geprüft werden sollen.
-     * @property vulnerabilityCacheRetentionHours Bestimmt die Vorhaltezeit erfolgreicher Vulnerability-Scans im sitzungsflüchtigen Cache in Stunden.
+     * @property vulnerabilityCacheRetentionMinutes Bestimmt die Vorhaltezeit erfolgreicher Vulnerability-Scans im sitzungsflüchtigen Cache in Minuten.
      * @property autoRescanVulnerabilitiesOnCacheMiss Bestimmt, ob ein Refresh fehlende, abgelaufene oder invalidierte Vulnerability-Cache-Einträge automatisch erneut prüft.
      * @property repositoryBrowser Der Maven-Repository-Browser, der für Links auf Abhängigkeits-Versionsseiten verwendet wird.
      * @property toolbarShowText Bestimmt, ob die Aktionsleisten Text-Buttons statt reiner Icon-Buttons anzeigen.
@@ -139,6 +142,8 @@ class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
         var hiddenVersionQualifiers: String = "rc,beta,alpha,ea,milestone,preview,cr,nightly,snapshot",
         var ossIndexEnabled: Boolean = false,
         var checkTransitiveDependencies: Boolean = true,
+        var vulnerabilityCacheRetentionMinutes: Int = DEFAULT_VULNERABILITY_CACHE_RETENTION_MINUTES,
+        @Deprecated("Wird bei der Migration aus älteren Einstellungen gelesen.")
         var vulnerabilityCacheRetentionHours: Int = DEFAULT_VULNERABILITY_CACHE_RETENTION_HOURS,
         var autoRescanVulnerabilitiesOnCacheMiss: Boolean = true,
         var repositoryBrowser: MavenRepositoryBrowser = MavenRepositoryBrowser.MVN_REPOSITORY,
@@ -199,14 +204,25 @@ class MavenUpSettings : PersistentStateComponent<MavenUpSettings.State> {
 
         /**
          * Normalisiert die Vorhaltezeit des Vulnerability-Caches aus älteren oder manuell
-         * bearbeiteten Einstellungsdateien auf einen gültigen positiven Stundenwert.
+         * bearbeiteten Einstellungsdateien auf einen gültigen Minutenwert.
          *
          * @return Der normalisierte Zustand (dieselbe Instanz).
          */
         fun normalizeVulnerabilityCacheSettings(): State {
-            if (vulnerabilityCacheRetentionHours < 1) {
-                vulnerabilityCacheRetentionHours = DEFAULT_VULNERABILITY_CACHE_RETENTION_HOURS
+            if (vulnerabilityCacheRetentionMinutes == DEFAULT_VULNERABILITY_CACHE_RETENTION_MINUTES &&
+                vulnerabilityCacheRetentionHours != DEFAULT_VULNERABILITY_CACHE_RETENTION_HOURS
+            ) {
+                vulnerabilityCacheRetentionMinutes =
+                    (vulnerabilityCacheRetentionHours * 60).coerceIn(
+                        MIN_VULNERABILITY_CACHE_RETENTION_MINUTES,
+                        MAX_VULNERABILITY_CACHE_RETENTION_MINUTES
+                    )
             }
+            vulnerabilityCacheRetentionMinutes = vulnerabilityCacheRetentionMinutes.coerceIn(
+                MIN_VULNERABILITY_CACHE_RETENTION_MINUTES,
+                MAX_VULNERABILITY_CACHE_RETENTION_MINUTES
+            )
+            vulnerabilityCacheRetentionHours = (vulnerabilityCacheRetentionMinutes / 60).coerceAtLeast(1)
             return this
         }
     }

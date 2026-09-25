@@ -24,13 +24,13 @@ Install **MavenUp** from the JetBrains Marketplace via `Settings > Plugins > Mar
 ## Quick start
 
 1. Open a Maven project and open the **MavenUp** tool window.
-2. MavenUp checks for newer versions in the background after the Maven project loads and after Maven resyncs; open the tool window to review the results or use **Refresh and Search for New Versions** to repeat it manually. Refreshes reuse fresh vulnerability results from the project-session cache and can rescan cache misses automatically.
+2. MavenUp checks for newer versions in the background after the Maven project loads and after Maven resyncs; open the tool window to review the results or use **Refresh and Search for New Versions** to repeat it manually. Vulnerability cache reuse and automatic rescans become active after the first successful **Scan for Vulnerabilities** and can be configured under **Vulnerability Check**.
 3. Pick target versions and click **Update**, or run **Scan for Vulnerabilities**. 
 
 See the [usage guide](docs/usage.md) for details.
 
 Open **Settings > Tools > Maven Up > Vulnerability Check** to configure scanning, inspect the current
-project-session vulnerability cache, and manage optional OSS Index access.
+session-only vulnerability cache, and manage optional OSS Index access.
 
 ## Documentation
 

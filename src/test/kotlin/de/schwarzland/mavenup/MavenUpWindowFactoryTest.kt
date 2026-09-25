@@ -113,14 +113,14 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
             settings.state.ossIndexEnabled = false
             settings.state.autoRescanVulnerabilitiesOnCacheMiss = true
             cache.clear()
+            val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+            val table = findTable(toolWindow.getContent())!!
             cache.store(
                 setOf(Triple("com.example", "cached-library", "1.0.0")),
                 VulnerabilityScanSources(ossIndexEnabled = false),
                 mapOf(coordinate to listOf(advisory))
             )
-
-            val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
-            val table = findTable(toolWindow.getContent())!!
+            cache.markManualScanCompleted()
             toolWindow.applyAutomaticVersionSearchState(
                 AutomaticVersionSearchState(
                     RefreshSnapshot(

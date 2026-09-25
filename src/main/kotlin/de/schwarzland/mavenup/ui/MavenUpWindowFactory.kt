@@ -896,6 +896,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 tableModel.setRowCount(0)
                 updateTableEmptyText()
                 resetRefreshState(clearData, clearVulnerabilities)
+                if (checkUpdates && !MavenUpSettings.getInstance().state.autoRescanVulnerabilitiesOnCacheMiss) {
+                    vulnerabilityCacheService.clearEntries()
+                }
 
                 val managedDependencyType =
                     MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
@@ -2202,6 +2205,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
          */
         internal fun applyAutomaticVersionSearchState(state: AutomaticVersionSearchState) {
             if (isUpdating || project.isDisposed) return
+            if (!MavenUpSettings.getInstance().state.autoRescanVulnerabilitiesOnCacheMiss) {
+                vulnerabilityCacheService.clearEntries()
+            }
 
             refreshGeneration++
             isRefreshing = false
@@ -3745,15 +3751,15 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         .map { (key, version) -> Triple(key.substringBefore(":"), key.substringAfter(":"), version) }
                     val scanTargets = vulnerabilityScanService.collectVulnerabilityScanTargets(directDependencies)
                     val scanSources = VulnerabilityScanSources(MavenUpSettings.getInstance().state.ossIndexEnabled)
-                    vulnerabilityCacheService.reconcileDependencyGraph(scanTargets)
+                    vulnerabilityCacheService.reconcileDependencyGraph(scanTargets, project)
                     val cacheLookup = if (forceRescan) {
                         VulnerabilityCacheLookup(emptyMap(), scanTargets.dependencies)
                     } else {
                         vulnerabilityCacheService.lookup(
                             scanTargets.dependencies,
                             scanSources,
-                            Duration.ofHours(
-                                MavenUpSettings.getInstance().state.vulnerabilityCacheRetentionHours.toLong()
+                            Duration.ofMinutes(
+                                MavenUpSettings.getInstance().state.vulnerabilityCacheRetentionMinutes.toLong()
                             )
                         )
                     }
@@ -3783,6 +3789,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     }
                     val freshResults = VulnerabilityMerger.merge(osvResults, ossIndexScan.advisories)
                     if (!indicator.isCanceled && osvError.get() == null && ossIndexScan.error == null) {
+                        if (forceRescan) {
+                            vulnerabilityCacheService.clearEntries()
+                        }
                         vulnerabilityCacheService.store(dependencies, scanSources, freshResults)
                         if (forceRescan) {
                             vulnerabilityCacheService.markManualScanCompleted()

@@ -34,7 +34,7 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
 ## Einstellungen und Message-Bus
 - **MavenUpSettings**: `PersistentStateComponent` auf Anwendungsebene (`Service.Level.APP`), global für alle Projekte gespeichert in `mavenup_settings.xml`
   (`jumpOnSingleClick`, `versionAutoSelectionMode` mit `DISABLED`, `LATEST`, `LATEST_MINOR`, `hideUnstableVersions`, `hiddenVersionQualifiers`,
-  `ossIndexEnabled`, `checkTransitiveDependencies`, `vulnerabilityCacheRetentionHours`,
+  `ossIndexEnabled`, `checkTransitiveDependencies`, `vulnerabilityCacheRetentionMinutes` (1–1440, default 240),
   `autoRescanVulnerabilitiesOnCacheMiss`, `repositoryBrowser`, `toolbarShowText`,
   `syncMavenAfterUpdate`, `commentOutManagedEntriesOnRemoval`, `stopAfterCentralSuccess`, `offerAllVersions`, `confirmVersionReset`,
   `autoSearchVersions`, `vulnerabilityCommentMode` mit `NONE`, `TEXT_ONLY`, `ADVISORY_IDS`, `ALIASES`, `ALL_IDS`,
@@ -160,16 +160,18 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   Netzwerk-/Exception-Fehlern (z. B. ein unauflösbarer Host durch eine falsch konfigurierte URI). Das
   Feld `OssIndexScanResult.error` ersetzt die frühere Kombination aus `errorMessage`/`isTokenError`;
   ob der Fehler über die Einstellungen behebbar ist, liefert `ApiError.isTokenError`.
-  `VulnerabilityCacheService` ist ein projektgebundener, sitzungsflüchtiger Cache für erfolgreiche
+  `VulnerabilityCacheService` ist ein anwendungsweiter, nicht persistierter und damit
+  IntelliJ-sitzungsflüchtiger Cache für erfolgreiche
   Scan-Ergebnisse nach vollständiger Maven-Koordinate und Quellenkonfiguration; er verwirft
-  abgelaufene Einträge, hält saubere Ergebnisse fest und invalidiert zuvor erreichte transitive
-  Koordinaten, wenn sich eine direkte Dependency-Version ändert oder entfällt. `snapshot` liefert
+  abgelaufene Einträge, hält saubere Ergebnisse fest und invalidiert bei einer echten
+  Versionsänderung den vollständigen Vorwärts-/Rückwärtsgraphen mit Zyklenschutz. `snapshot` liefert
   eine sortierte Momentaufnahme gültiger Einträge mit Quellen, Advisories, Scanzeit und Ablaufzeit
   für die Cache-Ansicht in den Einstellungen. `markManualScanCompleted`/`hasCompletedManualScan`
   merken sitzungsweit vor, ob bereits ein manueller **Check vulnerabilities**-Scan erfolgreich
   abgeschlossen wurde (`clear` setzt dieses Flag ebenfalls zurück); erst danach dürfen automatische
   Refreshes Cache-Misses gemäß `autoRescanVulnerabilitiesOnCacheMiss` selbstständig nachscannen, damit
-  z. B. das bloße Öffnen des Tool-Windows nie von sich aus einen Netzwerk-Scan auslöst.
+  z. B. das bloße Öffnen des Tool-Windows nie von sich aus einen Netzwerk-Scan auslöst. Ein
+  `clearEntries` leert ausschließlich Ergebnisse, während der manuelle Sitzungsstatus erhalten bleibt.
   Die reine Farbzuordnung `vulnerabilityColor` liegt als Top-Level-Helfer in `VulnerabilityCellModel`.
 - **DependencyVersionService**: fragt über `searchVersions` die verfügbaren Versionen aller
   Dependencies/Plugins ab (inkl. PSI-Erfassung verwalteter Einträge und Property-Schnittmengen)

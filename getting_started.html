@@ -13,7 +13,7 @@
     <li><strong>Refresh and check for newer versions</strong>: When enabled, MavenUp checks in the background after Maven
         project load and after every finished Maven import or resync, even before you open the tool window, so the
         <strong>New Version</strong> column is filled without further interaction. You can also click <strong>Refresh and Search for New Versions</strong> at any
-        time to reload the current project state, discard previously selected update values, restore fresh vulnerability results from the project-session cache, and
+        time to reload the current project state, discard previously selected update values, restore fresh vulnerability results from the session cache, and
         query Maven repositories again. A green checkmark ("✓") means the item already matches the latest known version; an
         upwards arrow ("↑") shows that a newer release is available. While a refresh or a version search is running, the
         table stays empty and names the running operation, and the rows appear again once it has finished. The automatic
@@ -92,7 +92,8 @@
         dependencies and, when enabled, their resolved transitive dependencies. You can keep using
         <strong>Hierarchy</strong> in the toolbar or context menu while the scan runs. Results are shown in the
         <strong>Vulnerabilities</strong> column, shown directly before <strong>Current Version</strong>. If nothing is found,
-        a closable banner above the table confirms the clean result and names the number of scanned coordinates.</li>
+        a closable banner above the table confirms the clean result and names the number of scanned coordinates. This
+        first successful manual scan also enables the session cache and makes configured automatic rescans eligible.</li>
     <li><strong>Watch for failed lookups</strong>: If a request to OSV.dev, Sonatype OSS Index, or a Maven repository
         fails, a closable red banner appears above the table and names the reason. When it reports a missing or
         rejected OSS Index API token, use its <strong>Open Settings</strong> action to fix the token right away. Any
@@ -136,7 +137,7 @@
     You can choose the repository
     browser, enable single-click navigation, decide whether the tool window icon shows a status badge, choose a three-state auto-selection strategy for updates (keep current version, highest version, or latest minor in the current major line), filter out unstable releases, choose
     whether to stop after a successful Maven Central lookup, exclude private GroupId prefixes from Maven Central
-    queries, choose how long successful vulnerability results remain in the project-session cache and whether refreshes rescan cache misses automatically, decide how the explanatory comment for
+    queries, choose a vulnerability-cache retention from 1 to 1440 minutes and whether refreshes rescan cache misses automatically, decide how the explanatory comment for
     newly pinned vulnerability fixes looks (its text, which identifiers it lists, and how many), inspect valid cached vulnerability results with
     <strong>Show current cache</strong>, and configure an optional Sonatype OSS Index API token. These
     options are meant to make first-time use fast and keep the tool window practical for everyday dependency maintenance.</p>
