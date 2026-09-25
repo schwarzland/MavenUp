@@ -1,6 +1,7 @@
 package de.schwarzland.mavenup.ui
 
 import com.intellij.openapi.ui.DialogPanel
+import com.intellij.openapi.util.Disposer
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.schwarzland.mavenup.service.MavenUpSettings
 import de.schwarzland.mavenup.service.VersionAutoSelectionMode
@@ -334,6 +335,15 @@ class MavenUpVersionsConfigurableTest : BasePlatformTestCase() {
         assertTrue("Bei gültigen GroupIds darf kein Validierungsfehler vorliegen", validValidations.isEmpty())
     }
 
+    fun testShowVersionCacheButtonIsPresentAndCreatesDialogWithoutError() {
+        val configurable = createConfigurable()
+        assertNotNull(configurable.showVersionCacheButton)
+        assertEquals(MyMessageBundle.message("cache.contents.button"), configurable.showVersionCacheButton!!.text)
+        val dialog = VersionCacheContentsDialog(project)
+        Disposer.register(testRootDisposable, dialog.disposable)
+        assertNotNull(dialog.createCenterPanel())
+    }
+
     fun testDisposeUiResourcesReleasesComponents() {
         val configurable = createConfigurable()
 
@@ -343,5 +353,6 @@ class MavenUpVersionsConfigurableTest : BasePlatformTestCase() {
         assertNull(configurable.hiddenVersionQualifiersField)
         assertNull(configurable.versionAutoSelectionModeComboBox)
         assertNull(configurable.versionCacheTtlMinutesSpinner)
+        assertNull(configurable.showVersionCacheButton)
     }
 }

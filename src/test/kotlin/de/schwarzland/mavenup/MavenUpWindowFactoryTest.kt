@@ -38,7 +38,6 @@ import de.schwarzland.mavenup.ui.vulnerabilitySummary
 import de.schwarzland.mavenup.ui.vulnerabilityCellComparator
 import de.schwarzland.mavenup.ui.VersionUpdateArrowIcon
 import de.schwarzland.mavenup.ui.TriStateFilter
-import de.schwarzland.mavenup.ui.CacheContentsDialog
 import de.schwarzland.mavenup.ui.PendingChangesFilter
 import de.schwarzland.mavenup.ui.VulnerabilityFilter
 import de.schwarzland.mavenup.ui.sortableHeaderIcon
@@ -1131,43 +1130,6 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         )
 
         settings.state.toolbarShowText = false
-    }
-
-    /**
-     * Prüft, dass die Toolbar-Aktion **Show Cache Contents...** vorhanden, stets aktiviert und direkt
-     * vor der Settings-Aktion (durch einen Separator getrennt) platziert ist, sowie dass ihre
-     * Ausführung [MavenUpWindowFactory.MyToolWindow.openCacheContents] nicht zum Absturz bringt.
-     */
-    fun testCacheContentsToolbarActionIsPresentAndPositionedBeforeSettings() {
-        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
-        toolWindow.getContent()
-
-        val allActions = toolWindow.topToolbarActions()
-        val cacheContentsIndex = allActions.indexOfFirst {
-            it.templatePresentation.text == MyMessageBundle.message("toolwindow.MyToolWindow.cacheContents.button")
-        }
-        val settingsIndex = allActions.indexOfFirst {
-            it.templatePresentation.text == MyMessageBundle.message("toolwindow.MyToolWindow.settings.button")
-        }
-
-        assertTrue("Cache-Contents-Aktion sollte in der Toolbar vorhanden sein", cacheContentsIndex > 0)
-        assertTrue("Settings-Aktion sollte in der Toolbar vorhanden sein", settingsIndex > cacheContentsIndex)
-
-        val cacheContentsAction = allActions[cacheContentsIndex]
-        val event = com.intellij.testFramework.TestActionEvent.createTestEvent(cacheContentsAction)
-        ActionUtil.updateAction(cacheContentsAction, event)
-        assertTrue("Die Cache-Contents-Aktion sollte stets aktiviert sein", event.presentation.isEnabled)
-    }
-
-    /**
-     * Prüft, dass [MavenUpWindowFactory.MyToolWindow.openCacheContents] den Cache-Inhalte-Dialog ohne
-     * Exception erzeugt.
-     */
-    fun testOpenCacheContentsCreatesDialogWithoutError() {
-        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
-        toolWindow.getContent()
-
-        CacheContentsDialog(project)
     }
 
     fun testDependencyHierarchyActionEnabledOnlyForManagedEntriesInMainTable() {

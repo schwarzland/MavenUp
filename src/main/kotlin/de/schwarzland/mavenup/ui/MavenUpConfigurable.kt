@@ -65,7 +65,7 @@ private val SUB_PAGES = listOf(
  * @property project Das Projekt, dessen Message-Bus nach dem Speichern benachrichtigt wird und in
  *   dem eine Unterseite geöffnet wird, wenn kein Einstellungsdialog verfügbar ist.
  */
-class MavenUpConfigurable(private val project: Project) : MavenUpSettingsPage(project, DISPLAY_NAME) {
+class MavenUpConfigurable(project: Project) : MavenUpSettingsPage(project, DISPLAY_NAME) {
 
     /** Auswahlfeld für den externen Maven-Repository-Browser. */
     internal var repositoryBrowserComboBox: ComboBox<MavenRepositoryBrowser>? = null

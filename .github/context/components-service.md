@@ -204,7 +204,7 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   `clear` leeren einzelne Einträge bzw. den gesamten Zwischenspeicher. `snapshot()` liefert eine unveränderliche
   Liste von `VersionCacheEntrySnapshot` (groupId, artifactId, Anzahl zwischengespeicherter Versionen,
   Zeitstempel der Abfrage; über den privaten Helfer `splitKey` aus dem Schlüssel rekonstruiert) für die
-  Anzeige im **Show Cache Contents...**-Dialog (siehe `CacheContentsDialog` in
+  Anzeige im **Show Cache Contents...**-Dialog (siehe `VersionCacheContentsDialog` in
   `components-ui-dialogs.md`), ohne den Zwischenspeicher selbst zu verändern.
   `getOrFetch` protokolliert pro Artefakt Treffer, Fehltreffer, abgelaufene Einträge oder deaktiviertes
   Caching auf DEBUG-Ebene; damit sind manuelle, automatische und transitive Versionssuchen nachvollziehbar.
@@ -214,8 +214,8 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   Ergebnislisten (negatives Caching, da die meisten Koordinaten keine Funde haben); `invalidate` entfernt
   einzelne Koordinaten, `clear` leert den gesamten Zwischenspeicher. `snapshot()` liefert eine unveränderliche
   Liste von `VulnerabilityCacheEntrySnapshot` (vollständige Koordinate, Anzahl zwischengespeicherter Funde,
-  Zeitstempel der Abfrage) für die Anzeige im **Show Cache Contents...**-Dialog, ohne den Zwischenspeicher
-  selbst zu verändern.
+  Zeitstempel der Abfrage) für die Anzeige im **Show Cache Contents...**-Dialog (siehe `VulnerabilityCacheContentsDialog` in
+  `components-ui-dialogs.md`), ohne den Zwischenspeicher selbst zu verändern.
 - **PomNavigationService**: sucht Definitionen in der `pom.xml` (`findDependency`, `findParent`,
   `findPlugin`, `findProperty`) und springt über `navigateToDependency` bzw. `navigateToProperty` im Editor
   an die jeweilige Stelle. `findProperty` berücksichtigt das globale `<properties>`-Tag sowie

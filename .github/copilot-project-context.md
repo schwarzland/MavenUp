@@ -48,7 +48,7 @@ Projekt-/PSI-Umgebung erben von `BasePlatformTestCase` (z. B. `MavenUpWindowFact
 `InheritedVersionUiTest`,
 `DependencyVersionServiceTest`, `VulnerabilityScanServiceTest`). Netzwerklastige Services werden über
 injizierte Seams/Interfaces netzwerkfrei getestet.
-`CacheContentsDialogTest` deckt TTL-Anzeige und tabbezogene Invalidierung ab;
+`CacheContentsDialogTest` deckt TTL-Anzeige und Invalidierung ab;
 `VersionLookupLoggingTest` prüft DEBUG-Ausgaben und lokale HTTP-Versuche einschließlich Cache-Treffern.
 
 ## KI-Agenten (Copilot / Junie)

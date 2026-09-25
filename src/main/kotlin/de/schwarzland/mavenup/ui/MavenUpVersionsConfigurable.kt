@@ -19,6 +19,7 @@ import com.intellij.ui.dsl.builder.columns
 import com.intellij.ui.dsl.builder.panel
 import com.intellij.ui.dsl.builder.selected
 import de.schwarzland.mavenup.service.VersionAutoSelectionMode
+import javax.swing.JButton
 
 /** Client-Property-Schlüssel für die Umrandung von UI-Komponenten. */
 internal const val OUTLINE_PROPERTY = "JComponent.outline"
@@ -71,6 +72,10 @@ class MavenUpVersionsConfigurable(project: Project) :
 
     /** Eingabefeld für die Gültigkeitsdauer des Versions-Zwischenspeichers (in Minuten). */
     internal var versionCacheTtlMinutesSpinner: JBIntSpinner? = null
+        private set
+
+    /** Button zum Öffnen der Inhalte des Versions-Zwischenspeichers. */
+    internal var showVersionCacheButton: JButton? = null
         private set
 
     /** Eingabefeld für private GroupId-Präfixe. */
@@ -131,6 +136,9 @@ class MavenUpVersionsConfigurable(project: Project) :
                         { state.versionCacheTtlMinutes = it.coerceAtLeast(0) }
                     )
                     .component
+                showVersionCacheButton = button(MyMessageBundle.message("cache.contents.button")) {
+                    openVersionCacheContents()
+                }.component
             }.rowComment(MyMessageBundle.message("settings.versionCacheTtlMinutes.comment"))
         }
     }
@@ -244,12 +252,20 @@ class MavenUpVersionsConfigurable(project: Project) :
     }
 
     /**
+     * Öffnet den Diagnose-Dialog für die Inhalte des Versions-Zwischenspeichers.
+     */
+    internal fun openVersionCacheContents() {
+        VersionCacheContentsDialog(project).show()
+    }
+
+    /**
      * Gibt die Referenzen auf die Bedienelemente frei, wenn die Einstellungsseite geschlossen wird.
      */
     override fun disposeUIResources() {
         autoSearchVersionsCheckBox = null
         stopAfterCentralSuccessCheckBox = null
         versionCacheTtlMinutesSpinner = null
+        showVersionCacheButton = null
         privateGroupIdsField = null
         offerAllVersionsCheckBox = null
         hideUnstableVersionsCheckBox = null

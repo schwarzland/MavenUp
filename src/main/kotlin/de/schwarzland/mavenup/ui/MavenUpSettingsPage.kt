@@ -26,7 +26,7 @@ import javax.swing.JList
  * @param displayName Der im Einstellungsbaum angezeigte Name der Seite.
  */
 abstract class MavenUpSettingsPage internal constructor(
-    private val project: Project,
+    protected val project: Project,
     displayName: String
 ) : BoundConfigurable(displayName) {
 

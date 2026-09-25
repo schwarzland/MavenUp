@@ -7,7 +7,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Unveränderlicher Diagnose-Schnappschuss eines einzelnen [VersionMetadataCache]-Eintrags, für die
- * Anzeige im Cache-Inhalte-Dialog (siehe `CacheContentsDialog`).
+ * Anzeige im Cache-Inhalte-Dialog (siehe `VersionCacheContentsDialog`).
  *
  * @property groupId Die GroupId des Artefakts.
  * @property artifactId Die ArtifactId des Artefakts.
@@ -101,7 +101,7 @@ internal class VersionMetadataCache {
 
     /**
      * Liefert einen unveränderlichen Schnappschuss aller aktuell zwischengespeicherten Einträge, z. B.
-     * für die Anzeige im Cache-Inhalte-Dialog (siehe `CacheContentsDialog`). Die Reihenfolge ist nicht
+     * für die Anzeige im Cache-Inhalte-Dialog (siehe `VersionCacheContentsDialog`). Die Reihenfolge ist nicht
      * garantiert und entspricht der internen Iterationsreihenfolge der zugrunde liegenden Map.
      *
      * @return Die Liste aller Einträge als [VersionCacheEntrySnapshot].

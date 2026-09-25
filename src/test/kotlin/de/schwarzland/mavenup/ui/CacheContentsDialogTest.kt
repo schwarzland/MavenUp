@@ -1,21 +1,20 @@
 package de.schwarzland.mavenup.ui
 
-import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.openapi.util.Disposer
-import com.intellij.ui.components.JBTabbedPane
+import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.ui.table.JBTable
 import com.intellij.util.ui.UIUtil
 import de.schwarzland.mavenup.service.VersionCacheEntrySnapshot
 import de.schwarzland.mavenup.service.VersionMetadataCache
 import de.schwarzland.mavenup.service.VulnerabilityCacheEntrySnapshot
 import de.schwarzland.mavenup.service.VulnerabilityResultCache
-import javax.swing.SortOrder
 import javax.swing.JButton
+import javax.swing.SortOrder
 import javax.swing.table.DefaultTableModel
 import javax.swing.table.TableRowSorter
 
 /**
- * Tests für den [CacheContentsDialog].
+ * Tests für [VersionCacheContentsDialog] und [VulnerabilityCacheContentsDialog].
  */
 class CacheContentsDialogTest : BasePlatformTestCase() {
 
@@ -34,7 +33,7 @@ class CacheContentsDialogTest : BasePlatformTestCase() {
      * mit den richtigen Spaltenwerten befüllt.
      */
     fun testBuildVulnerabilityTablePopulatesRowsSortedByCoordinate() {
-        val dialog = CacheContentsDialog(project)
+        val dialog = VulnerabilityCacheContentsDialog(project)
         val entries = listOf(
             VulnerabilityCacheEntrySnapshot("g:b:2.0.0", 0, 222L),
             VulnerabilityCacheEntrySnapshot("g:a:1.0.0", 2, 111L)
@@ -59,7 +58,7 @@ class CacheContentsDialogTest : BasePlatformTestCase() {
      * richtigen Spaltenwerten befüllt.
      */
     fun testBuildVersionTablePopulatesRowsSortedByGroupAndArtifact() {
-        val dialog = CacheContentsDialog(project)
+        val dialog = VersionCacheContentsDialog(project)
         val entries = listOf(
             VersionCacheEntrySnapshot("com.example", "b-lib", 1, 222L),
             VersionCacheEntrySnapshot("com.example", "a-lib", 3, 111L)
@@ -83,31 +82,47 @@ class CacheContentsDialogTest : BasePlatformTestCase() {
      * Prüft, dass beide Tabellen keine Mehrfachselektion und kein Umordnen der Spalten erlauben.
      */
     fun testTablesUseSingleSelectionAndFixedColumnOrder() {
-        val dialog = CacheContentsDialog(project)
+        val vulnDialog = VulnerabilityCacheContentsDialog(project)
+        val versionDialog = VersionCacheContentsDialog(project)
 
-        val table = dialog.buildVulnerabilityTable(emptyList())
+        val vulnTable = vulnDialog.buildVulnerabilityTable(emptyList())
+        val versionTable = versionDialog.buildVersionTable(emptyList())
 
-        assertEquals(javax.swing.ListSelectionModel.SINGLE_SELECTION, table.selectionModel.selectionMode)
-        assertFalse(table.tableHeader.reorderingAllowed)
+        assertEquals(javax.swing.ListSelectionModel.SINGLE_SELECTION, vulnTable.selectionModel.selectionMode)
+        assertFalse(vulnTable.tableHeader.reorderingAllowed)
+        assertEquals(javax.swing.ListSelectionModel.SINGLE_SELECTION, versionTable.selectionModel.selectionMode)
+        assertFalse(versionTable.tableHeader.reorderingAllowed)
     }
 
     /**
      * Prüft, dass die Anzahl-Spalte numerisch statt alphabetisch sortiert wird (z. B. `2` vor `10`).
      */
     fun testCountColumnSortsNumerically() {
-        val dialog = CacheContentsDialog(project)
-        val entries = listOf(
+        val vulnDialog = VulnerabilityCacheContentsDialog(project)
+        val vulnEntries = listOf(
             VulnerabilityCacheEntrySnapshot("g:a:1.0.0", 2, 0L),
             VulnerabilityCacheEntrySnapshot("g:b:1.0.0", 10, 0L)
         )
 
-        val table = dialog.buildVulnerabilityTable(entries)
+        val vulnTable = vulnDialog.buildVulnerabilityTable(vulnEntries)
         @Suppress("UNCHECKED_CAST")
-        val sorter = table.rowSorter as TableRowSorter<DefaultTableModel>
-        sorter.toggleSortOrder(1)
-        assertEquals(SortOrder.ASCENDING, sorter.sortKeys.first().sortOrder)
+        val vulnSorter = vulnTable.rowSorter as TableRowSorter<DefaultTableModel>
+        vulnSorter.toggleSortOrder(1)
+        assertEquals(SortOrder.ASCENDING, vulnSorter.sortKeys.first().sortOrder)
+        assertEquals(listOf(2, 10), (0 until vulnTable.rowCount).map { vulnTable.getValueAt(it, 1) })
 
-        assertEquals(listOf(2, 10), (0 until table.rowCount).map { table.getValueAt(it, 1) })
+        val versionDialog = VersionCacheContentsDialog(project)
+        val versionEntries = listOf(
+            VersionCacheEntrySnapshot("g", "a", 2, 0L),
+            VersionCacheEntrySnapshot("g", "b", 10, 0L)
+        )
+
+        val versionTable = versionDialog.buildVersionTable(versionEntries)
+        @Suppress("UNCHECKED_CAST")
+        val versionSorter = versionTable.rowSorter as TableRowSorter<DefaultTableModel>
+        versionSorter.toggleSortOrder(2)
+        assertEquals(SortOrder.ASCENDING, versionSorter.sortKeys.first().sortOrder)
+        assertEquals(listOf(2, 10), (0 until versionTable.rowCount).map { versionTable.getValueAt(it, 2) })
     }
 
     /**
@@ -116,10 +131,11 @@ class CacheContentsDialogTest : BasePlatformTestCase() {
     fun testDialogBuildsEmptyTablesWhenCachesAreEmpty() {
         VulnerabilityResultCache.getInstance().clear()
         VersionMetadataCache.getInstance().clear()
-        val dialog = CacheContentsDialog(project)
+        val vulnDialog = VulnerabilityCacheContentsDialog(project)
+        val versionDialog = VersionCacheContentsDialog(project)
 
-        assertTrue(dialog.buildVulnerabilityTable(emptyList()).rowCount == 0)
-        assertTrue(dialog.buildVersionTable(emptyList()).rowCount == 0)
+        assertTrue(vulnDialog.buildVulnerabilityTable(emptyList()).rowCount == 0)
+        assertTrue(versionDialog.buildVersionTable(emptyList()).rowCount == 0)
     }
 
     /** Prüft Restlaufzeit, Rundung, Ablauf, deaktiviertes Caching und große TTL-Werte. */
@@ -137,14 +153,16 @@ class CacheContentsDialogTest : BasePlatformTestCase() {
 
     /** Prüft die numerische TTL-Sortierung und den vollständigen Sortierzyklus beider Tabellen. */
     fun testTtlColumnsSortNumerically() {
-        val dialog = CacheContentsDialog(project)
-        val vulnerabilityTable = dialog.buildVulnerabilityTable(
+        val vulnDialog = VulnerabilityCacheContentsDialog(project)
+        val versionDialog = VersionCacheContentsDialog(project)
+
+        val vulnerabilityTable = vulnDialog.buildVulnerabilityTable(
             listOf(
                 VulnerabilityCacheEntrySnapshot("g:a:1", 0, 10_000L),
                 VulnerabilityCacheEntrySnapshot("g:b:1", 0, 2_000L)
             ), ttlMinutes = 1, nowMillis = 60_000L
         )
-        val versionTable = dialog.buildVersionTable(
+        val versionTable = versionDialog.buildVersionTable(
             listOf(
                 VersionCacheEntrySnapshot("g", "a", 1, 10_000L),
                 VersionCacheEntrySnapshot("g", "b", 1, 2_000L)
@@ -161,39 +179,51 @@ class CacheContentsDialogTest : BasePlatformTestCase() {
         }
     }
 
-    /** Prüft das Leeren jedes aktiven Tabs, aktualisierte Zähler und wiederholte Aktionen bei leerem Cache. */
-    fun testInvalidateClearsOnlyActiveTabAndRefreshesDisplay() {
-        val vulnerabilities = VulnerabilityResultCache()
+    /** Prüft das Leeren des Versions-Caches und die Aktualisierung der Tabelle im Dialog. */
+    fun testInvalidateClearsVersionCacheAndRefreshesDisplay() {
         val versions = VersionMetadataCache()
-        vulnerabilities.put("g:a:1", emptyList())
         versions.getOrFetch("g", "a", 60) { listOf("1") }
-        val dialog = CacheContentsDialog(project, vulnerabilities, versions)
+        val dialog = VersionCacheContentsDialog(project, versions)
         Disposer.register(testRootDisposable, dialog.disposable)
         val content = dialog.createCenterPanel()
-        val tabs = UIUtil.uiTraverser(content).filter(JBTabbedPane::class.java).first()!!
         val invalidate = UIUtil.uiTraverser(content).filter(JButton::class.java)
             .first { it.text == MyMessageBundle.message("cache.contents.invalidate") }
 
-        tabs.selectedIndex = 1
+        val table = UIUtil.uiTraverser(content).filter(JBTable::class.java).first()!!
+        assertEquals(1, table.rowCount)
+        assertEquals(1, versions.size())
+
         invalidate.doClick()
         assertEquals(0, versions.size())
-        assertEquals(1, vulnerabilities.size())
-        assertEquals(1, tabs.selectedIndex)
-        assertEquals(MyMessageBundle.message("cache.contents.tab.version", 0), tabs.getTitleAt(1))
-        assertEquals(0, UIUtil.uiTraverser(tabs.getComponentAt(1)).filter(JBTable::class.java).first()!!.rowCount)
-        assertEquals(1, UIUtil.uiTraverser(tabs.getComponentAt(0)).filter(JBTable::class.java).first()!!.rowCount)
-        versions.getOrFetch("g", "a", 60) { listOf("2") }
+        assertEquals(0, table.rowCount)
 
-        tabs.selectedIndex = 0
+        // Erneuter Klick auf leerem Cache bleibt bei 0
+        invalidate.doClick()
+        assertEquals(0, versions.size())
+        assertEquals(0, table.rowCount)
+    }
+
+    /** Prüft das Leeren des Vulnerability-Caches und die Aktualisierung der Tabelle im Dialog. */
+    fun testInvalidateClearsVulnerabilityCacheAndRefreshesDisplay() {
+        val vulnerabilities = VulnerabilityResultCache()
+        vulnerabilities.put("g:a:1", emptyList())
+        val dialog = VulnerabilityCacheContentsDialog(project, vulnerabilities)
+        Disposer.register(testRootDisposable, dialog.disposable)
+        val content = dialog.createCenterPanel()
+        val invalidate = UIUtil.uiTraverser(content).filter(JButton::class.java)
+            .first { it.text == MyMessageBundle.message("cache.contents.invalidate") }
+
+        val table = UIUtil.uiTraverser(content).filter(JBTable::class.java).first()!!
+        assertEquals(1, table.rowCount)
+        assertEquals(1, vulnerabilities.size())
+
         invalidate.doClick()
         assertEquals(0, vulnerabilities.size())
-        assertEquals(1, versions.size())
-        assertEquals(0, tabs.selectedIndex)
-        assertEquals(MyMessageBundle.message("cache.contents.tab.vulnerability", 0), tabs.getTitleAt(0))
-        assertEquals(0, UIUtil.uiTraverser(tabs.getComponentAt(0)).filter(JBTable::class.java).first()!!.rowCount)
-        assertEquals(MyMessageBundle.message("cache.contents.tab.version", 1), tabs.getTitleAt(1))
+        assertEquals(0, table.rowCount)
+
+        // Erneuter Klick auf leerem Cache bleibt bei 0
         invalidate.doClick()
         assertEquals(0, vulnerabilities.size())
-        assertEquals(1, versions.size())
+        assertEquals(0, table.rowCount)
     }
 }

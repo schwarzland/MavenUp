@@ -1288,15 +1288,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 ) { openVulnerabilityDetailsForSelectedRow() })
                 add(Separator.getInstance())
                 add(toolbarAction(
-                    "toolwindow.MyToolWindow.cacheContents.button",
-                    AllIcons.Actions.PreviewDetails,
-                    { true },
-                    shortLabelKey = "toolwindow.MyToolWindow.cacheContents.button.short",
-                    descriptionProvider = {
-                        MyMessageBundle.message("toolwindow.MyToolWindow.cacheContents.tooltip")
-                    }
-                ) { openCacheContents() })
-                add(toolbarAction(
                     "toolwindow.MyToolWindow.settings.button",
                     AllIcons.General.Settings,
                     { true }
@@ -3835,15 +3826,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private fun openSettings() {
             com.intellij.openapi.options.ShowSettingsUtil.getInstance()
                 .showSettingsDialog(project, MavenUpConfigurable::class.java)
-        }
-
-        /**
-         * Öffnet den Cache-Inhalte-Dialog mit einem frischen Schnappschuss der Version- und
-         * Vulnerability-Zwischenspeicher, z. B. zur Diagnose, warum eine Koordinate erneut abgefragt
-         * wurde oder unerwartet aus dem Zwischenspeicher bedient wird.
-         */
-        internal fun openCacheContents() {
-            CacheContentsDialog(project).show()
         }
 
         /**
