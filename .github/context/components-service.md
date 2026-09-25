@@ -93,6 +93,8 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   den verwendeten Settings-Pfad auf DEBUG-Ebene, fragt `maven-metadata.xml` für Versionslisten ab,
   löst Credential-Platzhalter auf, filtert Versionen gemäß Plugin-Einstellungen (Qualifier-Filter, Sortierung)
   und berücksichtigt die konfigurierbare Central-first-Short-Circuit-Strategie (`stopAfterCentralSuccess`).
+  `fetchVersionsFromRepository` protokolliert jeden tatsächlichen HTTP-GET-Versuch mit Artefakt und
+  Repository-Host auf DEBUG-Ebene; Zugangsdaten werden dieser Diagnose nicht hinzugefügt.
   `fetchAllVersions` liefert die ungefilterte Versionsliste, `applyVersionSettings` wendet
   `offerAllVersions` (untere Grenze via `resolveVersionFloor`) und `hideUnstableVersions`
   (`filterVersionsBySettings`) auf eine bereits abgerufene Liste an; `fetchVersions` kombiniert beide,
@@ -202,6 +204,8 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   Zeitstempel der Abfrage; über den privaten Helfer `splitKey` aus dem Schlüssel rekonstruiert) für die
   Anzeige im **Show Cache Contents...**-Dialog (siehe `CacheContentsDialog` in
   `components-ui-dialogs.md`), ohne den Zwischenspeicher selbst zu verändern.
+  `getOrFetch` protokolliert pro Artefakt Treffer, Fehltreffer, abgelaufene Einträge oder deaktiviertes
+  Caching auf DEBUG-Ebene; damit sind manuelle, automatische und transitive Versionssuchen nachvollziehbar.
 - **VulnerabilityResultCache**: anwendungsweiter (`Service.Level.APP`) Zwischenspeicher für
   zusammengeführte Scan-Ergebnisse je vollständiger Koordinate (`groupId:artifactId:version`) mit
   konfigurierbarer Gültigkeitsdauer (`vulnerabilityCacheTtlMinutes`); `get`/`put` speichern auch leere

@@ -7,7 +7,7 @@ Für dieses Projekt gelten zusätzliche Anweisungen, die ursprünglich für GitH
 - [AGENTS.md](../AGENTS.md): herstellerübergreifender Einstiegspunkt, der auf die verbindlichen Repository-Instruktionen verweist.
 - [.github/copilot-instructions.md](../.github/copilot-instructions.md): Verbindliche Arbeitsanweisungen für Änderungen an README, CHANGELOG, FEATURES, plugin.xml, Unittests, KDoc, etc.
 - [.github/copilot-project-context.md](../.github/copilot-project-context.md): Projektkontext-Übersicht, Paketstruktur und Verweise auf die Komponentenreferenzen.
-- [.github/context/components-ui.md](../.github/context/components-ui.md), [.github/context/components-ui-toolwindow.md](../.github/context/components-ui-toolwindow.md), [.github/context/components-ui-dialogs.md](../.github/context/components-ui-dialogs.md) und [.github/context/components-service.md](../.github/context/components-service.md): ausführliche Komponentenbeschreibungen je Package.
+- [.github/context/components-ui.md](../.github/context/components-ui.md), [.github/context/components-ui-toolwindow.md](../.github/context/components-ui-toolwindow.md), [.github/context/components-ui-dialogs.md](../.github/context/components-ui-dialogs.md) und [.github/context/components-service.md](../.github/context/components-service.md): ausführliche Komponentenbeschreibungen je Package, einschließlich Cache-Dialog, TTL-Anzeige, Invalidierung und Abfrage-Logging.
 - [.github/agents/](../.github/agents/): Definitionen spezialisierter Agenten (z. B. [release-doc-check.md](../.github/agents/release-doc-check.md)), die nur in ihrem jeweiligen Einsatzkontext gelten; die Junie-Pendants liegen unter [.junie/agents/](agents/).
 
 ## Wichtige Regeln (Zusammenfassung)

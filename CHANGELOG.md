@@ -7,13 +7,14 @@
 ### Added
 
 - Added version and vulnerability result caching keyed by artifact (and, for vulnerability results, by exact version) so repeated version searches and vulnerability scans skip API calls for coordinates already queried within a configurable time-to-live, dramatically reducing redundant network traffic after repeated checks; new **Version cache duration** and **Vulnerability cache duration** settings control the TTLs (0 disables caching), and both caches are cleared automatically whenever settings are saved.
-- Added DEBUG-level logging for every individual OSV.dev and Sonatype OSS Index vulnerability query, and for every coordinate served from or missing the vulnerability result cache, so the exact set of dependencies queried live versus reused from the cache can be traced per scan.
-- Added a **Show Cache Contents...** toolbar action that opens a sortable, tabbed dialog listing the current in-memory contents of the version metadata and vulnerability result caches (coordinate or artifact, cached count, and query timestamp), for diagnosing caching behavior.
+- Added DEBUG-level logging for cache decisions and individual Maven metadata, OSV.dev, and Sonatype OSS Index requests to distinguish reused results from live queries.
+- Added a **Show Cache Contents...** toolbar action with sortable tables showing coordinates, cached counts, query timestamps, and remaining TTL in seconds for both caches.
+- Added **Invalidate** to clear the entire application-wide cache of the active dialog tab and immediately refresh its contents and count.
 
 ### Changed
 
 - Added a hierarchy-toolbar toggle to show or hide Maven GroupIds for a compact artifact-focused view.
-- Automatic version searches triggered by project startup or Maven imports now reuse the version metadata cache.
+- Automatic version searches triggered by project startup or Maven imports reuse the version metadata cache.
 
 ### Fixed
 

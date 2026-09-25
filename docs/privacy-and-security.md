@@ -7,6 +7,7 @@ MavenUp places great importance on transparency and data minimization when acces
 - **No sensitive project data:** **No source code, file contents, file paths, passwords, or user data** is transmitted to external services.
 - **Secure credential handling:** Credentials for private repositories (from `settings.xml`) remain local or are used exclusively against the respective configured repository server. The optional API token for Sonatype OSS Index is stored securely in the IntelliJ Password Safe and is not placed in configuration files.
 - **In-memory result caching:** Version lists and vulnerability scan results are cached in memory only (never persisted to disk) for a configurable duration to reduce redundant requests to the services listed below; the cache is cleared whenever settings are saved or the IDE is restarted. See [configuration.md](configuration.md) for the cache duration settings.
+- **Local diagnostic logs:** DEBUG diagnostics record artifact coordinates, version-cache decisions, and the host of each Maven metadata request in the IDE log, without adding authentication headers or tokens; treat logs as project metadata when sharing them.
 
 ## External services and endpoints
 1. **Maven Central & repositories (`repo1.maven.org` / configured servers):**

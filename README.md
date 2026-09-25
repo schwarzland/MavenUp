@@ -27,7 +27,7 @@ Install **MavenUp** from the JetBrains Marketplace via `Settings > Plugins > Mar
 2. MavenUp checks for newer versions in the background after the Maven project loads and after Maven resyncs; open the tool window to review the results or use **Refresh and Search for New Versions** to repeat it manually.
 3. Pick target versions and click **Update**, or run **Scan for Vulnerabilities**. 
 
-See the [usage guide](docs/usage.md) for details.
+See the [usage guide](docs/usage.md) for workflows and cache management, and [development diagnostics](docs/development.md#trace-cache-usage-and-api-requests) for logging setup.
 
 ## Documentation
 
@@ -48,4 +48,3 @@ Binding instructions and context information exist for the further development o
 - **[.github/copilot-instructions.md](.github/copilot-instructions.md)**: binding work instructions for documentation, testing, KDoc, and processes.
 - **[.github/copilot-project-context.md](.github/copilot-project-context.md)**: project context overview, package structure, and links to the component references.
 - **[.github/context/](.github/context/)**: detailed component descriptions per package — [`components-ui.md`](.github/context/components-ui.md), [`components-ui-toolwindow.md`](.github/context/components-ui-toolwindow.md), [`components-ui-dialogs.md`](.github/context/components-ui-dialogs.md) and [`components-service.md`](.github/context/components-service.md).
-

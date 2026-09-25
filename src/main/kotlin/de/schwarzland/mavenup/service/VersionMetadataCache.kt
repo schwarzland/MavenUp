@@ -2,23 +2,9 @@ package de.schwarzland.mavenup.service
 
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.components.Service
+import com.intellij.openapi.diagnostic.Logger
 import java.util.concurrent.ConcurrentHashMap
 
-/**
- * Anwendungsweiter (projektübergreifender) Zwischenspeicher für die von Repositories abgerufenen,
- * ungefilterten Versionslisten je Artefakt (`groupId:artifactId`).
- *
- * Ziel des Zwischenspeichers ist es, wiederholte `maven-metadata.xml`-Abfragen für dasselbe Artefakt
- * innerhalb einer konfigurierbaren Gültigkeitsdauer ([MavenUpSettings.State.versionCacheTtlMinutes])
- * zu vermeiden, z. B. bei mehrfachen manuellen Versionssuchen oder bei der gezielten Versionsabfrage
- * für verwundbare transitive Koordinaten nach einem Sicherheitsscan. Da der Schlüssel keine Version
- * enthält, bleibt der Zwischenspeicher unabhängig von Versionsänderungen in der `pom.xml` gültig, bis
- * die Gültigkeitsdauer abläuft oder er explizit geleert wird (siehe [MavenUpSettingsPage.apply]).
- *
- * Fehlgeschlagene bzw. leere Abfragen werden bewusst nicht zwischengespeichert, damit ein
- * vorübergehender Netzwerk- oder Repository-Fehler nicht für die gesamte Gültigkeitsdauer als
- * „keine Versionen vorhanden" missverstanden wird.
- */
 /**
  * Unveränderlicher Diagnose-Schnappschuss eines einzelnen [VersionMetadataCache]-Eintrags, für die
  * Anzeige im Cache-Inhalte-Dialog (siehe `CacheContentsDialog`).
@@ -35,6 +21,12 @@ internal data class VersionCacheEntrySnapshot(
     val timestampMillis: Long
 )
 
+/**
+ * Anwendungsweiter Zwischenspeicher für ungefilterte Versionslisten je Artefakt (`groupId:artifactId`).
+ * Vermeidet wiederholte Repository-Abfragen innerhalb von [MavenUpSettings.State.versionCacheTtlMinutes],
+ * unabhängig von Versionsänderungen in der POM. Leere oder fehlgeschlagene Abfragen werden nicht gespeichert.
+ * Treffer, Fehltreffer, Ablauf und deaktiviertes Caching werden je Artefakt auf DEBUG-Ebene protokolliert.
+ */
 @Service(Service.Level.APP)
 internal class VersionMetadataCache {
 
@@ -70,10 +62,16 @@ internal class VersionMetadataCache {
             val cached = entries[key]
             if (cached != null) {
                 if (nowMillis - cached.timestampMillis <= ttlMinutes * MILLIS_PER_MINUTE) {
+                    LOG.debug("Version cache hit for $key: using ${cached.versions.size} cached versions")
                     return cached.versions
                 }
+                LOG.debug("Version cache expired for $key: fetching live version metadata")
                 entries.remove(key)
+            } else {
+                LOG.debug("Version cache miss for $key: fetching live version metadata")
             }
+        } else {
+            LOG.debug("Version cache disabled for $key: fetching live version metadata")
         }
         val versions = fetch()
         if (ttlMinutes > 0 && versions.isNotEmpty()) {
@@ -111,6 +109,7 @@ internal class VersionMetadataCache {
             VersionCacheEntrySnapshot(groupId, artifactId, entry.versions.size, entry.timestampMillis)
         }
 
+    /** Verknüpft GroupId und ArtifactId zum versionsunabhängigen Cache-Schlüssel. */
     private fun keyOf(groupId: String, artifactId: String): String = "$groupId:$artifactId"
 
     /** Zerlegt den Zwischenspeicher-Schlüssel wieder in GroupId und ArtifactId (siehe [keyOf]). */
@@ -119,7 +118,9 @@ internal class VersionMetadataCache {
         return parts[0] to parts.getOrElse(1) { "" }
     }
 
+    /** Zugriff auf den anwendungsweiten Service und gemeinsame Diagnosekonstanten. */
     internal companion object {
+        private val LOG = Logger.getInstance(VersionMetadataCache::class.java)
         /** Anzahl der Millisekunden je Minute, zur Umrechnung der konfigurierten Gültigkeitsdauer. */
         private const val MILLIS_PER_MINUTE = 60_000L
 

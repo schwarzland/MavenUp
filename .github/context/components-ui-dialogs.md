@@ -102,16 +102,21 @@ UI-Komponenten: [`components-ui.md`](components-ui.md) und
   Reset-Button und Textfilter.
 - **VulnerabilityDetailDialog**: Master-Detail-Detailansicht für direkte und transitive Befunde. Rein informativer Dialog – zeigt ausschließlich einen **Close**-Button (kein OK/Cancel), entsprechend den JetBrains UI-Richtlinien für read-only Dialoge. Der obere Bereich (`OnePixelSplitter`) enthält eine Tabelle mit den Spalten Component, **Origin**, Source, Advisory, Aliases und **Severity**; die **Origin**-Spalte steht unmittelbar hinter Component und zeigt über `VulnerabilityCell.detailOrigins()` die Herkunft (`direct`, `transitive`, `transitive, also declared directly`), sodass der Komponentenname unverändert bleibt. Der untere Detailbereich ist ein `VulnerabilityInfoPanel`, das zur selektierten Zeile Komponente, Zusammenfassung und Referenzen anzeigt. Die **Severity**-Spalte ist per `vulnerabilityColor` nach Schweregrad farblich hinterlegt (gleiches Farbschema wie die Vulnerability-Spalte im Hauptfenster). Alle Tabellenspalten sind über einen `TableRowSorter` sortierbar (aufsteigend → absteigend → unsortiert) mit denselben `sortableHeaderIcon`-Indikatoren wie im Hauptfenster; die **Severity**-Spalte nutzt `severityCellComparator` (Kritikalität, dann CVSS-Score, beide absteigend – erster Klick zeigt die kritischsten Befunde oben), alle übrigen Spalten `cellTextComparator`. Die Spaltenbreiten werden beim Öffnen über `trimColumnWidthsToContent` inhaltsbasiert getrimmt und skalieren via `AUTO_RESIZE_SUBSEQUENT_COLUMNS` proportional mit der Dialoggröße. Der Dialog besitzt keine eigene Aktionsleiste mehr; das Öffnen im Repository-Browser erfolgt über einen Hyperlink im Detailbereich (top-level `artifactBrowserUrl`). Zusätzlich öffnet ein Rechtsklick auf die selektierte Zeile über IntelliJs `ActionSystem` ein plattformkonformes Kontextmenü mit **Open on [Browser]** (Label mit konfiguriertem Browser-Namen). Die Kontextmenüs verwenden `JBPopupMenu`/`JBMenuItem`, damit Theme, Abstände und Auswahlfarben der IDE verwendet werden.
 - **VulnerabilityInfoPanel**: Detailbereich der Master-Detail-Ansicht. Zeigt zur selektierten Sicherheitswarnung (`showRow(coordinate, advisory)`) die betroffene Komponente inkl. **Open on ...**-Hyperlink zum konfigurierten Repository-Browser, Advisory-ID, Aliase, Schweregrad inkl. CVSS-Score, CVSS-Vektor, CWE-Kennungen, Veröffentlichungs- und Änderungsdatum, Quellen, betroffene Versionsbereiche, die Fixed-in-Versionen, die Zusammenfassung, die ausführliche Beschreibung und die Referenzen als anklickbare Hyperlinks (öffnen im Browser über `BrowserUtil`) in einem `JEditorPane` mit HTML-Inhalt (Word-Wrap-View-Factory für weichen Umbruch überlanger Zeilen, horizontaler Scrollbalken deaktiviert); ohne Selektion wird ein Platzhaltertext angezeigt.
-- **CacheContentsDialog**: rein informativer Diagnosedialog (`internal class`, nur ein **Close**-Button,
-  entsprechend den JetBrains UI-Richtlinien für read-only Dialoge), der über die Toolbar-Aktion
+- **CacheContentsDialog**: Diagnosedialog (`internal class`, **Close** zum Schließen und eine unmittelbar
+  wirksame **Invalidate**-Aktion im Kotlin-UI-DSL-v2-Inhaltsbereich), der über die Toolbar-Aktion
   **Show Cache Contents...** in `MavenUpWindowFactory.openCacheContents()` geöffnet wird. Zeigt in einer
   `JBTabbedPane` zwei Tabs mit je einer sortierbaren `JBTable`, gebaut aus je einem frischen `snapshot()` der
   injizierbaren `VersionMetadataCache`/`VulnerabilityResultCache`-Instanzen (Standard: `getInstance()`):
-  „Version Metadata" (Spalten GroupId, ArtifactId, Anzahl zwischengespeicherter Versionen, Zeitstempel) und
-  „Vulnerability Results" (Spalten Koordinate, Anzahl zwischengespeicherter Funde, Zeitstempel); die Tab-Titel
-  nennen zusätzlich die Eintragsanzahl. Beide Tabellen nutzen denselben Sortierzyklus (aufsteigend → absteigend
+  „Version Metadata" (Spalten GroupId, ArtifactId, Anzahl zwischengespeicherter Versionen, Zeitstempel, TTL) und
+  „Vulnerability Results" (Spalten Koordinate, Anzahl zwischengespeicherter Funde, Zeitstempel, TTL); die Tab-Titel
+  nennen zusätzlich die Eintragsanzahl. `remainingCacheTtlSeconds` berechnet aus Zeitstempel und aktueller
+  Einstellung die verbleibende TTL am Schnappschusszeitpunkt, auf ganze Sekunden aufgerundet; abgelaufene
+  Einträge und deaktivierte Caches zeigen 0. Es gibt keinen laufenden Countdown. `invalidateSelectedCache`
+  leert nur den anwendungsweiten Cache des aktiven Tabs über `clear()`; `refreshTables` erneuert anschließend
+  beide Tabellen und Zähler und behält den aktiven Tab bei, ohne einen Scan oder eine Suche auszulösen.
+  Beide Tabellen nutzen denselben Sortierzyklus (aufsteigend → absteigend
   → unsortiert) und dieselben `sortableHeaderIcon`-Indikatoren wie die Haupttabelle (`installSortableHeaderRenderer`,
-  eigener `buildRowSorter`); die Anzahl-Spalten sortieren numerisch über einen expliziten `numericColumns`-Parameter
+  eigener `buildRowSorter`); die Anzahl- und TTL-Spalten sortieren numerisch über einen expliziten `numericColumns`-Parameter
   (statt über `getColumnClass`, das bei `DefaultTableModel` stets `Object` liefert), alle übrigen Spalten über
   `cellTextComparator`. Spaltenbreiten werden über `trimColumnWidthsToContent` inhaltsbasiert getrimmt, Zeilenhöhe
   über `applyRecommendedRowHeight` gesetzt. Der Top-Level-Helfer `formatCacheTimestamp` formatiert den
