@@ -12,6 +12,21 @@ import org.jetbrains.idea.maven.project.MavenProject
 import org.jetbrains.idea.maven.project.MavenProjectsManager
 
 /**
+ * Erstellt den Standardabruf ungefilterter Versionslisten ohne eigenen Cache.
+ *
+ * @param project Das Projekt, dessen Maven-Einstellungen für die Abfrage verwendet werden.
+ * @return Der Standardabruf für ungefilterte Versionslisten.
+ */
+private fun createDefaultVersionFetcher(
+    project: Project
+): (groupId: String, artifactId: String, onCacheHit: () -> Unit) -> List<String> {
+    val dependencyApiService = DependencyApiService(project)
+    return { groupId, artifactId, _ ->
+        dependencyApiService.fetchAllVersions(groupId, artifactId)
+    }
+}
+
+/**
  * Ergebnis einer Versionssuche: die verfügbaren Versionen je Abhängigkeit und die daraus
  * abgeleitete Vorauswahl.
  *
@@ -20,11 +35,13 @@ import org.jetbrains.idea.maven.project.MavenProjectsManager
  * @property rawVersions Zuordnung von Abhängigkeitsschlüssel zu den ungefilterten Versionen, damit
  * geänderte Anzeigeeinstellungen ohne erneute Netzwerkabfrage angewendet werden können.
  * @property selectedVersions Zuordnung von Abhängigkeitsschlüssel zur vorausgewählten Zielversion.
+ * @property cachedArtifactCount Anzahl der Artefakte, deren Versionslisten aus dem Cache übernommen wurden.
  */
 internal data class VersionSearchResult(
     val availableVersions: Map<String, List<String>>,
     val rawVersions: Map<String, List<String>>,
-    val selectedVersions: Map<String, String>
+    val selectedVersions: Map<String, String>,
+    val cachedArtifactCount: Int = 0
 )
 
 /**
@@ -35,14 +52,18 @@ internal data class VersionSearchResult(
  * [VersionSearchResult] zurückgegeben.
  *
  * @property project Das Projekt, dessen Maven-Modell und `pom.xml`-Dateien ausgewertet werden.
- * @property fetchAllVersions Ruft alle verfügbaren Versionen eines Artefakts ungefiltert ab (injizierbar für Tests).
+ * @property fetchAllVersions Ruft alle verfügbaren Versionen eines Artefakts ungefiltert ab und meldet Cache-Treffer
+ *   (injizierbar für Tests).
  * @property applyVersionSettings Wendet die Anzeigeeinstellungen auf eine Versionsliste an (injizierbar für Tests).
  * @property refreshSnapshotCollector Löst Property-Platzhalter in `pom.xml`-Versionen auf (injizierbar für Tests).
  */
 internal class DependencyVersionService(
     private val project: Project,
-    private val fetchAllVersions: (groupId: String, artifactId: String) -> List<String> =
-        DependencyApiService(project)::fetchAllVersions,
+    private val fetchAllVersions: (
+        groupId: String,
+        artifactId: String,
+        onCacheHit: () -> Unit
+    ) -> List<String> = createDefaultVersionFetcher(project),
     private val applyVersionSettings: (versions: List<String>, currentVersion: String) -> List<String> =
         DependencyApiService(project)::applyVersionSettings,
     private val refreshSnapshotCollector: RefreshSnapshotCollector = RefreshSnapshotCollector(project)
@@ -64,9 +85,17 @@ internal class DependencyVersionService(
         val availableVersions = mutableMapOf<String, List<String>>()
         val rawVersions = mutableMapOf<String, List<String>>()
         val selectedVersions = mutableMapOf<String, String>()
+        val cachedArtifactKeys = mutableSetOf<String>()
 
         MavenProjectsManager.getInstance(project).projects.forEach { mavenProject ->
-            processProjectUpdates(mavenProject, indicator, availableVersions, rawVersions, selectedVersions)
+            processProjectUpdates(
+                mavenProject,
+                indicator,
+                availableVersions,
+                rawVersions,
+                selectedVersions,
+                cachedArtifactKeys
+            )
         }
 
         postProcessPropertyUpdates(
@@ -77,7 +106,7 @@ internal class DependencyVersionService(
             selectedVersions
         )
 
-        return VersionSearchResult(availableVersions, rawVersions, selectedVersions)
+        return VersionSearchResult(availableVersions, rawVersions, selectedVersions, cachedArtifactKeys.size)
     }
 
     /**
@@ -101,7 +130,7 @@ internal class DependencyVersionService(
             val groupId = key.substringBefore(":")
             val artifactId = key.substringAfter(":")
             indicator.text2 = "$groupId:$artifactId"
-            val versions = fetchAllVersions(groupId, artifactId)
+            val versions = fetchAllVersions(groupId, artifactId) {}
             if (versions.isNotEmpty()) {
                 result[key] = versions
             }
@@ -112,13 +141,16 @@ internal class DependencyVersionService(
     /**
      * Verarbeitet alle Abhängigkeiten und Plugins eines einzelnen Maven-Projekts
      * und fragt deren verfügbare Updates ab.
+     *
+     * @param cachedArtifactKeys Set der in diesem Suchlauf aus dem Cache bedienten Artefakte.
      */
     private fun processProjectUpdates(
         mavenProject: MavenProject,
         indicator: ProgressIndicator,
         availableVersions: MutableMap<String, List<String>>,
         rawVersions: MutableMap<String, List<String>>,
-        selectedVersions: MutableMap<String, String>
+        selectedVersions: MutableMap<String, String>,
+        cachedArtifactKeys: MutableSet<String>
     ) {
         val allKeysWithVersions = mutableMapOf<String, String>()
 
@@ -147,7 +179,8 @@ internal class DependencyVersionService(
                 indicator,
                 availableVersions,
                 rawVersions,
-                selectedVersions
+                selectedVersions,
+                cachedArtifactKeys
             )
         }
     }
@@ -297,6 +330,8 @@ internal class DependencyVersionService(
      * Ruft die verfügbaren Versionen für ein einzelnes Artefakt ab und speichert die ungefilterten
      * Versionen in [rawVersions], die gemäß den Einstellungen sichtbaren Versionen in
      * [availableVersions] sowie die Vorauswahl in [selectedVersions].
+     *
+     * @param cachedArtifactKeys Set, dem ein Artefakt bei einem Cache-Treffer hinzugefügt wird.
      */
     internal fun checkArtifactUpdate(
         groupId: String?,
@@ -305,16 +340,17 @@ internal class DependencyVersionService(
         indicator: ProgressIndicator,
         availableVersions: MutableMap<String, List<String>>,
         rawVersions: MutableMap<String, List<String>>,
-        selectedVersions: MutableMap<String, String>
+        selectedVersions: MutableMap<String, String>,
+        cachedArtifactKeys: MutableSet<String> = mutableSetOf()
     ) {
         indicator.text2 = "$groupId:$artifactId"
 
         if (groupId == null || artifactId == null) return
         val version = currentVersion ?: ""
-        val allVersions = fetchAllVersions(groupId, artifactId)
+        val key = "$groupId:$artifactId"
+        val allVersions = fetchAllVersions(groupId, artifactId) { cachedArtifactKeys.add(key) }
         if (allVersions.isEmpty()) return
 
-        val key = "$groupId:$artifactId"
         val versions = applyVersionSettings(allVersions, version)
         rawVersions[key] = allVersions
         availableVersions[key] = versions

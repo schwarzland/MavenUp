@@ -70,6 +70,18 @@ Afterwards, run `gradlew --stop` once so the Gradle daemon picks up the new sett
 
 ## Troubleshooting
 
+### Trace cache usage and API requests
+
+Open **Help > Diagnostic Tools > Debug Log Settings** and add `#de.schwarzland.mavenup.service`.
+Repeat a version search or vulnerability scan, then inspect `idea.log` via **Help > Show Log in Explorer**
+(the menu name varies by operating system).
+
+Version searches emit `Version cache hit`, `Version cache miss`, `Version cache expired`, or
+`Version cache disabled` with the artifact coordinate. `Querying version metadata` identifies each
+actual HTTP GET attempt and its repository host, including attempts that subsequently fail; a cache hit
+does not produce a repository request. Successful repository responses retain their INFO summary and
+failed responses their WARN diagnostics. See [FEATURES.md](../FEATURES.md) for the diagnostic feature overview.
+
 ### Increase the Git buffer size
 
 `git push` failed with the `/assets/*.png` because the Git buffer size was too small. Fix:

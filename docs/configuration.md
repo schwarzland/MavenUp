@@ -26,6 +26,7 @@ Tools
 
 - **Search for new versions automatically**: Determines whether the online version search runs in the background after a Maven project loads and after every finished Maven import or resync (default: on), even when the MavenUp tool window is closed. When disabled, versions are only fetched when you trigger **Refresh and Search for New Versions** yourself.
 - **Stop after a successful Maven Central lookup**: Determines whether no further private repositories are queried after a successful Maven Central lookup (default: on). When the option is disabled, private repositories continue to be queried even after a successful Central lookup in order to find private-only versions.
+- **Version cache duration (minutes)**: How long a fetched version list stays cached per artifact (`groupId:artifactId`) before it is fetched from the repository again (default: 120). Applies to manual searches, background checks, and the automatic version lookup for vulnerable transitive dependencies. `0` disables the cache. Changing private GroupId prefixes or the Central-first lookup setting clears this cache because either setting can change repository results. The **Show Cache Contents...** button opens a dialog showing the current in-memory version cache entries with remaining TTL and provides an **Invalidate** button to clear the version cache for all projects.
 
 #### Privacy
 
@@ -43,6 +44,7 @@ Tools
 
 - **Include resolved transitive dependencies**: By default, includes the resolved Maven dependency tree in the vulnerability check.
 - **Use Sonatype OSS Index as an additional source**: Enables the optional second data source. Sonatype authenticates requests exclusively via the API token; therefore only the token is required and is shown as a mandatory field when the option is enabled. The token is stored exclusively in the IntelliJ Password Safe, loaded off the Event Dispatch Thread, and not written to `mavenup_settings.xml`. Until the token has been loaded, the option and the token field stay disabled. If the token is missing for an already saved configuration, the OSS Index query is skipped; OSV.dev is still queried. If the token is invalid or expired, a qualified error message is shown. A link opens the Sonatype account settings for creating or copying a token.
+- **Vulnerability cache duration (minutes)**: How long a merged scan result stays cached per exact coordinate (`groupId:artifactId:version`), including coordinates with no findings, before it is queried live again (default: 180, i.e. one day). Because the version is part of the cache key, applying an update automatically produces a fresh key for the affected coordinates. `0` disables the cache. Configuration changes do not clear cached vulnerability results; the configured TTL applies on subsequent cache lookups. The **Show Cache Contents...** button opens a dialog showing the current in-memory vulnerability scan cache entries with remaining TTL and provides an **Invalidate** button to clear the vulnerability cache for all projects.
 
 ### pom.xml Changes
 

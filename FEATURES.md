@@ -10,7 +10,7 @@ can do; the detailed feature descriptions are split by area into the files under
 - [Repositories & Authentication](docs/features/repositories-and-authentication.md) - repository queries, credentials from Maven `settings.xml`, and the repository browser.
 - [Vulnerability Scanning](docs/features/vulnerability-scanning.md) - multi-source scanning, transitive findings, the details dialog, and OSS Index integration.
 - [Settings & Configuration](docs/features/settings-and-configuration.md) - the options under `Settings > Tools > MavenUp`.
-- [Architecture & Reliability](docs/features/architecture-and-reliability.md) - background execution, logging, plugin lifecycle reliability, and package structure.
+- [Architecture & Reliability](docs/features/architecture-and-reliability.md) - background execution, cache diagnostics, logging, plugin lifecycle reliability, and package structure.
 
 ## Maintaining this document
 

@@ -39,7 +39,9 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   `autoSearchVersions`, `vulnerabilityCommentMode` mit `NONE`, `TEXT_ONLY`, `ADVISORY_IDS`, `ALIASES`, `ALL_IDS`,
   `vulnerabilityCommentPrefix`, `vulnerabilityCommentMaxIds`,
   `toolWindowBadgeMode` mit `OFF`, `VULNERABILITIES`, `VULNERABILITIES_AND_UPDATES`,
-  `privateGroupIds` (kommagetrennte private/unternehmensinterne GroupId-Präfixe, Standard leer);
+  `privateGroupIds` (kommagetrennte private/unternehmensinterne GroupId-Präfixe, Standard leer),
+  `versionCacheTtlMinutes` (Gültigkeitsdauer des `VersionMetadataCache` in Minuten, Standard 120, `<= 0` deaktiviert den Zwischenspeicher),
+  `vulnerabilityCacheTtlMinutes` (Gültigkeitsdauer des `VulnerabilityResultCache` in Minuten, Standard 180, `<= 0` deaktiviert den Zwischenspeicher);
   Legacy-Migrationsfelder: `selectLatestVersion`, `selectLatestMinorVersion`, `addVulnerabilityFixComment`).
   Für die OSS-Index-Abfrage ist nur das Token erforderlich; Sonatype wertet bei der HTTP-Basic-Authentifizierung
   nur das Token aus, weshalb ein fester Platzhalter-Benutzername verwendet wird.
@@ -47,7 +49,11 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   keine OSS-Index-Abfrage gesendet.
 - **MAVEN_UP_SETTINGS_TOPIC**: `Topic<Runnable>` in `service`, über das `MavenUpConfigurable.apply()`
   Einstellungsänderungen veröffentlicht, damit offene UI-Komponenten (z.B. die Tool-Window-Aktionsleiste
-  und die Versionsvorauswahl) sofort reagieren können. Beim Empfang wird die Toolbar neu aufgebaut,
+  und die Versionsvorauswahl) sofort reagieren können. `MavenUpSettingsPage.apply()` (Basisklasse aller
+  Einstellungsseiten) leert vor der Veröffentlichung `VersionMetadataCache` nur dann vollständig, wenn
+  sich `privateGroupIds` oder `stopAfterCentralSuccess` geändert hat, da beide Einstellungen beeinflussen
+  können, welche Repositories Versionsdaten liefern; der `VulnerabilityResultCache` bleibt bei
+  Einstellungsänderungen erhalten. Beim Empfang wird die Toolbar neu aufgebaut,
   der Tool-Window-Badge aktualisiert und
   `applySelectLatestVersionSetting()` nur dann aufgerufen, wenn sich `versionAutoSelectionMode`
   tatsächlich geändert hat, damit andere Einstellungsänderungen die bereits getroffene **New Version**-Auswahl
@@ -59,9 +65,10 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   (`OFF`, `VULNERABILITIES`, `VULNERABILITIES_AND_UPDATES`).
 - **MavenUpNotifications**: kapselt den Versand von IDE-Benachrichtigungen über die in `plugin.xml`
   registrierte `notificationGroup` „Maven Up". `notifyVersionsFound` meldet nach einer Versionssuche die
-  Anzahl gefundener Versionen für die betroffenen Abhängigkeiten, `notifyVulnerabilitiesFound` meldet
-  nach einem Scan die Anzahl direkter/indirekter (transitiver) Sicherheitswarnungen und die Gesamtzahl
-  betroffener Abhängigkeiten; beide unterdrücken die Meldung, wenn nichts gefunden wurde.
+  Anzahl gefundener Versionen, die betroffenen Abhängigkeiten und wie viele ihrer Versionslisten aus dem
+  Cache stammen; `notifyVulnerabilitiesFound` meldet nach einem Scan die Anzahl direkter/indirekter
+  (transitiver) Sicherheitswarnungen, die Gesamtzahl betroffener Abhängigkeiten und wie viele geprüfte
+  Koordinaten aus dem Cache stammen. Beide unterdrücken die Meldung, wenn nichts gefunden wurde.
 
 ## API- und Sicherheitsservices
 - **VulnerabilityApiService**: OSV-Batchabfrage plus Detailanreicherung und Filterung
@@ -69,8 +76,11 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   je Koordinate auf das tatsächlich verwendete Maven-Artefakt eingegrenzt (`parseAdvisory`/`parseAffectedRanges`/
   `parseFixedVersions` mit `packageName`), damit Advisories über mehrere Artefakte keine fremden Fix-Versionen
   einmischen; die Detailanreicherung lädt das Roh-JSON je ID einmal (`fetchAdvisoryJson`) und wertet es je
-  Koordinate aus. Umfangreiche Komponenten- und Versionslisten werden nur gekürzt auf
-  DEBUG-Ebene protokolliert, um starkes Wachstum der von der IDE überwachten `idea.log` zu vermeiden.
+  Koordinate aus. `fetchVulnerabilityAdvisoriesForChunk` protokolliert vor jeder Batch-Abfrage jede einzelne
+  darin enthaltene Koordinate einzeln auf DEBUG-Ebene (`Querying OSV vulnerability data for ...`), damit sich
+  die tatsächlich live abgefragten Abhängigkeiten je Scan nachvollziehen lassen; umfangreiche Komponenten- und
+  Versionslisten anderer Anfragen werden weiterhin nur gekürzt auf DEBUG-Ebene protokolliert, um starkes
+  Wachstum der von der IDE überwachten `idea.log` zu vermeiden.
   Sowohl die Batch-Abfrage (`fetchVulnerabilityAdvisoriesForChunk`/`handleFailedChunkResponse`) als auch die
   Detailabfrage einzelner Schwachstellen (`fetchAdvisoryJson`/`fetchAdvisoryDetails`) melden einen fehlgeschlagenen
   Request (nicht-2xx-Antwort oder Netzwerk-/Exception-Fehler, z. B. ein unauflösbarer Host durch eine falsch
@@ -85,6 +95,8 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   den verwendeten Settings-Pfad auf DEBUG-Ebene, fragt `maven-metadata.xml` für Versionslisten ab,
   löst Credential-Platzhalter auf, filtert Versionen gemäß Plugin-Einstellungen (Qualifier-Filter, Sortierung)
   und berücksichtigt die konfigurierbare Central-first-Short-Circuit-Strategie (`stopAfterCentralSuccess`).
+  `fetchVersionsFromRepository` protokolliert jeden tatsächlichen HTTP-GET-Versuch mit Artefakt und
+  Repository-Host auf DEBUG-Ebene; Zugangsdaten werden dieser Diagnose nicht hinzugefügt.
   `fetchAllVersions` liefert die ungefilterte Versionsliste, `applyVersionSettings` wendet
   `offerAllVersions` (untere Grenze via `resolveVersionFloor`) und `hideUnstableVersions`
   (`filterVersionsBySettings`) auf eine bereits abgerufene Liste an; `fetchVersions` kombiniert beide,
@@ -105,7 +117,9 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
 - **OssIndexApiService / OssIndexCredentialService**: optionale Sonatype-Abfrage über Maven-purl
   und sichere Zugangsdatenablage; wirft `OssIndexAuthenticationException` bei ungültigem/abgelaufenem
   Token (HTTP 401/403) und `OssIndexRequestException` (mit HTTP-Status) bei sonstigen HTTP-Fehlern
-  (z. B. 5xx) für eine qualifizierte Fehlermeldung.
+  (z. B. 5xx) für eine qualifizierte Fehlermeldung. `fetchVulnerabilityAdvisoriesForChunk` protokolliert
+  vor jeder Batch-Anfrage jede einzelne darin enthaltene Koordinate einzeln auf DEBUG-Ebene
+  (`Querying OSS Index vulnerability data for ...`).
 
 ## Sicherheitsdatenmodell (`model`)
 - **ApiError / ApiErrorSource / ApiErrorCause**: strukturierte Beschreibung eines fehlgeschlagenen
@@ -158,6 +172,16 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   Feld `OssIndexScanResult.error` ersetzt die frühere Kombination aus `errorMessage`/`isTokenError`;
   ob der Fehler über die Einstellungen behebbar ist, liefert `ApiError.isTokenError`.
   Die reine Farbzuordnung `vulnerabilityColor` liegt als Top-Level-Helfer in `VulnerabilityCellModel`.
+  `partitionByCache` teilt die zu prüfenden Koordinaten (inklusive Version) über den injizierbaren
+  `VulnerabilityResultCache` in bereits zwischengespeicherte (`VulnerabilityCachePartition.cachedResults`)
+  und noch live abzufragende (`uncachedDependencies`) auf; da der Schlüssel die Version enthält, erzeugt
+  eine geänderte Version (direktes Update oder Verschiebung im Abhängigkeitsbaum) automatisch einen
+  Fehltreffer, ohne dass eine gesonderte Diff-Logik nötig ist. Für jede Koordinate wird auf DEBUG-Ebene
+  protokolliert, ob sie aus dem Zwischenspeicher bedient wird oder eine Live-Abfrage benötigt. `storeResults`
+  schreibt frische, zusammengeführte Ergebnisse (auch leere Listen) zurück in den Zwischenspeicher, sofern
+  `vulnerabilityCacheTtlMinutes > 0` ist; `MavenUpWindowFactory.performVulnerabilityCheck` überspringt
+  OSV- und OSS-Index-Abfragen vollständig, wenn nach der Aufteilung keine Koordinaten mehr live
+  abzufragen sind.
 - **DependencyVersionService**: fragt über `searchVersions` die verfügbaren Versionen aller
   Dependencies/Plugins ab (inkl. PSI-Erfassung verwalteter Einträge und Property-Schnittmengen)
   und liefert gefilterte Versionen, ungefilterte Versionen (`rawVersions`) und Vorauswahl als
@@ -165,9 +189,33 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   übergebenen Koordinatenmenge ab (ohne Vorauswahl; genutzt für die
   verwundbaren transitiven Koordinaten nach einem Scan). Versionsabfrage (`fetchAllVersions`) und
   Einstellungsfilter (`applyVersionSettings`) sind als Funktions-Seams per Konstruktor injizierbar
-  (netzwerkfreie Tests). Die zustandslosen
+  (netzwerkfreie Tests). `MavenUpWindowFactory` umschließt die injizierte `fetchAllVersions`-Lambda mit
+  `VersionMetadataCache.getOrFetch(groupId, artifactId, versionCacheTtlMinutes) { ... }`; die automatische
+  Suche bindet denselben Cache über `AutomaticVersionSearchCoordinator` ein. Dadurch nutzen sowohl die
+  manuelle/automatische Versionssuche als auch die gezielte Abfrage für verwundbare transitive
+  Koordinaten denselben, nach `groupId:artifactId` geschlüsselten Zwischenspeicher. Die zustandslosen
   Auto-Selektions-Helfer (`chooseAutoSelectedVersion`, `latestVersionWithinSameMajor`,
   `extractLeadingMajorNumber`, `selectableRecommendedVersion`) liegen als Top-Level-Funktionen in `ui/VersionAutoSelection`.
+- **VersionMetadataCache**: anwendungsweiter (`Service.Level.APP`) Zwischenspeicher für ungefilterte
+  Versionslisten je Artefakt (`groupId:artifactId`, versionsunabhängig) mit konfigurierbarer
+  Gültigkeitsdauer (`versionCacheTtlMinutes`); `getOrFetch` liefert einen gültigen Eintrag oder ruft die
+  übergebene `fetch`-Funktion auf und speichert nur nicht-leere Ergebnisse (verhindert, dass ein
+  vorübergehender Fehler für die gesamte Gültigkeitsdauer als „keine Versionen" gilt); `invalidate` und
+  `clear` leeren einzelne Einträge bzw. den gesamten Zwischenspeicher. `snapshot()` liefert eine unveränderliche
+  Liste von `VersionCacheEntrySnapshot` (groupId, artifactId, Anzahl zwischengespeicherter Versionen,
+  Zeitstempel der Abfrage; über den privaten Helfer `splitKey` aus dem Schlüssel rekonstruiert) für die
+  Anzeige im **Show Cache Contents...**-Dialog (siehe `VersionCacheContentsDialog` in
+  `components-ui-dialogs.md`), ohne den Zwischenspeicher selbst zu verändern.
+  `getOrFetch` protokolliert pro Artefakt Treffer, Fehltreffer, abgelaufene Einträge oder deaktiviertes
+  Caching auf DEBUG-Ebene; damit sind manuelle, automatische und transitive Versionssuchen nachvollziehbar.
+- **VulnerabilityResultCache**: anwendungsweiter (`Service.Level.APP`) Zwischenspeicher für
+  zusammengeführte Scan-Ergebnisse je vollständiger Koordinate (`groupId:artifactId:version`) mit
+  konfigurierbarer Gültigkeitsdauer (`vulnerabilityCacheTtlMinutes`); `get`/`put` speichern auch leere
+  Ergebnislisten (negatives Caching, da die meisten Koordinaten keine Funde haben); `invalidate` entfernt
+  einzelne Koordinaten, `clear` leert den gesamten Zwischenspeicher. `snapshot()` liefert eine unveränderliche
+  Liste von `VulnerabilityCacheEntrySnapshot` (vollständige Koordinate, Anzahl zwischengespeicherter Funde,
+  Zeitstempel der Abfrage) für die Anzeige im **Show Cache Contents...**-Dialog (siehe `VulnerabilityCacheContentsDialog` in
+  `components-ui-dialogs.md`), ohne den Zwischenspeicher selbst zu verändern.
 - **PomNavigationService**: sucht Definitionen in der `pom.xml` (`findDependency`, `findParent`,
   `findPlugin`, `findProperty`) und springt über `navigateToDependency` bzw. `navigateToProperty` im Editor
   an die jeweilige Stelle. `findProperty` berücksichtigt das globale `<properties>`-Tag sowie

@@ -376,7 +376,8 @@ class DependencyApiService(private val project: Project) {
     }
 
     /**
-     * Ruft die Versionen für ein Artefakt von einem spezifischen Repository ab.
+     * Ruft die Versionen für ein Artefakt von einem spezifischen Repository ab und protokolliert
+     * jeden tatsächlichen Abfrageversuch auf DEBUG-Ebene, ohne Zugangsdaten auszugeben.
      */
     internal fun fetchVersionsFromRepository(
         repositoryInfo: Pair<String?, String>,
@@ -388,6 +389,7 @@ class DependencyApiService(private val project: Project) {
         return try {
             val connection = createMetadataConnection(repositoryInfo.second, groupId, artifactId)
             applyCredentials(connection, repositoryInfo, serverCredentials)
+            LOG.debug("Querying version metadata for $groupId:$artifactId from ${connection.url.host} via HTTP GET")
             readVersionsFromConnection(connection, currentComparable, groupId, artifactId, repositoryInfo.second)
         } catch (e: Exception) {
             LOG.warn("Failed to fetch versions for $groupId:$artifactId from ${repositoryInfo.second}", e)

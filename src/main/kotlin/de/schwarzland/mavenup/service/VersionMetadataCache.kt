@@ -1,0 +1,134 @@
+package de.schwarzland.mavenup.service
+
+import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.components.Service
+import com.intellij.openapi.diagnostic.Logger
+import java.util.concurrent.ConcurrentHashMap
+
+/**
+ * Unveränderlicher Diagnose-Schnappschuss eines einzelnen [VersionMetadataCache]-Eintrags, für die
+ * Anzeige im Cache-Inhalte-Dialog (siehe `VersionCacheContentsDialog`).
+ *
+ * @property groupId Die GroupId des Artefakts.
+ * @property artifactId Die ArtifactId des Artefakts.
+ * @property versionCount Anzahl der zwischengespeicherten Versionen.
+ * @property timestampMillis Zeitpunkt der zwischengespeicherten Abfrage in Millisekunden seit der Epoche.
+ */
+internal data class VersionCacheEntrySnapshot(
+    val groupId: String,
+    val artifactId: String,
+    val versionCount: Int,
+    val timestampMillis: Long
+)
+
+/**
+ * Anwendungsweiter Zwischenspeicher für ungefilterte Versionslisten je Artefakt (`groupId:artifactId`).
+ * Vermeidet wiederholte Repository-Abfragen innerhalb von [MavenUpSettings.State.versionCacheTtlMinutes],
+ * unabhängig von Versionsänderungen in der POM. Leere oder fehlgeschlagene Abfragen werden nicht gespeichert.
+ * Treffer, Fehltreffer, Ablauf und deaktiviertes Caching werden je Artefakt auf DEBUG-Ebene protokolliert.
+ */
+@Service(Service.Level.APP)
+internal class VersionMetadataCache {
+
+    /**
+     * Ein einzelner Zwischenspeicher-Eintrag mit den zuletzt abgerufenen Versionen und dem
+     * Zeitpunkt der Abfrage.
+     */
+    private data class CacheEntry(val versions: List<String>, val timestampMillis: Long)
+
+    private val entries = ConcurrentHashMap<String, CacheEntry>()
+
+    /**
+     * Liefert die zwischengespeicherten Versionen für das angegebene Artefakt, sofern ein noch
+     * gültiger Eintrag vorhanden ist; andernfalls wird [fetch] aufgerufen und das (nicht-leere)
+     * Ergebnis bei aktiviertem Zwischenspeicher (`ttlMinutes > 0`) gespeichert.
+     *
+     * @param groupId Die GroupId des Artefakts.
+     * @param artifactId Die ArtifactId des Artefakts.
+     * @param ttlMinutes Die konfigurierte Gültigkeitsdauer in Minuten; `<= 0` deaktiviert den Zwischenspeicher.
+     * @param nowMillis Der aktuelle Zeitpunkt in Millisekunden (injizierbar für Tests).
+     * @param onCacheHit Wird bei einem gültigen Cache-Treffer aufgerufen.
+     * @param fetch Ruft die Versionen live ab, wenn kein gültiger Eintrag vorhanden ist.
+     * @return Die Versionsliste aus dem Zwischenspeicher oder von [fetch].
+     */
+    internal fun getOrFetch(
+        groupId: String,
+        artifactId: String,
+        ttlMinutes: Int,
+        nowMillis: Long = System.currentTimeMillis(),
+        onCacheHit: () -> Unit = {},
+        fetch: () -> List<String>
+    ): List<String> {
+        val key = keyOf(groupId, artifactId)
+        if (ttlMinutes > 0) {
+            val cached = entries[key]
+            if (cached != null) {
+                if (nowMillis - cached.timestampMillis <= ttlMinutes * MILLIS_PER_MINUTE) {
+                    LOG.debug("Version cache hit for $key: using ${cached.versions.size} cached versions")
+                    onCacheHit()
+                    return cached.versions
+                }
+                LOG.debug("Version cache expired for $key: fetching live version metadata")
+                entries.remove(key)
+            } else {
+                LOG.debug("Version cache miss for $key: fetching live version metadata")
+            }
+        } else {
+            LOG.debug("Version cache disabled for $key: fetching live version metadata")
+        }
+        val versions = fetch()
+        if (ttlMinutes > 0 && versions.isNotEmpty()) {
+            entries[key] = CacheEntry(versions, nowMillis)
+        }
+        return versions
+    }
+
+    /**
+     * Entfernt den Zwischenspeicher-Eintrag eines einzelnen Artefakts, z. B. wenn dessen Version
+     * gezielt aktualisiert wurde und die zwischengespeicherten Versionen verworfen werden sollen.
+     */
+    internal fun invalidate(groupId: String, artifactId: String) {
+        entries.remove(keyOf(groupId, artifactId))
+    }
+
+    /** Leert den gesamten Zwischenspeicher, z. B. nach einer Änderung repository-relevanter Einstellungen. */
+    internal fun clear() {
+        entries.clear()
+    }
+
+    /** Liefert die Anzahl der aktuell zwischengespeicherten Artefakte (für Tests und Diagnose). */
+    internal fun size(): Int = entries.size
+
+    /**
+     * Liefert einen unveränderlichen Schnappschuss aller aktuell zwischengespeicherten Einträge, z. B.
+     * für die Anzeige im Cache-Inhalte-Dialog (siehe `VersionCacheContentsDialog`). Die Reihenfolge ist nicht
+     * garantiert und entspricht der internen Iterationsreihenfolge der zugrunde liegenden Map.
+     *
+     * @return Die Liste aller Einträge als [VersionCacheEntrySnapshot].
+     */
+    internal fun snapshot(): List<VersionCacheEntrySnapshot> =
+        entries.map { (key, entry) ->
+            val (groupId, artifactId) = splitKey(key)
+            VersionCacheEntrySnapshot(groupId, artifactId, entry.versions.size, entry.timestampMillis)
+        }
+
+    /** Verknüpft GroupId und ArtifactId zum versionsunabhängigen Cache-Schlüssel. */
+    private fun keyOf(groupId: String, artifactId: String): String = "$groupId:$artifactId"
+
+    /** Zerlegt den Zwischenspeicher-Schlüssel wieder in GroupId und ArtifactId (siehe [keyOf]). */
+    private fun splitKey(key: String): Pair<String, String> {
+        val parts = key.split(":", limit = 2)
+        return parts[0] to parts.getOrElse(1) { "" }
+    }
+
+    /** Zugriff auf den anwendungsweiten Service und gemeinsame Diagnosekonstanten. */
+    internal companion object {
+        private val LOG = Logger.getInstance(VersionMetadataCache::class.java)
+        /** Anzahl der Millisekunden je Minute, zur Umrechnung der konfigurierten Gültigkeitsdauer. */
+        private const val MILLIS_PER_MINUTE = 60_000L
+
+        /** Liefert die anwendungsweite Instanz dieses Zwischenspeichers. */
+        internal fun getInstance(): VersionMetadataCache =
+            ApplicationManager.getApplication().getService(VersionMetadataCache::class.java)
+    }
+}
