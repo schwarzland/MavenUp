@@ -3,10 +3,16 @@ package de.schwarzland.mavenup.service
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.nio.file.Files
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.Future
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
 class VersionMetadataCacheTest {
 
@@ -276,5 +282,112 @@ class VersionMetadataCacheTest {
 
         assertEquals(1, fetchCount)
         assertEquals(listOf("2.0.0"), versions)
+    }
+
+    @Test
+    fun testConcurrentGetOrFetchCoalescesToSingleFetch() {
+        val cache = VersionMetadataCache(storagePath = null)
+        val threadCount = 8
+        val executor = Executors.newFixedThreadPool(threadCount)
+        val readyLatch = CountDownLatch(threadCount)
+        val startLatch = CountDownLatch(1)
+        val fetchCount = AtomicInteger(0)
+
+        try {
+            val futures = (1..threadCount).map {
+                executor.submit<List<String>> {
+                    readyLatch.countDown()
+                    startLatch.await(5, TimeUnit.SECONDS)
+                    cache.getOrFetch("com.example", "artifact", ttlMinutes = 60) {
+                        fetchCount.incrementAndGet()
+                        Thread.sleep(50)
+                        listOf("1.0.0", "1.1.0")
+                    }
+                }
+            }
+
+            assertTrue(readyLatch.await(5, TimeUnit.SECONDS))
+            startLatch.countDown()
+
+            val results = futures.map { it.get(5, TimeUnit.SECONDS) }
+            assertEquals(1, fetchCount.get())
+            results.forEach { result ->
+                assertEquals(listOf("1.0.0", "1.1.0"), result)
+            }
+        } finally {
+            executor.shutdownNow()
+        }
+    }
+
+    @Test
+    fun testConcurrentGetOrFetchHandlesExceptionGracefullyAndAllowsRetry() {
+        val cache = VersionMetadataCache(storagePath = null)
+        val threadCount = 4
+        val executor = Executors.newFixedThreadPool(threadCount)
+        val readyLatch = CountDownLatch(threadCount)
+        val startLatch = CountDownLatch(1)
+        val fetchCount = AtomicInteger(0)
+
+        try {
+            val futures = (1..threadCount).map {
+                executor.submit<List<String>> {
+                    readyLatch.countDown()
+                    startLatch.await(5, TimeUnit.SECONDS)
+                    cache.getOrFetch("com.example", "artifact", ttlMinutes = 60) {
+                        fetchCount.incrementAndGet()
+                        Thread.sleep(30)
+                        throw IllegalStateException("Simulated network failure")
+                    }
+                }
+            }
+
+            assertTrue(readyLatch.await(5, TimeUnit.SECONDS))
+            startLatch.countDown()
+
+            futures.forEach { future ->
+                assertThrows(java.util.concurrent.ExecutionException::class.java) {
+                    future.get(5, TimeUnit.SECONDS)
+                }
+            }
+            assertEquals(1, fetchCount.get())
+
+            // Neuer Versuch nach fehlgeschlagenem Request darf nicht blockiert sein
+            val retryVersions = cache.getOrFetch("com.example", "artifact", ttlMinutes = 60) {
+                fetchCount.incrementAndGet()
+                listOf("2.0.0")
+            }
+            assertEquals(listOf("2.0.0"), retryVersions)
+            assertEquals(2, fetchCount.get())
+        } finally {
+            executor.shutdownNow()
+        }
+    }
+
+    @Test
+    fun testConcurrentGetOrFetchForDifferentKeysRunsInParallel() {
+        val cache = VersionMetadataCache(storagePath = null)
+        val executor = Executors.newFixedThreadPool(2)
+        val fetchCount = AtomicInteger(0)
+
+        try {
+            val future1 = executor.submit<List<String>> {
+                cache.getOrFetch("com.example", "artifact-1", ttlMinutes = 60) {
+                    fetchCount.incrementAndGet()
+                    listOf("1.0.0")
+                }
+            }
+            val future2 = executor.submit<List<String>> {
+                cache.getOrFetch("com.example", "artifact-2", ttlMinutes = 60) {
+                    fetchCount.incrementAndGet()
+                    listOf("2.0.0")
+                }
+            }
+
+            assertEquals(listOf("1.0.0"), future1.get(5, TimeUnit.SECONDS))
+            assertEquals(listOf("2.0.0"), future2.get(5, TimeUnit.SECONDS))
+            assertEquals(2, fetchCount.get())
+        } finally {
+            executor.shutdownNow()
+        }
     }
 }

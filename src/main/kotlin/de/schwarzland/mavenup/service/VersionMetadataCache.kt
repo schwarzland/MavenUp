@@ -12,6 +12,8 @@ import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CompletionException
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.io.path.readText
 
@@ -67,6 +69,7 @@ internal class VersionMetadataCache(
     )
 
     private val entries = ConcurrentHashMap<String, CacheEntry>()
+    private val inFlightRequests = ConcurrentHashMap<String, CompletableFuture<List<String>>>()
     private val saveLock = Any()
 
     init {
@@ -134,6 +137,8 @@ internal class VersionMetadataCache(
      * Liefert die zwischengespeicherten Versionen für das angegebene Artefakt, sofern ein noch
      * gültiger Eintrag vorhanden ist; andernfalls wird [fetch] aufgerufen und das (nicht-leere)
      * Ergebnis bei aktiviertem Zwischenspeicher (`ttlMinutes > 0`) gespeichert.
+     * Mehrere parallele Abfragen für denselben Schlüssel führen nur einen einzigen Live-Abruf aus
+     * (Request Coalescing / Thundering-Herd-Prevention).
      *
      * @param groupId Die GroupId des Artefakts.
      * @param artifactId Die ArtifactId des Artefakts.
@@ -143,6 +148,7 @@ internal class VersionMetadataCache(
      * @param fetch Ruft die Versionen live ab, wenn kein gültiger Eintrag vorhanden ist.
      * @return Die Versionsliste aus dem Zwischenspeicher oder von [fetch].
      */
+    @Suppress("TooGenericExceptionCaught")
     internal fun getOrFetch(
         groupId: String,
         artifactId: String,
@@ -169,12 +175,32 @@ internal class VersionMetadataCache(
         } else {
             LOG.debug("Version cache disabled for $key: fetching live version metadata")
         }
-        val versions = fetch()
-        if (ttlMinutes > 0 && versions.isNotEmpty()) {
-            entries[key] = CacheEntry(versions, nowMillis)
-            saveToDisk()
+
+        val newFuture = CompletableFuture<List<String>>()
+        val inFlight = inFlightRequests.putIfAbsent(key, newFuture)
+        if (inFlight != null) {
+            LOG.debug("Coalescing in-flight version request for $key")
+            return try {
+                inFlight.join()
+            } catch (e: CompletionException) {
+                throw e.cause ?: e
+            }
         }
-        return versions
+
+        try {
+            val versions = fetch()
+            if (ttlMinutes > 0 && versions.isNotEmpty()) {
+                entries[key] = CacheEntry(versions, nowMillis)
+                saveToDisk()
+            }
+            newFuture.complete(versions)
+            return versions
+        } catch (t: Throwable) {
+            newFuture.completeExceptionally(t)
+            throw t
+        } finally {
+            inFlightRequests.remove(key, newFuture)
+        }
     }
 
     /**
