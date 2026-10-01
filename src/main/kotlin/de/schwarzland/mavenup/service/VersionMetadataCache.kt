@@ -13,6 +13,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.io.path.readText
 
 /**
  * Unveränderlicher Diagnose-Schnappschuss eines einzelnen [VersionMetadataCache]-Eintrags, für die
@@ -79,7 +80,7 @@ internal class VersionMetadataCache(
         val path = storagePath ?: return
         if (!Files.isRegularFile(path)) return
         try {
-            val json = Files.readString(path, StandardCharsets.UTF_8)
+            val json = path.readText(Charsets.UTF_8)
             val payload = GSON.fromJson(json, DiskPayload::class.java)
             if (payload?.entries != null) {
                 payload.entries.forEach { (key, entry) ->
