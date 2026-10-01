@@ -1,5 +1,7 @@
 package de.schwarzland.mavenup.ui
 
+import com.intellij.openapi.ui.TestDialog
+import com.intellij.openapi.ui.TestDialogManager
 import com.intellij.openapi.util.Disposer
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.ui.table.JBTable
@@ -179,11 +181,11 @@ class CacheContentsDialogTest : BasePlatformTestCase() {
         }
     }
 
-    /** Prüft das Leeren des Versions-Caches und die Aktualisierung der Tabelle im Dialog. */
-    fun testInvalidateClearsVersionCacheAndRefreshesDisplay() {
+    /** Prüft das Leeren des Versions-Caches und die Aktualisierung der Tabelle im Dialog nach Bestätigung. */
+    fun testInvalidateClearsVersionCacheAndRefreshesDisplayWhenConfirmed() {
         val versions = VersionMetadataCache()
         versions.getOrFetch("g", "a", 60) { listOf("1") }
-        val dialog = VersionCacheContentsDialog(project, versions)
+        val dialog = VersionCacheContentsDialog(project, versions, confirmInvalidate = { true })
         Disposer.register(testRootDisposable, dialog.disposable)
         val content = dialog.createCenterPanel()
         val invalidate = UIUtil.uiTraverser(content).filter(JButton::class.java)
@@ -203,11 +205,56 @@ class CacheContentsDialogTest : BasePlatformTestCase() {
         assertEquals(0, table.rowCount)
     }
 
-    /** Prüft das Leeren des Vulnerability-Caches und die Aktualisierung der Tabelle im Dialog. */
-    fun testInvalidateClearsVulnerabilityCacheAndRefreshesDisplay() {
+    /** Prüft, dass der Versions-Cache und die Anzeige bei Abbruch der Sicherheitsabfrage unverändert bleiben. */
+    fun testInvalidateVersionCacheCancelledPreservesCache() {
+        val versions = VersionMetadataCache()
+        versions.getOrFetch("g", "a", 60) { listOf("1") }
+        val dialog = VersionCacheContentsDialog(project, versions, confirmInvalidate = { false })
+        Disposer.register(testRootDisposable, dialog.disposable)
+        val content = dialog.createCenterPanel()
+        val invalidate = UIUtil.uiTraverser(content).filter(JButton::class.java)
+            .first { it.text == MyMessageBundle.message("cache.contents.invalidate") }
+
+        val table = UIUtil.uiTraverser(content).filter(JBTable::class.java).first()!!
+        assertEquals(1, table.rowCount)
+        assertEquals(1, versions.size())
+
+        invalidate.doClick()
+        assertEquals(1, versions.size())
+        assertEquals(1, table.rowCount)
+    }
+
+    /** Prüft das Standard-Verhalten der Versions-Cache-Sicherheitsabfrage über TestDialog. */
+    fun testInvalidateVersionCacheWithTestDialog() {
+        val versions = VersionMetadataCache()
+        versions.getOrFetch("g", "a", 60) { listOf("1") }
+        val dialog = VersionCacheContentsDialog(project, versions)
+        Disposer.register(testRootDisposable, dialog.disposable)
+        val content = dialog.createCenterPanel()
+        val invalidate = UIUtil.uiTraverser(content).filter(JButton::class.java)
+            .first { it.text == MyMessageBundle.message("cache.contents.invalidate") }
+        val table = UIUtil.uiTraverser(content).filter(JBTable::class.java).first()!!
+
+        val previousDialog = TestDialogManager.setTestDialog(TestDialog.NO)
+        try {
+            invalidate.doClick()
+            assertEquals(1, versions.size())
+            assertEquals(1, table.rowCount)
+
+            TestDialogManager.setTestDialog(TestDialog.YES)
+            invalidate.doClick()
+            assertEquals(0, versions.size())
+            assertEquals(0, table.rowCount)
+        } finally {
+            TestDialogManager.setTestDialog(previousDialog)
+        }
+    }
+
+    /** Prüft das Leeren des Vulnerability-Caches und die Aktualisierung der Tabelle im Dialog nach Bestätigung. */
+    fun testInvalidateClearsVulnerabilityCacheAndRefreshesDisplayWhenConfirmed() {
         val vulnerabilities = VulnerabilityResultCache()
         vulnerabilities.put("g:a:1", emptyList())
-        val dialog = VulnerabilityCacheContentsDialog(project, vulnerabilities)
+        val dialog = VulnerabilityCacheContentsDialog(project, vulnerabilities, confirmInvalidate = { true })
         Disposer.register(testRootDisposable, dialog.disposable)
         val content = dialog.createCenterPanel()
         val invalidate = UIUtil.uiTraverser(content).filter(JButton::class.java)
@@ -225,5 +272,58 @@ class CacheContentsDialogTest : BasePlatformTestCase() {
         invalidate.doClick()
         assertEquals(0, vulnerabilities.size())
         assertEquals(0, table.rowCount)
+    }
+
+    /** Prüft, dass der Vulnerability-Cache und die Anzeige bei Abbruch der Sicherheitsabfrage unverändert bleiben. */
+    fun testInvalidateVulnerabilityCacheCancelledPreservesCache() {
+        val vulnerabilities = VulnerabilityResultCache()
+        vulnerabilities.put("g:a:1", emptyList())
+        val dialog = VulnerabilityCacheContentsDialog(project, vulnerabilities, confirmInvalidate = { false })
+        Disposer.register(testRootDisposable, dialog.disposable)
+        val content = dialog.createCenterPanel()
+        val invalidate = UIUtil.uiTraverser(content).filter(JButton::class.java)
+            .first { it.text == MyMessageBundle.message("cache.contents.invalidate") }
+
+        val table = UIUtil.uiTraverser(content).filter(JBTable::class.java).first()!!
+        assertEquals(1, table.rowCount)
+        assertEquals(1, vulnerabilities.size())
+
+        invalidate.doClick()
+        assertEquals(1, vulnerabilities.size())
+        assertEquals(1, table.rowCount)
+    }
+
+    /** Prüft das Standard-Verhalten der Vulnerability-Cache-Sicherheitsabfrage über TestDialog. */
+    fun testInvalidateVulnerabilityCacheWithTestDialog() {
+        val vulnerabilities = VulnerabilityResultCache()
+        vulnerabilities.put("g:a:1", emptyList())
+        val dialog = VulnerabilityCacheContentsDialog(project, vulnerabilities)
+        Disposer.register(testRootDisposable, dialog.disposable)
+        val content = dialog.createCenterPanel()
+        val invalidate = UIUtil.uiTraverser(content).filter(JButton::class.java)
+            .first { it.text == MyMessageBundle.message("cache.contents.invalidate") }
+        val table = UIUtil.uiTraverser(content).filter(JBTable::class.java).first()!!
+
+        val previousDialog = TestDialogManager.setTestDialog(TestDialog.NO)
+        try {
+            invalidate.doClick()
+            assertEquals(1, vulnerabilities.size())
+            assertEquals(1, table.rowCount)
+
+            TestDialogManager.setTestDialog(TestDialog.YES)
+            invalidate.doClick()
+            assertEquals(0, vulnerabilities.size())
+            assertEquals(0, table.rowCount)
+        } finally {
+            TestDialogManager.setTestDialog(previousDialog)
+        }
+    }
+
+    /** Prüft, dass die Bestätigungstexte für die Cache-Invalidierung im MessageBundle definiert sind. */
+    fun testCacheInvalidateConfirmationMessageKeysExist() {
+        assertTrue(MyMessageBundle.message("cache.contents.version.invalidate.confirm.title").isNotBlank())
+        assertTrue(MyMessageBundle.message("cache.contents.version.invalidate.confirm.message").isNotBlank())
+        assertTrue(MyMessageBundle.message("cache.contents.vulnerability.invalidate.confirm.title").isNotBlank())
+        assertTrue(MyMessageBundle.message("cache.contents.vulnerability.invalidate.confirm.message").isNotBlank())
     }
 }

@@ -12,7 +12,7 @@ Back to the [feature overview](../../FEATURES.md).
 - **Compact logging and diagnostics**: Logs cache hits and live lookups for versions and vulnerabilities, including version-cache misses, expired entries, disabled caching, and each Maven metadata, OSV.dev, and Sonatype OSS Index request at DEBUG level, while keeping verbose lists truncated.
 - **Cache content inspection**: A toolbar action opens two sortable tables for the version metadata and vulnerability result caches, showing the coordinate or artifact, cached count, query timestamp, and remaining TTL in seconds at snapshot time.
 - **Disk-backed cache persistence across IDE restarts**: Persists retrieved version metadata and merged vulnerability scan results in the IDE cache directory so cached information survives IDE restarts without redundant network traffic.
-- **Manual cache invalidation**: The cache dialog's **Invalidate** action clears the entire application-wide cache of its active tab and refreshes the snapshots and tab counts without starting a search or scan.
+- **Manual cache invalidation**: The cache dialog's **Invalidate** action clears the entire application-wide cache after a confirmation prompt and refreshes the snapshots without starting a search or scan.
 - **Reliable plugin lifecycle**: Explicitly requires an IDE restart after plugin installation, updates, or disablement instead of relying on dynamic loading and unloading.
 
 ## Architecture

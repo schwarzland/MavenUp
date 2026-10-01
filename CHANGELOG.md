@@ -10,7 +10,7 @@
 - Added disk-backed persistence for version metadata and vulnerability scan result caches in the IDE cache directory, preserving valid cached data across IDE restarts.
 - Added DEBUG-level logging for cache decisions and individual Maven metadata, OSV.dev, and Sonatype OSS Index requests to distinguish reused results from live queries.
 - Added a **Show Cache Contents...** button on the **Versions and Updates** and **Vulnerability Check** settings pages with sortable tables showing coordinates, cached counts, query timestamps, and remaining TTL in seconds for each respective cache.
-- Added **Invalidate** to clear the entire application-wide cache of the active cache dialog and immediately refresh its contents and count.
+- Added **Invalidate** with a confirmation prompt to clear the entire application-wide cache of the active cache dialog and immediately refresh its contents and count.
 
 ### Changed
 

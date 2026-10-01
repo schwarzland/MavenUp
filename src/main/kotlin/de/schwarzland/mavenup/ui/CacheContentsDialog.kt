@@ -2,6 +2,8 @@ package de.schwarzland.mavenup.ui
 
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogWrapper
+import com.intellij.openapi.ui.MessageDialogBuilder
+import com.intellij.openapi.ui.Messages
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.dsl.builder.Align
 import com.intellij.ui.dsl.builder.panel
@@ -184,10 +186,17 @@ private val numericCellComparator: Comparator<Any?> = Comparator { a, b ->
  *
  * @param project Das aktuelle Projekt.
  * @property versionCache Der Versions-Zwischenspeicher (Standard: [VersionMetadataCache.getInstance]).
+ * @property confirmInvalidate Sicherheitsabfrage vor dem Leeren des Caches (Standard: [MessageDialogBuilder.yesNo]).
  */
 internal class VersionCacheContentsDialog(
     project: Project,
-    private val versionCache: VersionMetadataCache = VersionMetadataCache.getInstance()
+    private val versionCache: VersionMetadataCache = VersionMetadataCache.getInstance(),
+    private val confirmInvalidate: () -> Boolean = {
+        MessageDialogBuilder.yesNo(
+            MyMessageBundle.message("cache.contents.version.invalidate.confirm.title"),
+            MyMessageBundle.message("cache.contents.version.invalidate.confirm.message")
+        ).icon(Messages.getWarningIcon()).ask(project)
+    }
 ) : DialogWrapper(project) {
 
     private var tableModel: DefaultTableModel? = null
@@ -199,7 +208,7 @@ internal class VersionCacheContentsDialog(
         init()
     }
 
-    /** Schließt den Dialog ohne Bestätigung; Invalidate wirkt unmittelbar im Inhaltsbereich. */
+    /** Schließt den Dialog; Invalidate wird über die Invalidate-Schaltfläche im Inhaltsbereich ausgelöst. */
     override fun createActions(): Array<Action> = arrayOf(okAction)
 
     /**
@@ -226,8 +235,12 @@ internal class VersionCacheContentsDialog(
         }
     }
 
-    /** Leert den anwendungsweiten Versions-Zwischenspeicher und aktualisiert die Tabelle. */
+    /**
+     * Leert den anwendungsweiten Versions-Zwischenspeicher nach Bestätigung über [confirmInvalidate]
+     * und aktualisiert die Tabelle.
+     */
     internal fun invalidateCache() {
+        if (!confirmInvalidate()) return
         versionCache.clear()
         refreshTable()
     }
@@ -277,10 +290,17 @@ internal class VersionCacheContentsDialog(
  *
  * @param project Das aktuelle Projekt.
  * @property vulnerabilityCache Der Vulnerability-Scan-Zwischenspeicher (Standard: [VulnerabilityResultCache.getInstance]).
+ * @property confirmInvalidate Sicherheitsabfrage vor dem Leeren des Caches (Standard: [MessageDialogBuilder.yesNo]).
  */
 internal class VulnerabilityCacheContentsDialog(
     project: Project,
-    private val vulnerabilityCache: VulnerabilityResultCache = VulnerabilityResultCache.getInstance()
+    private val vulnerabilityCache: VulnerabilityResultCache = VulnerabilityResultCache.getInstance(),
+    private val confirmInvalidate: () -> Boolean = {
+        MessageDialogBuilder.yesNo(
+            MyMessageBundle.message("cache.contents.vulnerability.invalidate.confirm.title"),
+            MyMessageBundle.message("cache.contents.vulnerability.invalidate.confirm.message")
+        ).icon(Messages.getWarningIcon()).ask(project)
+    }
 ) : DialogWrapper(project) {
 
     private var tableModel: DefaultTableModel? = null
@@ -292,7 +312,7 @@ internal class VulnerabilityCacheContentsDialog(
         init()
     }
 
-    /** Schließt den Dialog ohne Bestätigung; Invalidate wirkt unmittelbar im Inhaltsbereich. */
+    /** Schließt den Dialog; Invalidate wird über die Invalidate-Schaltfläche im Inhaltsbereich ausgelöst. */
     override fun createActions(): Array<Action> = arrayOf(okAction)
 
     /**
@@ -319,8 +339,12 @@ internal class VulnerabilityCacheContentsDialog(
         }
     }
 
-    /** Leert den anwendungsweiten Vulnerability-Zwischenspeicher und aktualisiert die Tabelle. */
+    /**
+     * Leert den anwendungsweiten Vulnerability-Zwischenspeicher nach Bestätigung über [confirmInvalidate]
+     * und aktualisiert die Tabelle.
+     */
     internal fun invalidateCache() {
+        if (!confirmInvalidate()) return
         vulnerabilityCache.clear()
         refreshTable()
     }
