@@ -3674,8 +3674,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     )
 
                     val osvError = AtomicReference<ApiError?>()
-                    var ossIndexScan = OssIndexScanResult(emptyMap(), null)
-                    val freshResults = try {
+                    val (freshResults, ossIndexScan) = try {
                         val osvResults = if (toQuery.isEmpty()) {
                             emptyMap()
                         } else {
@@ -3684,15 +3683,15 @@ class MavenUpWindowFactory : ToolWindowFactory {
                                 indicator
                             ) { error -> osvError.compareAndSet(null, error) }
                         }
-                        ossIndexScan = if (toQuery.isEmpty()) {
+                        val scan = if (toQuery.isEmpty()) {
                             OssIndexScanResult(emptyMap(), null)
                         } else {
                             vulnerabilityScanService.resolveOssIndexResults(toQuery, indicator)
                         }
-                        val merged = VulnerabilityMerger.merge(osvResults, ossIndexScan.advisories)
+                        val merged = VulnerabilityMerger.merge(osvResults, scan.advisories)
                         vulnerabilityScanService.storeResults(merged)
                         vulnerabilityScanService.completeInFlight(reservation.claimedFutures, merged)
-                        merged
+                        merged to scan
                     } catch (t: Throwable) {
                         vulnerabilityScanService.cancelInFlight(reservation.claimedFutures, t)
                         throw t
