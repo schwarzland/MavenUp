@@ -198,10 +198,11 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   `extractLeadingMajorNumber`, `selectableRecommendedVersion`) liegen als Top-Level-Funktionen in `ui/VersionAutoSelection`.
 - **VersionMetadataCache**: anwendungsweiter (`Service.Level.APP`) Zwischenspeicher für ungefilterte
   Versionslisten je Artefakt (`groupId:artifactId`, versionsunabhängig) mit konfigurierbarer
-  Gültigkeitsdauer (`versionCacheTtlMinutes`); `getOrFetch` liefert einen gültigen Eintrag oder ruft die
+  Gültigkeitsdauer (`versionCacheTtlMinutes`) und Persistierung im IDE-Cache-Verzeichnis über
+  IDE-Neustarts hinweg; `getOrFetch` liefert einen gültigen Eintrag oder ruft die
   übergebene `fetch`-Funktion auf und speichert nur nicht-leere Ergebnisse (verhindert, dass ein
   vorübergehender Fehler für die gesamte Gültigkeitsdauer als „keine Versionen" gilt); `invalidate` und
-  `clear` leeren einzelne Einträge bzw. den gesamten Zwischenspeicher. `snapshot()` liefert eine unveränderliche
+  `clear` leeren einzelne Einträge bzw. den gesamten Zwischenspeicher (und synchronisieren die Datei). `snapshot()` liefert eine unveränderliche
   Liste von `VersionCacheEntrySnapshot` (groupId, artifactId, Anzahl zwischengespeicherter Versionen,
   Zeitstempel der Abfrage; über den privaten Helfer `splitKey` aus dem Schlüssel rekonstruiert) für die
   Anzeige im **Show Cache Contents...**-Dialog (siehe `VersionCacheContentsDialog` in
@@ -210,7 +211,8 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   Caching auf DEBUG-Ebene; damit sind manuelle, automatische und transitive Versionssuchen nachvollziehbar.
 - **VulnerabilityResultCache**: anwendungsweiter (`Service.Level.APP`) Zwischenspeicher für
   zusammengeführte Scan-Ergebnisse je vollständiger Koordinate (`groupId:artifactId:version`) mit
-  konfigurierbarer Gültigkeitsdauer (`vulnerabilityCacheTtlMinutes`); `get`/`put` speichern auch leere
+  konfigurierbarer Gültigkeitsdauer (`vulnerabilityCacheTtlMinutes`) und Persistierung im
+  IDE-Cache-Verzeichnis über IDE-Neustarts hinweg; `get`/`put`/`putAll` speichern auch leere
   Ergebnislisten (negatives Caching, da die meisten Koordinaten keine Funde haben); `invalidate` entfernt
   einzelne Koordinaten, `clear` leert den gesamten Zwischenspeicher. `snapshot()` liefert eine unveränderliche
   Liste von `VulnerabilityCacheEntrySnapshot` (vollständige Koordinate, Anzahl zwischengespeicherter Funde,
