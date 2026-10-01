@@ -116,6 +116,9 @@ class OssIndexApiService {
         val coordinateToKey = chunk.associate { (groupId, artifactId, version) ->
             buildPackageUrl(groupId, artifactId, version) to "$groupId:$artifactId:$version"
         }
+        chunk.forEach { (groupId, artifactId, version) ->
+            OSS_INDEX_LOG.debug("Querying OSS Index vulnerability data for $groupId:$artifactId:$version")
+        }
         val requestBody = JsonObject().apply {
             add("coordinates", JsonArray().apply { coordinateToKey.keys.forEach(::add) })
         }

@@ -1,15 +1,20 @@
 package de.schwarzland.mavenup.ui
 
 import com.intellij.openapi.ui.DialogPanel
+import com.intellij.openapi.util.Disposer
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.schwarzland.mavenup.service.MavenUpSettings
 import de.schwarzland.mavenup.service.VersionAutoSelectionMode
+import de.schwarzland.mavenup.service.VersionMetadataCache
+import de.schwarzland.mavenup.service.VulnerabilityResultCache
 
 class MavenUpVersionsConfigurableTest : BasePlatformTestCase() {
 
     override fun tearDown() {
         try {
             MavenUpSettings.getInstance().loadState(MavenUpSettings.State())
+            VersionMetadataCache.getInstance().clear()
+            VulnerabilityResultCache.getInstance().clear()
         } finally {
             super.tearDown()
         }
@@ -105,6 +110,73 @@ class MavenUpVersionsConfigurableTest : BasePlatformTestCase() {
         configurable.apply()
 
         assertFalse(settings.state.stopAfterCentralSuccess)
+    }
+
+    fun testVersionCacheTtlMinutesDefaultIsSixty() {
+        assertEquals(120, MavenUpSettings.State().versionCacheTtlMinutes)
+    }
+
+    fun testVersionCacheTtlMinutesIsPersistedOnApply() {
+        val settings = MavenUpSettings.getInstance()
+        settings.state.versionCacheTtlMinutes = 60
+
+        val configurable = createConfigurable()
+        configurable.versionCacheTtlMinutesSpinner!!.number = 30
+        assertTrue("Änderung des Spinners sollte isModified() true machen", configurable.isModified)
+
+        configurable.apply()
+
+        assertEquals(30, settings.state.versionCacheTtlMinutes)
+    }
+
+    fun testVersionCacheTtlMinutesZeroDisablesCaching() {
+        val settings = MavenUpSettings.getInstance()
+        settings.state.versionCacheTtlMinutes = 60
+
+        val configurable = createConfigurable()
+        configurable.versionCacheTtlMinutesSpinner!!.number = 0
+        configurable.apply()
+
+        assertEquals(0, settings.state.versionCacheTtlMinutes)
+    }
+
+    /** Prüft, dass eine Änderung an der automatischen Suche keinen der beiden Caches leert. */
+    fun testUnrelatedSettingChangePreservesBothCaches() {
+        VersionMetadataCache.getInstance().getOrFetch("com.example", "artifact", ttlMinutes = 60) { listOf("1.0.0") }
+        VulnerabilityResultCache.getInstance().put("com.example:artifact:1.0.0", emptyList())
+
+        val configurable = createConfigurable()
+        configurable.autoSearchVersionsCheckBox!!.isSelected = false
+        configurable.apply()
+
+        assertEquals(1, VersionMetadataCache.getInstance().size())
+        assertEquals(1, VulnerabilityResultCache.getInstance().size())
+    }
+
+    /** Prüft, dass geänderte private GroupId-Präfixe nur den Versionscache leeren. */
+    fun testPrivateGroupIdsChangeClearsOnlyVersionCache() {
+        VersionMetadataCache.getInstance().getOrFetch("com.example", "artifact", ttlMinutes = 60) { listOf("1.0.0") }
+        VulnerabilityResultCache.getInstance().put("com.example:artifact:1.0.0", emptyList())
+
+        val configurable = createConfigurable()
+        configurable.privateGroupIdsField!!.text = "com.example"
+        configurable.apply()
+
+        assertEquals(0, VersionMetadataCache.getInstance().size())
+        assertEquals(1, VulnerabilityResultCache.getInstance().size())
+    }
+
+    /** Prüft, dass eine geänderte Central-first-Strategie nur den Versionscache leert. */
+    fun testCentralFirstSettingChangeClearsOnlyVersionCache() {
+        VersionMetadataCache.getInstance().getOrFetch("com.example", "artifact", ttlMinutes = 60) { listOf("1.0.0") }
+        VulnerabilityResultCache.getInstance().put("com.example:artifact:1.0.0", emptyList())
+
+        val configurable = createConfigurable()
+        configurable.stopAfterCentralSuccessCheckBox!!.isSelected = false
+        configurable.apply()
+
+        assertEquals(0, VersionMetadataCache.getInstance().size())
+        assertEquals(1, VulnerabilityResultCache.getInstance().size())
     }
 
     fun testOfferAllVersionsDefaultIsFalse() {
@@ -263,6 +335,15 @@ class MavenUpVersionsConfigurableTest : BasePlatformTestCase() {
         assertTrue("Bei gültigen GroupIds darf kein Validierungsfehler vorliegen", validValidations.isEmpty())
     }
 
+    fun testShowVersionCacheButtonIsPresentAndCreatesDialogWithoutError() {
+        val configurable = createConfigurable()
+        assertNotNull(configurable.showVersionCacheButton)
+        assertEquals(MyMessageBundle.message("cache.contents.button"), configurable.showVersionCacheButton!!.text)
+        val dialog = VersionCacheContentsDialog(project)
+        Disposer.register(testRootDisposable, dialog.disposable)
+        assertNotNull(dialog.createCenterPanel())
+    }
+
     fun testDisposeUiResourcesReleasesComponents() {
         val configurable = createConfigurable()
 
@@ -271,5 +352,7 @@ class MavenUpVersionsConfigurableTest : BasePlatformTestCase() {
         assertNull(configurable.autoSearchVersionsCheckBox)
         assertNull(configurable.hiddenVersionQualifiersField)
         assertNull(configurable.versionAutoSelectionModeComboBox)
+        assertNull(configurable.versionCacheTtlMinutesSpinner)
+        assertNull(configurable.showVersionCacheButton)
     }
 }

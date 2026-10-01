@@ -22,12 +22,23 @@ internal object MavenUpNotifications {
      * @param project Das Projekt, in dem die Benachrichtigung angezeigt wird.
      * @param versionCount Gesamtzahl der über alle betroffenen Abhängigkeiten gefundenen Versionen.
      * @param dependencyCount Anzahl der Abhängigkeiten, für die mindestens eine Version gefunden wurde.
+     * @param cachedDependencyCount Anzahl der Artefakte, deren Versionslisten aus dem Cache stammen.
      */
-    fun notifyVersionsFound(project: Project, versionCount: Int, dependencyCount: Int) {
+    fun notifyVersionsFound(
+        project: Project,
+        versionCount: Int,
+        dependencyCount: Int,
+        cachedDependencyCount: Int
+    ) {
         if (dependencyCount <= 0) return
         notify(
             project,
-            MyMessageBundle.message("notification.checkUpdates.result", versionCount, dependencyCount)
+            MyMessageBundle.message(
+                "notification.checkUpdates.result",
+                versionCount,
+                dependencyCount,
+                cachedDependencyCount
+            )
         )
     }
 
@@ -38,8 +49,14 @@ internal object MavenUpNotifications {
      * @param project Das Projekt, in dem die Benachrichtigung angezeigt wird.
      * @param directCount Anzahl direkt deklarierter Abhängigkeiten mit mindestens einer Warnung.
      * @param indirectCount Anzahl transitiver Abhängigkeiten mit mindestens einer Warnung.
+     * @param cachedCoordinateCount Anzahl der Koordinaten, deren Scan-Ergebnisse aus dem Cache stammen.
      */
-    fun notifyVulnerabilitiesFound(project: Project, directCount: Int, indirectCount: Int) {
+    fun notifyVulnerabilitiesFound(
+        project: Project,
+        directCount: Int,
+        indirectCount: Int,
+        cachedCoordinateCount: Int
+    ) {
         val dependencyCount = directCount + indirectCount
         if (dependencyCount <= 0) return
         notify(
@@ -48,7 +65,8 @@ internal object MavenUpNotifications {
                 "notification.checkVulnerabilities.result",
                 directCount,
                 indirectCount,
-                dependencyCount
+                dependencyCount,
+                cachedCoordinateCount
             )
         )
     }

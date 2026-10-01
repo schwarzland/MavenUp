@@ -12,7 +12,7 @@ class DependencyVersionServiceTest : BasePlatformTestCase() {
     private fun serviceReturning(versions: List<String>): DependencyVersionService =
         DependencyVersionService(
             project,
-            fetchAllVersions = { _, _ -> versions },
+            fetchAllVersions = { _, _, _ -> versions },
             applyVersionSettings = { fetched, _ -> fetched }
         )
 
@@ -30,7 +30,7 @@ class DependencyVersionServiceTest : BasePlatformTestCase() {
     fun testFetchAvailableVersionsReturnsListsPerCoordinate() {
         val service = DependencyVersionService(
             project,
-            fetchAllVersions = { _, artifactId ->
+            fetchAllVersions = { _, artifactId, _ ->
                 if (artifactId == "known") listOf("1.2.4", "1.2.0") else emptyList()
             },
             applyVersionSettings = { fetched, _ -> fetched }
@@ -48,7 +48,7 @@ class DependencyVersionServiceTest : BasePlatformTestCase() {
     fun testFetchAvailableVersionsReturnsUnfilteredVersions() {
         val service = DependencyVersionService(
             project,
-            fetchAllVersions = { _, _ -> listOf("2.0.0", "1.0.0", "0.9.0") },
+            fetchAllVersions = { _, _, _ -> listOf("2.0.0", "1.0.0", "0.9.0") },
             applyVersionSettings = { _, _ -> emptyList() }
         )
 
@@ -88,11 +88,70 @@ class DependencyVersionServiceTest : BasePlatformTestCase() {
         }
     }
 
+    /** Zählt ein gecachtes Artefakt trotz mehrfacher Treffer nur einmal. */
+    fun testCheckArtifactUpdateRecordsCachedArtifactOnce() {
+        withAutoSelectionMode(VersionAutoSelectionMode.LATEST) {
+            val service = DependencyVersionService(
+                project,
+                fetchAllVersions = { _, _, onCacheHit ->
+                    onCacheHit()
+                    listOf("2.0.0", "1.0.0")
+                },
+                applyVersionSettings = { fetched, _ -> fetched }
+            )
+            val cachedArtifactKeys = mutableSetOf<String>()
+
+            service.checkArtifactUpdate(
+                "com.example",
+                "lib",
+                "1.0.0",
+                EmptyProgressIndicator(),
+                mutableMapOf(),
+                mutableMapOf(),
+                mutableMapOf(),
+                cachedArtifactKeys
+            )
+            service.checkArtifactUpdate(
+                "com.example",
+                "lib",
+                "1.0.0",
+                EmptyProgressIndicator(),
+                mutableMapOf(),
+                mutableMapOf(),
+                mutableMapOf(),
+                cachedArtifactKeys
+            )
+
+            assertEquals(setOf("com.example:lib"), cachedArtifactKeys)
+        }
+    }
+
+    /** Live geladene Versionslisten werden nicht als Cache-Treffer gezählt. */
+    fun testCheckArtifactUpdateDoesNotRecordLiveArtifactAsCached() {
+        withAutoSelectionMode(VersionAutoSelectionMode.LATEST) {
+            val service = serviceReturning(listOf("2.0.0", "1.0.0"))
+            val cachedArtifactKeys = mutableSetOf<String>()
+
+            service.checkArtifactUpdate(
+                "com.example",
+                "lib",
+                "1.0.0",
+                EmptyProgressIndicator(),
+                mutableMapOf(),
+                mutableMapOf(),
+                mutableMapOf(),
+                cachedArtifactKeys
+            )
+
+            assertTrue(cachedArtifactKeys.isEmpty())
+        }
+    }
+
     fun testCheckArtifactUpdateStoresUnfilteredVersionsSeparately() {
         withAutoSelectionMode(VersionAutoSelectionMode.LATEST) {
             val service = DependencyVersionService(
                 project,
-                fetchAllVersions = { _, _ -> listOf("2.0.0", "2.0.0-RC1", "1.0.0") },
+                fetchAllVersions = { _, _, _ -> listOf("2.0.0", "2.0.0-RC1", "1.0.0") },
                 applyVersionSettings = { fetched, _ -> fetched.filterNot { it.contains("RC") } }
             )
             val available = mutableMapOf<String, List<String>>()
@@ -118,7 +177,7 @@ class DependencyVersionServiceTest : BasePlatformTestCase() {
         withAutoSelectionMode(VersionAutoSelectionMode.LATEST) {
             val service = DependencyVersionService(
                 project,
-                fetchAllVersions = { _, _ -> listOf("2.0.0", "1.0.0") },
+                fetchAllVersions = { _, _, _ -> listOf("2.0.0", "1.0.0") },
                 applyVersionSettings = { _, _ -> emptyList() }
             )
             val available = mutableMapOf<String, List<String>>()
@@ -217,7 +276,7 @@ class DependencyVersionServiceTest : BasePlatformTestCase() {
         withAutoSelectionMode(VersionAutoSelectionMode.DISABLED) {
             val service = DependencyVersionService(
                 project,
-                fetchAllVersions = { _, _ -> emptyList() },
+                fetchAllVersions = { _, _, _ -> emptyList() },
                 applyVersionSettings = { fetched, _ -> fetched.filterNot { it.contains("RC") } }
             )
             val available = mutableMapOf<String, List<String>>()
@@ -248,5 +307,6 @@ class DependencyVersionServiceTest : BasePlatformTestCase() {
         assertTrue(result.availableVersions.isEmpty())
         assertTrue(result.rawVersions.isEmpty())
         assertTrue(result.selectedVersions.isEmpty())
+        assertEquals(0, result.cachedArtifactCount)
     }
 }

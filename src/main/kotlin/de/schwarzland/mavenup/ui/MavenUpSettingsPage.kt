@@ -5,6 +5,8 @@ import com.intellij.openapi.project.Project
 import com.intellij.ui.SimpleListCellRenderer
 import de.schwarzland.mavenup.service.MAVEN_UP_SETTINGS_TOPIC
 import de.schwarzland.mavenup.service.MavenUpSettings
+import de.schwarzland.mavenup.service.VersionMetadataCache
+import de.schwarzland.mavenup.service.VulnerabilityResultCache
 import javax.swing.JList
 
 /**
@@ -24,7 +26,7 @@ import javax.swing.JList
  * @param displayName Der im Einstellungsbaum angezeigte Name der Seite.
  */
 abstract class MavenUpSettingsPage internal constructor(
-    private val project: Project,
+    protected val project: Project,
     displayName: String
 ) : BoundConfigurable(displayName) {
 
@@ -40,11 +42,27 @@ abstract class MavenUpSettingsPage internal constructor(
     /**
      * Übernimmt die Eingaben der Seite in die Einstellungen und benachrichtigt anschließend
      * alle Zuhörer über den Message-Bus.
+     *
+     * Leert den Versionscache nur, wenn sich die konfigurierten privaten GroupId-Präfixe oder die
+     * Central-first-Strategie ändern, da diese Einstellungen beeinflussen, welche Repositories
+     * Versionsdaten liefern. Leert den Vulnerability-Cache nur, wenn sich die Datenquellen-Konfiguration
+     * (Sonatype OSS Index aktiviert/deaktiviert) ändert.
      */
     override fun apply() {
         beforeApply()
+        val previousPrivateGroupIds = state.privateGroupIds
+        val previousStopAfterCentralSuccess = state.stopAfterCentralSuccess
+        val previousOssIndexEnabled = state.ossIndexEnabled
         super.apply()
         afterApply()
+        if (state.privateGroupIds != previousPrivateGroupIds ||
+            state.stopAfterCentralSuccess != previousStopAfterCentralSuccess
+        ) {
+            VersionMetadataCache.getInstance().clear()
+        }
+        if (state.ossIndexEnabled != previousOssIndexEnabled) {
+            VulnerabilityResultCache.getInstance().clear()
+        }
         project.messageBus.syncPublisher(MAVEN_UP_SETTINGS_TOPIC).run()
     }
 

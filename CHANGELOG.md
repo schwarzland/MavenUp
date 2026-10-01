@@ -4,9 +4,19 @@
 
 ## [Unreleased]
 
+### Added
+
+- Added version and vulnerability result caching keyed by artifact (and, for vulnerability results, by exact version) so repeated version searches and vulnerability scans skip API calls for coordinates already queried within a configurable time-to-live, dramatically reducing redundant network traffic after repeated checks; new **Version cache duration** and **Vulnerability cache duration** settings control the TTLs (0 disables caching), and changes to private GroupId prefixes or Central-first lookup clear only the version cache, while toggling Sonatype OSS Index clears only the vulnerability cache.
+- Added disk-backed persistence for version metadata and vulnerability scan result caches in the IDE cache directory, preserving valid cached data across IDE restarts.
+- Added DEBUG-level logging for cache decisions and individual Maven metadata, OSV.dev, and Sonatype OSS Index requests to distinguish reused results from live queries.
+- Added a **Show Cache Contents...** button on the **Versions and Updates** and **Vulnerability Check** settings pages with sortable tables showing coordinates, cached counts, query timestamps, and remaining TTL in seconds for each respective cache.
+- Added **Invalidate** with a confirmation prompt to clear the entire application-wide cache of the active cache dialog and immediately refresh its contents and count.
+
 ### Changed
 
+- Version-search and vulnerability-scan notifications now report how many dependency results were served from cache.
 - Added a hierarchy-toolbar toggle to show or hide Maven GroupIds for a compact artifact-focused view.
+- Automatic version searches triggered by project startup or Maven imports reuse the version metadata cache.
 
 ### Fixed
 
@@ -14,6 +24,7 @@
 - Fixed the row selection in the **Dependencies** table being permanently lost after every refresh (e.g., after a vulnerability scan finishes), which left an open **Dependency Hierarchy** split view empty and unusable.
 - Fixed the **Dependency Hierarchy** split view's toolbar (including the **Close** button and the toolbar toggle) becoming entirely unresponsive whenever the panel showed its empty state, because its actions targeted a tree component that was never actually displayed.
 - Fixed IDE warnings about calling `AnAction.update`/`actionPerformed` directly in tests by routing test-driven action invocations through `ActionUtil.updateAction`/`ActionUtil.performAction`.
+- Fixed the remote Eel performance inspection warning on disk-backed cache reads by switching from `Files.readString` to Kotlin's `Path.readText`.
 
 ## 3.3.1
 

@@ -30,12 +30,18 @@ class MavenUpNotificationsTest : BasePlatformTestCase() {
      */
     fun testNotifyVersionsFoundSendsNotificationWithCounts() {
         val notifications = collectNotifications {
-            MavenUpNotifications.notifyVersionsFound(project, versionCount = 5, dependencyCount = 3)
+            MavenUpNotifications.notifyVersionsFound(
+                project,
+                versionCount = 5,
+                dependencyCount = 3,
+                cachedDependencyCount = 2
+            )
         }
 
         assertSize(1, notifications)
         assertTrue(notifications[0].content.contains("5"))
         assertTrue(notifications[0].content.contains("3"))
+        assertTrue(notifications[0].content.contains("2"))
     }
 
     /**
@@ -43,7 +49,12 @@ class MavenUpNotificationsTest : BasePlatformTestCase() {
      */
     fun testNotifyVersionsFoundSuppressedWhenNoDependencyHasVersions() {
         val notifications = collectNotifications {
-            MavenUpNotifications.notifyVersionsFound(project, versionCount = 0, dependencyCount = 0)
+            MavenUpNotifications.notifyVersionsFound(
+                project,
+                versionCount = 0,
+                dependencyCount = 0,
+                cachedDependencyCount = 0
+            )
         }
 
         assertEmpty(notifications)
@@ -55,13 +66,19 @@ class MavenUpNotificationsTest : BasePlatformTestCase() {
      */
     fun testNotifyVulnerabilitiesFoundSendsNotificationWithCounts() {
         val notifications = collectNotifications {
-            MavenUpNotifications.notifyVulnerabilitiesFound(project, directCount = 2, indirectCount = 4)
+            MavenUpNotifications.notifyVulnerabilitiesFound(
+                project,
+                directCount = 2,
+                indirectCount = 4,
+                cachedCoordinateCount = 3
+            )
         }
 
         assertSize(1, notifications)
         assertTrue(notifications[0].content.contains("2"))
         assertTrue(notifications[0].content.contains("4"))
         assertTrue(notifications[0].content.contains("6"))
+        assertTrue(notifications[0].content.contains("3"))
     }
 
     /**
@@ -69,7 +86,12 @@ class MavenUpNotificationsTest : BasePlatformTestCase() {
      */
     fun testNotifyVulnerabilitiesFoundSuppressedWhenNoneFound() {
         val notifications = collectNotifications {
-            MavenUpNotifications.notifyVulnerabilitiesFound(project, directCount = 0, indirectCount = 0)
+            MavenUpNotifications.notifyVulnerabilitiesFound(
+                project,
+                directCount = 0,
+                indirectCount = 0,
+                cachedCoordinateCount = 0
+            )
         }
 
         assertEmpty(notifications)
