@@ -64,6 +64,12 @@ listOf("testCompileClasspath", "testRuntimeClasspath").forEach { configurationNa
 }
 
 intellijPlatform {
+    pluginConfiguration {
+        ideaVersion {
+            untilBuild = "262.*"
+        }
+    }
+
     // Veröffentlichungen sind nur dann im Marketplace verborgen, wenn dies
     // explizit über die Gradle-Property aktiviert wird.
     publishing {
