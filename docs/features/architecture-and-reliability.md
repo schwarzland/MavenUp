@@ -11,9 +11,9 @@ Back to the [feature overview](../../FEATURES.md).
 - **Safe action availability**: Disables **Scan for Vulnerabilities** while a refresh or update check is running to prevent overlapping background operations.
 - **Compact logging and diagnostics**: Logs cache hits and live lookups for versions and vulnerabilities, including version-cache misses, expired entries, disabled caching, and each Maven metadata, OSV.dev, and Sonatype OSS Index request at DEBUG level, while keeping verbose lists truncated.
 - **Request coalescing and thundering-herd prevention**: Merges concurrent version searches and vulnerability checks for identical artifacts or coordinates into a single active in-flight request, sharing results across all waiting callers.
-- **Cache content inspection**: A toolbar action opens two sortable tables for the version metadata and vulnerability result caches, showing the coordinate or artifact, cached count, query timestamp, and remaining TTL in seconds at snapshot time.
+- **Cache content inspection**: Dedicated buttons in the **Versions and Updates** and **Vulnerability Check** settings pages open a sortable diagnostic table for the respective cache, showing the artifact or coordinate, cached count, query timestamp, and remaining TTL in seconds at snapshot time.
 - **Disk-backed cache persistence across IDE restarts**: Persists retrieved version metadata and merged vulnerability scan results in the IDE cache directory so cached information survives IDE restarts without redundant network traffic.
-- **Manual cache invalidation**: The cache dialog's **Invalidate** action clears the entire application-wide cache after a confirmation prompt and refreshes the snapshots without starting a search or scan.
+- **Manual cache invalidation**: The cache dialog's **Invalidate** action clears the respective application-wide cache after a confirmation prompt and refreshes the snapshot without starting a search or scan.
 - **Reliable plugin lifecycle**: Explicitly requires an IDE restart after plugin installation, updates, or disablement instead of relying on dynamic loading and unloading.
 
 ## Architecture
