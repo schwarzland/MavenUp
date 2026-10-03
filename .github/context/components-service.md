@@ -181,7 +181,8 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   schreibt frische, zusammengeführte Ergebnisse (auch leere Listen) zurück in den Zwischenspeicher, sofern
   `vulnerabilityCacheTtlMinutes > 0` ist; `MavenUpWindowFactory.performVulnerabilityCheck` überspringt
   OSV- und OSS-Index-Abfragen vollständig, wenn nach der Aufteilung keine Koordinaten mehr live
-  abzufragen sind.
+  abzufragen sind. `reserveInFlight`, `completeInFlight`, `cancelInFlight` und `awaitInFlight`
+  delegieren an `VulnerabilityResultCache`, um parallele Scans für identische Koordinaten zu deduplizieren (Request Coalescing).
 - **DependencyVersionService**: fragt über `searchVersions` die verfügbaren Versionen aller
   Dependencies/Plugins ab (inkl. PSI-Erfassung verwalteter Einträge und Property-Schnittmengen)
   und liefert gefilterte Versionen, ungefilterte Versionen (`rawVersions`) und Vorauswahl als
@@ -199,25 +200,35 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
 - **VersionMetadataCache**: anwendungsweiter (`Service.Level.APP`) Zwischenspeicher für ungefilterte
   Versionslisten je Artefakt (`groupId:artifactId`, versionsunabhängig) mit konfigurierbarer
   Gültigkeitsdauer (`versionCacheTtlMinutes`) und Persistierung im IDE-Cache-Verzeichnis über
-  IDE-Neustarts hinweg; `getOrFetch` liefert einen gültigen Eintrag oder ruft die
-  übergebene `fetch`-Funktion auf und speichert nur nicht-leere Ergebnisse (verhindert, dass ein
-  vorübergehender Fehler für die gesamte Gültigkeitsdauer als „keine Versionen" gilt); `invalidate` und
-  `clear` leeren einzelne Einträge bzw. den gesamten Zwischenspeicher (und synchronisieren die Datei). `snapshot()` liefert eine unveränderliche
-  Liste von `VersionCacheEntrySnapshot` (groupId, artifactId, Anzahl zwischengespeicherter Versionen,
-  Zeitstempel der Abfrage; über den privaten Helfer `splitKey` aus dem Schlüssel rekonstruiert) für die
-  Anzeige im **Show Cache Contents...**-Dialog (siehe `VersionCacheContentsDialog` in
-  `components-ui-dialogs.md`), ohne den Zwischenspeicher selbst zu verändern.
-  `getOrFetch` protokolliert pro Artefakt Treffer, Fehltreffer, abgelaufene Einträge oder deaktiviertes
-  Caching auf DEBUG-Ebene; damit sind manuelle, automatische und transitive Versionssuchen nachvollziehbar.
+  IDE-Neustarts hinweg; `loadFromDisk` bereinigt abgelaufene Einträge direkt beim Initialisieren (Startup-Pruning)
+  und leert den Speicher sowie die Datei, wenn die TTL auf `<= 0` konfiguriert ist; `saveToDisk` filtert
+  abgelaufene Einträge vor dem Serialisieren aus dem Arbeitsspeicher und der Datei heraus; `pruneExpired`
+  entfernt abgelaufene Einträge gezielt. `getOrFetch` führt nur bei Fehltreffer oder abgelaufenem Eintrag die übergebene
+  `fetch`-Lambda aus und speichert nicht-leere Ergebnisse (leere oder fehlgeschlagene Abfragen werden nicht
+  gespeichert). Laufende Anfragen werden über `inFlightRequests` dedupliziert (Request Coalescing /
+  Thundering-Herd-Prevention), sodass gleichzeitige Abfragen für dasselbe Artefakt nur einen einzigen
+  externen Request ausführen und das Ergebnis teilen.
+  `invalidate` und `clear` leeren einzelne Einträge bzw. den gesamten Zwischenspeicher (und synchronisieren
+  die Datei). `snapshot()` liefert eine unveränderliche Liste von `VersionCacheEntrySnapshot` (groupId, artifactId,
+  Anzahl zwischengespeicherter Versionen, Zeitstempel der Abfrage; über den privaten Helfer `splitKey` aus dem
+  Schlüssel rekonstruiert) für die Anzeige im **Show Cache Contents...**-Dialog (siehe `VersionCacheContentsDialog` in
+  `components-ui-dialogs.md`), wobei abgelaufene Einträge vorab bereinigt werden.
+  `getOrFetch` protokolliert pro Artefakt Treffer, Fehltreffer, abgelaufene Einträge, laufende In-Flight-Deduplizierung
+  oder deaktiviertes Caching auf DEBUG-Ebene; damit sind manuelle, automatische und transitive Versionssuchen nachvollziehbar.
 - **VulnerabilityResultCache**: anwendungsweiter (`Service.Level.APP`) Zwischenspeicher für
   zusammengeführte Scan-Ergebnisse je vollständiger Koordinate (`groupId:artifactId:version`) mit
-  konfigurierbarer Gültigkeitsdauer (`vulnerabilityCacheTtlMinutes`) und Persistierung im
-  IDE-Cache-Verzeichnis über IDE-Neustarts hinweg; `get`/`put`/`putAll` speichern auch leere
-  Ergebnislisten (negatives Caching, da die meisten Koordinaten keine Funde haben); `invalidate` entfernt
-  einzelne Koordinaten, `clear` leert den gesamten Zwischenspeicher. `snapshot()` liefert eine unveränderliche
-  Liste von `VulnerabilityCacheEntrySnapshot` (vollständige Koordinate, Anzahl zwischengespeicherter Funde,
-  Zeitstempel der Abfrage) für die Anzeige im **Show Cache Contents...**-Dialog (siehe `VulnerabilityCacheContentsDialog` in
-  `components-ui-dialogs.md`), ohne den Zwischenspeicher selbst zu verändern.
+  konfigurierbarer Gültigkeitsdauer (`vulnerabilityCacheTtlMinutes`), Persistierung im
+  IDE-Cache-Verzeichnis über IDE-Neustarts hinweg sowie Request Coalescing über `inFlightRequests`;
+  `loadFromDisk` führt beim Start ein automatisches Startup-Pruning abgelaufener Einträge aus und leert
+  bei `vulnerabilityCacheTtlMinutes <= 0` Speicher und Datei; `saveToDisk` filtert abgelaufene Einträge
+  vor dem Schreiben heraus; `pruneExpired` bereinigt abgelaufene Einträge gezielt;
+  `reserveInFlight`, `completeInFlight`, `cancelInFlight` und `awaitInFlight` verwalten koordinatenbezogene
+  In-Flight-Futures für Batch-Scans; `getOrFetch` synchronisiert Einzelabfragen;
+  `get`/`put`/`putAll` speichern auch leere Ergebnislisten (negatives Caching, da die meisten Koordinaten
+  keine Funde haben); `invalidate` entfernt einzelne Koordinaten, `clear` leert den gesamten Zwischenspeicher.
+  `snapshot()` liefert eine unveränderliche Liste von `VulnerabilityCacheEntrySnapshot` (vollständige Koordinate,
+  Anzahl zwischengespeicherter Funde, Zeitstempel der Abfrage) für die Anzeige im **Show Cache Contents...**-Dialog
+  (siehe `VulnerabilityCacheContentsDialog` in `components-ui-dialogs.md`), wobei abgelaufene Einträge vorab bereinigt werden.
 - **PomNavigationService**: sucht Definitionen in der `pom.xml` (`findDependency`, `findParent`,
   `findPlugin`, `findProperty`) und springt über `navigateToDependency` bzw. `navigateToProperty` im Editor
   an die jeweilige Stelle. `findProperty` berücksichtigt das globale `<properties>`-Tag sowie

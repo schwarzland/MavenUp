@@ -3654,6 +3654,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 MyMessageBundle.message("toolwindow.MyToolWindow.checkVulnerabilities.progress"),
                 true
             ) {
+                @Suppress("TooGenericExceptionCaught")
                 override fun run(indicator: ProgressIndicator) {
                     val directDependencies = knownDependencies.entries
                         .filter { it.value.isNotEmpty() }
@@ -3663,29 +3664,41 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     LOG.info("Starting vulnerability check for ${dependencies.size} dependencies/plugins.")
 
                     val cachePartition = vulnerabilityScanService.partitionByCache(dependencies)
-                    val toQuery = cachePartition.uncachedDependencies
+                    val reservation = vulnerabilityScanService.reserveInFlight(cachePartition.uncachedDependencies)
+                    val toQuery = reservation.toQuery
+                    val inFlightCount = reservation.inFlightFutures.size
+                    val coalescedSuffix = if (inFlightCount > 0) " ($inFlightCount coalesced in-flight)" else ""
                     LOG.info(
                         "Vulnerability cache hit for ${cachePartition.cachedResults.size} of " +
-                            "${dependencies.size} coordinates; querying ${toQuery.size} coordinates live."
+                            "${dependencies.size} coordinates; querying ${toQuery.size} coordinates live$coalescedSuffix."
                     )
 
                     val osvError = AtomicReference<ApiError?>()
-                    val osvResults = if (toQuery.isEmpty()) {
-                        emptyMap()
-                    } else {
-                        vulnerabilityApiService.fetchVulnerabilityAdvisories(
-                            toQuery,
-                            indicator
-                        ) { error -> osvError.compareAndSet(null, error) }
+                    val (freshResults, ossIndexScan) = try {
+                        val osvResults = if (toQuery.isEmpty()) {
+                            emptyMap()
+                        } else {
+                            vulnerabilityApiService.fetchVulnerabilityAdvisories(
+                                toQuery,
+                                indicator
+                            ) { error -> osvError.compareAndSet(null, error) }
+                        }
+                        val scan = if (toQuery.isEmpty()) {
+                            OssIndexScanResult(emptyMap(), null)
+                        } else {
+                            vulnerabilityScanService.resolveOssIndexResults(toQuery, indicator)
+                        }
+                        val merged = VulnerabilityMerger.merge(osvResults, scan.advisories)
+                        vulnerabilityScanService.storeResults(merged)
+                        vulnerabilityScanService.completeInFlight(reservation.claimedFutures, merged)
+                        merged to scan
+                    } catch (t: Throwable) {
+                        vulnerabilityScanService.cancelInFlight(reservation.claimedFutures, t)
+                        throw t
                     }
-                    val ossIndexScan = if (toQuery.isEmpty()) {
-                        OssIndexScanResult(emptyMap(), null)
-                    } else {
-                        vulnerabilityScanService.resolveOssIndexResults(toQuery, indicator)
-                    }
-                    val freshResults = VulnerabilityMerger.merge(osvResults, ossIndexScan.advisories)
-                    vulnerabilityScanService.storeResults(freshResults)
-                    val results = cachePartition.cachedResults + freshResults
+
+                    val inFlightResults = vulnerabilityScanService.awaitInFlight(reservation.inFlightFutures)
+                    val results = cachePartition.cachedResults + freshResults + inFlightResults
                     val vulnerableEntries = results.values.count { it.isNotEmpty() }
                     LOG.info(
                         "Finished vulnerability check. " +

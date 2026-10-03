@@ -12,6 +12,8 @@ import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CompletionException
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.io.path.readText
 
@@ -42,8 +44,10 @@ internal data class VersionCacheEntrySnapshot(
  * @property storagePath Der Pfad zur persistenten Cache-Datei auf der Festplatte; `null` deaktiviert die Persistierung.
  */
 @Service(Service.Level.APP)
-internal class VersionMetadataCache(
-    private val storagePath: Path? = defaultStoragePath()
+internal class VersionMetadataCache @JvmOverloads constructor(
+    private val storagePath: Path? = defaultStoragePath(),
+    initialTtlMinutes: Int? = null,
+    initialNowMillis: Long = System.currentTimeMillis()
 ) {
 
     /**
@@ -67,28 +71,60 @@ internal class VersionMetadataCache(
     )
 
     private val entries = ConcurrentHashMap<String, CacheEntry>()
+    private val inFlightRequests = ConcurrentHashMap<String, CompletableFuture<List<String>>>()
     private val saveLock = Any()
 
     init {
-        loadFromDisk()
+        loadFromDisk(initialTtlMinutes, initialNowMillis)
     }
 
     /**
-     * Lädt zuvor gespeicherte Cache-Einträge von der Festplatte in den Arbeitsspeicher.
+     * Ermittelt die aktuell konfigurierte Gültigkeitsdauer aus den Plugin-Einstellungen.
+     *
+     * @return Die konfigurierte TTL in Minuten oder der Standardwert [DEFAULT_VERSION_CACHE_TTL_MINUTES].
      */
-    private fun loadFromDisk() {
+    private fun currentConfiguredTtl(): Int =
+        runCatching { MavenUpSettings.getInstance().state.versionCacheTtlMinutes }
+            .getOrDefault(DEFAULT_VERSION_CACHE_TTL_MINUTES)
+
+    /**
+     * Lädt zuvor gespeicherte Cache-Einträge von der Festplatte in den Arbeitsspeicher.
+     * Abgelaufene oder ungültige Einträge werden beim Laden herausgefiltert. Wurde der Cache
+     * deaktiviert (`ttlMinutes <= 0`), wird der Speicher nicht befüllt und die Datei bereinigt.
+     *
+     * @param ttlMinutes Die zugrunde zu legende Gültigkeitsdauer; standardmäßig die konfigurierte TTL.
+     * @param nowMillis Der aktuelle Referenzzeitpunkt in Millisekunden.
+     */
+    internal fun loadFromDisk(
+        ttlMinutes: Int? = null,
+        nowMillis: Long = System.currentTimeMillis()
+    ) {
         val path = storagePath ?: return
         if (!Files.isRegularFile(path)) return
+        val configuredTtl = ttlMinutes ?: currentConfiguredTtl()
+        if (configuredTtl <= 0) {
+            entries.clear()
+            saveToDisk(nowMillis, configuredTtl)
+            LOG.debug("Version cache disabled on load: cleared cache and disk file ($path)")
+            return
+        }
         try {
             val json = path.readText(Charsets.UTF_8)
             val payload = GSON.fromJson(json, DiskPayload::class.java)
             if (payload?.entries != null) {
-                payload.entries.forEach { (key, entry) ->
-                    if (key.isNotBlank() && entry.versions.isNotEmpty()) {
+                val maxAgeMillis = configuredTtl * MILLIS_PER_MINUTE
+                var prunedCount = 0
+                for ((key, entry) in payload.entries) {
+                    if (isValidUnexpiredEntry(key, entry, nowMillis, maxAgeMillis)) {
                         entries[key] = entry
+                    } else {
+                        prunedCount++
                     }
                 }
-                LOG.debug("Loaded ${entries.size} version cache entries from disk ($path)")
+                LOG.debug("Loaded ${entries.size} version cache entries from disk ($path), pruned $prunedCount expired/invalid entries")
+                if (prunedCount > 0) {
+                    saveToDisk(nowMillis, configuredTtl)
+                }
             }
         } catch (e: IOException) {
             LOG.warn("Failed to load version cache from $path", e)
@@ -98,17 +134,45 @@ internal class VersionMetadataCache(
     }
 
     /**
-     * Schreibt den aktuellen Cache-Zustand atomar auf die Festplatte.
+     * Prüft, ob ein Cache-Eintrag einen gültigen Schlüssel und nicht-leere Versionen hat und noch nicht abgelaufen ist.
      */
-    private fun saveToDisk() {
+    private fun isValidUnexpiredEntry(
+        key: String,
+        entry: CacheEntry,
+        nowMillis: Long,
+        maxAgeMillis: Long
+    ): Boolean = key.isNotBlank() && entry.versions.isNotEmpty() && (nowMillis - entry.timestampMillis <= maxAgeMillis)
+
+    /**
+     * Schreibt den aktuellen Cache-Zustand atomar auf die Festplatte.
+     * Abgelaufene Einträge werden vor dem Serialisieren aus dem Arbeitsspeicher und der Datei entfernt.
+     *
+     * @param nowMillis Der aktuelle Referenzzeitpunkt in Millisekunden.
+     * @param ttlMinutes Die zugrunde zu legende Gültigkeitsdauer; standardmäßig die konfigurierte TTL.
+     */
+    internal fun saveToDisk(
+        nowMillis: Long = System.currentTimeMillis(),
+        ttlMinutes: Int? = null
+    ) {
         val path = storagePath ?: return
+        val configuredTtl = ttlMinutes ?: currentConfiguredTtl()
         synchronized(saveLock) {
             try {
                 val parent = path.parent
                 if (parent != null && !Files.exists(parent)) {
                     Files.createDirectories(parent)
                 }
-                val payload = DiskPayload(entries = HashMap(entries))
+                val validEntries = if (configuredTtl <= 0) {
+                    entries.clear()
+                    emptyMap()
+                } else {
+                    val maxAgeMillis = configuredTtl * MILLIS_PER_MINUTE
+                    entries.entries.removeIf { (key, entry) ->
+                        key.isBlank() || entry.versions.isEmpty() || nowMillis - entry.timestampMillis > maxAgeMillis
+                    }
+                    HashMap(entries)
+                }
+                val payload = DiskPayload(entries = validEntries)
                 val json = GSON.toJson(payload)
                 val tempFile = Files.createTempFile(parent ?: Path.of("."), "version-cache-", ".tmp")
                 try {
@@ -131,9 +195,46 @@ internal class VersionMetadataCache(
     }
 
     /**
+     * Entfernt alle abgelaufenen Einträge aus dem Arbeitsspeicher und aktualisiert die Datei auf der Festplatte.
+     *
+     * @param ttlMinutes Die zugrunde zu legende Gültigkeitsdauer; standardmäßig die konfigurierte TTL.
+     * @param nowMillis Der aktuelle Referenzzeitpunkt in Millisekunden.
+     * @return Die Anzahl der entfernten abgelaufenen Einträge.
+     */
+    internal fun pruneExpired(
+        ttlMinutes: Int? = null,
+        nowMillis: Long = System.currentTimeMillis()
+    ): Int {
+        val configuredTtl = ttlMinutes ?: currentConfiguredTtl()
+        if (configuredTtl <= 0) {
+            val count = entries.size
+            if (count > 0) {
+                clear()
+            }
+            return count
+        }
+        val maxAgeMillis = configuredTtl * MILLIS_PER_MINUTE
+        var removedCount = 0
+        val iterator = entries.entries.iterator()
+        while (iterator.hasNext()) {
+            val item = iterator.next()
+            if (item.key.isBlank() || item.value.versions.isEmpty() || nowMillis - item.value.timestampMillis > maxAgeMillis) {
+                iterator.remove()
+                removedCount++
+            }
+        }
+        if (removedCount > 0) {
+            saveToDisk(nowMillis, configuredTtl)
+        }
+        return removedCount
+    }
+
+    /**
      * Liefert die zwischengespeicherten Versionen für das angegebene Artefakt, sofern ein noch
      * gültiger Eintrag vorhanden ist; andernfalls wird [fetch] aufgerufen und das (nicht-leere)
      * Ergebnis bei aktiviertem Zwischenspeicher (`ttlMinutes > 0`) gespeichert.
+     * Mehrere parallele Abfragen für denselben Schlüssel führen nur einen einzigen Live-Abruf aus
+     * (Request Coalescing / Thundering-Herd-Prevention).
      *
      * @param groupId Die GroupId des Artefakts.
      * @param artifactId Die ArtifactId des Artefakts.
@@ -143,6 +244,7 @@ internal class VersionMetadataCache(
      * @param fetch Ruft die Versionen live ab, wenn kein gültiger Eintrag vorhanden ist.
      * @return Die Versionsliste aus dem Zwischenspeicher oder von [fetch].
      */
+    @Suppress("TooGenericExceptionCaught")
     internal fun getOrFetch(
         groupId: String,
         artifactId: String,
@@ -169,12 +271,32 @@ internal class VersionMetadataCache(
         } else {
             LOG.debug("Version cache disabled for $key: fetching live version metadata")
         }
-        val versions = fetch()
-        if (ttlMinutes > 0 && versions.isNotEmpty()) {
-            entries[key] = CacheEntry(versions, nowMillis)
-            saveToDisk()
+
+        val newFuture = CompletableFuture<List<String>>()
+        val inFlight = inFlightRequests.putIfAbsent(key, newFuture)
+        if (inFlight != null) {
+            LOG.debug("Coalescing in-flight version request for $key")
+            return try {
+                inFlight.join()
+            } catch (e: CompletionException) {
+                throw e.cause ?: e
+            }
         }
-        return versions
+
+        try {
+            val versions = fetch()
+            if (ttlMinutes > 0 && versions.isNotEmpty()) {
+                entries[key] = CacheEntry(versions, nowMillis)
+                saveToDisk(nowMillis, ttlMinutes)
+            }
+            newFuture.complete(versions)
+            return versions
+        } catch (t: Throwable) {
+            newFuture.completeExceptionally(t)
+            throw t
+        } finally {
+            inFlightRequests.remove(key, newFuture)
+        }
     }
 
     /**
@@ -204,17 +326,27 @@ internal class VersionMetadataCache(
     internal fun size(): Int = entries.size
 
     /**
-     * Liefert einen unveränderlichen Schnappschuss aller aktuell zwischengespeicherten Einträge, z. B.
-     * für die Anzeige im Cache-Inhalte-Dialog (siehe `VersionCacheContentsDialog`). Die Reihenfolge ist nicht
-     * garantiert und entspricht der internen Iterationsreihenfolge der zugrunde liegenden Map.
+     * Liefert einen unveränderlichen Schnappschuss aller aktuell gültigen zwischengespeicherten Einträge, z. B.
+     * für die Anzeige im Cache-Inhalte-Dialog (siehe `VersionCacheContentsDialog`). Abgelaufene Einträge werden
+     * vorab bereinigt. Die Reihenfolge ist nicht garantiert und entspricht der internen Iterationsreihenfolge
+     * der zugrunde liegenden Map.
      *
-     * @return Die Liste aller Einträge als [VersionCacheEntrySnapshot].
+     * @param ttlMinutes Die zugrunde zu legende Gültigkeitsdauer; standardmäßig die konfigurierte TTL.
+     * @param nowMillis Der aktuelle Referenzzeitpunkt in Millisekunden.
+     * @return Die Liste aller gültigen Einträge als [VersionCacheEntrySnapshot].
      */
-    internal fun snapshot(): List<VersionCacheEntrySnapshot> =
-        entries.map { (key, entry) ->
+    internal fun snapshot(
+        ttlMinutes: Int? = null,
+        nowMillis: Long = System.currentTimeMillis()
+    ): List<VersionCacheEntrySnapshot> {
+        val configuredTtl = ttlMinutes ?: currentConfiguredTtl()
+        if (configuredTtl <= 0) return emptyList()
+        pruneExpired(configuredTtl, nowMillis)
+        return entries.map { (key, entry) ->
             val (groupId, artifactId) = splitKey(key)
             VersionCacheEntrySnapshot(groupId, artifactId, entry.versions.size, entry.timestampMillis)
         }
+    }
 
     /**
      * Verknüpft GroupId und ArtifactId zum versionsunabhängigen Cache-Schlüssel.

@@ -344,6 +344,21 @@ class MavenUpVersionsConfigurableTest : BasePlatformTestCase() {
         assertNotNull(dialog.createCenterPanel())
     }
 
+    fun testVersionCacheTtlSetToZeroClearsCacheOnApply() {
+        val settings = MavenUpSettings.getInstance()
+        settings.state.versionCacheTtlMinutes = 60
+        val cache = VersionMetadataCache.getInstance()
+        cache.getOrFetch("com.example", "lib-a", ttlMinutes = 60) { listOf("1.0.0") }
+        assertEquals(1, cache.size())
+
+        val configurable = createConfigurable()
+        configurable.versionCacheTtlMinutesSpinner!!.value = 0
+        configurable.apply()
+
+        assertEquals(0, settings.state.versionCacheTtlMinutes)
+        assertEquals(0, cache.size())
+    }
+
     fun testDisposeUiResourcesReleasesComponents() {
         val configurable = createConfigurable()
 

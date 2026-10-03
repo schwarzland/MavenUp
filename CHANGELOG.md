@@ -6,8 +6,10 @@
 
 ### Added
 
+- Added request coalescing (thundering-herd prevention) for version metadata queries and coordinate-level vulnerability scans so concurrent requests for the same missing or expired artifact or coordinate execute at most one external request while sharing the result across all callers.
 - Added version and vulnerability result caching keyed by artifact (and, for vulnerability results, by exact version) so repeated version searches and vulnerability scans skip API calls for coordinates already queried within a configurable time-to-live, dramatically reducing redundant network traffic after repeated checks; new **Version cache duration** and **Vulnerability cache duration** settings control the TTLs (0 disables caching), and changes to private GroupId prefixes or Central-first lookup clear only the version cache, while toggling Sonatype OSS Index clears only the vulnerability cache.
-- Added disk-backed persistence for version metadata and vulnerability scan result caches in the IDE cache directory, preserving valid cached data across IDE restarts.
+- Added disk-backed persistence for version metadata and vulnerability scan result caches in the IDE cache directory, preserving valid cached data across IDE restarts, with automatic startup-pruning of expired entries on initialization and proactive eviction prior to disk serialization.
+- Setting cache duration to 0 immediately evicts all in-memory entries and clears persistent disk cache files.
 - Added DEBUG-level logging for cache decisions and individual Maven metadata, OSV.dev, and Sonatype OSS Index requests to distinguish reused results from live queries.
 - Added a **Show Cache Contents...** button on the **Versions and Updates** and **Vulnerability Check** settings pages with sortable tables showing coordinates, cached counts, query timestamps, and remaining TTL in seconds for each respective cache.
 - Added **Invalidate** with a confirmation prompt to clear the entire application-wide cache of the active cache dialog and immediately refresh its contents and count.

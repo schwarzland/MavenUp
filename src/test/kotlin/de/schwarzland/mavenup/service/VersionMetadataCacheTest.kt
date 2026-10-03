@@ -3,10 +3,15 @@ package de.schwarzland.mavenup.service
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assert.assertThrows
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.nio.file.Files
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
 class VersionMetadataCacheTest {
 
@@ -163,26 +168,28 @@ class VersionMetadataCacheTest {
     @Test
     fun testSnapshotReflectsStoredArtifactsCountsAndTimestamps() {
         val cache = VersionMetadataCache(storagePath = null)
-        cache.getOrFetch("com.example", "artifact-a", ttlMinutes = 60, nowMillis = 111L) { listOf("1.0.0", "1.1.0") }
-        cache.getOrFetch("com.example", "artifact-b", ttlMinutes = 60, nowMillis = 222L) { listOf("2.0.0") }
+        val now = System.currentTimeMillis()
+        cache.getOrFetch("com.example", "artifact-a", ttlMinutes = 60, nowMillis = now) { listOf("1.0.0", "1.1.0") }
+        cache.getOrFetch("com.example", "artifact-b", ttlMinutes = 60, nowMillis = now + 100L) { listOf("2.0.0") }
 
-        val snapshot = cache.snapshot().associateBy { it.artifactId }
+        val snapshot = cache.snapshot(ttlMinutes = 60, nowMillis = now + 100L).associateBy { it.artifactId }
 
         assertEquals("com.example", snapshot.getValue("artifact-a").groupId)
         assertEquals(2, snapshot.getValue("artifact-a").versionCount)
-        assertEquals(111L, snapshot.getValue("artifact-a").timestampMillis)
+        assertEquals(now, snapshot.getValue("artifact-a").timestampMillis)
         assertEquals("com.example", snapshot.getValue("artifact-b").groupId)
         assertEquals(1, snapshot.getValue("artifact-b").versionCount)
-        assertEquals(222L, snapshot.getValue("artifact-b").timestampMillis)
+        assertEquals(now + 100L, snapshot.getValue("artifact-b").timestampMillis)
     }
 
     @Test
     fun testSnapshotIsUnaffectedByLaterCacheChanges() {
         val cache = VersionMetadataCache(storagePath = null)
-        cache.getOrFetch("com.example", "artifact-a", ttlMinutes = 60) { listOf("1.0.0") }
+        val now = System.currentTimeMillis()
+        cache.getOrFetch("com.example", "artifact-a", ttlMinutes = 60, nowMillis = now) { listOf("1.0.0") }
 
-        val snapshot = cache.snapshot()
-        cache.getOrFetch("com.example", "artifact-b", ttlMinutes = 60) { listOf("2.0.0") }
+        val snapshot = cache.snapshot(ttlMinutes = 60, nowMillis = now)
+        cache.getOrFetch("com.example", "artifact-b", ttlMinutes = 60, nowMillis = now) { listOf("2.0.0") }
 
         assertEquals(1, snapshot.size)
     }
@@ -191,8 +198,9 @@ class VersionMetadataCacheTest {
     fun testPersistsToDiskAndLoadsAcrossInstances() {
         val storagePath = temporaryFolder.newFile("version-cache.json").toPath()
         val cache1 = VersionMetadataCache(storagePath = storagePath)
+        val now = System.currentTimeMillis()
 
-        cache1.getOrFetch("com.example", "artifact-a", ttlMinutes = 60, nowMillis = 1000L) {
+        cache1.getOrFetch("com.example", "artifact-a", ttlMinutes = 60, nowMillis = now) {
             listOf("1.0.0", "1.1.0")
         }
 
@@ -203,7 +211,7 @@ class VersionMetadataCacheTest {
         assertEquals(1, cache2.size())
 
         var fetchCalled = false
-        val versions = cache2.getOrFetch("com.example", "artifact-a", ttlMinutes = 60, nowMillis = 2000L) {
+        val versions = cache2.getOrFetch("com.example", "artifact-a", ttlMinutes = 60, nowMillis = now + 2000L) {
             fetchCalled = true
             listOf("2.0.0")
         }
@@ -211,27 +219,28 @@ class VersionMetadataCacheTest {
         assertFalse(fetchCalled)
         assertEquals(listOf("1.0.0", "1.1.0"), versions)
 
-        val snapshot = cache2.snapshot().first()
+        val snapshot = cache2.snapshot(ttlMinutes = 60, nowMillis = now + 2000L).first()
         assertEquals("com.example", snapshot.groupId)
         assertEquals("artifact-a", snapshot.artifactId)
         assertEquals(2, snapshot.versionCount)
-        assertEquals(1000L, snapshot.timestampMillis)
+        assertEquals(now, snapshot.timestampMillis)
     }
 
     @Test
     fun testDiskPersistenceInvalidateAndClear() {
         val storagePath = temporaryFolder.newFile("version-cache-inv.json").toPath()
         val cache1 = VersionMetadataCache(storagePath = storagePath)
+        val now = System.currentTimeMillis()
 
-        cache1.getOrFetch("com.example", "artifact-a", ttlMinutes = 60, nowMillis = 1000L) { listOf("1.0.0") }
-        cache1.getOrFetch("com.example", "artifact-b", ttlMinutes = 60, nowMillis = 1000L) { listOf("2.0.0") }
+        cache1.getOrFetch("com.example", "artifact-a", ttlMinutes = 60, nowMillis = now) { listOf("1.0.0") }
+        cache1.getOrFetch("com.example", "artifact-b", ttlMinutes = 60, nowMillis = now) { listOf("2.0.0") }
         assertEquals(2, cache1.size())
 
         cache1.invalidate("com.example", "artifact-a")
 
         val cache2 = VersionMetadataCache(storagePath = storagePath)
         assertEquals(1, cache2.size())
-        assertEquals("artifact-b", cache2.snapshot().first().artifactId)
+        assertEquals("artifact-b", cache2.snapshot(ttlMinutes = 60, nowMillis = now).first().artifactId)
 
         cache2.clear()
 
@@ -247,8 +256,9 @@ class VersionMetadataCacheTest {
         val cache = VersionMetadataCache(storagePath = storagePath)
         assertEquals(0, cache.size())
 
+        val now = System.currentTimeMillis()
         // Cache muss weiterhin voll funktionsfähig sein
-        val versions = cache.getOrFetch("com.example", "artifact-a", ttlMinutes = 60) {
+        val versions = cache.getOrFetch("com.example", "artifact-a", ttlMinutes = 60, nowMillis = now) {
             listOf("1.0.0")
         }
         assertEquals(listOf("1.0.0"), versions)
@@ -263,18 +273,186 @@ class VersionMetadataCacheTest {
     fun testExpiredEntryLoadedFromDiskIsRefetched() {
         val storagePath = temporaryFolder.newFile("version-cache-exp.json").toPath()
         val cache1 = VersionMetadataCache(storagePath = storagePath)
+        val now = System.currentTimeMillis()
 
-        cache1.getOrFetch("com.example", "artifact-a", ttlMinutes = 1, nowMillis = 1000L) { listOf("1.0.0") }
+        cache1.getOrFetch("com.example", "artifact-a", ttlMinutes = 1, nowMillis = now) { listOf("1.0.0") }
 
         // Nach Ablauf der TTL (z. B. nach 2 Minuten)
         val cache2 = VersionMetadataCache(storagePath = storagePath)
         var fetchCount = 0
-        val versions = cache2.getOrFetch("com.example", "artifact-a", ttlMinutes = 1, nowMillis = 130_000L) {
+        val versions = cache2.getOrFetch("com.example", "artifact-a", ttlMinutes = 1, nowMillis = now + 130_000L) {
             fetchCount++
             listOf("2.0.0")
         }
 
         assertEquals(1, fetchCount)
         assertEquals(listOf("2.0.0"), versions)
+    }
+
+    @Test
+    fun testLoadFromDiskPrunesExpiredEntriesAndRewritesDisk() {
+        val storagePath = temporaryFolder.newFile("version-cache-prune.json").toPath()
+        val cache1 = VersionMetadataCache(storagePath = storagePath, initialNowMillis = 10_000L)
+        cache1.getOrFetch("com.example", "valid-artifact", ttlMinutes = 60, nowMillis = 10_000L) { listOf("1.0.0") }
+        cache1.getOrFetch("com.example", "expired-artifact", ttlMinutes = 60, nowMillis = 1_000L) { listOf("1.0.0") }
+        assertEquals(2, cache1.size())
+
+        // Beim Instanziieren mit nowMillis = 70_000L (69s nach expired, 60s nach valid) und TTL = 1 Minute (60_000ms):
+        // expired-artifact (Alter: 69_000ms > 60_000ms) wird verworfen, valid-artifact (Alter: 60_000ms <= 60_000ms) bleibt.
+        val cache2 = VersionMetadataCache(storagePath = storagePath, initialTtlMinutes = 1, initialNowMillis = 70_000L)
+
+        assertEquals(1, cache2.size())
+        assertEquals("valid-artifact", cache2.snapshot(ttlMinutes = 1, nowMillis = 70_000L).first().artifactId)
+    }
+
+    @Test
+    fun testLoadFromDiskWithTtlZeroClearsCacheAndDiskFile() {
+        val storagePath = temporaryFolder.newFile("version-cache-zero.json").toPath()
+        val cache1 = VersionMetadataCache(storagePath = storagePath, initialNowMillis = 10_000L)
+        cache1.getOrFetch("com.example", "artifact-a", ttlMinutes = 60, nowMillis = 10_000L) { listOf("1.0.0") }
+        assertEquals(1, cache1.size())
+
+        val cache2 = VersionMetadataCache(storagePath = storagePath, initialTtlMinutes = 0, initialNowMillis = 10_000L)
+        assertEquals(0, cache2.size())
+
+        val reloaded = VersionMetadataCache(storagePath = storagePath, initialTtlMinutes = 60, initialNowMillis = 10_000L)
+        assertEquals(0, reloaded.size())
+    }
+
+    @Test
+    fun testSaveToDiskFiltersExpiredEntriesFromMemoryAndFile() {
+        val storagePath = temporaryFolder.newFile("version-cache-save-filter.json").toPath()
+        val cache = VersionMetadataCache(storagePath = storagePath, initialNowMillis = 50_000L)
+        cache.getOrFetch("com.example", "valid", ttlMinutes = 60, nowMillis = 50_000L) { listOf("1.0.0") }
+        cache.getOrFetch("com.example", "expired", ttlMinutes = 60, nowMillis = 10_000L) { listOf("1.0.0") }
+        assertEquals(2, cache.size())
+
+        // Speichern mit TTL = 1 min und nowMillis = 80_000L: 'expired' (Alter 70s > 60s) wird aus Memory und Datei entfernt
+        cache.saveToDisk(nowMillis = 80_000L, ttlMinutes = 1)
+        assertEquals(1, cache.size())
+
+        val reloaded = VersionMetadataCache(storagePath = storagePath, initialTtlMinutes = 1, initialNowMillis = 80_000L)
+        assertEquals(1, reloaded.size())
+        assertEquals("valid", reloaded.snapshot(ttlMinutes = 1, nowMillis = 80_000L).first().artifactId)
+    }
+
+    @Test
+    fun testPruneExpiredRemovesStaleEntries() {
+        val cache = VersionMetadataCache(storagePath = null)
+        cache.getOrFetch("com.example", "valid", ttlMinutes = 60, nowMillis = 50_000L) { listOf("1.0.0") }
+        cache.getOrFetch("com.example", "expired", ttlMinutes = 60, nowMillis = 10_000L) { listOf("1.0.0") }
+        assertEquals(2, cache.size())
+
+        val removed = cache.pruneExpired(ttlMinutes = 1, nowMillis = 80_000L)
+        assertEquals(1, removed)
+        assertEquals(1, cache.size())
+        assertEquals("valid", cache.snapshot(ttlMinutes = 1, nowMillis = 80_000L).first().artifactId)
+    }
+
+    @Test
+    fun testConcurrentGetOrFetchCoalescesToSingleFetch() {
+        val cache = VersionMetadataCache(storagePath = null)
+        val threadCount = 8
+        val executor = Executors.newFixedThreadPool(threadCount)
+        val readyLatch = CountDownLatch(threadCount)
+        val startLatch = CountDownLatch(1)
+        val fetchCount = AtomicInteger(0)
+
+        try {
+            val futures = (1..threadCount).map {
+                executor.submit<List<String>> {
+                    readyLatch.countDown()
+                    startLatch.await(5, TimeUnit.SECONDS)
+                    cache.getOrFetch("com.example", "artifact", ttlMinutes = 60) {
+                        fetchCount.incrementAndGet()
+                        Thread.sleep(50)
+                        listOf("1.0.0", "1.1.0")
+                    }
+                }
+            }
+
+            assertTrue(readyLatch.await(5, TimeUnit.SECONDS))
+            startLatch.countDown()
+
+            val results = futures.map { it.get(5, TimeUnit.SECONDS) }
+            assertEquals(1, fetchCount.get())
+            results.forEach { result ->
+                assertEquals(listOf("1.0.0", "1.1.0"), result)
+            }
+        } finally {
+            executor.shutdownNow()
+        }
+    }
+
+    @Test
+    fun testConcurrentGetOrFetchHandlesExceptionGracefullyAndAllowsRetry() {
+        val cache = VersionMetadataCache(storagePath = null)
+        val threadCount = 4
+        val executor = Executors.newFixedThreadPool(threadCount)
+        val readyLatch = CountDownLatch(threadCount)
+        val startLatch = CountDownLatch(1)
+        val fetchCount = AtomicInteger(0)
+
+        try {
+            val futures = (1..threadCount).map {
+                executor.submit<List<String>> {
+                    readyLatch.countDown()
+                    startLatch.await(5, TimeUnit.SECONDS)
+                    cache.getOrFetch("com.example", "artifact", ttlMinutes = 60) {
+                        fetchCount.incrementAndGet()
+                        Thread.sleep(30)
+                        throw IllegalStateException("Simulated network failure")
+                    }
+                }
+            }
+
+            assertTrue(readyLatch.await(5, TimeUnit.SECONDS))
+            startLatch.countDown()
+
+            futures.forEach { future ->
+                assertThrows(java.util.concurrent.ExecutionException::class.java) {
+                    future.get(5, TimeUnit.SECONDS)
+                }
+            }
+            assertEquals(1, fetchCount.get())
+
+            // Neuer Versuch nach fehlgeschlagenem Request darf nicht blockiert sein
+            val retryVersions = cache.getOrFetch("com.example", "artifact", ttlMinutes = 60) {
+                fetchCount.incrementAndGet()
+                listOf("2.0.0")
+            }
+            assertEquals(listOf("2.0.0"), retryVersions)
+            assertEquals(2, fetchCount.get())
+        } finally {
+            executor.shutdownNow()
+        }
+    }
+
+    @Test
+    fun testConcurrentGetOrFetchForDifferentKeysRunsInParallel() {
+        val cache = VersionMetadataCache(storagePath = null)
+        val executor = Executors.newFixedThreadPool(2)
+        val fetchCount = AtomicInteger(0)
+
+        try {
+            val future1 = executor.submit<List<String>> {
+                cache.getOrFetch("com.example", "artifact-1", ttlMinutes = 60) {
+                    fetchCount.incrementAndGet()
+                    listOf("1.0.0")
+                }
+            }
+            val future2 = executor.submit<List<String>> {
+                cache.getOrFetch("com.example", "artifact-2", ttlMinutes = 60) {
+                    fetchCount.incrementAndGet()
+                    listOf("2.0.0")
+                }
+            }
+
+            assertEquals(listOf("1.0.0"), future1.get(5, TimeUnit.SECONDS))
+            assertEquals(listOf("2.0.0"), future2.get(5, TimeUnit.SECONDS))
+            assertEquals(2, fetchCount.get())
+        } finally {
+            executor.shutdownNow()
+        }
     }
 }
