@@ -326,4 +326,34 @@ class CacheContentsDialogTest : BasePlatformTestCase() {
         assertTrue(MyMessageBundle.message("cache.contents.vulnerability.invalidate.confirm.title").isNotBlank())
         assertTrue(MyMessageBundle.message("cache.contents.vulnerability.invalidate.confirm.message").isNotBlank())
     }
+
+    /** Prüft, dass abgelaufene Einträge beim Erstellen der Schnappschüsse nicht im Dialog erscheinen. */
+    fun testDialogSnapshotsPruneExpiredEntries() {
+        val versions = VersionMetadataCache()
+        versions.getOrFetch("com.example", "valid-lib", ttlMinutes = 60, nowMillis = 50_000L) { listOf("1.0.0") }
+        versions.getOrFetch("com.example", "expired-lib", ttlMinutes = 60, nowMillis = 1_000L) { listOf("1.0.0") }
+
+        val versionSnapshots = versions.snapshot(ttlMinutes = 1, nowMillis = 70_000L)
+        assertEquals(1, versionSnapshots.size)
+        assertEquals("valid-lib", versionSnapshots.first().artifactId)
+
+        val vulnerabilities = VulnerabilityResultCache()
+        vulnerabilities.put("g:valid:1.0.0", emptyList(), nowMillis = 50_000L)
+        vulnerabilities.put("g:expired:1.0.0", emptyList(), nowMillis = 1_000L)
+
+        val vulnSnapshots = vulnerabilities.snapshot(ttlMinutes = 1, nowMillis = 70_000L)
+        assertEquals(1, vulnSnapshots.size)
+        assertEquals("g:valid:1.0.0", vulnSnapshots.first().coordinate)
+    }
+
+    /** Prüft, dass bei TTL <= 0 die Schnappschüsse leer sind. */
+    fun testDialogSnapshotsReturnEmptyListWhenTtlIsZeroOrNegative() {
+        val versions = VersionMetadataCache()
+        versions.getOrFetch("com.example", "lib", ttlMinutes = 60, nowMillis = 10_000L) { listOf("1.0.0") }
+        assertTrue(versions.snapshot(ttlMinutes = 0, nowMillis = 10_000L).isEmpty())
+
+        val vulnerabilities = VulnerabilityResultCache()
+        vulnerabilities.put("g:a:1.0.0", emptyList(), nowMillis = 10_000L)
+        assertTrue(vulnerabilities.snapshot(ttlMinutes = 0, nowMillis = 10_000L).isEmpty())
+    }
 }

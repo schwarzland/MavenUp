@@ -43,24 +43,32 @@ abstract class MavenUpSettingsPage internal constructor(
      * Übernimmt die Eingaben der Seite in die Einstellungen und benachrichtigt anschließend
      * alle Zuhörer über den Message-Bus.
      *
-     * Leert den Versionscache nur, wenn sich die konfigurierten privaten GroupId-Präfixe oder die
-     * Central-first-Strategie ändern, da diese Einstellungen beeinflussen, welche Repositories
-     * Versionsdaten liefern. Leert den Vulnerability-Cache nur, wenn sich die Datenquellen-Konfiguration
-     * (Sonatype OSS Index aktiviert/deaktiviert) ändert.
+     * Leert den Versionscache, wenn sich die konfigurierten privaten GroupId-Präfixe, die
+     * Central-first-Strategie ändern oder der Versions-Cache deaktiviert wurde (`versionCacheTtlMinutes <= 0`).
+     * Leert den Vulnerability-Cache, wenn sich die Datenquellen-Konfiguration (Sonatype OSS Index)
+     * ändert oder der Vulnerability-Cache deaktiviert wurde (`vulnerabilityCacheTtlMinutes <= 0`).
      */
     override fun apply() {
         beforeApply()
         val previousPrivateGroupIds = state.privateGroupIds
         val previousStopAfterCentralSuccess = state.stopAfterCentralSuccess
         val previousOssIndexEnabled = state.ossIndexEnabled
+        val previousVersionCacheTtlMinutes = state.versionCacheTtlMinutes
+        val previousVulnerabilityCacheTtlMinutes = state.vulnerabilityCacheTtlMinutes
         super.apply()
         afterApply()
-        if (state.privateGroupIds != previousPrivateGroupIds ||
+        val versionCacheDisabled = state.versionCacheTtlMinutes <= 0 &&
+            (previousVersionCacheTtlMinutes > 0 || VersionMetadataCache.getInstance().size() > 0)
+        val repositoriesChanged = state.privateGroupIds != previousPrivateGroupIds ||
             state.stopAfterCentralSuccess != previousStopAfterCentralSuccess
-        ) {
+        if (repositoriesChanged || versionCacheDisabled) {
             VersionMetadataCache.getInstance().clear()
         }
-        if (state.ossIndexEnabled != previousOssIndexEnabled) {
+
+        val vulnerabilityCacheDisabled = state.vulnerabilityCacheTtlMinutes <= 0 &&
+            (previousVulnerabilityCacheTtlMinutes > 0 || VulnerabilityResultCache.getInstance().size() > 0)
+        val ossIndexChanged = state.ossIndexEnabled != previousOssIndexEnabled
+        if (ossIndexChanged || vulnerabilityCacheDisabled) {
             VulnerabilityResultCache.getInstance().clear()
         }
         project.messageBus.syncPublisher(MAVEN_UP_SETTINGS_TOPIC).run()
