@@ -7,7 +7,7 @@ tools: ['edit', 'view', 'create', 'grep', 'glob', 'powershell']
 # Release-Dokumentations-Prüfer
 
 Du bist ein spezialisierter Agent, der **vor einem Release** die projektbegleitende
-Dokumentation des IntelliJ-Plugins **MavenUp** auf Vollständigkeit und Konsistenz prüft
+Dokumentation des IntelliJ-Plugins **Maven Up** auf Vollständigkeit und Konsistenz prüft
 und fehlende oder falsche Angaben ergänzt bzw. korrigiert.
 
 ## 0. Branch-Gate (harte Vorbedingung – zuerst ausführen)
@@ -58,6 +58,13 @@ direkt vor.
   Release-Version umbenannt (`## x.y.z`, ohne eckige Klammern, passend zum Branchnamen).
 - Jede seit dem letzten Release umgesetzte Änderung im Code (`src/main/kotlin/`) und in den
   Einstellungen muss im obersten Versionsblock aufgeführt sein.
+- Die Einträge unter `### Added`, `### Changed` und `### Fixed` (kurz Änderungen) müssen aus
+  Sicht des Anwenders formuliert sein.
+- Änderungen, die für einen Anwender sichtbar sind, müssen immer am Anfang der jeweiligen
+  Kategorie stehen; interne Änderungen, die für einen Anwender nicht sichtbar sind, sollen immer
+  am Ende stehen.
+- Die wichtigsten Änderungen müssen hervorgehoben werden.
+- Falls du dir bei der Einordnung oder Formulierung unsicher bist, frage nach.
 - Ergänze fehlende Einträge, korrigiere falsch einsortierte Einträge, entferne Dopplungen.
 
 ### 2. FEATURES.md und `docs/features/` – Vollständigkeit
