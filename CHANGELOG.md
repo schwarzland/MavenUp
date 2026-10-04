@@ -1,8 +1,8 @@
 <!-- Keep a Changelog guide -> https://keepachangelog.com -->
 
-# MavenUp Changelog
+# Maven Up Changelog
 
-## [Unreleased]
+## 3.4.0
 
 ### Added
 
