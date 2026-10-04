@@ -31,8 +31,8 @@ dependencies {
     // werden zusaetzlich explizit deklariert, damit Dependency-Scanner und Dependabot die
     // gepinnte Version sehen - `resolutionStrategy.force` allein wird von diesen Werkzeugen
     // nicht ausgewertet.
-    testImplementation("com.fasterxml.jackson.core:jackson-core:2.22.3")
-    testImplementation("com.fasterxml.jackson.core:jackson-databind:2.22.3")
+    testImplementation("com.fasterxml.jackson.core:jackson-core")
+    testImplementation("com.fasterxml.jackson.core:jackson-databind")
 
     // IntelliJ Platform Gradle Plugin Dependencies Extension - read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-dependencies-extension.html
     intellijPlatform {
@@ -66,8 +66,17 @@ listOf("testCompileClasspath", "testRuntimeClasspath").forEach { configurationNa
 intellijPlatform {
     pluginConfiguration {
         ideaVersion {
-            untilBuild = "262.*"
+            // Falls keine feste Obergrenze gesetzt werden soll (sodass das Plugin auch für zukünftige Versionen
+            // wie 264.*, 271.* etc. ohne erneutes Release installierbar bleibt), kann untilBuild deaktiviert werden:
+            // untilBuild = provider { null }
+            untilBuild = "263.*"
         }
+    }
+
+    pluginVerification {
+        externalPrefixes.add("com.intellij.psi.xml")
+        externalPrefixes.add("com.intellij.psi.XmlElementFactory")
+        externalPrefixes.add("com.intellij.psi")
     }
 
     // Veröffentlichungen sind nur dann im Marketplace verborgen, wenn dies
