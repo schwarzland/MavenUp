@@ -21,5 +21,9 @@ Um das Plugin nun offiziell zu veröffentlichen, sind folgende Schritte erforder
 
 ### 💡 Empfehlungen
 - **Dokumentation**: Die `README.md` ist bereits auf einem aktuellen Stand und dient als gute Basis für die Marketplace-Seite.
-- **Screenshots**: Für die Marketplace-Seite sollten Sie 2–3 Screenshots der Tool-Window-Tabelle und des Update-Dialogs erstellen, um die Benutzung zu veranschaulichen.
+- **Screenshots & visuelle Dokumentation**: Erstellen und pflegen Sie aussagekräftige Screenshots mit Callouts/Sprechblasen im JetBrains-Design direkt im Repository:
+  - **Tooling & Format**: Verwenden Sie das IntelliJ-Plugin *Diagrams.net Integration* (Draw.io) und speichern Sie bearbeitbare Diagramme als `.drawio.svg` (Vektor-SVG mit eingebettetem XML-Modell als Single Source of Truth).
+  - **Ordnerstruktur**: Legen Sie Roh-Screenshots unter `docs/assets/marketplace/raw/`, editierbare Quelldateien unter `docs/assets/marketplace/src/` und exportierte PNG-Bilder unter `docs/assets/marketplace/dist/` ab.
+  - **Design & Layout**: Screenshots in 2x-Auflösung (HiDPI/Retina, mind. 1280×800 px) anfertigen, 2–4 fokussierte Callouts (nummerierte Badges oder Sprechblasen) setzen und JetBrains-Farben nutzen (Akzent: `#3574F0`, Warnung/CVE: `#F28B25`/`#E55765`, Text: `#FFFFFF`).
+  - **Detaillierte Schritt-für-Schritt-Anleitung**: Siehe [Marketplace Screenshots & Visual Assets Guide](docs/assets/marketplace/README.md) sowie die Übersicht in [docs/release-and-ci.md](docs/release-and-ci.md#marketplace-screenshots-and-visual-documentation).
 - **Zukünftige Updates**: Bei weiteren Änderungen sollten Sie die Version in `gradle.properties` erhöhen und den neuen Eintrag im `CHANGELOG.md` unter `## [Unreleased]` pflegen, bevor Sie das `patchChangelog`-Task nutzen.

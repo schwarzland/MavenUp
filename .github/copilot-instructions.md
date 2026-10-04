@@ -28,6 +28,9 @@ Bei **jeder** Änderung im Repository sind diese Punkte immer zu berücksichtige
    - Sprache: Englisch.
    - Struktur: pro Version **genau einen** `### Added`-, `### Changed`- und `### Fixed`-Block – niemals doppelte Kategorien innerhalb derselben Version.
    - Jeder Eintrag ist ein prägnanter Satz (ein Gedanke pro Zeile); keine Redundanzen, keine Dopplungen.
+   - **Anwendersicht & Reihenfolge**: Die Einträge unter `### Added`, `### Changed` und `### Fixed` (kurz Änderungen) müssen aus Sicht des Anwenders formuliert sein. Änderungen, die für einen Anwender sichtbar sind, müssen immer am Anfang der jeweiligen Kategorie stehen; interne Änderungen, die für einen Anwender nicht sichtbar sind, sollen immer am Ende stehen.
+   - **Hervorhebung**: Die wichtigsten Änderungen müssen hervorgehoben werden.
+   - **Rückfragen bei Unsicherheit**: Falls du dir unsicher bist, frage nach.
    - Nach dem Hinzufügen den gesamten Bereich überfliegen und sicherstellen, dass keine Kategorie doppelt vorkommt und alle Einträge thematisch korrekt zugeordnet sind.
 3. **FEATURES.md** und die Dateien unter **`docs/features/`** ergänzen/aktualisieren, wenn neue Funktionen hinzugefügt oder bestehende Funktionen geändert werden. Sprache: Englisch. Dabei gelten folgende Regeln:
    - `FEATURES.md` ist ausschließlich der Index: Kurzbeschreibung, Liste der Feature-Bereiche mit Link auf die jeweilige Datei unter `docs/features/` und die Pflegehinweise – keine Feature-Beschreibungen.

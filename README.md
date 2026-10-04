@@ -9,13 +9,17 @@
 
 MavenUp is an IntelliJ plugin built specifically for Maven projects to simplify the management of dependencies and plugins. It provides a clear table view of all declared components and enables easy updates to newer versions, online version checks against Maven Central and private repositories, and multi-source vulnerability scanning.
 
-**Dependency Tab**
+**Dependencies**
 
-![Dependency Tab](/docs/assets/main.png "Dependency Tab")
+![Dependency](docs/assets/marketplace/dist/main_withVulnerabilities.png "Dependencies")
 
-**Transitive CVEs Tab**
+**Transitive CVEs**
 
-![Transitive CVEs Tab](/docs/assets/transitive_cves_kontext.png "Transitive CVEs Tab")
+![Transitive CVEs](docs/assets/marketplace/dist/transitiveVulnerabilities.png "Transitive CVEs")
+
+**Confirm Changes**
+![Confirm Changes](docs/assets/marketplace/dist/confirmChanges_and_pom.xml.png)
+
 
 ## Installation
 
@@ -37,7 +41,7 @@ See the [usage guide](docs/usage.md) for workflows and cache management, and [de
 - [Privacy & Security](docs/privacy-and-security.md) — transmitted data and external endpoints.
 - [Architecture](docs/architecture.md) — package structure and components.
 - [Development](docs/development.md) — tests, code quality, and troubleshooting.
-- [Release & CI](docs/release-and-ci.md) — branching, workflows, and publishing.
+- [Release & CI](docs/release-and-ci.md) — branching, workflows, publishing, and marketplace screenshots.
 - [Third-party licenses](docs/licenses.md) — bundled libraries and their licenses.
 
 ## AI instructions

@@ -15,7 +15,7 @@ Für dieses Projekt gelten zusätzliche Anweisungen, die ursprünglich für GitH
 Maßgeblich ist immer der Volltext in `.github/copilot-instructions.md`; diese Liste ist nur eine Kurzfassung.
 
 1. **README.md** schlank halten (Landing Page auf Englisch) und die Dokumentationsliste sowie den Abschnitt *AI instructions* aktuell halten.
-2. **CHANGELOG.md** auf Englisch pflegen: auf einem Feature-Branch im Block `## [Unreleased]`, pro Version genau ein `### Added`-, `### Changed`- und `### Fixed`-Block.
+2. **CHANGELOG.md** auf Englisch pflegen: auf einem Feature-Branch im Block `## [Unreleased]`, pro Version genau ein `### Added`-, `### Changed`- und `### Fixed`-Block; Änderungen aus Anwendersicht formulieren (sichtbare oben, interne am Ende, wichtigste hervorheben; bei Unsicherheit nachfragen).
 3. **FEATURES.md** ist nur der Index; die Feature-Beschreibungen stehen in der thematisch passenden Datei unter `docs/features/`.
 4. **Dokumentation unter `docs/`**: jede Änderung gehört in genau eine Datei (`usage.md`, `configuration.md`, `privacy-and-security.md`, `architecture.md`, `development.md`, `release-and-ci.md`, `licenses.md`) – keine Dopplungen.
 5. **plugin.xml** Description aktuell halten (Core Features vor Advanced Capabilities).

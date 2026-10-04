@@ -64,6 +64,21 @@ listOf("testCompileClasspath", "testRuntimeClasspath").forEach { configurationNa
 }
 
 intellijPlatform {
+    pluginConfiguration {
+        ideaVersion {
+            // Falls keine feste Obergrenze gesetzt werden soll (sodass das Plugin auch für zukünftige Versionen
+            // wie 264.*, 271.* etc. ohne erneutes Release installierbar bleibt), kann untilBuild deaktiviert werden:
+            // untilBuild = provider { null }
+            untilBuild = "263.*"
+        }
+    }
+
+    pluginVerification {
+        externalPrefixes.add("com.intellij.psi.xml")
+        externalPrefixes.add("com.intellij.psi.XmlElementFactory")
+        externalPrefixes.add("com.intellij.psi")
+    }
+
     // Veröffentlichungen sind nur dann im Marketplace verborgen, wenn dies
     // explizit über die Gradle-Property aktiviert wird.
     publishing {
