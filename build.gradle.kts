@@ -31,8 +31,8 @@ dependencies {
     // werden zusaetzlich explizit deklariert, damit Dependency-Scanner und Dependabot die
     // gepinnte Version sehen - `resolutionStrategy.force` allein wird von diesen Werkzeugen
     // nicht ausgewertet.
-    testImplementation("com.fasterxml.jackson.core:jackson-core")
-    testImplementation("com.fasterxml.jackson.core:jackson-databind")
+    testImplementation("com.fasterxml.jackson.core:jackson-core:2.22.3")
+    testImplementation("com.fasterxml.jackson.core:jackson-databind:2.22.3")
 
     // IntelliJ Platform Gradle Plugin Dependencies Extension - read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin-dependencies-extension.html
     intellijPlatform {
