@@ -67,3 +67,53 @@ git push -u origin release/2.3.0
 ```
 
 A tag alone does not start a local IntelliJ run task: the workflows run on GitHub Actions as soon as the branch, pull request, or tag has been pushed to the remote repository.
+
+## Marketplace screenshots and visual documentation
+
+To provide clear, high-quality, and easily maintainable screenshots for the JetBrains Marketplace and project documentation, visual assets follow a structured vector overlay workflow using Draw.io / Diagrams.net.
+
+For a detailed step-by-step tutorial on using the master template, adding callouts, and exporting production images, see the [Marketplace Assets Guide](assets/marketplace/README.md).
+
+### Tooling and file format
+
+- **IntelliJ Plugin**: Use the official **Diagrams.net Integration** plugin in IntelliJ IDEA to edit diagram files directly within the IDE without external tool switching.
+- **Single Source of Truth (`.drawio.svg`)**: Screenshot diagrams are stored as `.drawio.svg`. This format is a valid SVG vector image containing embedded XML diagram metadata. The raw screenshot serves as a background image, while callout bubbles, arrows, and highlight frames are placed on top as editable vector elements. If the UI changes, only the background image needs updating while callout positions and text are preserved.
+
+### Directory structure
+
+Marketplace graphics are structured under `docs/assets/marketplace/`:
+
+```text
+docs/assets/marketplace/
+├── raw/                  # Unprocessed raw UI screenshots (HiDPI / 2x resolution)
+│   ├── dependencies_raw.png
+│   └── vulnerabilities_raw.png
+├── src/                  # Editable source diagrams (.drawio.svg)
+│   ├── screenshot_01_main_view.drawio.svg
+│   └── screenshot_02_cve_details.drawio.svg
+└── dist/                 # Rendered distribution images for Marketplace & README (.png)
+    ├── 01_dependency_management.png
+    └── 02_vulnerability_scanner.png
+```
+
+### Visual guidelines and JetBrains look & feel
+
+1. **Resolution and scaling**:
+   - Capture screenshots on HiDPI / Retina displays (2x resolution), maintaining at least 1280×800 px or a standard 16:10 / 16:9 aspect ratio.
+2. **Visual hierarchy and density**:
+   - Keep 2–4 callouts per screenshot to avoid clutter.
+   - Use numbered badges (❶, ❷, ❸) with a concise legend or speech bubbles with targeted arrows.
+3. **Color palette (JetBrains theme compliant)**:
+   - **Accent / Primary highlight**: `#3574F0` (IntelliJ blue)
+   - **Warning / Vulnerability highlight**: `#F28B25` (Orange) / `#E55765` (Red)
+   - **Badge text**: `#FFFFFF` for high contrast against dark or colored badge backgrounds.
+4. **Framing and focus**:
+   - Crop tightly to the relevant UI components (e.g., MavenUp Tool Window, POM editor split, or dialogs) rather than showing full desktop screenshots.
+
+### Step-by-step workflow
+
+1. **Capture raw screenshot**: Take a high-resolution screenshot of the MavenUp UI state and save it in `docs/assets/marketplace/raw/`.
+2. **Create / Edit source diagram**: Open or create `.drawio.svg` under `docs/assets/marketplace/src/` using the Diagrams.net plugin.
+3. **Compose callouts**: Embed the raw image as the background, add speech bubbles or numbered badges matching the color guidelines, and describe the feature concisely.
+4. **Export distribution image**: Export the diagram as PNG into `docs/assets/marketplace/dist/`.
+5. **Publish / Reference**: Upload the generated `.png` files to the JetBrains Marketplace portal and reference them in `README.md` or documentation where needed.
