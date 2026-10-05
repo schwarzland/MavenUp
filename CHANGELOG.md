@@ -4,6 +4,11 @@
 
 ## [Unreleased]
 
+### Added
+
+- Added automatic detection and recommendation of redundant `<dependencyManagement>` declarations when parent POMs or direct dependencies are upgraded, including in-memory candidate POM resolution via `TemporaryDependencyTreeResolver` and multi-consumer compatibility validation.
+- Added a dedicated interactive `ManagedDependencyRemovalDialog` accessible via the toolbar (**Cleanup**) and table context menu (**Check Managed Dependency Cleanup Recommendations...**), displaying candidate target versions, explanations, and affected consumer paths with one-click application to the MavenUp update pipeline.
+
 ### Fixed
 
 - **Fixed higher SNAPSHOT versions appearing below the latest release in New Version dropdowns and version preselection, while preserving release priority over other versions.**

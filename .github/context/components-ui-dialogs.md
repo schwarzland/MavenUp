@@ -20,6 +20,13 @@ UI-Komponenten: [`components-ui.md`](components-ui.md) und
   `buildRowSorter()` macht die Spalten Group Id, Artifact Id und Type über `cellTextComparator`
   sortierbar (Zyklus aufsteigend → absteigend → unsortiert, `installSortableHeaderRenderer`);
   ab `CONFIRM_CURRENT_VERSION_COLUMN` (Index 3) sind die Versionsspalten nicht sortierbar.
+- **ManagedDependencyRemovalDialog**: interaktiver `DialogWrapper` zur Prüfung und Übernahme von
+  Bereinigungsempfehlungen für redundante `<dependencyManagement>`-Einträge. Zeigt eine Tabelle der
+  Empfehlungen mit Checkbox-Auswahl (`COLUMN_SELECT`), Managed-Koordinate, aktueller Version, Trigger-Komponente,
+  Zielversion und bereitgestellter Version, ein Detailpanel mit Erklärtext und Konsumenten-Abhängigkeitspfaden
+  sowie Schaltflächen zum Auswählen und Abwählen aller Einträge. Über `getSelectedRecommendations` werden die
+  ausgewählten Empfehlungen an den Callback übergeben und in `MyToolWindow` zur Versionsanpassung und
+  Entfernungsvormerkung angewendet.
 - **TransitiveVulnerabilitiesView**: eigenständige `JBPanel`-Ansicht (Top-Level in `ui`), die alle
   transitiven, verwundbaren Abhängigkeiten in einer sortierbaren Tabelle (GroupId, ArtifactId, Type,
   Vulnerabilities-Anzahl mit Severity-Färbung, Current Version, New Version) auflistet. Die **Type**-Spalte übernimmt für Koordinaten, die

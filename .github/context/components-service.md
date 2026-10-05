@@ -252,3 +252,14 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   `DEPENDENCY_MANAGEMENT`, `PLUGIN_MANAGEMENT`, `DIRECT_DEPENDENCY`, `DIRECT_PLUGIN` und `TRANSITIVE_DEPENDENCY`.
   `DependencyHierarchyNode` hält Typ, GroupId, ArtifactId, aufgelöste und rohe Version, Property-Namen, Scope,
   Management-Status (`isManaged`), VirtualFile der `pom.xml` und das deklarierende `XmlTag`.
+- **TemporaryDependencyTreeResolver**: löst temporäre Abhängigkeitsbäume und effektives `<dependencyManagement>`
+  für Kandidaten-POMs im Arbeitsspeicher auf. Lädt POMs aus dem lokalen Maven-Cache (`~/.m2/repository`) oder
+  über konfigurierte Remote-Repositories (inkl. Maven-Central- und Server-Credentials), interpoliert Properties
+  rekursiv, löst `<parent>`-Hierarchien und BOM-Imports auf und unterstützt Zyklenerkennung sowie Tiefenbegrenzungen.
+- **ManagedDependencyRecommendationService**: analysiert deklarierte verwaltete Abhängigkeiten (`<dependencyManagement>`)
+  und prüft, ob Versionsaktualisierungen von übergeordneten POMs (`<parent>`) oder direkten Abhängigkeiten
+  das Artefakt transitiv in einer kompatiblen Version (`>=` deklarierte Version) bereitstellen. Führt eine
+  Multi-Consumer-Validierung durch: wenn ein Artefakt über mehrere direkte Abhängigkeitspfade genutzt wird,
+  wird eine Bereinigungsempfehlung nur ausgegeben, wenn alle Konsumenten kompatibel versorgt sind.
+- **ManagedDependencyRemovalRecommendation / ConsumerDependencyInfo / TemporaryArtifactCoordinate / TemporaryDependencyNode**:
+  Datenmodelle für Bereinigungsempfehlungen und den temporären Abhängigkeitsgraphen (`model/ManagedDependencyRemovalRecommendation.kt`).
