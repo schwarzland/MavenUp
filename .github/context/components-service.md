@@ -101,8 +101,10 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   `offerAllVersions` (untere Grenze via `resolveVersionFloor`) und `hideUnstableVersions`
   (`filterVersionsBySettings`) auf eine bereits abgerufene Liste an; `fetchVersions` kombiniert beide,
   sodass Einstellungsänderungen ohne erneute Netzwerkabfrage wirksam werden.
-  Die neueste Version wird über `extractNewestFromMetadata` aus den `<release>`/`<latest>`-Feldern bestimmt
-  (Central bevorzugt) und via `orderWithNewestFirst` an den Listenanfang gestellt; Rückgabetypen sind
+  Die Referenzversion wird über `extractNewestFromMetadata` aus den `<release>`/`<latest>`-Feldern bestimmt
+  (Central bevorzugt) und via `orderWithNewestFirst` priorisiert; nach `ComparableVersion` höhere
+  `*-SNAPSHOT`-Versionen stehen absteigend davor, alle übrigen dahinter. `applyVersionSettings` korrigiert
+  diese Reihenfolge auch für ältere Cache-Einträge vor der Filterung; Rückgabetypen sind
   `RepositoryVersions` (pro Repository) und `CollectedVersions` (aggregiert).
   `collectVersionsFromRepositories` erfasst über die private Hilfsklasse `RepositoryVersionsAccumulator`
   den ersten echten Fehler (5xx, Netzwerk-/Exception-Fehler, z. B. eine falsch konfigurierte URI) eines
@@ -114,6 +116,10 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   `<Präfix>.`, bereinigt um die Zeichen `*` und `$`); `excludeCentralForPrivateGroupId` entfernt Maven Central aus der Repository-Liste, wenn die
   GroupId privat ist, sodass `fetchAllVersions` für private GroupIds keine Koordinaten an
   `repo1.maven.org` überträgt, andere konfigurierte private Repositories aber weiterhin abfragt.
+- **RefreshSnapshotCollector**: Erfasst die Maven-Einträge aus `pom.xml` und löst Property-Platzhalter
+  anhand der effektiven Maven-Properties auf. Deklarierte `*-SNAPSHOT`-Versionen bleiben statt der
+  zeitgestempelten Maven-Auflösung sichtbar; in anderen Fällen wird die Maven-Auflösung bevorzugt
+  (z. B. bei Versionsbereichen), während Einträge ohne eigene Version ihre geerbte Version behalten.
 - **OssIndexApiService / OssIndexCredentialService**: optionale Sonatype-Abfrage über Maven-purl
   und sichere Zugangsdatenablage; wirft `OssIndexAuthenticationException` bei ungültigem/abgelaufenem
   Token (HTTP 401/403) und `OssIndexRequestException` (mit HTTP-Status) bei sonstigen HTTP-Fehlern

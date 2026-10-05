@@ -258,6 +258,47 @@ class RefreshSnapshotCollectorTest : BasePlatformTestCase() {
         )
     }
 
+    /** Deklarierte Snapshot-Aliase haben Vorrang vor der zeitgestempelten Maven-Auflösung. */
+    fun testResolveCurrentVersionKeepsDeclaredSnapshotInsteadOfTimestampedResolution() {
+        val collector = RefreshSnapshotCollector(project)
+
+        val currentVersion = collector.resolveCurrentVersion(
+            "5.0.0-SNAPSHOT",
+            "5.0.0-20260907.152150-2",
+            emptyMap()
+        )
+
+        assertEquals("5.0.0-SNAPSHOT", currentVersion)
+    }
+
+    /** Property-basierte Snapshot-Aliase werden ebenfalls vor der Maven-Auflösung verwendet. */
+    fun testResolveCurrentVersionResolvesDeclaredPropertyBeforeUsingResolvedVersion() {
+        val collector = RefreshSnapshotCollector(project)
+
+        val currentVersion = collector.resolveCurrentVersion(
+            "\${product.version}",
+            "5.0.0-20260907.152150-2",
+            mapOf("product.version" to "5.0.0-SNAPSHOT")
+        )
+
+        assertEquals("5.0.0-SNAPSHOT", currentVersion)
+    }
+
+    /** Fehlende deklarierte Versionen verwenden die aufgelöste Maven-Version als Fallback. */
+    fun testResolveCurrentVersionFallsBackToMavenVersionWhenDeclarationIsMissing() {
+        val collector = RefreshSnapshotCollector(project)
+
+        assertEquals(
+            "5.0.0-20260907.152150-2",
+            collector.resolveCurrentVersion("  ", "5.0.0-20260907.152150-2", emptyMap())
+        )
+        assertEquals("", collector.resolveCurrentVersion("", null, emptyMap()))
+        assertEquals(
+            "5.0.0-20260907.152150-2",
+            collector.resolveCurrentVersion("[5.0.0,6.0.0)", "5.0.0-20260907.152150-2", emptyMap())
+        )
+    }
+
     fun testCollectParentDependencyReturnsNullWithoutParentTag() {
         val pomContent = """
             <project>
