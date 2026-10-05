@@ -565,9 +565,9 @@ class DependencyApiService(private val project: Project) {
      * [MavenUpSettings.State.hideUnstableVersions] anzuwenden.
      *
      * Die zurückgegebene Liste ist absteigend nach [ComparableVersion] sortiert; die vom Repository
-     * als neueste deklarierte Version (`<release>`/`<latest>`) wird jedoch an den Anfang gestellt,
-     * damit nachgelagerte Logik (Statusanzeige, Auto-Auswahl der höchsten Version) die tatsächlich
-     * zuletzt veröffentlichte Version als neueste behandelt.
+     * als neueste deklarierte Version (`<release>`/`<latest>`) wird jedoch vor den übrigen Versionen
+     * bevorzugt. Nach Maven-Versionsvergleich höhere SNAPSHOT-Versionen stehen davor, damit
+     * Statusanzeige und Auto-Auswahl diese nicht als älter als das Release behandeln.
      *
      * Da das Ergebnis ungefiltert ist, kann die Anzeige über [applyVersionSettings] jederzeit ohne
      * erneute Netzwerkabfrage an geänderte Einstellungen angepasst werden.
@@ -576,7 +576,7 @@ class DependencyApiService(private val project: Project) {
      * @param artifactId Die ArtifactId des Artefakts.
      * @param onError Callback für einen strukturiert beschriebenen Repository-Fehler, der nur gemeldet
      *   wird, wenn über kein konfiguriertes Repository eine Version ermittelt werden konnte.
-     * @return Alle gefundenen Versionen, absteigend sortiert und mit der neuesten Version zuerst.
+     * @return Alle gefundenen Versionen mit höheren Snapshots vor der priorisierten Referenzversion.
      */
     fun fetchAllVersions(
         groupId: String,
@@ -613,16 +613,18 @@ class DependencyApiService(private val project: Project) {
      *
      * Ist [MavenUpSettings.State.offerAllVersions] deaktiviert, bleiben nur Versionen `>=` der
      * aktuellen Version übrig; zusätzlich werden bei aktivem [MavenUpSettings.State.hideUnstableVersions]
-     * die konfigurierten instabilen Qualifier ausgeblendet. Die Reihenfolge der Eingabeliste bleibt
-     * erhalten, sodass die neueste Version weiterhin an erster Stelle steht.
+     * die konfigurierten instabilen Qualifier ausgeblendet. Vor der Filterung werden höhere
+     * SNAPSHOT-Versionen vor die erste Referenzversion gestellt, sodass auch ältere Cache-Einträge
+     * die korrigierte Reihenfolge erhalten; die Release-Priorisierung bleibt ansonsten erhalten.
      *
-     * @param versions Die ungefilterte, absteigend sortierte Versionsliste.
+     * @param versions Die ungefilterte Versionsliste mit der priorisierten Referenz oder einem höheren Snapshot zuerst.
      * @param currentVersion Die aktuell verwendete Version des Artefakts.
      * @return Die gemäß den Einstellungen gefilterte Versionsliste.
      */
     fun applyVersionSettings(versions: List<String>, currentVersion: String): List<String> {
         val floor = resolveVersionFloor(currentVersion, MavenUpSettings.getInstance().state.offerAllVersions)
-        return filterVersionsBySettings(versions.filter { ComparableVersion(it) >= floor })
+        val orderedVersions = orderWithNewestFirst(versions, versions.firstOrNull())
+        return filterVersionsBySettings(orderedVersions.filter { ComparableVersion(it) >= floor })
     }
 
     /**
@@ -647,18 +649,23 @@ class DependencyApiService(private val project: Project) {
         applyVersionSettings(fetchAllVersions(groupId, artifactId, onError), currentVersion)
 
     /**
-     * Stellt die vom Repository als neueste deklarierte Version an den Anfang der Liste, sofern sie
-     * in [versions] enthalten ist. Andernfalls bleibt die Reihenfolge unverändert.
+     * Bevorzugt die vom Repository deklarierte Referenzversion, sofern sie in [versions] enthalten ist.
+     * Nach Maven-Versionsvergleich höhere SNAPSHOT-Versionen stehen absteigend sortiert davor.
+     * Alle übrigen Versionen behalten ihre relative Reihenfolge hinter der Referenzversion.
+     * Fehlt die Referenzversion, bleibt die Reihenfolge unverändert.
      *
-     * @param versions Die bereits gefilterte, absteigend sortierte Versionsliste.
+     * @param versions Die Versionsliste in bisheriger Anzeigereihenfolge.
      * @param newestVersion Die deklarierte neueste Version oder `null`.
-     * @return Eine Liste, deren erstes Element die neueste Version ist, sofern bekannt und enthalten.
+     * @return Die priorisierte Liste mit höheren SNAPSHOT-Versionen vor der Referenzversion.
      */
     internal fun orderWithNewestFirst(versions: List<String>, newestVersion: String?): List<String> {
         val newest = newestVersion?.takeIf { it in versions } ?: return versions
-        if (versions.firstOrNull() == newest) {
-            return versions
+        val reference = ComparableVersion(newest)
+        val (newerSnapshots, remainingVersions) = versions.filter { it != newest }.partition {
+            it.endsWith("-SNAPSHOT", ignoreCase = true) && ComparableVersion(it) > reference
         }
-        return listOf(newest) + versions.filter { it != newest }
+        return newerSnapshots.sortedWith { v1, v2 ->
+            ComparableVersion(v2).compareTo(ComparableVersion(v1))
+        } + newest + remainingVersions
     }
 }

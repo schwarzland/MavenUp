@@ -101,8 +101,10 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   `offerAllVersions` (untere Grenze via `resolveVersionFloor`) und `hideUnstableVersions`
   (`filterVersionsBySettings`) auf eine bereits abgerufene Liste an; `fetchVersions` kombiniert beide,
   sodass Einstellungsänderungen ohne erneute Netzwerkabfrage wirksam werden.
-  Die neueste Version wird über `extractNewestFromMetadata` aus den `<release>`/`<latest>`-Feldern bestimmt
-  (Central bevorzugt) und via `orderWithNewestFirst` an den Listenanfang gestellt; Rückgabetypen sind
+  Die Referenzversion wird über `extractNewestFromMetadata` aus den `<release>`/`<latest>`-Feldern bestimmt
+  (Central bevorzugt) und via `orderWithNewestFirst` priorisiert; nach `ComparableVersion` höhere
+  `*-SNAPSHOT`-Versionen stehen absteigend davor, alle übrigen dahinter. `applyVersionSettings` korrigiert
+  diese Reihenfolge auch für ältere Cache-Einträge vor der Filterung; Rückgabetypen sind
   `RepositoryVersions` (pro Repository) und `CollectedVersions` (aggregiert).
   `collectVersionsFromRepositories` erfasst über die private Hilfsklasse `RepositoryVersionsAccumulator`
   den ersten echten Fehler (5xx, Netzwerk-/Exception-Fehler, z. B. eine falsch konfigurierte URI) eines

@@ -1,12 +1,14 @@
 package de.schwarzland.mavenup.service
 
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import de.schwarzland.mavenup.ui.chooseAutoSelectedVersion
 import org.apache.maven.artifact.versioning.ComparableVersion
 import org.w3c.dom.Document
 import java.io.ByteArrayInputStream
 import java.nio.file.Files
 import javax.xml.parsers.DocumentBuilderFactory
 
+/** Prüft Repository-Abfragen, Versionspriorisierung und Einstellungen mit IntelliJ-Projektkontext. */
 class DependencyApiServiceTest : BasePlatformTestCase() {
     fun testResolveCredentialValueWithSystemPropertyPlaceholder() {
         val service = DependencyApiService(project)
@@ -337,6 +339,7 @@ class DependencyApiServiceTest : BasePlatformTestCase() {
         assertEquals(listOf("24.0", "2025-1234", "2023-1234", "2022-1234"), ordered)
     }
 
+    /** Fehlende Referenzen und leere Listen behalten ihre bisherige Reihenfolge. */
     fun testOrderWithNewestFirstKeepsOrderWhenNewestNullOrAbsent() {
         val service = DependencyApiService(project)
         val versions = listOf("2.0.0", "1.5.0", "1.0.0")
@@ -345,6 +348,35 @@ class DependencyApiServiceTest : BasePlatformTestCase() {
         assertEquals(versions, service.orderWithNewestFirst(versions, "9.9.9"))
         // Bereits vorne stehende neueste Version bleibt unverändert.
         assertEquals(versions, service.orderWithNewestFirst(versions, "2.0.0"))
+        assertEquals(emptyList<String>(), service.orderWithNewestFirst(emptyList(), "2.0.0"))
+    }
+
+    /** Höhere Snapshots stehen vor dem Release; datumsbasierte Versionen bleiben dahinter. */
+    fun testOrderWithNewestFirstPrioritizesHigherSnapshotsButPreservesReleasePriority() {
+        val service = DependencyApiService(project)
+        val versions = listOf(
+            "2023-1234", "6.0.0-SNAPSHOT", "5.0.0-SNAPSHOT", "4.6.0", "4.6.0-SNAPSHOT", "4.5.0-SNAPSHOT"
+        )
+        val expected = listOf(
+            "6.0.0-SNAPSHOT", "5.0.0-SNAPSHOT", "4.6.0", "2023-1234", "4.6.0-SNAPSHOT", "4.5.0-SNAPSHOT"
+        )
+
+        assertEquals(expected, service.orderWithNewestFirst(versions, "4.6.0"))
+        assertEquals(expected, service.orderWithNewestFirst(expected, "4.6.0"))
+        assertTrue(ComparableVersion("5.0.0-SNAPSHOT") > ComparableVersion("4.6.0"))
+    }
+
+    /** Auch alte Cache-Reihenfolgen und kleingeschriebene Snapshot-Qualifier werden korrigiert. */
+    fun testOrderWithNewestFirstCorrectsReleaseFirstAndSnapshotReference() {
+        val service = DependencyApiService(project)
+        assertEquals(
+            listOf("6.0.0-SNAPSHOT", "5.0.0-snapshot", "4.6.0"),
+            service.orderWithNewestFirst(listOf("4.6.0", "5.0.0-snapshot", "6.0.0-SNAPSHOT"), "4.6.0")
+        )
+        assertEquals(
+            listOf("6.0.0-SNAPSHOT", "5.0.0-SNAPSHOT", "4.6.0"),
+            service.orderWithNewestFirst(listOf("5.0.0-SNAPSHOT", "6.0.0-SNAPSHOT", "4.6.0"), "5.0.0-SNAPSHOT")
+        )
     }
 
     private fun parseMetadata(xml: String): Document {
@@ -506,6 +538,40 @@ class DependencyApiServiceTest : BasePlatformTestCase() {
         val service = DependencyApiService(project)
 
         assertTrue(service.applyVersionSettings(emptyList(), "1.0.0").isEmpty())
+    }
+
+    /** Gecachte Release-Priorisierung wird vor Vorauswahl und Snapshot-Filterung korrigiert. */
+    fun testApplyVersionSettingsCorrectsCachedSnapshotOrderAndRespectsFilters() {
+        val settings = MavenUpSettings.getInstance()
+        val previousHide = settings.state.hideUnstableVersions
+        val previousQualifiers = settings.state.hiddenVersionQualifiers
+        val previousOfferAll = settings.state.offerAllVersions
+        settings.state.hideUnstableVersions = false
+        settings.state.hiddenVersionQualifiers = "snapshot"
+        settings.state.offerAllVersions = true
+        val service = DependencyApiService(project)
+        val cached = listOf("4.6.0", "2023-1234", "5.0.0-SNAPSHOT", "4.6.0-SNAPSHOT")
+        try {
+            val visible = service.applyVersionSettings(cached, "4.5.0")
+            assertEquals(listOf("5.0.0-SNAPSHOT", "4.6.0", "2023-1234", "4.6.0-SNAPSHOT"), visible)
+            assertEquals(
+                "5.0.0-SNAPSHOT",
+                chooseAutoSelectedVersion("4.5.0", visible, VersionAutoSelectionMode.LATEST)
+            )
+            assertEquals(visible, service.applyVersionSettings(visible, "4.5.0"))
+            settings.state.hideUnstableVersions = true
+            assertEquals(listOf("4.6.0", "2023-1234"), service.applyVersionSettings(cached, "4.5.0"))
+            settings.state.hideUnstableVersions = false
+            settings.state.offerAllVersions = false
+            assertEquals(
+                listOf("5.0.0-SNAPSHOT", "2023-1234"),
+                service.applyVersionSettings(cached, "5.0.0-SNAPSHOT")
+            )
+        } finally {
+            settings.state.hideUnstableVersions = previousHide
+            settings.state.hiddenVersionQualifiers = previousQualifiers
+            settings.state.offerAllVersions = previousOfferAll
+        }
     }
 
     fun testVersionHasQualifierIsCaseInsensitive() {

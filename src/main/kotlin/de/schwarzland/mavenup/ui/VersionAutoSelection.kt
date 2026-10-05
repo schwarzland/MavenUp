@@ -61,7 +61,8 @@ internal fun selectableRecommendedVersion(recommendedVersion: String, versions: 
  *
  * Die neueste Version ist das erste Element von [versions]; die Liste wird von
  * [de.schwarzland.mavenup.service.DependencyApiService.fetchVersions] so aufgebaut, dass die vom
- * Repository deklarierte neueste Version (`<release>`/`<latest>`) vorne steht.
+ * Repository deklarierte Referenzversion (`<release>`/`<latest>`) bevorzugt wird, wobei nach
+ * Maven-Versionsvergleich höhere SNAPSHOT-Versionen davor stehen.
  *
  * Bei [VersionAutoSelectionMode.LATEST_MINOR] wird die höchste Version innerhalb derselben
  * Major-Linie wie [currentVersion] verwendet. Existiert keine passende Version derselben
