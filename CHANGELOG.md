@@ -2,6 +2,12 @@
 
 # Maven Up Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- Fixed timestamped Maven snapshot resolutions replacing declared `*-SNAPSHOT` versions in MavenUp, which could hide cached versions from the update list.
+
 ## 3.4.0
 
 ### Added

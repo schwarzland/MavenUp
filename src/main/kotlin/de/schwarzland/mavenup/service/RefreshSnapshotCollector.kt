@@ -43,6 +43,32 @@ internal class RefreshSnapshotCollector(private val project: Project) {
     }
 
     /**
+     * Bestimmt die angezeigte und für den Update-Check verwendete Version.
+     *
+     * Deklarierte `*-SNAPSHOT`-Versionen haben Vorrang vor der von Maven aufgelösten Version,
+     * damit sie nicht durch zeitgestempelte Snapshot-Versionen ersetzt werden. Für andere
+     * Versionen wird die Maven-Auflösung bevorzugt, etwa bei Versionsbereichen.
+     *
+     * @param declaredVersion Die in der `pom.xml` deklarierte Version, ggf. als Property.
+     * @param resolvedVersion Die vom Maven-Modell aufgelöste Version oder `null`.
+     * @param effectiveProperties Die effektiven Maven-Properties zur Platzhalterauflösung.
+     * @return Die deklarierte Snapshot-Version oder die Maven-Modellversion, sofern vorhanden.
+     */
+    internal fun resolveCurrentVersion(
+        declaredVersion: String,
+        resolvedVersion: String?,
+        effectiveProperties: Map<String, String>
+    ): String {
+        val declaration = declaredVersion.trim()
+        if (declaration.isEmpty()) return resolvedVersion.orEmpty()
+
+        val resolvedDeclaration = resolveVersionPlaceholder(declaration, effectiveProperties)
+        return resolvedDeclaration.takeIf { it.endsWith("-SNAPSHOT", ignoreCase = true) }
+            ?: resolvedVersion
+            ?: resolvedDeclaration
+    }
+
+    /**
      * Durchsucht die XML-Tags nach Abhängigkeiten und extrahiert deren Koordinaten sowie
      * mögliche Platzhalter (Properties).
      *
@@ -190,8 +216,11 @@ internal class RefreshSnapshotCollector(private val project: Project) {
                         artifactId = key.substringAfter(":"),
                         propertyName = properties[key].orEmpty(),
                         type = "dependency",
-                        currentVersion = resolvedDependencies[key]?.artifact?.version
-                            ?: resolveVersionPlaceholder(value, effectiveProperties),
+                        currentVersion = resolveCurrentVersion(
+                            value,
+                            resolvedDependencies[key]?.artifact?.version,
+                            effectiveProperties
+                        ),
                         versionInherited = value.isBlank()
                     )
                 )
@@ -204,8 +233,11 @@ internal class RefreshSnapshotCollector(private val project: Project) {
                         artifactId = key.substringAfter(":"),
                         propertyName = properties[key].orEmpty(),
                         type = managedDependencyType,
-                        currentVersion = resolvedDependencies[key]?.artifact?.version
-                            ?: resolveVersionPlaceholder(value, effectiveProperties),
+                        currentVersion = resolveCurrentVersion(
+                            value,
+                            resolvedDependencies[key]?.artifact?.version,
+                            effectiveProperties
+                        ),
                         versionInherited = value.isBlank()
                     )
                 )
@@ -222,8 +254,11 @@ internal class RefreshSnapshotCollector(private val project: Project) {
                         artifactId = key.substringAfter(":"),
                         propertyName = properties[key].orEmpty(),
                         type = "plugin",
-                        currentVersion = resolvedPlugins[key]?.version
-                            ?: resolveVersionPlaceholder(value, effectiveProperties),
+                        currentVersion = resolveCurrentVersion(
+                            value,
+                            resolvedPlugins[key]?.version,
+                            effectiveProperties
+                        ),
                         versionInherited = value.isBlank()
                     )
                 )
@@ -236,8 +271,11 @@ internal class RefreshSnapshotCollector(private val project: Project) {
                         artifactId = key.substringAfter(":"),
                         propertyName = properties[key].orEmpty(),
                         type = MANAGED_PLUGIN,
-                        currentVersion = resolvedPlugins[key]?.version
-                            ?: resolveVersionPlaceholder(value, effectiveProperties),
+                        currentVersion = resolveCurrentVersion(
+                            value,
+                            resolvedPlugins[key]?.version,
+                            effectiveProperties
+                        ),
                         versionInherited = value.isBlank()
                     )
                 )

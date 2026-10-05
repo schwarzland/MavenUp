@@ -443,6 +443,28 @@ class DependencyApiServiceTest : BasePlatformTestCase() {
         }
     }
 
+    /** Die Filterung behandelt den deklarierten Snapshot-Alias als aktuelle Versionsgrenze. */
+    fun testApplyVersionSettingsKeepsDeclaredSnapshotWhenCurrentVersionIsSnapshotAlias() {
+        val settings = MavenUpSettings.getInstance()
+        val previousHide = settings.state.hideUnstableVersions
+        val previousOfferAll = settings.state.offerAllVersions
+        settings.state.hideUnstableVersions = false
+        settings.state.offerAllVersions = false
+
+        val service = DependencyApiService(project)
+        try {
+            val filtered = service.applyVersionSettings(
+                listOf("5.0.0-SNAPSHOT", "4.7.0-SNAPSHOT", "4.6.0"),
+                "5.0.0-SNAPSHOT"
+            )
+
+            assertEquals(listOf("5.0.0-SNAPSHOT"), filtered)
+        } finally {
+            settings.state.hideUnstableVersions = previousHide
+            settings.state.offerAllVersions = previousOfferAll
+        }
+    }
+
     fun testApplyVersionSettingsKeepsOlderVersionsWhenOfferAllEnabled() {
         val settings = MavenUpSettings.getInstance()
         val previousHide = settings.state.hideUnstableVersions

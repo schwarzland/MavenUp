@@ -114,6 +114,10 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   `<Präfix>.`, bereinigt um die Zeichen `*` und `$`); `excludeCentralForPrivateGroupId` entfernt Maven Central aus der Repository-Liste, wenn die
   GroupId privat ist, sodass `fetchAllVersions` für private GroupIds keine Koordinaten an
   `repo1.maven.org` überträgt, andere konfigurierte private Repositories aber weiterhin abfragt.
+- **RefreshSnapshotCollector**: Erfasst die Maven-Einträge aus `pom.xml` und löst Property-Platzhalter
+  anhand der effektiven Maven-Properties auf. Deklarierte `*-SNAPSHOT`-Versionen bleiben statt der
+  zeitgestempelten Maven-Auflösung sichtbar; in anderen Fällen wird die Maven-Auflösung bevorzugt
+  (z. B. bei Versionsbereichen), während Einträge ohne eigene Version ihre geerbte Version behalten.
 - **OssIndexApiService / OssIndexCredentialService**: optionale Sonatype-Abfrage über Maven-purl
   und sichere Zugangsdatenablage; wirft `OssIndexAuthenticationException` bei ungültigem/abgelaufenem
   Token (HTTP 401/403) und `OssIndexRequestException` (mit HTTP-Status) bei sonstigen HTTP-Fehlern
