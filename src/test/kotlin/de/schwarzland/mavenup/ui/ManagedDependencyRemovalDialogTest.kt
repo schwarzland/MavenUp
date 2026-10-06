@@ -7,9 +7,16 @@ import com.intellij.ui.JBSplitter
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.table.JBTable
 import com.intellij.util.ui.UIUtil
+import com.intellij.util.ui.JBUI
 import de.schwarzland.mavenup.model.ConsumerDependencyInfo
 import de.schwarzland.mavenup.model.ManagedDependencyRemovalRecommendation
 import javax.swing.JEditorPane
+import javax.swing.JComponent
+import javax.swing.UIManager
+import java.awt.Color
+import java.awt.Cursor
+import java.awt.event.MouseEvent
+import java.awt.image.BufferedImage
 
 /**
  * Tests für [ManagedDependencyRemovalDialog].
@@ -199,5 +206,70 @@ class ManagedDependencyRemovalDialogTest : BasePlatformTestCase() {
         assertTrue(editor.text.contains(
             MyMessageBundle.message("managed.dependency.removal.dialog.detail.consumers.empty")
         ))
+    }
+
+    /** Prüft sichtbare Linie und Griff, Theme-Farben, Hover und native Ziehfunktion. */
+    fun testVisibleDividerGripAndMouseDragging() {
+        val key = "MavenUp.ManagedDependencyRemovalDialog.splitter"
+        val properties = PropertiesComponent.getInstance()
+        val previousProportion = properties.getValue(key)
+        val lineColor = UIManager.get("Separator.separatorColor")
+        val focusColor = UIManager.get("Component.focusColor")
+        try {
+            val dialog = ManagedDependencyRemovalDialog(project, emptyList())
+            Disposer.register(testRootDisposable, dialog.disposable)
+            val splitter = UIUtil.findComponentOfType(dialog.createCenterPanel(), JBSplitter::class.java)!!
+            splitter.setSize(900, 450)
+            splitter.proportion = 0.65f
+            splitter.doLayout()
+            val divider = splitter.divider
+            assertEquals(JBUI.scale(10), divider.height)
+            assertEquals(Cursor.N_RESIZE_CURSOR, divider.cursor.type)
+            assertEquals(
+                MyMessageBundle.message("managed.dependency.removal.dialog.divider"),
+                divider.accessibleContext.accessibleName
+            )
+            val normal = renderDivider(divider)
+            val centerX = divider.width / 2
+            val centerY = divider.height / 2
+            assertTrue(normal.getRGB(JBUI.scale(20), centerY) ushr 24 > 0)
+            assertTrue(normal.getRGB(centerX, centerY) ushr 24 > 0)
+            assertTrue(normal.getRGB(JBUI.scale(20), centerY) != normal.getRGB(JBUI.scale(20), 0))
+            assertTrue(normal.getRGB(centerX, centerY) != normal.getRGB(centerX, 0))
+            assertEquals(normal.getRGB(centerX, 0), normal.getRGB(centerX + JBUI.scale(10), centerY))
+
+            UIManager.put("Component.focusColor", Color.MAGENTA)
+            divider.dispatchEvent(MouseEvent(divider, MouseEvent.MOUSE_ENTERED, 0, 0, centerX, centerY, 0, false))
+            assertEquals(Color.MAGENTA.rgb, renderDivider(divider).getRGB(centerX, centerY))
+            divider.dispatchEvent(MouseEvent(divider, MouseEvent.MOUSE_EXITED, 0, 0, centerX, centerY, 0, false))
+            assertEquals(normal.getRGB(centerX, centerY), renderDivider(divider).getRGB(centerX, centerY))
+            for (themeLine in listOf(Color.DARK_GRAY, Color.LIGHT_GRAY)) {
+                UIManager.put("Separator.separatorColor", themeLine)
+                assertEquals(themeLine.rgb, renderDivider(divider).getRGB(JBUI.scale(20), centerY))
+            }
+
+            divider.dispatchEvent(MouseEvent(
+                divider, MouseEvent.MOUSE_DRAGGED, 0, MouseEvent.BUTTON1_DOWN_MASK,
+                centerX, -JBUI.scale(60), 0, false
+            ))
+            assertTrue(splitter.proportion < 0.65f)
+            assertEquals(splitter.proportion, properties.getFloat(key, 0.65f))
+        } finally {
+            properties.setValue(key, previousProportion)
+            UIManager.put("Separator.separatorColor", lineColor)
+            UIManager.put("Component.focusColor", focusColor)
+        }
+    }
+
+    /** Rendert den echten Divider inklusive Hintergrund, um sichtbare Linie und Griffpixel zu prüfen. */
+    private fun renderDivider(divider: JComponent): BufferedImage {
+        val image = BufferedImage(divider.width, divider.height, BufferedImage.TYPE_INT_ARGB)
+        val graphics = image.createGraphics()
+        try {
+            divider.paint(graphics)
+        } finally {
+            graphics.dispose()
+        }
+        return image
     }
 }

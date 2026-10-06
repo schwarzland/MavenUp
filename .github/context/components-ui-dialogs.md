@@ -26,6 +26,9 @@ UI-Komponenten: [`components-ui.md`](components-ui.md) und
   Zielversion und bereitgestellter Version sowie Schaltflächen zum Auswählen und Abwählen aller Einträge.
   Das Layout verwendet Kotlin UI DSL v2 und einen vertikalen `JBSplitter` mit initial 65 Prozent Tabellenhöhe,
   Mindesthöhen und IDE-weit gespeicherter Aufteilung (`MavenUp.ManagedDependencyRemovalDialog.splitter`).
+  `configureDivider` zeichnet mit der privaten `CleanupDividerBorder` direkt auf dem nativen Divider
+  eine themeabhängige Linie und drei mittige Griffpunkte; die zehn DPI-skalierten Pixel hohe Ziehfläche
+  behält den nativen Resize-Cursor und die Mausbehandlung bei und hebt den Griff bei Hover hervor.
   Der skalierbare Dialog zeigt unter **Recommendation Details** Erklärtext und Konsumenten-Abhängigkeitspfade
   gemeinsam in einem scrollbar dargestellten, HTML-maskierten `JEditorPane` mit `HTMLEditorKitBuilder`-Word-Wrap;
   beim Zeilenwechsel wird die Leseposition zurückgesetzt. Über `getSelectedRecommendations` werden die

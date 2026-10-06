@@ -4,17 +4,24 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.openapi.util.text.StringUtil
 import com.intellij.ui.JBSplitter
+import com.intellij.ui.JBColor
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.dsl.builder.Align
 import com.intellij.ui.dsl.builder.panel
 import com.intellij.ui.table.JBTable
 import com.intellij.util.ui.HTMLEditorKitBuilder
 import com.intellij.util.ui.JBUI
+import com.intellij.util.ui.UIUtil
 import de.schwarzland.mavenup.model.ManagedDependencyRemovalRecommendation
+import java.awt.Component
+import java.awt.Graphics
+import java.awt.event.MouseAdapter
+import java.awt.event.MouseEvent
 import javax.swing.JComponent
 import javax.swing.JEditorPane
 import javax.swing.ListSelectionModel
 import javax.swing.SortOrder
+import javax.swing.border.AbstractBorder
 import javax.swing.table.DefaultTableModel
 import javax.swing.table.TableRowSorter
 
@@ -125,6 +132,7 @@ class ManagedDependencyRemovalDialog(
         val splitter = JBSplitter(true, 0.65f, 0.15f, 0.85f).apply {
             firstComponent = recommendationsPanel
             secondComponent = buildDetailPanel()
+            configureDivider(this)
             setAndLoadSplitterProportionKey("MavenUp.ManagedDependencyRemovalDialog.splitter")
         }
         return panel {
@@ -139,6 +147,35 @@ class ManagedDependencyRemovalDialog(
         }.apply {
             preferredSize = JBUI.size(900, 520)
             minimumSize = JBUI.size(650, 350)
+        }
+    }
+
+    /**
+     * Markiert die native Ziehfläche mit einer themeabhängigen Linie und einem mittigen Griff.
+     * Die Mausbehandlung des Splitters bleibt erhalten; Hover hebt ausschließlich den Griff hervor.
+     *
+     * @param splitter Der vertikal ausgerichtete Master-Detail-Splitter.
+     */
+    private fun configureDivider(splitter: JBSplitter) {
+        val gripBorder = CleanupDividerBorder()
+        splitter.dividerWidth = JBUI.scale(10)
+        splitter.divider.apply {
+            border = gripBorder
+            accessibleContext.accessibleName =
+                MyMessageBundle.message("managed.dependency.removal.dialog.divider")
+            addMouseListener(object : MouseAdapter() {
+                /** Hebt den Griff beim Betreten der gesamten Ziehfläche hervor. */
+                override fun mouseEntered(event: MouseEvent) {
+                    gripBorder.hovered = true
+                    repaint()
+                }
+
+                /** Stellt beim Verlassen die normale Griffdarstellung wieder her. */
+                override fun mouseExited(event: MouseEvent) {
+                    gripBorder.hovered = false
+                    repaint()
+                }
+            })
         }
     }
 
@@ -174,6 +211,7 @@ class ManagedDependencyRemovalDialog(
                 } else {
                     super.setValueAt(aValue, row, column)
                 }
+
             }
         }
 
@@ -345,5 +383,38 @@ class ManagedDependencyRemovalDialog(
     public override fun doOKAction() {
         onApply?.invoke(getSelectedRecommendations())
         super.doOKAction()
+    }
+
+    /**
+     * Zeichnet eine dauerhaft sichtbare Trennlinie mit drei mittigen Griffpunkten direkt
+     * auf dem nativen Splitter-Divider, ohne zusätzliche Mausereignisse abzufangen.
+     */
+    private class CleanupDividerBorder : AbstractBorder() {
+        var hovered = false
+
+        /** Zeichnet Linie und Griff DPI-skaliert mit Farben des jeweils aktiven IDE-Themes. */
+        override fun paintBorder(component: Component, graphics: Graphics, x: Int, y: Int, width: Int, height: Int) {
+            val painter = graphics.create()
+            try {
+                val centerX = x + width / 2
+                val centerY = y + height / 2
+                val gripGap = JBUI.scale(14)
+                painter.color = JBColor.namedColor("Separator.separatorColor", UIUtil.getBoundsColor())
+                painter.drawLine(x, centerY, centerX - gripGap, centerY)
+                painter.drawLine(centerX + gripGap, centerY, x + width - 1, centerY)
+                painter.color = if (hovered) {
+                    JBColor.namedColor("Component.focusColor", UIUtil.getLabelForeground())
+                } else {
+                    UIUtil.getLabelForeground()
+                }
+                val dotSize = JBUI.scale(2)
+                val spacing = JBUI.scale(5)
+                for (offset in -1..1) {
+                    painter.fillRect(centerX + offset * spacing - dotSize / 2, centerY - dotSize / 2, dotSize, dotSize)
+                }
+            } finally {
+                painter.dispose()
+            }
+        }
     }
 }
