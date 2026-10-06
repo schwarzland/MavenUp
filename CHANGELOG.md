@@ -25,6 +25,7 @@
 - **Fixed unintended SNAPSHOT version selections after startup and refresh, including misleading dropdown values and updates created by opening an unchanged editor.**
 - **Fixed higher SNAPSHOT versions appearing below the latest release in New Version dropdowns and version preselection, while preserving release priority over other versions.**
 - Fixed timestamped Maven snapshot resolutions replacing declared `*-SNAPSHOT` versions in MavenUp, which could hide cached versions from the update list.
+- Fixed internal IntelliJ API usage in candidate POM local repository resolution by replacing the deprecated internal call with the public repository path API.
 
 ## 3.4.0
 

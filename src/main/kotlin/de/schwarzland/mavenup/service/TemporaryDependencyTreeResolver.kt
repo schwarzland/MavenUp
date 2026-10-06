@@ -127,11 +127,9 @@ class TemporaryDependencyTreeResolver(
     private fun resolveLocalRepositoryPath(): File {
         if (project != null) {
             try {
-                val configuredLocalRepo = MavenProjectsManager.getInstance(project).generalSettings.localRepository
-                if (!configuredLocalRepo.isNullOrBlank()) {
-                    val file = File(configuredLocalRepo)
-                    if (file.isDirectory) return file
-                }
+                val repositoryPath = MavenProjectsManager.getInstance(project).repositoryPath
+                val file = repositoryPath.toFile()
+                if (file.isDirectory) return file
             } catch (_: Exception) {
                 // Rückfall auf Standardpfad
             }
