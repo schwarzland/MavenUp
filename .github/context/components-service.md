@@ -56,8 +56,9 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   Einstellungsänderungen erhalten. Beim Empfang wird die Toolbar neu aufgebaut,
   der Tool-Window-Badge aktualisiert und
   `applySelectLatestVersionSetting()` nur dann aufgerufen, wenn sich `versionAutoSelectionMode`
-  tatsächlich geändert hat, damit andere Einstellungsänderungen die bereits getroffene **New Version**-Auswahl
-  nicht zurücksetzen.
+  tatsächlich geändert hat; der Moduswechsel wendet die Strategie auf die aktuelle Versionsanzeige an,
+  wobei `DISABLED` keine automatische Update-Auswahl speichert. Andere Einstellungsänderungen setzen die
+  bereits getroffene **New Version**-Auswahl nicht zurück.
 - **MavenRepositoryBrowser**: Enum in `service`, definiert die zwei konfigurierbaren
   Repository-Browser-Optionen (`MVN_REPOSITORY`, `SONATYPE_CENTRAL`) und erzeugt die jeweilige
   Versions-URL für groupId/artifactId/version.
@@ -192,7 +193,12 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
 - **DependencyVersionService**: fragt über `searchVersions` die verfügbaren Versionen aller
   Dependencies/Plugins ab (inkl. PSI-Erfassung verwalteter Einträge und Property-Schnittmengen)
   und liefert gefilterte Versionen, ungefilterte Versionen (`rawVersions`) und Vorauswahl als
-  `VersionSearchResult`. `fetchAvailableVersions` ruft gezielt die ungefilterten Versionslisten einer
+  `VersionSearchResult`. `processProjectUpdates` verwendet für bekannte Koordinaten die aktuelle
+  Version aus `currentVersions` des Refresh-Schnappschusses; unbekannte Koordinaten fallen auf die
+  Maven-/PSI-Version zurück. Property-Schnittmengen nutzen dieselben konsistenten Koordinatenversionen.
+  Die Funktion ist `internal`, damit diese Versionszuordnung ohne Repository-Netzwerkzugriffe testbar
+  ist. Bei deaktivierter Auto-Auswahl wird keine Versionsauswahl gespeichert.
+  `fetchAvailableVersions` ruft gezielt die ungefilterten Versionslisten einer
   übergebenen Koordinatenmenge ab (ohne Vorauswahl; genutzt für die
   verwundbaren transitiven Koordinaten nach einem Scan). Versionsabfrage (`fetchAllVersions`) und
   Einstellungsfilter (`applyVersionSettings`) sind als Funktions-Seams per Konstruktor injizierbar

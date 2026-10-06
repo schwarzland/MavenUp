@@ -8,6 +8,9 @@ import de.schwarzland.mavenup.model.DependencyUpdate
 import de.schwarzland.mavenup.service.MavenUpSettings
 import de.schwarzland.mavenup.service.MavenRepositoryBrowser
 import de.schwarzland.mavenup.service.VersionAutoSelectionMode
+import de.schwarzland.mavenup.service.AutomaticVersionSearchState
+import de.schwarzland.mavenup.service.VersionSearchResult
+import de.schwarzland.mavenup.ui.RefreshRow
 import de.schwarzland.mavenup.ui.DEPENDENCY_HIERARCHY_PANEL_INITIAL_WIDTH_PROPORTION
 import de.schwarzland.mavenup.ui.DependencyContextMenuTarget
 import de.schwarzland.mavenup.ui.buildMavenRepositoryUrl
@@ -437,51 +440,37 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertEquals("2.0.0", updates.single().newVersion)
     }
 
+    /** Prueft die echte Vorauswahl und das Verwerfen von Updates beim Ausschalten. */
     fun testVersionAutoSelectionModeSetting() {
         val factory = MavenUpWindowFactory()
         val toolWindowInstance = factory.MyToolWindow(project)
         val settings = MavenUpSettings.getInstance()
-
-        // Mock data
         val key = "com.example:test-artifact"
         val versions = listOf("1.1.0", "1.0.0")
         val currentVersion = "1.0.0"
-
-        settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.LATEST
-        
-        // Use reflection to access internal maps for verification
-        val availableVersionsField = toolWindowInstance.javaClass.getDeclaredField("availableVersions").apply { isAccessible = true }
-        val selectedVersionsField = toolWindowInstance.javaClass.getDeclaredField("selectedVersions").apply { isAccessible = true }
-        val knownDependenciesField = toolWindowInstance.javaClass.getDeclaredField("knownDependencies").apply { isAccessible = true }
-
-        val availableVersions = availableVersionsField.get(toolWindowInstance) as MutableMap<String, List<String>>
-        val selectedVersions = selectedVersionsField.get(toolWindowInstance) as MutableMap<String, String>
-        val knownDependencies = knownDependenciesField.get(toolWindowInstance) as MutableMap<String, String>
-
-        knownDependencies[key] = currentVersion
-        
-        // Simulate checkArtifactUpdate logic manually for testing the selection logic
-        fun simulateCheck(v: String) {
-            availableVersions[key] = versions
-            if (versions.first() != v &&
-                settings.state.versionAutoSelectionMode != VersionAutoSelectionMode.DISABLED
-            ) {
-                selectedVersions[key] = versions.first()
-            } else if (settings.state.versionAutoSelectionMode == VersionAutoSelectionMode.DISABLED) {
-                selectedVersions[key] = v
-            }
+        val original = settings.state.versionAutoSelectionMode
+        try {
+            val candidates = mapOf(key to versions)
+            toolWindowInstance.applyAutomaticVersionSearchState(
+                AutomaticVersionSearchState(
+                    RefreshSnapshot(
+                        listOf(RefreshRow("com.example", "test-artifact", "", "dependency", currentVersion)),
+                        emptyMap()
+                    ),
+                    VersionSearchResult(candidates, candidates, emptyMap()),
+                    null
+                )
+            )
+            settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.LATEST
+            toolWindowInstance.applySelectLatestVersionSetting()
+            assertEquals("1.1.0", toolWindowInstance.selectedVersions[key])
+            settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.DISABLED
+            toolWindowInstance.applySelectLatestVersionSetting()
+            assertNull(toolWindowInstance.selectedVersions[key])
+            assertFalse(toolWindowInstance.hasSelectedUpdates())
+        } finally {
+            settings.state.versionAutoSelectionMode = original
         }
-
-        simulateCheck(currentVersion)
-        assertEquals("1.1.0", selectedVersions[key])
-
-        // Test with VersionAutoSelectionMode.DISABLED
-        settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.DISABLED
-        selectedVersions.clear()
-        simulateCheck(currentVersion)
-        assertEquals("1.0.0", selectedVersions[key])
-        
-        settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.LATEST
     }
 
     fun testUpdatesFilterIsDisabledUntilSuccessfulVersionScan() {
@@ -2240,10 +2229,10 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         toolWindow.applySelectLatestVersionSetting()
         assertEquals("2.0.0", selectedVersions[key])
 
-        // With DISABLED mode, the current version should be selected
+        // With DISABLED mode, no update should be selected.
         settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.DISABLED
         toolWindow.applySelectLatestVersionSetting()
-        assertEquals("1.0.0", selectedVersions[key])
+        assertNull(selectedVersions[key])
 
         // Reset
         settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.LATEST

@@ -17,7 +17,7 @@
         
         <p><b>Core Features:</b></p>
         <ul>
-            <li><b>Find & Update Versions:</b> Discover newer versions in Maven Central and private repositories with release-prioritized lists that place higher SNAPSHOT versions first, and update dependencies, plugins, and parent POMs using configurable selection strategies.</li>
+            <li><b>Find & Update Versions:</b> Discover newer versions in Maven Central and private repositories with release-prioritized lists that place higher SNAPSHOT versions first, and update dependencies, plugins, and parent POMs using configurable selection strategies that can keep current versions; the current version remains displayed even when it is not an offered candidate.</li>
             <li><b>Vulnerability Scanning:</b> Check dependencies, plugins, and resolved transitive components for known vulnerabilities via OSV.dev and Sonatype OSS Index with severity ratings, CVSS scores, and affected version ranges.</li>
             <li><b>One-Click Vulnerability Fixes:</b> Apply recommended fix versions for direct findings and pin vulnerable transitive dependencies in <code>dependencyManagement</code> with configurable explanatory comments.</li>
             <li><b>Complete Dependency Overview:</b> Displays all dependencies, plugins, and parent POMs across Maven modules in an organized table, preserving declared <code>*-SNAPSHOT</code> versions instead of showing timestamped Maven resolutions and marking entries inherited from parent POMs or BOM imports.</li>

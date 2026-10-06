@@ -90,6 +90,7 @@ internal class DependencyVersionService(
         MavenProjectsManager.getInstance(project).projects.forEach { mavenProject ->
             processProjectUpdates(
                 mavenProject,
+                currentVersions,
                 indicator,
                 availableVersions,
                 rawVersions,
@@ -142,10 +143,15 @@ internal class DependencyVersionService(
      * Verarbeitet alle Abhängigkeiten und Plugins eines einzelnen Maven-Projekts
      * und fragt deren verfügbare Updates ab.
      *
+     * Bekannte Koordinaten verwenden dieselbe Ausgangsversion wie die Tabelle; nur für
+     * weitere Koordinaten wird die Maven-/PSI-Version verwendet.
+     *
+     * @param currentVersions Aktuelle Versionen des gemeinsamen Refresh-Schnappschusses.
      * @param cachedArtifactKeys Set der in diesem Suchlauf aus dem Cache bedienten Artefakte.
      */
-    private fun processProjectUpdates(
+    internal fun processProjectUpdates(
         mavenProject: MavenProject,
+        currentVersions: Map<String, String>,
         indicator: ProgressIndicator,
         availableVersions: MutableMap<String, List<String>>,
         rawVersions: MutableMap<String, List<String>>,
@@ -175,7 +181,7 @@ internal class DependencyVersionService(
             checkArtifactUpdate(
                 groupId,
                 artifactId,
-                version,
+                currentVersions[key] ?: version,
                 indicator,
                 availableVersions,
                 rawVersions,
@@ -307,22 +313,7 @@ internal class DependencyVersionService(
             rawVersions[depKey] = sortedCommonVersions
             val visibleVersions = applyVersionSettings(sortedCommonVersions, currentVersion)
             availableVersions[depKey] = visibleVersions
-            if (visibleVersions.isNotEmpty() &&
-                MavenUpSettings.getInstance().state.versionAutoSelectionMode != VersionAutoSelectionMode.DISABLED
-            ) {
-                val autoSelectedVersion = chooseAutoSelectedVersion(
-                    currentVersion,
-                    visibleVersions,
-                    MavenUpSettings.getInstance().state.versionAutoSelectionMode
-                )
-                if (autoSelectedVersion != currentVersion) {
-                    selectedVersions[depKey] = autoSelectedVersion
-                } else {
-                    selectedVersions.remove(depKey)
-                }
-            } else if (visibleVersions.isNotEmpty()) {
-                selectedVersions[depKey] = currentVersion
-            }
+            applyAutoSelection(depKey, currentVersion, visibleVersions, selectedVersions)
         }
     }
 
@@ -362,7 +353,8 @@ internal class DependencyVersionService(
     /**
      * Übernimmt die konfigurierte Auto-Selektionsstrategie für eine einzelne Abhängigkeit.
      *
-     * Entspricht die ermittelte Zielversion der aktuellen Version, wird kein Update vorgemerkt.
+     * Bei deaktivierter Vorauswahl oder einer unveränderten Zielversion wird eine zuvor
+     * gespeicherte Auswahl entfernt, sodass kein Update vorgemerkt wird.
      *
      * @param key Der Abhängigkeitsschlüssel (`groupId:artifactId`).
      * @param currentVersion Die aktuell verwendete Version.
@@ -376,10 +368,6 @@ internal class DependencyVersionService(
         selectedVersions: MutableMap<String, String>
     ) {
         val autoSelectionMode = MavenUpSettings.getInstance().state.versionAutoSelectionMode
-        if (autoSelectionMode == VersionAutoSelectionMode.DISABLED) {
-            selectedVersions[key] = currentVersion
-            return
-        }
         val autoSelectedVersion = chooseAutoSelectedVersion(currentVersion, versions, autoSelectionMode)
         if (autoSelectedVersion != currentVersion) {
             selectedVersions[key] = autoSelectedVersion

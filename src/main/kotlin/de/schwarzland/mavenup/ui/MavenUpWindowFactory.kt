@@ -674,10 +674,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     val upToDate = isVersionUpToDate(effectiveVersion, newestVersion)
                     val hasChange = effectiveVersion != currentVersion && effectiveVersion.isNotEmpty()
 
-                    val combo = ComboBox(versions.toTypedArray()).apply {
-                        if (effectiveVersion.isNotEmpty()) {
-                            selectedItem = effectiveVersion
-                        }
+                    val combo = createVersionComboBox(versions, effectiveVersion).apply {
                         if (hasChange) {
                             foreground = versionStatusColor(upToDate)
                         }
@@ -697,10 +694,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 }
 
             table.columnModel.getColumn(NEW_VERSION_COLUMN).cellEditor = object : AbstractTableCellEditor() {
-                private var currentComboBox: ComboBox<String>? = null
                 private var currentKey: String? = null
                 private var editorPanel: JPanel? = null
 
+                /** Erstellt den Editor mit expliziter Auswahl; nur Wertwechsel synchronisieren Maven-Properties. */
                 override fun getTableCellEditorComponent(
                     table: JTable?, value: Any?, isSelected: Boolean, row: Int, column: Int
                 ): Component {
@@ -710,16 +707,12 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
                     @Suppress("UNCHECKED_CAST")
                     val versions = value as? List<String> ?: emptyList()
-                    val combo = ComboBox(versions.toTypedArray())
-
                     val currentVersion = table?.getValueAt(row, CURRENT_VERSION_COLUMN) as? String ?: ""
                     val newestVersion = versions.firstOrNull() ?: ""
 
                     val selectedVersion = if (currentKey != null) selectedVersions[currentKey!!] else null
                     val effectiveVersion = selectedVersion ?: currentVersion
-                    if (effectiveVersion.isNotEmpty()) {
-                        combo.selectedItem = effectiveVersion
-                    }
+                    val combo = createVersionComboBox(versions, effectiveVersion)
 
                     val upToDate = isVersionUpToDate(effectiveVersion, newestVersion)
                     val hasChange = effectiveVersion != currentVersion && effectiveVersion.isNotEmpty()
@@ -738,7 +731,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     combo.addActionListener {
                         val selected = combo.selectedItem as? String
                         val key = currentKey
-                        if (key != null && selected != null) {
+                        if (key != null && selected != null &&
+                            selected != (selectedVersions[key] ?: currentVersion)
+                        ) {
                             synchronizePropertyVersions(key, selected)
                         }
                         updateUpdateButtonState()
@@ -746,7 +741,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         applyRowFilter()
                     }
 
-                    currentComboBox = combo
                     val panel = createVersionPanel(
                         combo,
                         versionStatusText(upToDate),
@@ -758,11 +752,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     return panel
                 }
 
+                /** Liefert die Kandidatenliste ohne eine unveraenderte Auswahl als Update zu speichern. */
                 override fun getCellEditorValue(): Any? {
-                    val selected = currentComboBox?.selectedItem as? String
-                    if (currentKey != null && selected != null) {
-                        synchronizePropertyVersions(currentKey!!, selected)
-                    }
                     updateUpdateButtonState()
                     val groupId = currentKey?.substringBefore(":")
                     val artifactId = currentKey?.substringAfter(":")
@@ -847,6 +838,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     return
                 }
 
+                dropUnavailableVersionSelections()
                 updateUpdateButtonState()
                 updateTypeFilterOptions()
                 updateUpdatesFilterState()
@@ -2208,7 +2200,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
          *
          * @param state Der nach Projektstart oder Maven-Import erfasste Zustand.
          */
-        private fun applyAutomaticVersionSearchState(state: AutomaticVersionSearchState) {
+        internal fun applyAutomaticVersionSearchState(state: AutomaticVersionSearchState) {
             if (isUpdating || project.isDisposed) return
 
             refreshGeneration++
@@ -2254,6 +2246,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 addDependencyRow(row, declaredCoordinates)
             }
 
+            dropUnavailableVersionSelections()
             updateUpdateButtonState()
             updateTypeFilterOptions()
             updateUpdatesFilterState()
@@ -2453,7 +2446,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * Wendet die konfigurierte Auto-Selektionsstrategie auf alle bereits geladenen Abhängigkeiten an.
          *
          * Wird aufgerufen, wenn sich die Einstellung ändert, damit die "New Version"-Spalte sofort
-         * die korrekte Auswahl widerspiegelt.
+         * die korrekte Auswahl widerspiegelt. Bei deaktivierter Vorauswahl werden gespeicherte
+         * Ziele entfernt; die Anzeige verwendet dann die aktuelle Version.
          */
         internal fun applySelectLatestVersionSetting() {
             if (availableVersions.isEmpty()) return
@@ -2469,7 +2463,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         selectedVersions.remove(key)
                     }
                 } else {
-                    selectedVersions[key] = currentVersion
+                    selectedVersions.remove(key)
                 }
             }
             cancelActiveCellEditing()
@@ -2541,12 +2535,13 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
-         * Verwirft Versionsauswahlen, die in den aktuell angebotenen Versionen nicht mehr enthalten sind.
+         * Verwirft unveränderte und nicht mehr angebotene Zielauswahlen auch bei leeren Versionslisten.
+         * Eine fehlende Auswahl bedeutet, dass die aktuelle Tabellen-Version beibehalten wird.
          */
         private fun dropUnavailableVersionSelections() {
             selectedVersions.entries.removeAll { (key, version) ->
                 val versions = availableVersions[key].orEmpty()
-                versions.isNotEmpty() && version !in versions
+                version == knownDependencies[key] || version !in versions
             }
         }
 
@@ -3920,6 +3915,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         availableVersions.putAll(result.availableVersions)
                         rawAvailableVersions.putAll(result.rawVersions)
                         selectedVersions.putAll(result.selectedVersions)
+                        dropUnavailableVersionSelections()
                         versionSearchRepositoryError = reportedRepositoryApiError.get()
                         refreshApiErrorBanner()
                         val dependenciesWithVersions = result.availableVersions.values.count { it.isNotEmpty() }

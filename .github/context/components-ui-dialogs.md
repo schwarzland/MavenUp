@@ -42,8 +42,10 @@ UI-Komponenten: [`components-ui.md`](components-ui.md) und
   „(current)"-Marker; keine eigene Spalte).
   Die editierbare **New Version**-Spalte spiegelt die New-Version-Spalte der Haupttabelle (Renderer/Editor via
   `buildVersionPanel`/`applyDropdownRenderer` (delegiert an `applyVersionDropdownRenderer`), `createVersionPanel`); die Auswahl liegt in `selectedVersions`
-  (nur bewusst gewählte Werte, Standard = aktuelle Version) und wird über den `onSelectionChanged`-Callback an
-  `refreshToolbar` gemeldet. `collectPendingUpdates`/`hasPendingUpdates` erzeugen daraus `DependencyUpdate`s vom
+  (nur bewusst gewählte Werte; ohne Auswahl zeigt `createVersionComboBox` über `DefaultComboBoxModel.selectedItem`
+  dennoch den aktuellen Wert, auch wenn dieser nicht zu den Kandidaten gehört) und wird über den
+  `onSelectionChanged`-Callback an `refreshToolbar` gemeldet. Ein unveränderter Editor erzeugt keine
+  Auswahländerung. `collectPendingUpdates`/`hasPendingUpdates` erzeugen daraus `DependencyUpdate`s vom
   Typ „managed dependency" (inkl. `fixedVulnerabilities` und `fixedVulnerabilityAliases`, die über
   `commentAdvisories`/`advisoriesBySeverity` aus `advisoriesByKey` absteigend nach Schweregrad für den
   pom-Kommentar sortiert werden – die Zeilensortierung der Tabelle bleibt davon unberührt – und

@@ -525,8 +525,7 @@ internal class TransitiveVulnerabilitiesView(
         val newestVersion = versions.firstOrNull() ?: ""
         val upToDate = isVersionUpToDate(effectiveVersion, newestVersion)
         val hasChange = effectiveVersion != currentVersion && effectiveVersion.isNotEmpty()
-        val combo = ComboBox(versions.toTypedArray())
-        if (effectiveVersion.isNotEmpty()) combo.selectedItem = effectiveVersion
+        val combo = createVersionComboBox(versions, effectiveVersion)
         if (hasChange) combo.foreground = versionStatusColor(upToDate)
         configureCombo(combo)
         return createVersionPanel(
@@ -1170,7 +1169,7 @@ internal class TransitiveVulnerabilitiesView(
     internal fun dropUnavailableSelections() {
         selectedVersions.entries.removeAll { (key, version) ->
             val versions = availableVersions[key].orEmpty()
-            versions.isNotEmpty() && version !in versions
+            version !in versions
         }
     }
 
