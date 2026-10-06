@@ -593,7 +593,7 @@ class TemporaryDependencyTreeResolver(
      */
     internal fun interpolateText(text: String, properties: Map<String, String>): String {
         if (!text.contains("\${")) return text
-        val regex = Regex("""\$\{([^}]+)\}""")
+        val regex = Regex("""\$\{([^}]+)}""")
         return regex.replace(text) { matchResult ->
             val propName = matchResult.groupValues[1]
             properties[propName] ?: matchResult.value
