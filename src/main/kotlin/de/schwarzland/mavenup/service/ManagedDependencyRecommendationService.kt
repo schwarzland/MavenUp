@@ -455,7 +455,7 @@ class ManagedDependencyRecommendationService(
             triggerTargetVersion = targetVersion,
             transitiveVersionInTarget = providedVersion,
             consumers = consumerInfos,
-            isSatisfiedAcrossAllConsumers = if (consumerPaths.isEmpty()) true else isSingleConsumerOrAllTrigger
+            isSatisfiedAcrossAllConsumers = consumerPaths.isEmpty() || isSingleConsumerOrAllTrigger
         )
     }
 
@@ -553,14 +553,7 @@ class ManagedDependencyRecommendationService(
                 }
 
                 if (g.isNotEmpty() && a.isNotEmpty()) {
-                    val rawOrResolved = if (v.isNotEmpty()) {
-                        val resolved = resolvePropertyPlaceholder(v, effectiveProperties)
-                        resolved.ifEmpty { v }
-                    } else {
-                        resolvedDependencies["$g:$a"]?.artifact?.version
-                            ?: mavenProject.findDependencies(g, a).firstOrNull()?.version
-                            ?: mavenProject.dependencies.firstOrNull { it.groupId == g && it.artifactId == a }?.version.orEmpty()
-                    }
+                    val rawOrResolved = resolveDependencyVersion(g, a, v, effectiveProperties, mavenProject, resolvedDependencies)
                     if (rawOrResolved.isNotEmpty()) {
                         declarations.add(
                             ManagedDependencyDeclaration(
@@ -656,20 +649,21 @@ class ManagedDependencyRecommendationService(
         val parentTag = rootTag.findFirstSubTag("parent") ?: return null
         val g = parentTag.findFirstSubTag("groupId")?.value?.text?.trim().orEmpty()
         val a = parentTag.findFirstSubTag("artifactId")?.value?.text?.trim().orEmpty()
+        if (g.isEmpty() || a.isEmpty()) {
+            return null
+        }
         val v = parentTag.findFirstSubTag("version")?.value?.text?.trim().orEmpty()
-        if (g.isNotEmpty() && a.isNotEmpty()) {
-            val resolvedV = if (v.isNotEmpty()) {
-                val resolved = resolvePropertyPlaceholder(v, effectiveProperties)
-                resolved.ifEmpty { v }
-            } else {
-                mavenProject.parentId?.version.orEmpty()
-            }
-            if (resolvedV.isNotEmpty()) {
-                indicator?.text2 = "${mavenProject.mavenId}: $g:$a"
-                val versions = getCandidateVersions(g, a, resolvedV, availableVersionsMap, indicator)
-                val allVersions = (listOf(resolvedV) + versions).distinct()
-                return TriggerCandidate(g, a, resolvedV, "parent", allVersions, mavenProject)
-            }
+        val resolvedV = if (v.isNotEmpty()) {
+            val resolved = resolvePropertyPlaceholder(v, effectiveProperties)
+            resolved.ifEmpty { v }
+        } else {
+            mavenProject.parentId?.version.orEmpty()
+        }
+        if (resolvedV.isNotEmpty()) {
+            indicator?.text2 = "${mavenProject.mavenId}: $g:$a"
+            val versions = getCandidateVersions(g, a, resolvedV, availableVersionsMap, indicator)
+            val allVersions = (listOf(resolvedV) + versions).distinct()
+            return TriggerCandidate(g, a, resolvedV, "parent", allVersions, mavenProject)
         }
         return null
     }
@@ -698,24 +692,46 @@ class ManagedDependencyRecommendationService(
     ): TriggerCandidate? {
         val g = depTag.findFirstSubTag("groupId")?.value?.text?.trim().orEmpty()
         val a = depTag.findFirstSubTag("artifactId")?.value?.text?.trim().orEmpty()
-        val v = depTag.findFirstSubTag("version")?.value?.text?.trim().orEmpty()
-        if (g.isNotEmpty() && a.isNotEmpty()) {
-            val resolvedV = if (v.isNotEmpty()) {
-                val resolved = resolvePropertyPlaceholder(v, effectiveProperties)
-                resolved.ifEmpty { v }
-            } else {
-                resolvedDependencies["$g:$a"]?.artifact?.version
-                    ?: mavenProject.findDependencies(g, a).firstOrNull()?.version
-                    ?: mavenProject.dependencies.firstOrNull { it.groupId == g && it.artifactId == a }?.version.orEmpty()
-            }
-            if (resolvedV.isNotEmpty()) {
-                indicator?.text2 = "${mavenProject.mavenId}: $g:$a"
-                val versions = getCandidateVersions(g, a, resolvedV, availableVersionsMap, indicator)
-                val allVersions = (listOf(resolvedV) + versions).distinct()
-                return TriggerCandidate(g, a, resolvedV, "dependency", allVersions, mavenProject)
-            }
+        if (g.isEmpty() || a.isEmpty()) {
+            return null
         }
-        return null
+        val v = depTag.findFirstSubTag("version")?.value?.text?.trim().orEmpty()
+        val resolvedV = resolveDependencyVersion(g, a, v, effectiveProperties, mavenProject, resolvedDependencies)
+        if (resolvedV.isEmpty()) {
+            return null
+        }
+        indicator?.text2 = "${mavenProject.mavenId}: $g:$a"
+        val versions = getCandidateVersions(g, a, resolvedV, availableVersionsMap, indicator)
+        val allVersions = (listOf(resolvedV) + versions).distinct()
+        return TriggerCandidate(g, a, resolvedV, "dependency", allVersions, mavenProject)
+    }
+
+    /**
+     * Ermittelt die Version einer Abhängigkeit aus dem XML-Wert oder aus dem aufgelösten Maven-Projekt.
+     *
+     * @param groupId Die Group-ID.
+     * @param artifactId Die Artefakt-ID.
+     * @param rawVersion Der Rohwert der Version aus dem XML.
+     * @param effectiveProperties Die effektiven Properties des Maven-Projekts.
+     * @param mavenProject Das zugehörige Maven-Projekt.
+     * @param resolvedDependencies Map der aufgelösten Abhängigkeitsknoten (`groupId:artifactId` -> Knoten).
+     * @return Die ermittelte Version oder ein leerer String.
+     */
+    private fun resolveDependencyVersion(
+        groupId: String,
+        artifactId: String,
+        rawVersion: String,
+        effectiveProperties: Map<String, String>,
+        mavenProject: MavenProject,
+        resolvedDependencies: Map<String, MavenArtifactNode>
+    ): String {
+        if (rawVersion.isNotEmpty()) {
+            val resolved = resolvePropertyPlaceholder(rawVersion, effectiveProperties)
+            return resolved.ifEmpty { rawVersion }
+        }
+        return resolvedDependencies["$groupId:$artifactId"]?.artifact?.version
+            ?: mavenProject.findDependencies(groupId, artifactId).firstOrNull()?.version
+            ?: mavenProject.dependencies.firstOrNull { it.groupId == groupId && it.artifactId == artifactId }?.version.orEmpty()
     }
 
     /**
