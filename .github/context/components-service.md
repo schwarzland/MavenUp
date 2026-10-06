@@ -270,6 +270,9 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   das Artefakt transitiv in einer kompatiblen Version (`>=` deklarierte Version) bereitstellen. Führt eine
   Multi-Consumer-Validierung durch: wenn ein Artefakt über mehrere direkte Abhängigkeitspfade genutzt wird,
   wird eine Bereinigungsempfehlung nur ausgegeben, wenn alle Konsumenten kompatibel versorgt sind.
+  Ein optionaler IntelliJ-`ProgressIndicator` meldet Projekt, Managed-Koordinate, Upgrade-Trigger und
+  Kandidatenversion als Fortschrittsdetails und prüft Abbruch regelmäßig in Analyse-, PSI- und
+  Baumdurchläufen; Abbruchausnahmen aus Versionsabfragen werden nicht als leere Kandidatenliste verschluckt.
   DEBUG-Logs erfassen Start und Abschluss mit Koordinatenfiltern und Ergebnisanzahl, projektbezogene
   Eintrags-/Triggerzahlen, übersprungene Prüfungen, gekürzte Kandidatenlisten und Bewertungen mit Ablehnungsgründen.
 - **ManagedDependencyRemovalRecommendation / ConsumerDependencyInfo / TemporaryArtifactCoordinate / TemporaryDependencyNode**:

@@ -1,5 +1,7 @@
 package de.schwarzland.mavenup.service
 
+import com.intellij.openapi.progress.ProcessCanceledException
+import com.intellij.openapi.progress.util.ProgressIndicatorBase
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import org.apache.maven.artifact.versioning.ComparableVersion
 import org.jetbrains.idea.maven.model.MavenArtifact
@@ -10,6 +12,21 @@ import org.jetbrains.idea.maven.project.MavenProject
  * Unittests für [ManagedDependencyRecommendationService].
  */
 class ManagedDependencyRecommendationServiceTest : BasePlatformTestCase() {
+
+    /**
+     * Prüft, dass eine bereits abgebrochene Cleanup-Analyse den Abbruch weitergibt.
+     */
+    fun testFindRecommendationsPropagatesCancellation() {
+        val service = ManagedDependencyRecommendationService(project)
+        val indicator = ProgressIndicatorBase().apply { cancel() }
+
+        try {
+            service.findRecommendations(emptyMap(), null, null, indicator)
+            fail("Expected the cleanup analysis to stop when cancelled")
+        } catch (_: ProcessCanceledException) {
+            // Expected: cancellation must not be reported as an empty result.
+        }
+    }
 
     /**
      * Prüft den globalen, passenden und abweichenden Koordinatenfilter.

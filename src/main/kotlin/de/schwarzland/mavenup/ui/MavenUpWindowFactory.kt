@@ -3468,7 +3468,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         recommendations = recommendationService.findRecommendations(
                             availableVersions,
                             managedCoordinate,
-                            triggerCoordinate
+                            triggerCoordinate,
+                            indicator
                         )
                     }
 
