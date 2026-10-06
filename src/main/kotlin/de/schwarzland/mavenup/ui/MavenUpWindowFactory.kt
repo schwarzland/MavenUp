@@ -1221,6 +1221,16 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 ) {
                     if (!showingTransitiveView) confirmAndRemoveManagedEntries(MANAGED_PLUGIN)
                 })
+                addSeparator()
+                add(toolbarAction(
+                    "toolwindow.MyToolWindow.checkManagedRemoval.menuItem",
+                    AllIcons.Actions.GC,
+                    { !showingTransitiveView && isCheckManagedRemovalEnabled() },
+                    descriptionProvider = {
+                        MyMessageBundle.message("toolwindow.MyToolWindow.checkManagedRemoval.tooltip")
+                    },
+                    isMenuItem = true
+                ) { checkManagedDependencyRemovalAction() })
             }
 
             toolbarGroup.apply {
@@ -1249,15 +1259,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 addSeparator()
                 add(versionActionsGroup)
                 add(managedEntriesActionGroup)
-                add(toolbarAction(
-                    "toolwindow.MyToolWindow.checkManagedRemoval.button",
-                    AllIcons.Actions.GC,
-                    { isCheckManagedRemovalEnabled() },
-                    shortLabelKey = "toolwindow.MyToolWindow.checkManagedRemoval.button.short",
-                    descriptionProvider = {
-                        MyMessageBundle.message("toolwindow.MyToolWindow.checkManagedRemoval.tooltip")
-                    }
-                ) { checkManagedDependencyRemovalAction() })
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.resetVersions.button",
                     AllIcons.Actions.Undo,

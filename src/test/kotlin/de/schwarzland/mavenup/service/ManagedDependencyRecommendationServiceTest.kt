@@ -1,8 +1,6 @@
 package de.schwarzland.mavenup.service
 
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
-import de.schwarzland.mavenup.model.ConsumerDependencyInfo
-import de.schwarzland.mavenup.model.ManagedDependencyRemovalRecommendation
 import org.apache.maven.artifact.versioning.ComparableVersion
 import org.jetbrains.idea.maven.model.MavenArtifact
 import org.jetbrains.idea.maven.model.MavenArtifactNode

@@ -366,6 +366,9 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         }
     }
 
+    /**
+     * Prüft, dass das Managed-Entries-Untermenü seine Bulk-Aktionen und Bereinigungsempfehlungen enthält.
+     */
     fun testManagedEntriesBulkMenuIsPresentInToolbar() {
         val toolWindowInstance = MavenUpWindowFactory().MyToolWindow(project)
         val managedEntriesGroup = toolWindowInstance.topToolbarActions()
@@ -374,15 +377,22 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         assertNotNull("Das \"Managed Entries\"-Untermenü sollte vorhanden sein", managedEntriesGroup)
         assertTrue(
-            "Das Untermenü sollte die beiden Managed-Entries-Aktionen enthalten",
+            "Das Untermenü sollte die Managed-Entries-Aktionen und die Bereinigungsempfehlung enthalten",
             managedEntriesGroup!!.childActionsOrStubs
                 .map { it.templatePresentation.text }
                 .containsAll(
                     listOf(
                         toolWindowInstance.managedDependenciesActionLabel(),
-                        toolWindowInstance.managedPluginsActionLabel()
+                        toolWindowInstance.managedPluginsActionLabel(),
+                        MyMessageBundle.message("toolwindow.MyToolWindow.checkManagedRemoval.menuItem")
                     )
                 )
+        )
+        assertFalse(
+            "Die Bereinigungsaktion sollte nicht mehr als eigener Toolbar-Button erscheinen",
+            toolWindowInstance.topToolbarActions().any {
+                it.templatePresentation.text == MyMessageBundle.message("toolwindow.MyToolWindow.checkManagedRemoval.menuItem")
+            }
         )
     }
 
