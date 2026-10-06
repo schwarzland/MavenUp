@@ -262,10 +262,15 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   für Kandidaten-POMs im Arbeitsspeicher auf. Lädt POMs aus dem lokalen Maven-Cache (`~/.m2/repository`) oder
   über konfigurierte Remote-Repositories (inkl. Maven-Central- und Server-Credentials), interpoliert Properties
   rekursiv, löst `<parent>`-Hierarchien und BOM-Imports auf und unterstützt Zyklenerkennung sowie Tiefenbegrenzungen.
+  DEBUG-Logs unterscheiden POM-Speicher-Cache, lokale Treffer und Remote-Abfragen; `tryFetchPomFromRepository`
+  protokolliert HTTP-GET-Versuche mit Artefaktpfad und Host, Antwortstatus und bei Fehlern nur die Exception-Klasse,
+  ohne vollständige URLs, Zugangsdaten, Header oder POM-Inhalte auszugeben.
 - **ManagedDependencyRecommendationService**: analysiert deklarierte verwaltete Abhängigkeiten (`<dependencyManagement>`)
   und prüft, ob Versionsaktualisierungen von übergeordneten POMs (`<parent>`) oder direkten Abhängigkeiten
   das Artefakt transitiv in einer kompatiblen Version (`>=` deklarierte Version) bereitstellen. Führt eine
   Multi-Consumer-Validierung durch: wenn ein Artefakt über mehrere direkte Abhängigkeitspfade genutzt wird,
   wird eine Bereinigungsempfehlung nur ausgegeben, wenn alle Konsumenten kompatibel versorgt sind.
+  DEBUG-Logs erfassen Start und Abschluss mit Koordinatenfiltern und Ergebnisanzahl, projektbezogene
+  Eintrags-/Triggerzahlen, übersprungene Prüfungen, gekürzte Kandidatenlisten und Bewertungen mit Ablehnungsgründen.
 - **ManagedDependencyRemovalRecommendation / ConsumerDependencyInfo / TemporaryArtifactCoordinate / TemporaryDependencyNode**:
   Datenmodelle für Bereinigungsempfehlungen und den temporären Abhängigkeitsgraphen (`model/ManagedDependencyRemovalRecommendation.kt`).

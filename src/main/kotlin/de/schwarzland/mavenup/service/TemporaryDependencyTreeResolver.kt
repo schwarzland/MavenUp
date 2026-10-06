@@ -46,6 +46,7 @@ class TemporaryDependencyTreeResolver(
 
     /**
      * Lädt den POM-XML-Inhalt für eine Koordinate.
+     * Protokolliert die verwendete Quelle auf DEBUG-Ebene, ohne POM-Inhalte auszugeben.
      *
      * @param groupId Die Group-ID.
      * @param artifactId Die Artefakt-ID.
@@ -54,23 +55,30 @@ class TemporaryDependencyTreeResolver(
      */
     fun fetchPomXml(groupId: String, artifactId: String, version: String): String? {
         val key = artifactKey(groupId, artifactId, version)
-        pomCache[key]?.let { return it }
+        pomCache[key]?.let {
+            LOG.debug("POM cache hit for $key")
+            return it
+        }
+        LOG.debug("POM cache miss for $key")
 
         if (pomContentFetcher != null) {
             val content = pomContentFetcher.invoke(groupId, artifactId, version)
             if (content != null) {
                 pomCache[key] = content
             }
+            LOG.debug("POM provider lookup for $key: found=${content != null}")
             return content
         }
 
         // 1. Lokales Maven-Repository prüfen
         val localContent = readFromLocalRepository(groupId, artifactId, version)
         if (localContent != null) {
+            LOG.debug("Local Maven POM hit for $key")
             pomCache[key] = localContent
             return localContent
         }
 
+        LOG.debug("Local Maven POM miss for $key")
         // 2. Remote-Repositories abfragen
         val remoteContent = fetchFromRemoteRepositories(groupId, artifactId, version)
         if (remoteContent != null) {
@@ -78,6 +86,7 @@ class TemporaryDependencyTreeResolver(
             return remoteContent
         }
 
+        LOG.debug("POM not found for $key in configured repositories")
         return null
     }
 
@@ -159,18 +168,32 @@ class TemporaryDependencyTreeResolver(
 
     /**
      * Versucht, eine POM-Datei von einem einzelnen Repository abzurufen.
+     * Protokolliert GET-Versuche, HTTP-Status und Fehlerklassen ohne Zugangsdaten oder volle URLs.
+     *
+     * @param repoId Repository-ID zur Auswahl der Zugangsdaten.
+     * @param repoUrl Basis-URL des Repositorys; wird nicht protokolliert.
+     * @param relativePath Artefaktbezogener POM-Pfad relativ zum Repository.
+     * @param credentials Zugangsdaten je Repository-ID; werden nicht protokolliert.
+     * @return POM-Inhalt bei HTTP 200, andernfalls `null`.
      */
     @Suppress("TooGenericExceptionCaught")
-    private fun tryFetchPomFromRepository(
+    internal fun tryFetchPomFromRepository(
         repoId: String?,
         repoUrl: String,
         relativePath: String,
         credentials: Map<String, Pair<String?, String?>>
     ): String? {
         val urlString = "${repoUrl.trimEnd('/')}/$relativePath"
+        var repositoryHost = "<invalid>"
         return try {
             val uri = URI(urlString)
-            val connection = uri.toURL().openConnection() as? HttpURLConnection ?: return null
+            repositoryHost = uri.host ?: "<unknown>"
+            LOG.debug("Querying POM $relativePath from $repositoryHost via HTTP GET")
+            val connection = uri.toURL().openConnection() as? HttpURLConnection
+            if (connection == null) {
+                LOG.debug("Unsupported POM connection for $relativePath from $repositoryHost")
+                return null
+            }
             connection.connectTimeout = 5000
             connection.readTimeout = 5000
             connection.requestMethod = "GET"
@@ -184,13 +207,19 @@ class TemporaryDependencyTreeResolver(
                 }
             }
 
-            if (connection.responseCode == HttpURLConnection.HTTP_OK) {
-                connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
-            } else {
-                null
+            try {
+                val status = connection.responseCode
+                LOG.debug("POM response for $relativePath from $repositoryHost: HTTP $status")
+                if (status == HttpURLConnection.HTTP_OK) {
+                    connection.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+                } else {
+                    null
+                }
+            } finally {
+                connection.disconnect()
             }
         } catch (e: Exception) {
-            LOG.debug("Failed to fetch POM from $urlString: ${e.message}")
+            LOG.debug("Failed to fetch POM $relativePath from $repositoryHost: ${e.javaClass.simpleName}")
             null
         }
     }

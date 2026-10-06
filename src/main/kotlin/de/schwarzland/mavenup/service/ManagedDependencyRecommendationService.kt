@@ -66,6 +66,7 @@ class ManagedDependencyRecommendationService(
 
     /**
      * Ermittelt alle Empfehlungen zur Bereinigung redundanter verwalteter Abhängigkeiten.
+     * Protokolliert Prüfumfang und Ergebnisanzahl auf DEBUG-Ebene für Toolbar und Kontextmenü.
      *
      * @param availableVersionsMap Optionale Map mit bereits ermittelten Versionen (`groupId:artifactId` -> Versionsliste).
      * @param managedCoordinate Optional: begrenzt die Ergebnisse auf diesen verwalteten Eintrag.
@@ -78,9 +79,15 @@ class ManagedDependencyRecommendationService(
         triggerCoordinate: String? = null
     ): List<ManagedDependencyRemovalRecommendation> {
         val mavenProjects = MavenProjectsManager.getInstance(project).projects.toList()
-        return mavenProjects.flatMap {
+        LOG.debug(
+            "Cleanup analysis started: projects=${mavenProjects.size}, " +
+                "managed=${managedCoordinate ?: "all"}, trigger=${triggerCoordinate ?: "all"}"
+        )
+        val recommendations = mavenProjects.flatMap {
             findRecommendationsForProject(it, availableVersionsMap, managedCoordinate, triggerCoordinate)
         }
+        LOG.debug("Cleanup analysis completed: recommendations=${recommendations.size}")
+        return recommendations
     }
 
     /**
@@ -101,20 +108,35 @@ class ManagedDependencyRecommendationService(
         val managedDeclarations = collectManagedDependencies(mavenProject).filter {
             matchesCoordinateScope(it.groupId, it.artifactId, managedCoordinate)
         }
-        if (managedDeclarations.isEmpty()) return emptyList()
+        LOG.debug("Cleanup project ${mavenProject.mavenId}: managed entries=${managedDeclarations.size}")
+        if (managedDeclarations.isEmpty()) {
+            LOG.debug("Skipping cleanup project ${mavenProject.mavenId}: no managed entries in scope")
+            return emptyList()
+        }
 
         val triggers = collectTriggerCandidates(mavenProject, availableVersionsMap).filter {
             matchesCoordinateScope(it.groupId, it.artifactId, triggerCoordinate)
         }
-        if (triggers.isEmpty()) return emptyList()
+        LOG.debug("Cleanup project ${mavenProject.mavenId}: upgrade triggers=${triggers.size}")
+        if (triggers.isEmpty()) {
+            LOG.debug("Skipping cleanup project ${mavenProject.mavenId}: no newer trigger versions in scope")
+            return emptyList()
+        }
 
         val results = mutableListOf<ManagedDependencyRemovalRecommendation>()
         for (managed in managedDeclarations) {
             val managedComparable = ComparableVersion(managed.currentVersion)
             val consumerPaths = findProjectConsumersForManaged(mavenProject, managed.groupId, managed.artifactId)
+            LOG.debug(
+                "Cleanup managed entry ${managed.groupId}:${managed.artifactId}:${managed.currentVersion}: " +
+                    "consumer paths=${consumerPaths.size}"
+            )
 
             for (trigger in triggers) {
-                if (trigger.groupId == managed.groupId && trigger.artifactId == managed.artifactId) continue
+                if (trigger.groupId == managed.groupId && trigger.artifactId == managed.artifactId) {
+                    LOG.debug("Skipping cleanup trigger ${trigger.groupId}:${trigger.artifactId}: same as managed entry")
+                    continue
+                }
                 val rec = findFirstSatisfiedRecommendationForTrigger(managed, managedComparable, trigger, consumerPaths)
                 if (rec != null) {
                     results.add(rec)
@@ -153,6 +175,10 @@ class ManagedDependencyRecommendationService(
         val eligibleVersions = trigger.candidateVersions.filter {
             ComparableVersion(it) > ComparableVersion(trigger.currentVersion)
         }
+        LOG.debug(
+            "Cleanup candidate versions for ${trigger.groupId}:${trigger.artifactId}:${trigger.currentVersion}: " +
+                summarizeForDebugLog(eligibleVersions)
+        )
         for (targetVersion in eligibleVersions) {
             val recommendation = evaluateTriggerRecommendation(
                 managed = managed,
@@ -185,13 +211,24 @@ class ManagedDependencyRecommendationService(
         targetVersion: String,
         consumerPaths: List<List<MavenArtifactNode>>
     ): ManagedDependencyRemovalRecommendation? {
-        return if (trigger.type == "parent") {
+        LOG.debug(
+            "Checking cleanup for ${managed.groupId}:${managed.artifactId}:${managed.currentVersion} " +
+                "with ${trigger.type} ${trigger.groupId}:${trigger.artifactId}:${trigger.currentVersion} -> $targetVersion"
+        )
+        val recommendation = if (trigger.type == "parent") {
             evaluateParentTriggerRecommendation(managed, managedComparable, trigger, targetVersion, consumerPaths)
         } else if (trigger.type == "dependency") {
             evaluateDependencyTriggerRecommendation(managed, managedComparable, trigger, targetVersion, consumerPaths)
         } else {
             null
         }
+        LOG.debug(
+            "Cleanup candidate result for ${managed.groupId}:${managed.artifactId} " +
+                "via ${trigger.groupId}:${trigger.artifactId}:$targetVersion: " +
+                "provided=${recommendation?.transitiveVersionInTarget ?: "none compatible"}, " +
+                "all consumers satisfied=${recommendation?.isSatisfiedAcrossAllConsumers ?: false}"
+        )
+        return recommendation
     }
 
     /**
@@ -214,9 +251,16 @@ class ManagedDependencyRecommendationService(
         val parentDepMgmt = treeResolver.resolveEffectiveDependencyManagement(trigger.groupId, trigger.artifactId, targetVersion)
         val parentTransitives = treeResolver.resolveTransitiveDependencies(trigger.groupId, trigger.artifactId, targetVersion)
         val key = "${managed.groupId}:${managed.artifactId}"
-        val providedVersion = parentDepMgmt[key] ?: parentTransitives[key] ?: return null
+        val providedVersion = parentDepMgmt[key] ?: parentTransitives[key]
+        if (providedVersion == null) {
+            LOG.debug("Cleanup parent candidate ${trigger.groupId}:${trigger.artifactId}:$targetVersion does not provide $key")
+            return null
+        }
 
-        if (ComparableVersion(providedVersion) < managedComparable) return null
+        if (ComparableVersion(providedVersion) < managedComparable) {
+            LOG.debug("Cleanup rejected for $key: provided $providedVersion is older than ${managed.currentVersion}")
+            return null
+        }
 
         val consumerInfos = if (consumerPaths.isEmpty()) {
             listOf(
@@ -274,9 +318,16 @@ class ManagedDependencyRecommendationService(
     ): ManagedDependencyRemovalRecommendation? {
         val candidateTransitives = treeResolver.resolveTransitiveDependencies(trigger.groupId, trigger.artifactId, targetVersion)
         val key = "${managed.groupId}:${managed.artifactId}"
-        val providedVersion = candidateTransitives[key] ?: return null
+        val providedVersion = candidateTransitives[key]
+        if (providedVersion == null) {
+            LOG.debug("Cleanup dependency candidate ${trigger.groupId}:${trigger.artifactId}:$targetVersion does not provide $key")
+            return null
+        }
 
-        if (ComparableVersion(providedVersion) < managedComparable) return null
+        if (ComparableVersion(providedVersion) < managedComparable) {
+            LOG.debug("Cleanup rejected for $key: provided $providedVersion is older than ${managed.currentVersion}")
+            return null
+        }
 
         val distinctConsumerRoots = consumerPaths.map { it.first().artifact }.distinctBy { "${it.groupId}:${it.artifactId}" }
         val isSingleConsumerOrAllTrigger = distinctConsumerRoots.all { it.groupId == trigger.groupId && it.artifactId == trigger.artifactId }
@@ -508,10 +559,12 @@ class ManagedDependencyRecommendationService(
         val knownList = availableVersionsMap[key]
         if (knownList != null) {
             val currentComp = ComparableVersion(currentVersion)
+            LOG.debug("Cleanup reuses known versions for $key: ${summarizeForDebugLog(knownList)}")
             return knownList.filter { ComparableVersion(it) > currentComp }
         }
 
         return try {
+            LOG.debug("Cleanup fetching candidate versions for $key")
             val apiService = DependencyApiService(project)
             val fetched = apiService.fetchAllVersions(groupId, artifactId)
             val currentComp = ComparableVersion(currentVersion)

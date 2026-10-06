@@ -51,7 +51,8 @@ Projekt-/PSI-Umgebung erben von `BasePlatformTestCase` (z. B. `MavenUpWindowFact
 `VulnerabilityScanServiceTest`). Netzwerklastige Services werden über
 injizierte Seams/Interfaces netzwerkfrei getestet.
 `CacheContentsDialogTest` deckt TTL-Anzeige und Invalidierung ab;
-`VersionLookupLoggingTest` prüft DEBUG-Ausgaben und lokale HTTP-Versuche einschließlich Cache-Treffern.
+`VersionLookupLoggingTest` prüft DEBUG-Ausgaben und lokale HTTP-Versuche einschließlich Cache-Treffern,
+Bereinigungsprüfungen, POM-Antwortstatus und Ausschluss von Zugangsdaten aus POM-Abfrage-Logs.
 
 ## KI-Agenten (Copilot / Junie)
 - Für KI-Agenten gelten die verbindlichen Arbeitsanweisungen in `.github/copilot-instructions.md`.
