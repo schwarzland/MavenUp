@@ -7,7 +7,7 @@ can do; the detailed feature descriptions are split by area into the files under
 
 - [Tool Window & UI](docs/features/tool-window-and-ui.md) - table content, navigation, context menus, toolbar, filtering, and sorting.
 - [Version Management](docs/features/version-management.md) - version lookup, selection strategies, bulk actions, and status indicators.
-- [Managed Dependency Removal](docs/features/managed-dependency-removal.md) - redundancy detection, temporary tree resolution, multi-consumer validation, and one-click cleanup recommendations.
+- [Managed Dependency Removal](docs/features/managed-dependency-removal.md) - redundancy detection, temporary tree resolution, multi-consumer validation, recommendation review, and cleanup application.
 - [Repositories & Authentication](docs/features/repositories-and-authentication.md) - repository queries, credentials from Maven `settings.xml`, and the repository browser.
 - [Vulnerability Scanning](docs/features/vulnerability-scanning.md) - multi-source scanning, transitive findings, the details dialog, and OSS Index integration.
 - [Settings & Configuration](docs/features/settings-and-configuration.md) - the options under `Settings > Tools > MavenUp`.

@@ -51,6 +51,8 @@ Projekt-/PSI-Umgebung erben von `BasePlatformTestCase` (z. B. `MavenUpWindowFact
 `VulnerabilityScanServiceTest`). Netzwerklastige Services werden über
 injizierte Seams/Interfaces netzwerkfrei getestet.
 `CacheContentsDialogTest` deckt TTL-Anzeige und Invalidierung ab;
+`ManagedDependencyRemovalDialogTest` prüft Auswahl und Übernahme sowie das skalierbare Split-Layout,
+die gespeicherte Aufteilung, lange und leere Detailinhalte und HTML-Maskierung;
 `VersionLookupLoggingTest` prüft DEBUG-Ausgaben und lokale HTTP-Versuche einschließlich Cache-Treffern,
 Bereinigungsprüfungen, POM-Antwortstatus und Ausschluss von Zugangsdaten aus POM-Abfrage-Logs.
 

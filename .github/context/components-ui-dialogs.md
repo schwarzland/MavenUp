@@ -23,8 +23,12 @@ UI-Komponenten: [`components-ui.md`](components-ui.md) und
 - **ManagedDependencyRemovalDialog**: interaktiver `DialogWrapper` zur Prüfung und Übernahme von
   Bereinigungsempfehlungen für redundante `<dependencyManagement>`-Einträge. Zeigt eine Tabelle der
   Empfehlungen mit Checkbox-Auswahl (`COLUMN_SELECT`), Managed-Koordinate, aktueller Version, Trigger-Komponente,
-  Zielversion und bereitgestellter Version, ein Detailpanel mit Erklärtext und Konsumenten-Abhängigkeitspfaden
-  sowie Schaltflächen zum Auswählen und Abwählen aller Einträge. Über `getSelectedRecommendations` werden die
+  Zielversion und bereitgestellter Version sowie Schaltflächen zum Auswählen und Abwählen aller Einträge.
+  Das Layout verwendet Kotlin UI DSL v2 und einen vertikalen `JBSplitter` mit initial 65 Prozent Tabellenhöhe,
+  Mindesthöhen und IDE-weit gespeicherter Aufteilung (`MavenUp.ManagedDependencyRemovalDialog.splitter`).
+  Der skalierbare Dialog zeigt unter **Recommendation Details** Erklärtext und Konsumenten-Abhängigkeitspfade
+  gemeinsam in einem scrollbar dargestellten, HTML-maskierten `JEditorPane` mit `HTMLEditorKitBuilder`-Word-Wrap;
+  beim Zeilenwechsel wird die Leseposition zurückgesetzt. Über `getSelectedRecommendations` werden die
   ausgewählten Empfehlungen an den Callback übergeben und in `MyToolWindow` zur Versionsanpassung und
   Entfernungsvormerkung angewendet.
 - **TransitiveVulnerabilitiesView**: eigenständige `JBPanel`-Ansicht (Top-Level in `ui`), die alle

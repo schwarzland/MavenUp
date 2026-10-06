@@ -2,20 +2,17 @@ package de.schwarzland.mavenup.ui
 
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogWrapper
-import com.intellij.ui.components.JBLabel
-import com.intellij.ui.components.JBList
-import com.intellij.ui.components.JBPanel
+import com.intellij.openapi.util.text.StringUtil
+import com.intellij.ui.JBSplitter
 import com.intellij.ui.components.JBScrollPane
+import com.intellij.ui.dsl.builder.Align
+import com.intellij.ui.dsl.builder.panel
 import com.intellij.ui.table.JBTable
+import com.intellij.util.ui.HTMLEditorKitBuilder
+import com.intellij.util.ui.JBUI
 import de.schwarzland.mavenup.model.ManagedDependencyRemovalRecommendation
-import java.awt.BorderLayout
-import java.awt.Dimension
-import java.awt.FlowLayout
-import javax.swing.BorderFactory
-import javax.swing.DefaultListModel
-import javax.swing.JButton
 import javax.swing.JComponent
-import javax.swing.JLabel
+import javax.swing.JEditorPane
 import javax.swing.ListSelectionModel
 import javax.swing.SortOrder
 import javax.swing.table.DefaultTableModel
@@ -57,6 +54,8 @@ private const val COLUMN_PROVIDED_VERSION = 5
  *
  * Zeigt die erkannten Empfehlungen in einer Tabelle mit Auswahl-Checkboxen sowie
  * detaillierte Erklärungen und Pfadangaben zur jeweils selektierten Zeile an.
+ * Ein vertikaler Splitter speichert die vom Anwender gewählte Aufteilung zwischen
+ * Tabelle und vollständig scrollbar dargestellten Details.
  *
  * @param project Das aktuelle IntelliJ-Projekt.
  * @property recommendations Die Liste der zur Bereinigung vorgeschlagenen Empfehlungen.
@@ -71,14 +70,16 @@ class ManagedDependencyRemovalDialog(
     private val selectionStates = BooleanArray(recommendations.size) { true }
     private lateinit var tableModel: DefaultTableModel
     private lateinit var table: JBTable
-    private val explanationLabel = JBLabel().apply {
-        isAllowAutoWrapping = true
+    private val detailEditor = JEditorPane().apply {
+        isEditable = false
+        contentType = "text/html"
+        editorKit = HTMLEditorKitBuilder().withWordWrapViewFactory().build()
+        border = JBUI.Borders.empty(8)
     }
-    private val consumersListModel = DefaultListModel<String>()
-    private val consumersList = JBList(consumersListModel)
 
     init {
         title = MyMessageBundle.message("managed.dependency.removal.dialog.title")
+        isResizable = true
         setOKButtonText(MyMessageBundle.message("managed.dependency.removal.dialog.apply"))
         init()
         updateDetailPanel(0)
@@ -100,35 +101,45 @@ class ManagedDependencyRemovalDialog(
     }
 
     /**
-     * Erstellt den zentralen Bereich des Dialogs.
+     * Erstellt den zentralen Bereich mit UI DSL v2 und einem vertikalen Splitter.
+     * Die Aufteilung startet bei 65 Prozent Tabellenhöhe und wird IDE-weit gespeichert.
      *
      * @return Die Hauptkomponente des Dialogs.
      */
-    override fun createCenterPanel(): JComponent {
-        val rootPanel = JBPanel<JBPanel<*>>(BorderLayout(0, 10))
-        rootPanel.preferredSize = Dimension(900, 520)
-
-        val headerLabel = JLabel(MyMessageBundle.message("managed.dependency.removal.dialog.explanation"))
-        rootPanel.add(headerLabel, BorderLayout.NORTH)
-
-        val centerSplit = JBPanel<JBPanel<*>>(BorderLayout(0, 8))
-        centerSplit.add(JBScrollPane(buildTable()), BorderLayout.CENTER)
-
-        val buttonBar = JBPanel<JBPanel<*>>(FlowLayout(FlowLayout.LEFT, 5, 0))
-        val selectAllBtn = JButton(MyMessageBundle.message("managed.dependency.removal.dialog.selectAll")).apply {
-            addActionListener { setAllSelected(true) }
+    public override fun createCenterPanel(): JComponent {
+        val recommendationsPanel = panel {
+            row {
+                cell(JBScrollPane(buildTable())).align(Align.FILL)
+            }.resizableRow()
+            row {
+                button(MyMessageBundle.message("managed.dependency.removal.dialog.selectAll")) {
+                    setAllSelected(true)
+                }
+                button(MyMessageBundle.message("managed.dependency.removal.dialog.deselectAll")) {
+                    setAllSelected(false)
+                }
+            }
+        }.apply {
+            minimumSize = JBUI.size(0, 120)
         }
-        val deselectAllBtn = JButton(MyMessageBundle.message("managed.dependency.removal.dialog.deselectAll")).apply {
-            addActionListener { setAllSelected(false) }
+        val splitter = JBSplitter(true, 0.65f, 0.15f, 0.85f).apply {
+            firstComponent = recommendationsPanel
+            secondComponent = buildDetailPanel()
+            setAndLoadSplitterProportionKey("MavenUp.ManagedDependencyRemovalDialog.splitter")
         }
-        buttonBar.add(selectAllBtn)
-        buttonBar.add(deselectAllBtn)
-        centerSplit.add(buttonBar, BorderLayout.SOUTH)
-
-        rootPanel.add(centerSplit, BorderLayout.CENTER)
-        rootPanel.add(buildDetailPanel(), BorderLayout.SOUTH)
-
-        return rootPanel
+        return panel {
+            row {
+                text(StringUtil.escapeXmlEntities(
+                    MyMessageBundle.message("managed.dependency.removal.dialog.explanation")
+                )).align(Align.FILL)
+            }
+            row {
+                cell(splitter).align(Align.FILL)
+            }.resizableRow()
+        }.apply {
+            preferredSize = JBUI.size(900, 520)
+            minimumSize = JBUI.size(650, 350)
+        }
     }
 
     /**
@@ -147,11 +158,14 @@ class ManagedDependencyRemovalDialog(
         )
 
         tableModel = object : DefaultTableModel(columnNames, 0) {
+            /** Liefert den Datentyp für Checkboxen beziehungsweise Textspalten. */
             override fun getColumnClass(columnIndex: Int): Class<*> =
                 if (columnIndex == COLUMN_SELECT) java.lang.Boolean::class.javaObjectType else String::class.java
 
+            /** Erlaubt ausschließlich Änderungen an der Auswahlspalte. */
             override fun isCellEditable(row: Int, column: Int): Boolean = column == COLUMN_SELECT
 
+            /** Synchronisiert die Checkbox-Auswahl mit dem Dialogzustand. */
             override fun setValueAt(aValue: Any?, row: Int, column: Int) {
                 if (column == COLUMN_SELECT && aValue is Boolean) {
                     selectionStates[row] = aValue
@@ -203,33 +217,28 @@ class ManagedDependencyRemovalDialog(
     }
 
     /**
-     * Erstellt das untere Detail-Panel für Erklärungen und Konsumenten-Pfade.
+     * Erstellt den Detailbereich mit schlichter Überschrift und einem gemeinsamen
+     * Scrollbereich für umbrechende Erklärungen und Konsumenten-Pfade.
      *
-     * @return Das Detail-[JBPanel].
+     * @return Der Detailbereich ohne feste Höhe.
      */
-    private fun buildDetailPanel(): JBPanel<*> {
-        val detailPanel = JBPanel<JBPanel<*>>(BorderLayout(0, 6))
-        detailPanel.border = BorderFactory.createTitledBorder(
-            BorderFactory.createEtchedBorder(),
-            MyMessageBundle.message("managed.dependency.removal.dialog.detail.title")
-        )
-        detailPanel.preferredSize = Dimension(900, 160)
-
-        detailPanel.add(explanationLabel, BorderLayout.NORTH)
-
-        val consumersPanel = JBPanel<JBPanel<*>>(BorderLayout(0, 4))
-        consumersPanel.add(
-            JLabel(MyMessageBundle.message("managed.dependency.removal.dialog.detail.consumers.title")),
-            BorderLayout.NORTH
-        )
-        consumersPanel.add(JBScrollPane(consumersList), BorderLayout.CENTER)
-
-        detailPanel.add(consumersPanel, BorderLayout.CENTER)
-        return detailPanel
+    private fun buildDetailPanel(): JComponent = panel {
+        row {
+            label(MyMessageBundle.message("managed.dependency.removal.dialog.detail.title")).bold()
+        }
+        row {
+            cell(JBScrollPane(detailEditor).apply {
+                horizontalScrollBarPolicy = JBScrollPane.HORIZONTAL_SCROLLBAR_NEVER
+                minimumSize = JBUI.size(0, 60)
+            }).align(Align.FILL)
+        }.resizableRow()
+    }.apply {
+        minimumSize = JBUI.size(0, 100)
     }
 
     /**
-     * Aktualisiert das Detail-Panel anhand der ausgewählten Modellzeile.
+     * Aktualisiert die HTML-Details anhand der ausgewählten Modellzeile.
+     * Maskiert alle Inhalte und setzt die Scrollposition beim Wechsel an den Anfang.
      *
      * @param modelRow Der Zeilenindex im Datenmodell.
      */
@@ -261,16 +270,23 @@ class ManagedDependencyRemovalDialog(
             )
         }
 
-        explanationLabel.text = "<html>$explanation</html>"
-
-        consumersListModel.clear()
-        if (rec.consumers.isEmpty()) {
-            consumersListModel.addElement("No consumer paths recorded.")
+        val paths = if (rec.consumers.isEmpty()) {
+            StringUtil.escapeXmlEntities(
+                MyMessageBundle.message("managed.dependency.removal.dialog.detail.consumers.empty")
+            )
         } else {
-            rec.consumers.forEach { consumer ->
-                consumersListModel.addElement("${consumer.groupId}:${consumer.artifactId} -> ${consumer.pathDescription}")
+            rec.consumers.joinToString("<br/>") { consumer ->
+                StringUtil.escapeXmlEntities(
+                    "${consumer.groupId}:${consumer.artifactId} -> ${consumer.pathDescription}"
+                )
             }
         }
+        val pathsTitle = StringUtil.escapeXmlEntities(
+            MyMessageBundle.message("managed.dependency.removal.dialog.detail.consumers.title")
+        )
+        detailEditor.text = "<html><body>${StringUtil.escapeXmlEntities(explanation)}" +
+            "<p><b>$pathsTitle</b></p>$paths</body></html>"
+        detailEditor.caretPosition = 0
     }
 
     /**
@@ -301,6 +317,7 @@ class ManagedDependencyRemovalDialog(
      */
     internal fun buildRowSorter(model: DefaultTableModel): TableRowSorter<DefaultTableModel> {
         val sorter = object : TableRowSorter<DefaultTableModel>(model) {
+            /** Wechselt zyklisch zwischen aufsteigender, absteigender und ursprünglicher Reihenfolge. */
             override fun toggleSortOrder(column: Int) {
                 if (!isSortable(column)) return
                 val current = sortKeys.firstOrNull { it.column == column }?.sortOrder

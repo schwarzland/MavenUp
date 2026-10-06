@@ -1,14 +1,22 @@
 package de.schwarzland.mavenup.ui
 
+import com.intellij.ide.util.PropertiesComponent
+import com.intellij.openapi.util.Disposer
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import com.intellij.ui.JBSplitter
+import com.intellij.ui.components.JBScrollPane
+import com.intellij.ui.table.JBTable
+import com.intellij.util.ui.UIUtil
 import de.schwarzland.mavenup.model.ConsumerDependencyInfo
 import de.schwarzland.mavenup.model.ManagedDependencyRemovalRecommendation
+import javax.swing.JEditorPane
 
 /**
  * Tests für [ManagedDependencyRemovalDialog].
  */
 class ManagedDependencyRemovalDialogTest : BasePlatformTestCase() {
 
+    /** Prüft Auswahl, Detailwechsel und die unveränderte Übernahme ausgewählter Empfehlungen. */
     fun testDialogInitializationAndSelection() {
         val rec1 = ManagedDependencyRemovalRecommendation(
             managedGroupId = "com.fasterxml.jackson.core",
@@ -58,33 +66,138 @@ class ManagedDependencyRemovalDialogTest : BasePlatformTestCase() {
             recommendations = listOf(rec1, rec2),
             onApply = { appliedRecommendations = it }
         )
+        Disposer.register(testRootDisposable, dialog.disposable)
 
-        val table = dialog.buildTable()
+        val splitter = UIUtil.findComponentOfType(dialog.createCenterPanel(), JBSplitter::class.java)!!
+        val detailScroll = UIUtil.findComponentOfType(splitter.secondComponent, JBScrollPane::class.java)!!
+        val editor = detailScroll.viewport.view as JEditorPane
+        assertTrue(editor.text.contains("jackson-databind"))
+        assertTrue(editor.text.contains("spring-boot-starter-json"))
+        assertFalse(editor.isEditable)
+        assertEquals(JBScrollPane.HORIZONTAL_SCROLLBAR_NEVER, detailScroll.horizontalScrollBarPolicy)
+
+        val table = UIUtil.findComponentOfType(splitter.firstComponent, JBTable::class.java)!!
         assertEquals(2, table.model.rowCount)
         assertEquals("com.fasterxml.jackson.core:jackson-databind", table.model.getValueAt(0, 1))
         assertEquals("org.slf4j:slf4j-api", table.model.getValueAt(1, 1))
 
         // All initially selected
-        var selected = dialog.getSelectedRecommendations()
-        assertEquals(2, selected.size)
+        assertEquals(2, dialog.getSelectedRecommendations().size)
 
         // Deselect all
         dialog.setAllSelected(false)
-        selected = dialog.getSelectedRecommendations()
-        assertTrue(selected.isEmpty())
+        assertTrue(dialog.getSelectedRecommendations().isEmpty())
 
         // Select all
         dialog.setAllSelected(true)
-        selected = dialog.getSelectedRecommendations()
-        assertEquals(2, selected.size)
+        assertEquals(2, dialog.getSelectedRecommendations().size)
 
         // Update detail panel for row 0 and row 1
         dialog.updateDetailPanel(0)
         dialog.updateDetailPanel(1)
+        assertTrue(editor.text.contains("logging-lib"))
+        assertTrue(editor.text.contains("slf4j-api"))
+        assertFalse(editor.text.contains("jackson-databind"))
+        assertEquals(0, editor.caretPosition)
+        val previousDetails = editor.text
+        dialog.updateDetailPanel(-1)
+        dialog.updateDetailPanel(2)
+        assertEquals(previousDetails, editor.text)
 
         // OK action trigger
         dialog.doOKAction()
         assertNotNull(appliedRecommendations)
         assertEquals(2, appliedRecommendations!!.size)
+    }
+
+    /** Prüft Orientierung, Mindesthöhen, Größenänderung und gespeicherte Splitter-Aufteilung. */
+    fun testResizableSplitLayoutAndRememberedProportion() {
+        val key = "MavenUp.ManagedDependencyRemovalDialog.splitter"
+        val properties = PropertiesComponent.getInstance()
+        val previousValue = properties.getValue(key)
+        properties.unsetValue(key)
+        try {
+            val dialog = ManagedDependencyRemovalDialog(project, emptyList())
+            Disposer.register(testRootDisposable, dialog.disposable)
+            val splitter = UIUtil.findComponentOfType(dialog.createCenterPanel(), JBSplitter::class.java)!!
+            assertTrue(splitter.isVertical)
+            assertTrue(splitter.isHonorMinimumSize)
+            assertEquals(0.65f, splitter.proportion)
+            assertTrue(splitter.firstComponent.minimumSize.height >= 120)
+            assertTrue(splitter.secondComponent.minimumSize.height >= 100)
+            assertNotNull(UIUtil.findComponentOfType(splitter.firstComponent, JBTable::class.java))
+
+            splitter.setSize(900, 450)
+            splitter.proportion = 0.15f
+            splitter.doLayout()
+            assertTrue(splitter.firstComponent.height >= splitter.firstComponent.minimumSize.height)
+            splitter.proportion = 0.85f
+            splitter.doLayout()
+            assertTrue(splitter.secondComponent.height >= splitter.secondComponent.minimumSize.height)
+            splitter.proportion = 0.4f
+            splitter.doLayout()
+            val expandedDetailsHeight = splitter.secondComponent.height
+            splitter.proportion = 0.75f
+            splitter.doLayout()
+            assertTrue(splitter.secondComponent.height < expandedDetailsHeight)
+            assertEquals(0.75f, properties.getFloat(key, 0.65f))
+
+            val reopened = ManagedDependencyRemovalDialog(project, emptyList())
+            Disposer.register(testRootDisposable, reopened.disposable)
+            val restored = UIUtil.findComponentOfType(reopened.createCenterPanel(), JBSplitter::class.java)!!
+            assertEquals(0.75f, restored.proportion)
+            assertTrue(reopened.getSelectedRecommendations().isEmpty())
+        } finally {
+            properties.setValue(key, previousValue)
+        }
+    }
+
+    /** Prüft lange Inhalte, HTML-Maskierung und den gemeinsamen Scrollbereich für alle Details. */
+    fun testLongDetailsRemainScrollableAndResetOnSelection() {
+        val consumers = (1..80).map { index ->
+            ConsumerDependencyInfo(
+                groupId = "com.example",
+                artifactId = "consumer-$index",
+                resolvedVersion = "2.0",
+                pathDescription = "consumer-$index -> ${"long-path-".repeat(30)}<leaf>&:2.0"
+            )
+        }
+        val recommendation = ManagedDependencyRemovalRecommendation(
+            managedGroupId = "com.example",
+            managedArtifactId = "managed",
+            managedCurrentVersion = "1.0",
+            triggerGroupId = "com.example",
+            triggerArtifactId = "trigger",
+            triggerType = "dependency",
+            triggerCurrentVersion = "1.0",
+            triggerTargetVersion = "2.0",
+            transitiveVersionInTarget = "2.0",
+            consumers = consumers,
+            isSatisfiedAcrossAllConsumers = true
+        )
+        val dialog = ManagedDependencyRemovalDialog(
+            project, listOf(recommendation, recommendation.copy(consumers = emptyList()))
+        )
+        Disposer.register(testRootDisposable, dialog.disposable)
+        val splitter = UIUtil.findComponentOfType(dialog.createCenterPanel(), JBSplitter::class.java)!!
+        val scroll = UIUtil.findComponentOfType(splitter.secondComponent, JBScrollPane::class.java)!!
+        val editor = scroll.viewport.view as JEditorPane
+        scroll.setSize(400, 120)
+        scroll.doLayout()
+        editor.setSize(scroll.viewport.extentSize.width, editor.preferredSize.height)
+        scroll.doLayout()
+        assertTrue(editor.preferredSize.height > scroll.viewport.extentSize.height)
+        assertTrue(editor.text.contains("consumer-80"))
+        assertTrue(editor.text.contains("&lt;leaf&gt;&amp;"))
+        assertTrue(editor.text.contains("upgrading dependency"))
+
+        editor.caretPosition = editor.document.length
+        val table = UIUtil.findComponentOfType(splitter.firstComponent, JBTable::class.java)!!
+        table.setRowSelectionInterval(1, 1)
+        assertEquals(0, editor.caretPosition)
+        assertFalse(editor.text.contains("consumer-80"))
+        assertTrue(editor.text.contains(
+            MyMessageBundle.message("managed.dependency.removal.dialog.detail.consumers.empty")
+        ))
     }
 }
