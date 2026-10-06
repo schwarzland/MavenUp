@@ -11,7 +11,7 @@
 
 ### Changed
 
-- **Moved project-wide cleanup recommendations under the Managed Entries toolbar menu and renamed the action to Check Cleanup Recommendations; row-specific recommendations remain in the context menu.**
+- **Moved project-wide cleanup recommendations under the Managed Entries toolbar menu, renamed that action to Check Cleanup Recommendations, and shortened the row context action to Check Cleanup Recommendation.**
 
 ### Fixed
 

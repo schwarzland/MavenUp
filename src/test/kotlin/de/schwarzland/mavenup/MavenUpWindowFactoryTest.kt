@@ -1214,6 +1214,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
     fun testCleanupContextActionIsLimitedToSupportedRows() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         val cleanupLabel = MyMessageBundle.message("toolwindow.MyToolWindow.checkManagedRemoval.contextMenu")
+        assertEquals("Check Cleanup Recommendation", cleanupLabel)
         val managedDependencyType = MyMessageBundle.message("toolwindow.MyToolWindow.type.managedDependency")
 
         /** Prüft, ob der Kontextmenü-Aufbau die Bereinigungsaktion für den angegebenen Typ enthält. */
