@@ -272,4 +272,61 @@ class ManagedDependencyRemovalDialogTest : BasePlatformTestCase() {
         }
         return image
     }
+
+    /** Prüft die Detailtexte, wenn die verwaltete Abhängigkeit bereits in der aktuellen Version bereitgestellt wird. */
+    fun testDetailExplanationForCurrentVersionParentAndDependency() {
+        val recParent = ManagedDependencyRemovalRecommendation(
+            managedGroupId = "org.xmlunit",
+            managedArtifactId = "xmlunit-core",
+            managedCurrentVersion = "2.9.1",
+            triggerGroupId = "org.springframework.boot",
+            triggerArtifactId = "spring-boot-starter-parent",
+            triggerType = "parent",
+            triggerCurrentVersion = "3.3.5",
+            triggerTargetVersion = "3.3.5",
+            transitiveVersionInTarget = "2.9.1",
+            consumers = emptyList(),
+            isSatisfiedAcrossAllConsumers = true
+        )
+
+        val recDependency = ManagedDependencyRemovalRecommendation(
+            managedGroupId = "org.xmlunit",
+            managedArtifactId = "xmlunit-core",
+            managedCurrentVersion = "2.9.1",
+            triggerGroupId = "org.springframework.boot",
+            triggerArtifactId = "spring-boot-starter-test",
+            triggerType = "dependency",
+            triggerCurrentVersion = "3.3.5",
+            triggerTargetVersion = "3.3.5",
+            transitiveVersionInTarget = "2.9.1",
+            consumers = listOf(
+                ConsumerDependencyInfo(
+                    groupId = "org.springframework.boot",
+                    artifactId = "spring-boot-starter-test",
+                    resolvedVersion = "2.9.1",
+                    pathDescription = "spring-boot-starter-test:3.3.5 -> xmlunit-core:2.9.1"
+                )
+            ),
+            isSatisfiedAcrossAllConsumers = true
+        )
+
+        val dialog = ManagedDependencyRemovalDialog(project, listOf(recParent, recDependency))
+        Disposer.register(testRootDisposable, dialog.disposable)
+
+        val splitter = UIUtil.findComponentOfType(dialog.createCenterPanel(), JBSplitter::class.java)!!
+        val scroll = UIUtil.findComponentOfType(splitter.secondComponent, JBScrollPane::class.java)!!
+        val editor = scroll.viewport.view as JEditorPane
+
+        dialog.updateDetailPanel(0)
+        assertTrue(editor.text.contains("parent POM"))
+        assertTrue(editor.text.contains("spring-boot-starter-parent"))
+        assertTrue(editor.text.contains("already provides version 2.9.1"))
+        assertFalse(editor.text.contains("upgrading parent POM"))
+
+        dialog.updateDetailPanel(1)
+        assertTrue(editor.text.contains("dependency"))
+        assertTrue(editor.text.contains("spring-boot-starter-test"))
+        assertTrue(editor.text.contains("already provides version 2.9.1"))
+        assertFalse(editor.text.contains("upgrading dependency"))
+    }
 }

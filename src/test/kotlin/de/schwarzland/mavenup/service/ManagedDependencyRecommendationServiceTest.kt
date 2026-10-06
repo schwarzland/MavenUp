@@ -310,4 +310,254 @@ class ManagedDependencyRecommendationServiceTest : BasePlatformTestCase() {
         assertEquals(2, rec.consumers.size)
         assertEquals("2.5.0", rec.transitiveVersionInTarget)
     }
+
+    /**
+     * Prüft, dass direkte Abhängigkeiten ohne explizite Versionsangabe in der `pom.xml`
+     * über die aufgelösten Maven-Abhängigkeiten als Update-Kandidaten erfasst werden.
+     */
+    fun testCollectTriggerCandidatesWithInheritedDependencyVersion() {
+        val pomFile = myFixture.configureByText(
+            "pom.xml",
+            """
+            <project>
+                <modelVersion>4.0.0</modelVersion>
+                <groupId>com.example</groupId>
+                <artifactId>test-project</artifactId>
+                <version>1.0.0</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.springframework.boot</groupId>
+                        <artifactId>spring-boot-starter-test</artifactId>
+                        <scope>test</scope>
+                    </dependency>
+                </dependencies>
+            </project>
+            """.trimIndent()
+        ).virtualFile
+
+        val mavenProject = MavenProject(pomFile).apply {
+            updateState(
+                listOf(createArtifact("org.springframework.boot", "spring-boot-starter-test", "3.3.5")),
+                java.util.Properties(),
+                emptyList()
+            )
+        }
+
+        val service = ManagedDependencyRecommendationService(
+            project = project,
+            candidateVersionsProvider = { g, a, currentV ->
+                if (g == "org.springframework.boot" && a == "spring-boot-starter-test" && currentV == "3.3.5") {
+                    listOf("3.3.6")
+                } else {
+                    emptyList()
+                }
+            }
+        )
+
+        val candidates = service.collectTriggerCandidates(mavenProject, emptyMap())
+        assertEquals(1, candidates.size)
+        val trigger = candidates.first()
+        assertEquals("org.springframework.boot", trigger.groupId)
+        assertEquals("spring-boot-starter-test", trigger.artifactId)
+        assertEquals("3.3.5", trigger.currentVersion)
+        assertEquals("dependency", trigger.type)
+        assertEquals(listOf("3.3.5", "3.3.6"), trigger.candidateVersions)
+    }
+
+    /**
+     * Erstellt eine Beispiel-`pom.xml` für Spring-Boot-Tests mit vererbter Test-Starter-Version
+     * und expliziter XMLUnit-Core-Verwaltung.
+     */
+    private fun createSpringBootTestPomVirtualFile(): com.intellij.openapi.vfs.VirtualFile =
+        myFixture.configureByText(
+            "pom.xml",
+            """
+            <project>
+                <modelVersion>4.0.0</modelVersion>
+                <groupId>com.example</groupId>
+                <artifactId>demo-app</artifactId>
+                <version>1.0.0</version>
+                <parent>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-parent</artifactId>
+                    <version>3.3.5</version>
+                </parent>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.springframework.boot</groupId>
+                        <artifactId>spring-boot-starter-test</artifactId>
+                        <scope>test</scope>
+                    </dependency>
+                </dependencies>
+                <dependencyManagement>
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.xmlunit</groupId>
+                            <artifactId>xmlunit-core</artifactId>
+                            <version>2.9.1</version>
+                            <scope>test</scope>
+                        </dependency>
+                    </dependencies>
+                </dependencyManagement>
+            </project>
+            """.trimIndent()
+        ).virtualFile
+
+    /**
+     * Prüft das Nutzerszenario: Eine direkte Abhängigkeit ohne deklarierte Version (`spring-boot-starter-test`,
+     * Version über Parent 3.3.5) und ein verwaltetes Artefakt (`xmlunit-core:2.9.1`).
+     * Beim Update von `spring-boot-starter-test` auf 3.3.6 wird `xmlunit-core:2.9.1` transitiv bereitgestellt,
+     * sodass die Entfernung von `xmlunit-core` aus `dependencyManagement` empfohlen wird.
+     */
+    fun testSpringBootStarterTestCleanupRecommendationWithInheritedVersion() {
+        val springBootTestPom = """
+            <project>
+                <modelVersion>4.0.0</modelVersion>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-starter-test</artifactId>
+                <version>3.3.6</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.xmlunit</groupId>
+                        <artifactId>xmlunit-core</artifactId>
+                        <version>2.9.1</version>
+                    </dependency>
+                </dependencies>
+            </project>
+        """.trimIndent()
+
+        val resolver = TemporaryDependencyTreeResolver { g, a, v ->
+            if (g == "org.springframework.boot" && a == "spring-boot-starter-test" && v == "3.3.6") springBootTestPom else null
+        }
+
+        val mavenProject = MavenProject(createSpringBootTestPomVirtualFile()).apply {
+            updateState(
+                listOf(createArtifact("org.springframework.boot", "spring-boot-starter-test", "3.3.5")),
+                java.util.Properties(),
+                emptyList()
+            )
+        }
+
+        val service = ManagedDependencyRecommendationService(
+            project = project,
+            treeResolver = resolver,
+            candidateVersionsProvider = { g, a, currentV ->
+                if (g == "org.springframework.boot" && a == "spring-boot-starter-test" && currentV == "3.3.5") {
+                    listOf("3.3.6")
+                } else {
+                    emptyList()
+                }
+            }
+        )
+
+        val managedList = service.collectManagedDependencies(mavenProject)
+        assertEquals(1, managedList.size)
+        assertEquals("org.xmlunit", managedList.first().groupId)
+        assertEquals("xmlunit-core", managedList.first().artifactId)
+        assertEquals("2.9.1", managedList.first().currentVersion)
+
+        val triggerCandidates = service.collectTriggerCandidates(mavenProject, emptyMap())
+        val starterCandidate = triggerCandidates.find { it.artifactId == "spring-boot-starter-test" }
+        assertNotNull(starterCandidate)
+
+        val starterNode = createArtifactNode("org.springframework.boot", "spring-boot-starter-test", "3.3.5")
+        val xmlUnitNode = createArtifactNode("org.xmlunit", "xmlunit-core", "2.9.1")
+
+        val rec = service.evaluateTriggerRecommendation(
+            managed = managedList.first(),
+            managedComparable = ComparableVersion("2.9.1"),
+            trigger = starterCandidate!!,
+            targetVersion = "3.3.6",
+            consumerPaths = listOf(listOf(starterNode, xmlUnitNode))
+        )
+
+        assertNotNull(rec)
+        assertTrue(rec!!.isSatisfiedAcrossAllConsumers)
+        assertEquals("org.xmlunit", rec.managedGroupId)
+        assertEquals("xmlunit-core", rec.managedArtifactId)
+        assertEquals("2.9.1", rec.managedCurrentVersion)
+        assertEquals("org.springframework.boot", rec.triggerGroupId)
+        assertEquals("spring-boot-starter-test", rec.triggerArtifactId)
+        assertEquals("3.3.6", rec.triggerTargetVersion)
+        assertEquals("2.9.1", rec.transitiveVersionInTarget)
+        assertEquals(1, rec.consumers.size)
+        assertEquals("spring-boot-starter-test:3.3.5 -> xmlunit-core:2.9.1", rec.consumers.first().pathDescription)
+    }
+
+    /**
+     * Prüft das Nutzerszenario für die aktuelle Version:
+     * `spring-boot-starter-test` ist in Version 3.3.5 eingebunden und stellt bereits in dieser aktuellen Version
+     * `org.xmlunit:xmlunit-core:2.9.1` transitiv bereit. Das in `dependencyManagement` deklarierte `xmlunit-core:2.9.1`
+     * wird korrekt als redundanter Eintrag erkannt, auch wenn keine neuere Version von `spring-boot-starter-test` existiert.
+     */
+    fun testSpringBootStarterTestCleanupRecommendationWithCurrentVersion() {
+        val springBootTestPom = """
+            <project>
+                <modelVersion>4.0.0</modelVersion>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-starter-test</artifactId>
+                <version>3.3.5</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.xmlunit</groupId>
+                        <artifactId>xmlunit-core</artifactId>
+                        <version>2.9.1</version>
+                    </dependency>
+                </dependencies>
+            </project>
+        """.trimIndent()
+
+        val resolver = TemporaryDependencyTreeResolver { g, a, v ->
+            if (g == "org.springframework.boot" && a == "spring-boot-starter-test" && v == "3.3.5") springBootTestPom else null
+        }
+
+        val starterNode = createArtifactNode("org.springframework.boot", "spring-boot-starter-test", "3.3.5")
+        val xmlUnitNode = createArtifactNode("org.xmlunit", "xmlunit-core", "2.9.1")
+        val consumerPath = listOf(starterNode, xmlUnitNode)
+
+        val mavenProject = MavenProject(createSpringBootTestPomVirtualFile()).apply {
+            updateState(
+                listOf(starterNode.artifact),
+                java.util.Properties(),
+                emptyList()
+            )
+        }
+
+        val service = ManagedDependencyRecommendationService(
+            project = project,
+            treeResolver = resolver,
+            candidateVersionsProvider = { _, _, _ -> emptyList() }
+        )
+
+        val managedList = service.collectManagedDependencies(mavenProject)
+        assertEquals(1, managedList.size)
+        val managed = managedList.first()
+
+        val triggerCandidates = service.collectTriggerCandidates(mavenProject, emptyMap())
+        val starterCandidate = triggerCandidates.find { it.artifactId == "spring-boot-starter-test" }
+        assertNotNull(starterCandidate)
+        assertEquals("3.3.5", starterCandidate!!.currentVersion)
+        assertEquals(listOf("3.3.5"), starterCandidate.candidateVersions)
+
+        val rec = service.evaluateTriggerRecommendation(
+            managed = managed,
+            managedComparable = ComparableVersion("2.9.1"),
+            trigger = starterCandidate,
+            targetVersion = "3.3.5",
+            consumerPaths = listOf(consumerPath)
+        )
+
+        assertNotNull(rec)
+        assertTrue(rec!!.isSatisfiedAcrossAllConsumers)
+        assertEquals("org.xmlunit", rec.managedGroupId)
+        assertEquals("xmlunit-core", rec.managedArtifactId)
+        assertEquals("2.9.1", rec.managedCurrentVersion)
+        assertEquals("org.springframework.boot", rec.triggerGroupId)
+        assertEquals("spring-boot-starter-test", rec.triggerArtifactId)
+        assertEquals("3.3.5", rec.triggerCurrentVersion)
+        assertEquals("3.3.5", rec.triggerTargetVersion)
+        assertEquals("2.9.1", rec.transitiveVersionInTarget)
+        assertEquals(1, rec.consumers.size)
+        assertEquals("spring-boot-starter-test:3.3.5 -> xmlunit-core:2.9.1", rec.consumers.first().pathDescription)
+    }
 }

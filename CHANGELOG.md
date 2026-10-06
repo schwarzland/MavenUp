@@ -19,6 +19,8 @@
 
 ### Fixed
 
+- **Fixed cleanup recommendations not recognizing managed dependencies that are already provided by the current version of direct dependencies or parent POMs.**
+- **Fixed cleanup recommendations not recognizing direct dependencies that omit an explicit version in `pom.xml` (e.g. versions inherited via parent POM or dependencyManagement) as candidate triggers.**
 - **Made the cleanup dialog's resize divider visible with a theme-aware line, centered grip, and hover feedback across the draggable area.**
 - **Fixed unintended SNAPSHOT version selections after startup and refresh, including misleading dropdown values and updates created by opening an unchanged editor.**
 - **Fixed higher SNAPSHOT versions appearing below the latest release in New Version dropdowns and version preselection, while preserving release priority over other versions.**

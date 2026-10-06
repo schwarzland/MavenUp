@@ -266,8 +266,10 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   protokolliert HTTP-GET-Versuche mit Artefaktpfad und Host, Antwortstatus und bei Fehlern nur die Exception-Klasse,
   ohne vollständige URLs, Zugangsdaten, Header oder POM-Inhalte auszugeben.
 - **ManagedDependencyRecommendationService**: analysiert deklarierte verwaltete Abhängigkeiten (`<dependencyManagement>`)
-  und prüft, ob Versionsaktualisierungen von übergeordneten POMs (`<parent>`) oder direkten Abhängigkeiten
-  das Artefakt transitiv in einer kompatiblen Version (`>=` deklarierte Version) bereitstellen. Führt eine
+  und prüft, ob übergeordnete POMs (`<parent>`) oder direkte Abhängigkeiten in ihrer aktuellen Version oder durch
+  Versionsaktualisierungen das Artefakt transitiv in einer kompatiblen Version (`>=` deklarierte Version) bereitstellen;
+  für direkte oder verwaltete Abhängigkeiten ohne explizite Versionsangabe in der `pom.xml` wird die aufgelöste Version
+  aus dem Maven-Projektmodell herangezogen. Führt eine
   Multi-Consumer-Validierung durch: wenn ein Artefakt über mehrere direkte Abhängigkeitspfade genutzt wird,
   wird eine Bereinigungsempfehlung nur ausgegeben, wenn alle Konsumenten kompatibel versorgt sind.
   Ein optionaler IntelliJ-`ProgressIndicator` meldet Projekt, Managed-Koordinate, Upgrade-Trigger und

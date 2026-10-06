@@ -285,27 +285,53 @@ class ManagedDependencyRemovalDialog(
         val rec = recommendations[modelRow]
 
         val explanation = if (rec.triggerType == "parent") {
-            MyMessageBundle.message(
-                "managed.dependency.removal.dialog.detail.explanation.parent",
-                rec.managedGroupId,
-                rec.managedArtifactId,
-                rec.managedCurrentVersion,
-                rec.triggerGroupId,
-                rec.triggerArtifactId,
-                rec.triggerTargetVersion,
-                rec.transitiveVersionInTarget
-            )
+            if (rec.triggerTargetVersion == rec.triggerCurrentVersion) {
+                MyMessageBundle.message(
+                    "managed.dependency.removal.dialog.detail.explanation.parent.current",
+                    rec.managedGroupId,
+                    rec.managedArtifactId,
+                    rec.managedCurrentVersion,
+                    rec.triggerGroupId,
+                    rec.triggerArtifactId,
+                    rec.triggerCurrentVersion,
+                    rec.transitiveVersionInTarget
+                )
+            } else {
+                MyMessageBundle.message(
+                    "managed.dependency.removal.dialog.detail.explanation.parent",
+                    rec.managedGroupId,
+                    rec.managedArtifactId,
+                    rec.managedCurrentVersion,
+                    rec.triggerGroupId,
+                    rec.triggerArtifactId,
+                    rec.triggerTargetVersion,
+                    rec.transitiveVersionInTarget
+                )
+            }
         } else {
-            MyMessageBundle.message(
-                "managed.dependency.removal.dialog.detail.explanation.dependency",
-                rec.managedGroupId,
-                rec.managedArtifactId,
-                rec.managedCurrentVersion,
-                rec.triggerGroupId,
-                rec.triggerArtifactId,
-                rec.triggerTargetVersion,
-                rec.transitiveVersionInTarget
-            )
+            if (rec.triggerTargetVersion == rec.triggerCurrentVersion) {
+                MyMessageBundle.message(
+                    "managed.dependency.removal.dialog.detail.explanation.dependency.current",
+                    rec.managedGroupId,
+                    rec.managedArtifactId,
+                    rec.managedCurrentVersion,
+                    rec.triggerGroupId,
+                    rec.triggerArtifactId,
+                    rec.triggerCurrentVersion,
+                    rec.transitiveVersionInTarget
+                )
+            } else {
+                MyMessageBundle.message(
+                    "managed.dependency.removal.dialog.detail.explanation.dependency",
+                    rec.managedGroupId,
+                    rec.managedArtifactId,
+                    rec.managedCurrentVersion,
+                    rec.triggerGroupId,
+                    rec.triggerArtifactId,
+                    rec.triggerTargetVersion,
+                    rec.transitiveVersionInTarget
+                )
+            }
         }
 
         val paths = if (rec.consumers.isEmpty()) {

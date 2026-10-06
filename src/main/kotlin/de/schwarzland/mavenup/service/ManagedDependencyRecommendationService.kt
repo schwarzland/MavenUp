@@ -48,13 +48,13 @@ class ManagedDependencyRecommendationService(
     )
 
     /**
-     * Beschreibt eine updatefähige auslösende Komponente (Parent oder direkte Dependency).
+     * Beschreibt eine auslösende Komponente (Parent oder direkte Dependency).
      *
      * @property groupId Die Group-ID.
      * @property artifactId Die Artefakt-ID.
      * @property currentVersion Die aktuelle Version im Projekt.
      * @property type Der Typ (`"parent"` oder `"dependency"`).
-     * @property candidateVersions Liste verfügbarer neuerer Versionen (`> currentVersion`).
+     * @property candidateVersions Liste zu prüfender Versionen (aktuelle Version und neuere Kandidaten).
      * @property mavenProject Das zugehörige Maven-Projekt.
      */
     internal data class TriggerCandidate(
@@ -147,13 +147,13 @@ class ManagedDependencyRecommendationService(
         }
 
         indicator?.checkCanceled()
-        indicator?.text2 = "${mavenProject.mavenId}: upgrade candidates"
+        indicator?.text2 = "${mavenProject.mavenId}: triggers"
         val triggers = collectTriggerCandidates(mavenProject, availableVersionsMap, indicator).filter {
             matchesCoordinateScope(it.groupId, it.artifactId, triggerCoordinate)
         }
-        LOG.debug("Cleanup project ${mavenProject.mavenId}: upgrade triggers=${triggers.size}")
+        LOG.debug("Cleanup project ${mavenProject.mavenId}: triggers=${triggers.size}")
         if (triggers.isEmpty()) {
-            LOG.debug("Skipping cleanup project ${mavenProject.mavenId}: no newer trigger versions in scope")
+            LOG.debug("Skipping cleanup project ${mavenProject.mavenId}: no triggers in scope")
             return emptyList()
         }
 
@@ -227,8 +227,8 @@ class ManagedDependencyRecommendationService(
     ): ManagedDependencyRemovalRecommendation? {
         val eligibleVersions = trigger.candidateVersions.filter {
             indicator?.checkCanceled()
-            ComparableVersion(it) > ComparableVersion(trigger.currentVersion)
-        }
+            ComparableVersion(it) >= ComparableVersion(trigger.currentVersion)
+        }.sortedWith { v1, v2 -> ComparableVersion(v1).compareTo(ComparableVersion(v2)) }
         LOG.debug(
             "Cleanup candidate versions for ${trigger.groupId}:${trigger.artifactId}:${trigger.currentVersion}: " +
                 summarizeForDebugLog(eligibleVersions)
@@ -421,16 +421,27 @@ class ManagedDependencyRecommendationService(
         val distinctConsumerRoots = consumerPaths.map { it.first().artifact }.distinctBy { "${it.groupId}:${it.artifactId}" }
         val isSingleConsumerOrAllTrigger = distinctConsumerRoots.all { it.groupId == trigger.groupId && it.artifactId == trigger.artifactId }
 
-        val consumerInfos = consumerPaths.map { path ->
-            val root = path.first().artifact
-            val isTrigger = root.groupId == trigger.groupId && root.artifactId == trigger.artifactId
-            val pathDesc = path.joinToString(" -> ") { "${it.artifact.artifactId}:${it.artifact.version}" }
-            ConsumerDependencyInfo(
-                groupId = root.groupId,
-                artifactId = root.artifactId,
-                resolvedVersion = if (isTrigger) providedVersion else path.last().artifact.version,
-                pathDescription = pathDesc
+        val consumerInfos = if (consumerPaths.isEmpty()) {
+            listOf(
+                ConsumerDependencyInfo(
+                    groupId = trigger.groupId,
+                    artifactId = trigger.artifactId,
+                    resolvedVersion = providedVersion,
+                    pathDescription = "${trigger.artifactId}:$targetVersion -> ${managed.artifactId}:$providedVersion"
+                )
             )
+        } else {
+            consumerPaths.map { path ->
+                val root = path.first().artifact
+                val isTrigger = root.groupId == trigger.groupId && root.artifactId == trigger.artifactId
+                val pathDesc = path.joinToString(" -> ") { "${it.artifact.artifactId}:${it.artifact.version}" }
+                ConsumerDependencyInfo(
+                    groupId = root.groupId,
+                    artifactId = root.artifactId,
+                    resolvedVersion = if (isTrigger) providedVersion else path.last().artifact.version,
+                    pathDescription = pathDesc
+                )
+            }
         }
 
         return ManagedDependencyRemovalRecommendation(
@@ -444,7 +455,7 @@ class ManagedDependencyRecommendationService(
             triggerTargetVersion = targetVersion,
             transitiveVersionInTarget = providedVersion,
             consumers = consumerInfos,
-            isSatisfiedAcrossAllConsumers = isSingleConsumerOrAllTrigger
+            isSatisfiedAcrossAllConsumers = if (consumerPaths.isEmpty()) true else isSingleConsumerOrAllTrigger
         )
     }
 
@@ -518,7 +529,10 @@ class ManagedDependencyRecommendationService(
         indicator: ProgressIndicator? = null
     ): List<ManagedDependencyDeclaration> {
         val declarations = mutableListOf<ManagedDependencyDeclaration>()
-        val effectiveProperties = mavenProject.properties.entries.associate { (k, v) -> k.toString() to v.toString() }
+        val effectiveProperties =
+            mavenProject.properties.entries.associate { (k, v) -> k.toString() to v.toString() }
+        val resolvedDependencies =
+            mavenProject.dependencyTree.associateBy { "${it.artifact.groupId}:${it.artifact.artifactId}" }
 
         ApplicationManager.getApplication().runReadAction {
             val psiFile = PsiManager.getInstance(project).findFile(mavenProject.file) as? XmlFile ?: return@runReadAction
@@ -538,16 +552,25 @@ class ManagedDependencyRecommendationService(
                     return@forEach
                 }
 
-                if (g.isNotEmpty() && a.isNotEmpty() && v.isNotEmpty()) {
-                    val resolvedVersion = resolvePropertyPlaceholder(v, effectiveProperties)
-                    declarations.add(
-                        ManagedDependencyDeclaration(
-                            groupId = g,
-                            artifactId = a,
-                            currentVersion = resolvedVersion.ifEmpty { v },
-                            mavenProject = mavenProject
+                if (g.isNotEmpty() && a.isNotEmpty()) {
+                    val rawOrResolved = if (v.isNotEmpty()) {
+                        val resolved = resolvePropertyPlaceholder(v, effectiveProperties)
+                        resolved.ifEmpty { v }
+                    } else {
+                        resolvedDependencies["$g:$a"]?.artifact?.version
+                            ?: mavenProject.findDependencies(g, a).firstOrNull()?.version
+                            ?: mavenProject.dependencies.firstOrNull { it.groupId == g && it.artifactId == a }?.version.orEmpty()
+                    }
+                    if (rawOrResolved.isNotEmpty()) {
+                        declarations.add(
+                            ManagedDependencyDeclaration(
+                                groupId = g,
+                                artifactId = a,
+                                currentVersion = rawOrResolved,
+                                mavenProject = mavenProject
+                            )
                         )
-                    )
+                    }
                 }
             }
         }
@@ -555,12 +578,15 @@ class ManagedDependencyRecommendationService(
     }
 
     /**
-     * Sammelt alle Kandidaten für Versions-Updates (`<parent>` und direkte `<dependencies>`).
+     * Sammelt alle Kandidaten für Bereinigungs-Auslöser (`<parent>` und direkte `<dependencies>`).
+     *
+     * Berücksichtigt auch direkte Abhängigkeiten ohne explizite Version in der `pom.xml`,
+     * indem deren aufgelöste Version aus dem Maven-Projekt herangezogen wird.
      *
      * @param mavenProject Das Maven-Projekt.
      * @param availableVersionsMap Bereits bekannte verfügbare Versionen.
      * @param indicator Optionaler Fortschrittsindikator für Statusdetails und Abbruch.
-     * @return Liste der [TriggerCandidate] mit verfügbaren neueren Versionen.
+     * @return Liste der [TriggerCandidate] inklusive aktueller Version und verfügbarer neuerer Versionen.
      */
     internal fun collectTriggerCandidates(
         mavenProject: MavenProject,
@@ -568,7 +594,10 @@ class ManagedDependencyRecommendationService(
         indicator: ProgressIndicator? = null
     ): List<TriggerCandidate> {
         val candidates = mutableListOf<TriggerCandidate>()
-        val effectiveProperties = mavenProject.properties.entries.associate { (k, v) -> k.toString() to v.toString() }
+        val effectiveProperties =
+            mavenProject.properties.entries.associate { (k, v) -> k.toString() to v.toString() }
+        val resolvedDependencies =
+            mavenProject.dependencyTree.associateBy { "${it.artifact.groupId}:${it.artifact.artifactId}" }
 
         ApplicationManager.getApplication().runReadAction {
             indicator?.checkCanceled()
@@ -595,6 +624,7 @@ class ManagedDependencyRecommendationService(
                     effectiveProperties,
                     mavenProject,
                     availableVersionsMap,
+                    resolvedDependencies,
                     indicator
                 )
                 if (depCandidate != null) {
@@ -607,14 +637,14 @@ class ManagedDependencyRecommendationService(
     }
 
     /**
-     * Extrahiert den Update-Kandidaten für das Parent-POM.
+     * Extrahiert den Auslöser-Kandidaten für das Parent-POM.
      *
      * @param rootTag Das Wurzelelement der Projekt-POM.
      * @param effectiveProperties Die aufgelösten effektiven Maven-Properties.
      * @param mavenProject Das zugehörige Maven-Projekt.
      * @param availableVersionsMap Bereits bekannte verfügbare Versionen.
      * @param indicator Optionaler Fortschrittsindikator für Abbruchprüfungen.
-     * @return Der Parent-Kandidat oder `null`, wenn kein Update verfügbar ist.
+     * @return Der Parent-Kandidat oder `null`, wenn kein Parent deklariert ist.
      */
     private fun extractParentCandidate(
         rootTag: XmlTag,
@@ -627,43 +657,62 @@ class ManagedDependencyRecommendationService(
         val g = parentTag.findFirstSubTag("groupId")?.value?.text?.trim().orEmpty()
         val a = parentTag.findFirstSubTag("artifactId")?.value?.text?.trim().orEmpty()
         val v = parentTag.findFirstSubTag("version")?.value?.text?.trim().orEmpty()
-        if (g.isNotEmpty() && a.isNotEmpty() && v.isNotEmpty()) {
-            val resolvedV = resolvePropertyPlaceholder(v, effectiveProperties).ifEmpty { v }
-            indicator?.text2 = "${mavenProject.mavenId}: $g:$a"
-            val versions = getCandidateVersions(g, a, resolvedV, availableVersionsMap, indicator)
-            if (versions.isNotEmpty()) {
-                return TriggerCandidate(g, a, resolvedV, "parent", versions, mavenProject)
+        if (g.isNotEmpty() && a.isNotEmpty()) {
+            val resolvedV = if (v.isNotEmpty()) {
+                val resolved = resolvePropertyPlaceholder(v, effectiveProperties)
+                resolved.ifEmpty { v }
+            } else {
+                mavenProject.parentId?.version.orEmpty()
+            }
+            if (resolvedV.isNotEmpty()) {
+                indicator?.text2 = "${mavenProject.mavenId}: $g:$a"
+                val versions = getCandidateVersions(g, a, resolvedV, availableVersionsMap, indicator)
+                val allVersions = (listOf(resolvedV) + versions).distinct()
+                return TriggerCandidate(g, a, resolvedV, "parent", allVersions, mavenProject)
             }
         }
         return null
     }
 
     /**
-     * Extrahiert den Update-Kandidaten für ein Dependency-Tag.
+     * Extrahiert den Auslöser-Kandidaten für ein Dependency-Tag.
+     *
+     * Fehlt das Versions-Tag in der `pom.xml`, wird die aufgelöste Version aus dem
+     * Maven-Projekt ermittelt.
      *
      * @param depTag Das Dependency-Element der Projekt-POM.
      * @param effectiveProperties Die aufgelösten effektiven Maven-Properties.
      * @param mavenProject Das zugehörige Maven-Projekt.
      * @param availableVersionsMap Bereits bekannte verfügbare Versionen.
+     * @param resolvedDependencies Map der aufgelösten Abhängigkeitsknoten (`groupId:artifactId` -> Knoten).
      * @param indicator Optionaler Fortschrittsindikator für Abbruchprüfungen.
-     * @return Der Dependency-Kandidat oder `null`, wenn kein Update verfügbar ist.
+     * @return Der Dependency-Kandidat oder `null`, wenn keine gültige Koordinate vorliegt.
      */
     private fun extractDependencyCandidate(
         depTag: XmlTag,
         effectiveProperties: Map<String, String>,
         mavenProject: MavenProject,
         availableVersionsMap: Map<String, List<String>>,
+        resolvedDependencies: Map<String, MavenArtifactNode>,
         indicator: ProgressIndicator?
     ): TriggerCandidate? {
         val g = depTag.findFirstSubTag("groupId")?.value?.text?.trim().orEmpty()
         val a = depTag.findFirstSubTag("artifactId")?.value?.text?.trim().orEmpty()
         val v = depTag.findFirstSubTag("version")?.value?.text?.trim().orEmpty()
-        if (g.isNotEmpty() && a.isNotEmpty() && v.isNotEmpty()) {
-            val resolvedV = resolvePropertyPlaceholder(v, effectiveProperties).ifEmpty { v }
-            indicator?.text2 = "${mavenProject.mavenId}: $g:$a"
-            val versions = getCandidateVersions(g, a, resolvedV, availableVersionsMap, indicator)
-            if (versions.isNotEmpty()) {
-                return TriggerCandidate(g, a, resolvedV, "dependency", versions, mavenProject)
+        if (g.isNotEmpty() && a.isNotEmpty()) {
+            val resolvedV = if (v.isNotEmpty()) {
+                val resolved = resolvePropertyPlaceholder(v, effectiveProperties)
+                resolved.ifEmpty { v }
+            } else {
+                resolvedDependencies["$g:$a"]?.artifact?.version
+                    ?: mavenProject.findDependencies(g, a).firstOrNull()?.version
+                    ?: mavenProject.dependencies.firstOrNull { it.groupId == g && it.artifactId == a }?.version.orEmpty()
+            }
+            if (resolvedV.isNotEmpty()) {
+                indicator?.text2 = "${mavenProject.mavenId}: $g:$a"
+                val versions = getCandidateVersions(g, a, resolvedV, availableVersionsMap, indicator)
+                val allVersions = (listOf(resolvedV) + versions).distinct()
+                return TriggerCandidate(g, a, resolvedV, "dependency", allVersions, mavenProject)
             }
         }
         return null
