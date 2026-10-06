@@ -315,6 +315,7 @@ class ManagedDependencyRecommendationServiceTest : BasePlatformTestCase() {
      * Prüft, dass direkte Abhängigkeiten ohne explizite Versionsangabe in der `pom.xml`
      * über die aufgelösten Maven-Abhängigkeiten als Update-Kandidaten erfasst werden.
      */
+    @Suppress("UnstableApiUsage")
     fun testCollectTriggerCandidatesWithInheritedDependencyVersion() {
         val pomFile = myFixture.configureByText(
             "pom.xml",
@@ -409,6 +410,7 @@ class ManagedDependencyRecommendationServiceTest : BasePlatformTestCase() {
      * Beim Update von `spring-boot-starter-test` auf 3.3.6 wird `xmlunit-core:2.9.1` transitiv bereitgestellt,
      * sodass die Entfernung von `xmlunit-core` aus `dependencyManagement` empfohlen wird.
      */
+    @Suppress("UnstableApiUsage")
     fun testSpringBootStarterTestCleanupRecommendationWithInheritedVersion() {
         val springBootTestPom = """
             <project>
@@ -490,6 +492,7 @@ class ManagedDependencyRecommendationServiceTest : BasePlatformTestCase() {
      * `org.xmlunit:xmlunit-core:2.9.1` transitiv bereit. Das in `dependencyManagement` deklarierte `xmlunit-core:2.9.1`
      * wird korrekt als redundanter Eintrag erkannt, auch wenn keine neuere Version von `spring-boot-starter-test` existiert.
      */
+    @Suppress("UnstableApiUsage")
     fun testSpringBootStarterTestCleanupRecommendationWithCurrentVersion() {
         val springBootTestPom = """
             <project>

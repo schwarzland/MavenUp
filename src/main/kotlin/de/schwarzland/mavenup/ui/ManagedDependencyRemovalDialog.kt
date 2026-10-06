@@ -31,31 +31,6 @@ import javax.swing.table.TableRowSorter
 private const val COLUMN_SELECT = 0
 
 /**
- * Spaltenindex für die verwaltete Abhängigkeit (`groupId:artifactId`).
- */
-private const val COLUMN_MANAGED_DEP = 1
-
-/**
- * Spaltenindex für die aktuell gepinnte Version der verwalteten Abhängigkeit.
- */
-private const val COLUMN_CURRENT_VERSION = 2
-
-/**
- * Spaltenindex für die auslösende Komponente (Parent-POM oder Dependency).
- */
-private const val COLUMN_TRIGGER = 3
-
-/**
- * Spaltenindex für die Zielversion der auslösenden Komponente.
- */
-private const val COLUMN_TARGET_VERSION = 4
-
-/**
- * Spaltenindex für die durch die Zielversion transitiv bereitgestellte Version.
- */
-private const val COLUMN_PROVIDED_VERSION = 5
-
-/**
  * Dialog zur interaktiven Prüfung und Übernahme von Empfehlungen zur Bereinigung
  * redundanter Einträge in `<dependencyManagement>`.
  *
@@ -197,7 +172,7 @@ class ManagedDependencyRemovalDialog(
         tableModel = object : DefaultTableModel(columnNames, 0) {
             /** Liefert den Datentyp für Checkboxen beziehungsweise Textspalten. */
             override fun getColumnClass(columnIndex: Int): Class<*> =
-                if (columnIndex == COLUMN_SELECT) java.lang.Boolean::class.javaObjectType else String::class.java
+                if (columnIndex == COLUMN_SELECT) Boolean::class.javaObjectType else String::class.java
 
             /** Erlaubt ausschließlich Änderungen an der Auswahlspalte. */
             override fun isCellEditable(row: Int, column: Int): Boolean = column == COLUMN_SELECT
