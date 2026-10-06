@@ -1507,7 +1507,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
-         * Fügt die versionsbezogenen Aktionen und die Entfernungsaktion hinzu.
+         * Fügt Versionsaktionen sowie passende Aktionen zur Bereinigung und Entfernung hinzu.
          *
          * @param group Aktionsgruppe des Kontextmenüs.
          * @param target Daten der angeklickten Tabellenzeile.
@@ -1543,12 +1543,15 @@ class MavenUpWindowFactory : ToolWindowFactory {
             ) {
                 markManagedEntryForRemoval(dependencyKey, target.type, target.currentVersion)
             }
-            addContextMenuAction(
-                group,
-                MyMessageBundle.message("toolwindow.MyToolWindow.checkManagedRemoval.contextMenu"),
-                isCheckManagedRemovalEnabled()
-            ) {
-                checkManagedDependencyRemovalAction()
+            val managedDependencyType = MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
+            if (target.type == managedDependencyType || target.type == "dependency" || target.type == PARENT_TYPE) {
+                addContextMenuAction(
+                    group,
+                    MyMessageBundle.message("toolwindow.MyToolWindow.checkManagedRemoval.contextMenu"),
+                    isCheckManagedRemovalEnabled()
+                ) {
+                    checkManagedDependencyRemovalAction(target)
+                }
             }
         }
 
@@ -3440,10 +3443,20 @@ class MavenUpWindowFactory : ToolWindowFactory {
             !isRefreshing && !isSearchingVersions && !isUpdating
 
         /**
-         * Startet die Analyse zur Erkennung redundanter verwalteter Abhängigkeiten in einem Hintergrund-Task.
+         * Startet die projektweite oder auf die angeklickte Zeile begrenzte Bereinigungsanalyse.
+         *
+         * @param target Optionaler Kontextmenü-Eintrag; verwaltete Dependencies filtern den Ziel-Eintrag,
+         * direkte Dependencies und Parent-POMs filtern den Upgrade-Trigger.
          */
-        internal fun checkManagedDependencyRemovalAction() {
+        internal fun checkManagedDependencyRemovalAction(target: DependencyContextMenuTarget? = null) {
             if (!isCheckManagedRemovalEnabled()) return
+            val managedDependencyType = MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
+            val managedCoordinate = target
+                ?.takeIf { it.type == managedDependencyType }
+                ?.dependencyKey
+            val triggerCoordinate = target
+                ?.takeIf { it.type == "dependency" || it.type == PARENT_TYPE }
+                ?.dependencyKey
 
             ProgressManager.getInstance().run(
                 object : Task.Backgroundable(
@@ -3456,7 +3469,11 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     override fun run(indicator: ProgressIndicator) {
                         indicator.isIndeterminate = true
                         val recommendationService = ManagedDependencyRecommendationService(project)
-                        recommendations = recommendationService.findRecommendations(availableVersions)
+                        recommendations = recommendationService.findRecommendations(
+                            availableVersions,
+                            managedCoordinate,
+                            triggerCoordinate
+                        )
                     }
 
                     override fun onSuccess() {

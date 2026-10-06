@@ -68,13 +68,19 @@ class ManagedDependencyRecommendationService(
      * Ermittelt alle Empfehlungen zur Bereinigung redundanter verwalteter Abhängigkeiten.
      *
      * @param availableVersionsMap Optionale Map mit bereits ermittelten Versionen (`groupId:artifactId` -> Versionsliste).
+     * @param managedCoordinate Optional: begrenzt die Ergebnisse auf diesen verwalteten Eintrag.
+     * @param triggerCoordinate Optional: begrenzt die Ergebnisse auf Updates dieses Triggers.
      * @return Liste der gefundenen Empfehlungen, bei denen alle Konsumenten kompatibel versorgt werden.
      */
     fun findRecommendations(
-        availableVersionsMap: Map<String, List<String>> = emptyMap()
+        availableVersionsMap: Map<String, List<String>> = emptyMap(),
+        managedCoordinate: String? = null,
+        triggerCoordinate: String? = null
     ): List<ManagedDependencyRemovalRecommendation> {
         val mavenProjects = MavenProjectsManager.getInstance(project).projects.toList()
-        return mavenProjects.flatMap { findRecommendationsForProject(it, availableVersionsMap) }
+        return mavenProjects.flatMap {
+            findRecommendationsForProject(it, availableVersionsMap, managedCoordinate, triggerCoordinate)
+        }
     }
 
     /**
@@ -82,16 +88,24 @@ class ManagedDependencyRecommendationService(
      *
      * @param mavenProject Das zu analysierende Maven-Projekt.
      * @param availableVersionsMap Bereits bekannte verfügbare Versionen.
+     * @param managedCoordinate Optional: begrenzt die Analyse auf diesen verwalteten Eintrag.
+     * @param triggerCoordinate Optional: begrenzt die Analyse auf Updates dieses Triggers.
      * @return Liste der Empfehlungen für dieses Projekt.
      */
     private fun findRecommendationsForProject(
         mavenProject: MavenProject,
-        availableVersionsMap: Map<String, List<String>>
+        availableVersionsMap: Map<String, List<String>>,
+        managedCoordinate: String?,
+        triggerCoordinate: String?
     ): List<ManagedDependencyRemovalRecommendation> {
-        val managedDeclarations = collectManagedDependencies(mavenProject)
+        val managedDeclarations = collectManagedDependencies(mavenProject).filter {
+            matchesCoordinateScope(it.groupId, it.artifactId, managedCoordinate)
+        }
         if (managedDeclarations.isEmpty()) return emptyList()
 
-        val triggers = collectTriggerCandidates(mavenProject, availableVersionsMap)
+        val triggers = collectTriggerCandidates(mavenProject, availableVersionsMap).filter {
+            matchesCoordinateScope(it.groupId, it.artifactId, triggerCoordinate)
+        }
         if (triggers.isEmpty()) return emptyList()
 
         val results = mutableListOf<ManagedDependencyRemovalRecommendation>()
@@ -109,6 +123,17 @@ class ManagedDependencyRecommendationService(
         }
         return results
     }
+
+    /**
+     * Prüft, ob eine Maven-Koordinate dem optionalen Koordinatenfilter entspricht.
+     *
+     * @param groupId Die Group-ID der Koordinate.
+     * @param artifactId Die Artefakt-ID der Koordinate.
+     * @param coordinate Optionaler Filter im Format `groupId:artifactId`.
+     * @return `true`, wenn kein Filter gesetzt ist oder die Koordinate exakt übereinstimmt.
+     */
+    internal fun matchesCoordinateScope(groupId: String, artifactId: String, coordinate: String?): Boolean =
+        coordinate == null || "$groupId:$artifactId" == coordinate
 
     /**
      * Findet die erste passende Zielversion eines Triggers, die alle Konsumenten kompatibel versorgt.

@@ -13,6 +13,18 @@ import org.jetbrains.idea.maven.project.MavenProject
  */
 class ManagedDependencyRecommendationServiceTest : BasePlatformTestCase() {
 
+    /**
+     * Prüft den globalen, passenden und abweichenden Koordinatenfilter.
+     */
+    fun testCoordinateScopeMatchesOnlyTheRequestedCoordinate() {
+        val service = ManagedDependencyRecommendationService(project)
+
+        assertTrue(service.matchesCoordinateScope("com.example", "library", null))
+        assertTrue(service.matchesCoordinateScope("com.example", "library", "com.example:library"))
+        assertFalse(service.matchesCoordinateScope("com.example", "library", "com.example:other"))
+        assertFalse(service.matchesCoordinateScope("com.example", "library", ""))
+    }
+
     private fun createArtifact(groupId: String, artifactId: String, version: String): MavenArtifact {
         return MavenArtifact(
             groupId,

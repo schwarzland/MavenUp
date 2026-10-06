@@ -42,7 +42,7 @@ Die horizontale Ausrichtung ist eine bewusste Entscheidung und nicht zu einer ve
 - Eine vertikale Toolbar neben der horizontalen Filterzeile ergäbe die vom Styleguide abgeratene Doppel-Toolbar-Optik.
 
 ### Kontextmenü der Tabellenzeile
-Per Rechtsklick auf eine Zeile öffnet sich ein Kontextmenü. Alle Einträge bleiben stets sichtbar und ändern nur ihren Aktivierungszustand (kein Ein-/Ausblenden):
+Per Rechtsklick auf eine Zeile öffnet sich ein Kontextmenü. Anwendbare Aktionen bleiben sichtbar und ändern nur ihren Aktivierungszustand; Filteraktionen und typgebundene Aktionen erscheinen nur, wenn sie zur angeklickten Zeile passen:
 - **Filter by "..."**: nur beim Rechtsklick auf die Spalten GroupId, ArtifactId oder Property mit nicht-leerem Wert; setzt den angeklickten Wert als alleinigen Textfilter, ersetzt vorhandenen Text und wendet ihn sofort an (`filterBy`).
 - **Navigate to pom.xml**: springt zur Definition der Zeile in der `pom.xml`.
 - **Navigate to Property Definition**: springt über `navigateToProperty` zur Property-Definition der Zeile; nur aktiv, wenn die Zeile eine Version-Property besitzt.
@@ -53,6 +53,7 @@ Per Rechtsklick auf eine Zeile öffnet sich ein Kontextmenü. Alle Einträge ble
 - **Remove from pom.xml** / **Comment out in pom.xml**: markiert eine verwaltete Abhängigkeit oder ein verwaltetes Plugin zur Löschung bzw. Auskommentierung aus `dependencyManagement` beziehungsweise `pluginManagement` beim nächsten bestätigten Update und zeigt dafür **Will be removed** bzw. **Will be commented out** in der Spalte **New Version** (angepasst an die Einstellung `commentOutManagedEntriesOnRemoval`); nur aktiv für verwaltete Einträge, die noch nicht zur Entfernung vorgemerkt sind und solange kein Update läuft (`isManagedEntryRemovalEnabled`). **Reset to Current Version** derselben Zeile sowie die einzelzeiligen **Set to ... Version**-Aktionen nehmen deren Markierung ohne Dateiänderung zurück. Versionsauswahlen anderer Einträge mit derselben Maven-Property bleiben beim Markieren erhalten; `collectSelectedUpdates` schließt nur den zur Entfernung markierten Eintrag aus.
 - **Show Dependency Hierarchy**: öffnet das Hierarchiebaum-Panel für alle Abhängigkeiten, Plugins und Parent-Einträge (`showDependencyHierarchy`).
 - **Show Vulnerability Details**: deaktiviert, wenn die Dependency keine Befunde hat.
+- **Check Managed Dependency Cleanup Recommendations for This Entry...**: erscheint nur für verwaltete Dependencies, direkte Dependencies und Parent-POMs. Bei einer verwalteten Dependency wird nur dieser Eintrag geprüft; bei einer direkten Dependency oder einem Parent-POM werden nur Empfehlungen geprüft, die durch ein Upgrade dieser Koordinate ausgelöst werden.
 
 Der verwendete Repository-Browser (**MVN Repository** oder **Sonatype Central**) ist in den Einstellungen
 konfigurierbar und gilt einheitlich für das Kontextmenü sowie das zeilenbezogene Rechtsklick-Menü im

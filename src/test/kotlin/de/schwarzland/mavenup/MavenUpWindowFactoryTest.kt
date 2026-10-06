@@ -1198,6 +1198,28 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertFalse(toolWindow.isDependencyHierarchyVisible())
     }
 
+    /**
+     * Prüft, dass die Bereinigungsaktion nur für passende Dependency- und Parent-Zeilen erscheint.
+     */
+    fun testCleanupContextActionIsLimitedToSupportedRows() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val cleanupLabel = MyMessageBundle.message("toolwindow.MyToolWindow.checkManagedRemoval.contextMenu")
+        val managedDependencyType = MyMessageBundle.message("toolwindow.MyToolWindow.type.managedDependency")
+
+        /** Prüft, ob der Kontextmenü-Aufbau die Bereinigungsaktion für den angegebenen Typ enthält. */
+        fun hasCleanupAction(type: String): Boolean =
+            toolWindow.buildContextMenuGroup(
+                DependencyContextMenuTarget(0, "com.example", "library", "", type, "1.0.0")
+            ).getChildren(null).filterIsInstance<com.intellij.openapi.actionSystem.AnAction>()
+                .any { it.templatePresentation.text == cleanupLabel }
+
+        assertTrue(hasCleanupAction(managedDependencyType))
+        assertTrue(hasCleanupAction("dependency"))
+        assertTrue(hasCleanupAction(PARENT_TYPE))
+        assertFalse(hasCleanupAction("plugin"))
+        assertFalse(hasCleanupAction(MANAGED_PLUGIN))
+    }
+
     fun testDependencyHierarchyClosableAfterVulnerabilityScanClearsTable() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         val content = toolWindow.getContent()
