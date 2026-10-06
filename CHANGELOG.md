@@ -11,6 +11,7 @@
 
 ### Changed
 
+- **Cleanup recommendation actions in the toolbar and row context menu are disabled while a check is already running.**
 - **Cleanup recommendations use a vertically adjustable table/detail split with a remembered divider position and fully scrollable, wrapping explanations and consumer paths.**
 - **Cleanup recommendation checks now show the active project and dependency in a cancellable background progress task.**
 - **Expanded cleanup DEBUG logs with analysis scope, candidate evaluations, POM cache and local-repository hits, and individual HTTP GET attempts and response statuses without exposing credentials.**

@@ -399,6 +399,36 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         )
     }
 
+    fun testCleanupRecommendationActionsAreDisabledWhileCheckIsRunning() {
+        val toolWindowInstance = MavenUpWindowFactory().MyToolWindow(project)
+        val toolbarGroup = toolWindowInstance.topToolbarActions()
+            .filterIsInstance<DefaultActionGroup>()
+            .first {
+                it.templatePresentation.text ==
+                    MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.group.button")
+            }
+        val toolbarAction = toolbarGroup.childActionsOrStubs
+            .first { it.templatePresentation.text == MyMessageBundle.message("toolwindow.MyToolWindow.checkManagedRemoval.menuItem") }
+        val contextAction = toolWindowInstance.buildContextMenuGroup(
+            DependencyContextMenuTarget(0, "com.example", "library", "", "dependency", "1.0.0")
+        ).getChildren(null).filterIsInstance<com.intellij.openapi.actionSystem.AnAction>()
+            .first {
+                it.templatePresentation.text ==
+                    MyMessageBundle.message("toolwindow.MyToolWindow.checkManagedRemoval.contextMenu")
+            }
+
+        fun isEnabled(action: com.intellij.openapi.actionSystem.AnAction): Boolean {
+            val event = com.intellij.testFramework.TestActionEvent.createTestEvent(action)
+            ActionUtil.updateAction(action, event)
+            return event.presentation.isEnabled
+        }
+
+        toolWindowInstance.isCheckingManagedRemoval = true
+
+        assertFalse(isEnabled(toolbarAction))
+        assertFalse(isEnabled(contextAction))
+    }
+
     fun testRefreshSnapshotCollectionRunsOutsideEdt() {
         val collector = RefreshSnapshotCollector(project)
 

@@ -345,6 +345,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
             get() = vulnerabilityScanErrors.isNotEmpty()
         private var isUpdating = false
         private var isRefreshing = false
+        /** `true`, solange eine Bereinigungsempfehlungsprüfung läuft. */
+        internal var isCheckingManagedRemoval = false
 
         /**
          * `true`, solange eine Online-Suche nach neuen Versionen läuft.
@@ -3433,10 +3435,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /**
          * Prüft, ob die Prüfung auf redundante verwaltete Abhängigkeiten derzeit gestartet werden darf.
          *
-         * @return `true`, wenn keine Aktualisierung läuft und das Tool-Window nicht aktualisiert wird.
+         * @return `true`, wenn keine andere Tool-Window-Operation und keine Bereinigungsprüfung läuft.
          */
         internal fun isCheckManagedRemovalEnabled(): Boolean =
-            !isRefreshing && !isSearchingVersions && !isUpdating
+            !isRefreshing && !isSearchingVersions && !isUpdating && !isCheckingManagedRemoval
 
         /**
          * Startet die projektweite oder auf die angeklickte Zeile begrenzte Bereinigungsanalyse.
@@ -3446,6 +3448,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
          */
         internal fun checkManagedDependencyRemovalAction(target: DependencyContextMenuTarget? = null) {
             if (!isCheckManagedRemovalEnabled()) return
+            isCheckingManagedRemoval = true
+            refreshToolbar()
             val managedDependencyType = MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
             val managedCoordinate = target
                 ?.takeIf { it.type == managedDependencyType }
@@ -3485,6 +3489,11 @@ class MavenUpWindowFactory : ToolWindowFactory {
                                 applyManagedDependencyRemovalRecommendations(selectedRecs)
                             }.show()
                         }
+                    }
+
+                    override fun onFinished() {
+                        isCheckingManagedRemoval = false
+                        refreshToolbar()
                     }
                 }
             )
