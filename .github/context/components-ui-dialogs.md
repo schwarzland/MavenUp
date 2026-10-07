@@ -36,6 +36,10 @@ UI-Komponenten: [`components-ui.md`](components-ui.md) und
   Entfernungsvormerkung angewendet. Empfehlungen derselben Trigger-Komponente werden auf die niedrigste
   gemeinsame geprüfte Zielversion abgestimmt; ohne gemeinsame Version zeigt die Tabelle den Konflikt und
   deaktiviert die Anwendung, bis die Auswahl angepasst wurde.
+  Unterhalb des Splitters bietet eine initial deaktivierte, nicht gespeicherte UI-DSL-Checkbox
+  **Show all pending changes after applying** einen sichtbaren Kommentar zum Filterwechsel.
+  `bindSelected` bindet sie an den Dialogzustand; `doOKAction` übernimmt diesen nur bei gültiger
+  Auswahl über `DialogPanel.apply` und übergibt Empfehlungen und Boolean an den Callback.
 - **TransitiveVulnerabilitiesView**: eigenständige `JBPanel`-Ansicht (Top-Level in `ui`), die alle
   transitiven, verwundbaren Abhängigkeiten in einer sortierbaren Tabelle (GroupId, ArtifactId, Type,
   Vulnerabilities-Anzahl mit Severity-Färbung, Current Version, New Version) auflistet. Die **Type**-Spalte übernimmt für Koordinaten, die

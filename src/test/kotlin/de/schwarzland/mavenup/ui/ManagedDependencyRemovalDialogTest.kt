@@ -13,6 +13,7 @@ import de.schwarzland.mavenup.model.ManagedDependencyRemovalRecommendation
 import de.schwarzland.mavenup.model.ManagedDependencyTargetVersion
 import javax.swing.JEditorPane
 import javax.swing.JComponent
+import javax.swing.JCheckBox
 import javax.swing.UIManager
 import java.awt.Color
 import java.awt.Cursor
@@ -76,11 +77,13 @@ class ManagedDependencyRemovalDialogTest : BasePlatformTestCase() {
             targetVersionOptions = listOf(ManagedDependencyTargetVersion("4.0.0", "3.5.0", listOf(consumer)))
         )
         var appliedRecommendations: List<ManagedDependencyRemovalRecommendation>? = null
-        val dialog = ManagedDependencyRemovalDialog(project, listOf(first, second, independent)) {
-            appliedRecommendations = it
+        val dialog = ManagedDependencyRemovalDialog(project, listOf(first, second, independent)) { selected, _ ->
+            appliedRecommendations = selected
         }
         Disposer.register(testRootDisposable, dialog.disposable)
-        val table = UIUtil.findComponentOfType(dialog.createCenterPanel(), JBTable::class.java)!!
+        val panel = dialog.createCenterPanel()
+        val table = UIUtil.findComponentOfType(panel, JBTable::class.java)!!
+        UIUtil.findComponentOfType(panel, JCheckBox::class.java)!!.isSelected = true
 
         assertTrue(dialog.getSelectedRecommendations().isEmpty())
         assertEquals(
@@ -173,7 +176,10 @@ class ManagedDependencyRemovalDialogTest : BasePlatformTestCase() {
         val dialog = ManagedDependencyRemovalDialog(
             project = project,
             recommendations = listOf(rec1, rec2),
-            onApply = { appliedRecommendations = it }
+            onApply = { selected, showPending ->
+                appliedRecommendations = selected
+                assertFalse(showPending)
+            }
         )
         Disposer.register(testRootDisposable, dialog.disposable)
 
@@ -217,6 +223,42 @@ class ManagedDependencyRemovalDialogTest : BasePlatformTestCase() {
         dialog.doOKAction()
         assertNotNull(appliedRecommendations)
         assertEquals(2, appliedRecommendations!!.size)
+    }
+
+    /** Prüft die initial deaktivierte, nur für diesen Aufruf geltende Folgeansicht-Option. */
+    fun testShowPendingChangesOptionIsPassedOnlyOnApply() {
+        val rec = recommendation("managed", targetVersionOptions = listOf(
+            ManagedDependencyTargetVersion("2.0.0", "1.5.0", emptyList())
+        ))
+        var showPending: Boolean? = null
+        val dialog = ManagedDependencyRemovalDialog(project, listOf(rec)) { selected, requested ->
+            assertEquals(listOf(rec), selected)
+            showPending = requested
+        }
+        Disposer.register(testRootDisposable, dialog.disposable)
+        val checkbox = UIUtil.findComponentOfType(dialog.createCenterPanel(), JCheckBox::class.java)!!
+        assertEquals(MyMessageBundle.message("managed.dependency.removal.dialog.showPending"), checkbox.text)
+        assertFalse(checkbox.isSelected)
+        checkbox.isSelected = true
+        assertNull(showPending)
+        dialog.doOKAction()
+        assertEquals(true, showPending)
+
+        val reopened = ManagedDependencyRemovalDialog(project, listOf(rec))
+        Disposer.register(testRootDisposable, reopened.disposable)
+        assertFalse(UIUtil.findComponentOfType(reopened.createCenterPanel(), JCheckBox::class.java)!!.isSelected)
+    }
+
+    /** Prüft, dass Abbruch und eine leere Auswahl keine Übernahme oder Filteränderung anfordern. */
+    fun testShowPendingChangesDoesNotApplyOnCancelOrEmptySelection() {
+        var called = false
+        val dialog = ManagedDependencyRemovalDialog(project, emptyList()) { _, _ -> called = true }
+        Disposer.register(testRootDisposable, dialog.disposable)
+        UIUtil.findComponentOfType(dialog.createCenterPanel(), JCheckBox::class.java)!!.isSelected = true
+        dialog.doOKAction()
+        assertFalse(called)
+        dialog.doCancelAction()
+        assertFalse(called)
     }
 
     /** Prüft Orientierung, Mindesthöhen, Größenänderung und gespeicherte Splitter-Aufteilung. */

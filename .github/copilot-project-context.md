@@ -52,8 +52,11 @@ Projekt-/PSI-Umgebung erben von `BasePlatformTestCase` (z. B. `MavenUpWindowFact
 injizierte Seams/Interfaces netzwerkfrei getestet.
 `CacheContentsDialogTest` deckt TTL-Anzeige und Invalidierung ab;
 `ManagedDependencyRemovalDialogTest` prüft Auswahl und Übernahme sowie das skalierbare Split-Layout,
-die gespeicherte Aufteilung, lange und leere Detailinhalte, HTML-Maskierung und den sichtbaren
-Splitter-Griff inklusive Theme-Farben, Hover und Mausziehen;
+die gespeicherte Aufteilung, lange und leere Detailinhalte, HTML-Maskierung, den sichtbaren
+Splitter-Griff inklusive Theme-Farben, Hover und Mausziehen sowie die optionale Folgeansicht
+einschließlich Standardzustand, Abbruch und ungültiger Auswahl;
+`ManagedDependencyRemovalIntegrationTest` prüft den optionalen Haupttabellen-Filterwechsel auf alle
+ausstehenden Änderungen, bestehende Vormerkungen, unveränderte Sortierung und Filtererhalt ohne Option;
 `VersionLookupLoggingTest` prüft DEBUG-Ausgaben und lokale HTTP-Versuche einschließlich Cache-Treffern,
 Bereinigungsprüfungen, POM-Antwortstatus und Ausschluss von Zugangsdaten aus POM-Abfrage-Logs.
 

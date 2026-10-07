@@ -2,11 +2,13 @@ package de.schwarzland.mavenup.ui
 
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogWrapper
+import com.intellij.openapi.ui.DialogPanel
 import com.intellij.openapi.util.text.StringUtil
 import com.intellij.ui.JBSplitter
 import com.intellij.ui.JBColor
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.dsl.builder.Align
+import com.intellij.ui.dsl.builder.bindSelected
 import com.intellij.ui.dsl.builder.panel
 import com.intellij.ui.table.JBTable
 import com.intellij.util.ui.HTMLEditorKitBuilder
@@ -50,15 +52,17 @@ private const val COLUMN_PROVIDED_VERSION = 5
  * detaillierte Erklärungen und Pfadangaben zur jeweils selektierten Zeile an.
  * Ein vertikaler Splitter speichert die vom Anwender gewählte Aufteilung zwischen
  * Tabelle und vollständig scrollbar dargestellten Details.
+ * Eine nicht gespeicherte, initial deaktivierte Option fordert nach der Übernahme
+ * die Anzeige aller ausstehenden Änderungen in der Haupttabelle an.
  *
  * @param project Das aktuelle IntelliJ-Projekt.
  * @property recommendations Die Liste der zur Bereinigung vorgeschlagenen Empfehlungen.
- * @property onApply Optionaler Callback, der bei Bestätigung mit den ausgewählten Empfehlungen aufgerufen wird.
+ * @property onApply Optionaler Callback mit ausgewählten Empfehlungen und gewünschtem Pending-Filterwechsel.
  */
 class ManagedDependencyRemovalDialog(
     project: Project,
     private val recommendations: List<ManagedDependencyRemovalRecommendation>,
-    private val onApply: ((List<ManagedDependencyRemovalRecommendation>) -> Unit)? = null
+    private val onApply: ((List<ManagedDependencyRemovalRecommendation>, Boolean) -> Unit)? = null
 ) : DialogWrapper(project) {
 
     /**
@@ -77,6 +81,8 @@ class ManagedDependencyRemovalDialog(
     }
 
     private val selectionStates = BooleanArray(recommendations.size) { true }
+    private var showAllPendingChanges = false
+    private lateinit var dialogPanel: DialogPanel
     private lateinit var tableModel: DefaultTableModel
     private lateinit var table: JBTable
     private val detailEditor = JEditorPane().apply {
@@ -106,7 +112,7 @@ class ManagedDependencyRemovalDialog(
     }
 
     /**
-     * Erstellt den zentralen Bereich mit UI DSL v2 und einem vertikalen Splitter.
+     * Erstellt den zentralen Bereich mit UI DSL v2, einem vertikalen Splitter und der Folgeansicht-Option.
      * Die Aufteilung startet bei 65 Prozent Tabellenhöhe und wird IDE-weit gespeichert.
      *
      * @return Die Hauptkomponente des Dialogs.
@@ -142,9 +148,16 @@ class ManagedDependencyRemovalDialog(
             row {
                 cell(splitter).align(Align.FILL)
             }.resizableRow()
+            row {
+                checkBox(MyMessageBundle.message("managed.dependency.removal.dialog.showPending"))
+                    .bindSelected(::showAllPendingChanges)
+                    .comment(MyMessageBundle.message("managed.dependency.removal.dialog.showPending.comment"))
+            }
         }.apply {
             preferredSize = JBUI.size(900, 520)
             minimumSize = JBUI.size(650, 350)
+        }.also {
+            dialogPanel = it
         }
     }
 
@@ -404,12 +417,13 @@ class ManagedDependencyRemovalDialog(
     }
 
     /**
-     * Führt die Bestätigungsaktion aus, wenn die Auswahl für jeden Trigger eine gemeinsame Zielversion hat.
+     * Übernimmt bei gültiger Auswahl die Folgeansicht-Option und übergibt beides an den Callback.
      */
     public override fun doOKAction() {
         val selectedRecommendations = getSelectedRecommendations()
         if (selectedRecommendations.isEmpty()) return
-        onApply?.invoke(selectedRecommendations)
+        dialogPanel.apply()
+        onApply?.invoke(selectedRecommendations, showAllPendingChanges)
         super.doOKAction()
     }
 

@@ -3485,8 +3485,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
                                 MyMessageBundle.message("managed.dependency.removal.dialog.title")
                             )
                         } else {
-                            ManagedDependencyRemovalDialog(project, recommendations) { selectedRecs ->
-                                applyManagedDependencyRemovalRecommendations(selectedRecs)
+                            ManagedDependencyRemovalDialog(project, recommendations) { selectedRecs, showPending ->
+                                applyManagedDependencyRemovalRecommendations(selectedRecs, showPending)
                             }.show()
                         }
                     }
@@ -3504,11 +3504,15 @@ class MavenUpWindowFactory : ToolWindowFactory {
          *
          * Setzt für die auslösende Komponente die Zielversion und markiert die redundante verwaltete
          * Abhängigkeit zur Entfernung (`removeFromPom = true`).
+         * Auf Wunsch werden anschließend nur die Haupttabellenfilter zurückgesetzt und alle
+         * ausstehenden Änderungen angezeigt; Sortierung und vorgemerkte Änderungen bleiben erhalten.
          *
          * @param recs Die Liste der ausgewählten [ManagedDependencyRemovalRecommendation].
+         * @param showAllPendingChanges Aktiviert nach der Übernahme den alleinigen Pending-Filter für alle Änderungen.
          */
         internal fun applyManagedDependencyRemovalRecommendations(
-            recs: List<ManagedDependencyRemovalRecommendation>
+            recs: List<ManagedDependencyRemovalRecommendation>,
+            showAllPendingChanges: Boolean = false
         ) {
             if (recs.isEmpty()) return
             for (rec in recs) {
@@ -3528,6 +3532,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
             cancelActiveCellEditing()
             table.repaint()
             updateUpdateButtonState()
+            if (showAllPendingChanges) {
+                resetAllFilters()
+                changesFilterComboBox.selectedItem = PendingChangesFilter.ALL_CHANGES
+            }
             applyRowFilter()
         }
 

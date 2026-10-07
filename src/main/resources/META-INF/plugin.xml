@@ -31,6 +31,7 @@
             <li><b>Detailed Security Reports:</b> View advisories in a master-detail split view with severity, CVSS scores and vectors, CWE identifiers, affected version ranges, fixed versions, and advisory references.</li>
             <li><b>Safe Update Workflow:</b> Review all planned version updates and managed-entry removals in a sortable confirmation dialog with optional automatic Maven re-sync.</li>
             <li><b>Managed Dependency Cleanup:</b> Review redundant <code>dependencyManagement</code> entries project-wide or scoped to a managed dependency, direct dependency, or parent POM; selected recommendations for the same trigger use the lowest target version verified to satisfy them all, and conflicts must be resolved before applying.</li>
+            <li><b>Cleanup Follow-Up View:</b> Optionally clear the main-table filters and show all pending changes after applying cleanup recommendations, while keeping sorting and existing selections.</li>
             <li><b>Flexible Filtering & Sorting:</b> Filter by name, type, inheritance, pending updates, or security findings, and sort columns ascending, descending, or in original POM order.</li>
             <li><b>Status at a Glance:</b> Marks the tool window icon with a colored badge dot to signal vulnerabilities and available updates while the tool window is collapsed.</li>
             <li><b>Smart Navigation:</b> Jump directly to <code>pom.xml</code> declarations or property definitions, and open artifacts in configured repository browsers with a single click.</li>

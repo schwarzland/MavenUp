@@ -6,6 +6,7 @@
 
 ### Added
 
+- **Added an optional Show all pending changes after applying checkbox to cleanup recommendations, clearing all main-table filters and activating Pending: All Changes after applying the selection.**
 - Added automatic detection and recommendation of redundant `<dependencyManagement>` declarations when parent POMs or direct dependencies are upgraded, including in-memory candidate POM resolution via `TemporaryDependencyTreeResolver` and multi-consumer compatibility validation.
 - Added a dedicated interactive `ManagedDependencyRemovalDialog` accessible via the toolbar (**Cleanup**) and table context menu, displaying candidate target versions, explanations, and affected consumer paths with one-click application to the MavenUp update pipeline.
 
