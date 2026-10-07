@@ -10,6 +10,7 @@ import com.intellij.psi.xml.XmlFile
 import com.intellij.psi.xml.XmlTag
 import de.schwarzland.mavenup.model.ConsumerDependencyInfo
 import de.schwarzland.mavenup.model.ManagedDependencyRemovalRecommendation
+import de.schwarzland.mavenup.model.ManagedDependencyTargetVersion
 import org.apache.maven.artifact.versioning.ComparableVersion
 import org.jetbrains.idea.maven.model.MavenArtifactNode
 import org.jetbrains.idea.maven.project.MavenProject
@@ -209,7 +210,7 @@ class ManagedDependencyRecommendationService(
         coordinate == null || "$groupId:$artifactId" == coordinate
 
     /**
-     * Findet die erste passende Zielversion eines Triggers, die alle Konsumenten kompatibel versorgt.
+     * Findet die erste passende Empfehlung und speichert alle geprüften kompatiblen Zielversionen.
      *
      * @param managed Die deklarierte verwaltete Abhängigkeit.
      * @param managedComparable Die [ComparableVersion] der aktuellen verwalteten Version.
@@ -218,7 +219,7 @@ class ManagedDependencyRecommendationService(
      * @param indicator Optionaler Fortschrittsindikator für Statusdetails und Abbruch.
      * @return Die gefundene Empfehlung oder `null`.
      */
-    private fun findFirstSatisfiedRecommendationForTrigger(
+    internal fun findFirstSatisfiedRecommendationForTrigger(
         managed: ManagedDependencyDeclaration,
         managedComparable: ComparableVersion,
         trigger: TriggerCandidate,
@@ -233,7 +234,8 @@ class ManagedDependencyRecommendationService(
             "Cleanup candidate versions for ${trigger.groupId}:${trigger.artifactId}:${trigger.currentVersion}: " +
                 summarizeForDebugLog(eligibleVersions)
         )
-        for (targetVersion in eligibleVersions) {
+        val satisfiedRecommendations = mutableListOf<ManagedDependencyRemovalRecommendation>()
+        for (targetVersion in eligibleVersions.distinct()) {
             indicator?.checkCanceled()
             indicator?.text2 =
                 "${managed.groupId}:${managed.artifactId} -> ${trigger.groupId}:${trigger.artifactId}:$targetVersion"
@@ -246,10 +248,19 @@ class ManagedDependencyRecommendationService(
                 indicator = indicator
             )
             if (recommendation != null && recommendation.isSatisfiedAcrossAllConsumers) {
-                return recommendation
+                satisfiedRecommendations.add(recommendation)
             }
         }
-        return null
+        val firstRecommendation = satisfiedRecommendations.firstOrNull() ?: return null
+        return firstRecommendation.copy(
+            targetVersionOptions = satisfiedRecommendations.map {
+                ManagedDependencyTargetVersion(
+                    version = it.triggerTargetVersion,
+                    transitiveVersionInTarget = it.transitiveVersionInTarget,
+                    consumers = it.consumers
+                )
+            }
+        )
     }
 
     /**

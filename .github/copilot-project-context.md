@@ -27,7 +27,7 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
 ## Kernkomponenten (`src/main/kotlin/de/schwarzland/mavenup/`)
 
 ### Paketstruktur
-- **`model`**: `DependencyUpdate`, `VulnerabilityAdvisory`, `VulnerabilitySeverity`, `AffectedVersionRange`, `DependencyHierarchyNode`, `DependencyHierarchyNodeType`, `ManagedDependencyRemovalRecommendation`, `ConsumerDependencyInfo`, `TemporaryArtifactCoordinate`, `TemporaryDependencyNode` – reine Daten-DTOs ohne Logik.
+- **`model`**: `DependencyUpdate`, `VulnerabilityAdvisory`, `VulnerabilitySeverity`, `AffectedVersionRange`, `DependencyHierarchyNode`, `DependencyHierarchyNodeType`, `ManagedDependencyRemovalRecommendation`, `ManagedDependencyTargetVersion`, `ConsumerDependencyInfo`, `TemporaryArtifactCoordinate`, `TemporaryDependencyNode` – reine Daten-DTOs ohne Logik.
 - **`service`**: Alle externen API-Zugriffe, Settings, Startup-Logik, Abhängigkeitshierarchie-Analyse, temporäre POM-Auflösung, Bereinigungsempfehlungen und Hilfsfunktionen.
 - **`ui`**: Tool-Window, Dialoge, Settings-UI, I18n-Bundle sowie ausgelagerte, zustandslose UI-Hilfsdateien.
 

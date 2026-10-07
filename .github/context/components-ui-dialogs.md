@@ -33,7 +33,9 @@ UI-Komponenten: [`components-ui.md`](components-ui.md) und
   gemeinsam in einem scrollbar dargestellten, HTML-maskierten `JEditorPane` mit `HTMLEditorKitBuilder`-Word-Wrap;
   beim Zeilenwechsel wird die Leseposition zurückgesetzt. Über `getSelectedRecommendations` werden die
   ausgewählten Empfehlungen an den Callback übergeben und in `MyToolWindow` zur Versionsanpassung und
-  Entfernungsvormerkung angewendet.
+  Entfernungsvormerkung angewendet. Empfehlungen derselben Trigger-Komponente werden auf die niedrigste
+  gemeinsame geprüfte Zielversion abgestimmt; ohne gemeinsame Version zeigt die Tabelle den Konflikt und
+  deaktiviert die Anwendung, bis die Auswahl angepasst wurde.
 - **TransitiveVulnerabilitiesView**: eigenständige `JBPanel`-Ansicht (Top-Level in `ui`), die alle
   transitiven, verwundbaren Abhängigkeiten in einer sortierbaren Tabelle (GroupId, ArtifactId, Type,
   Vulnerabilities-Anzahl mit Severity-Färbung, Current Version, New Version) auflistet. Die **Type**-Spalte übernimmt für Koordinaten, die

@@ -29,6 +29,69 @@ class ManagedDependencyRecommendationServiceTest : BasePlatformTestCase() {
     }
 
     /**
+     * Prüft, dass alle kompatiblen Zielversionen für eine Empfehlung erhalten bleiben.
+     */
+    fun testFindFirstSatisfiedRecommendationReturnsAllCompatibleTargetVersions() {
+        val directPom = """
+            <project>
+                <groupId>com.example</groupId>
+                <artifactId>direct-lib</artifactId>
+                <version>2.0.0</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>com.fasterxml.jackson.core</groupId>
+                        <artifactId>jackson-databind</artifactId>
+                        <version>2.15.2</version>
+                    </dependency>
+                </dependencies>
+            </project>
+        """.trimIndent()
+        val newerDirectPom = directPom
+            .replace("<version>2.0.0</version>", "<version>3.0.0</version>")
+            .replace("<version>2.15.2</version>", "<version>2.16.1</version>")
+        val resolver = TemporaryDependencyTreeResolver { groupId, artifactId, version ->
+            if (groupId == "com.example" && artifactId == "direct-lib") {
+                when (version) {
+                    "2.0.0" -> directPom
+                    "3.0.0" -> newerDirectPom
+                    else -> null
+                }
+            } else {
+                null
+            }
+        }
+        val mavenProject = MavenProject(myFixture.configureByText("pom.xml", "<project></project>").virtualFile)
+        val service = ManagedDependencyRecommendationService(project, treeResolver = resolver)
+        val managed = ManagedDependencyRecommendationService.ManagedDependencyDeclaration(
+            "com.fasterxml.jackson.core",
+            "jackson-databind",
+            "2.14.0",
+            mavenProject
+        )
+        val trigger = ManagedDependencyRecommendationService.TriggerCandidate(
+            "com.example",
+            "direct-lib",
+            "1.0.0",
+            "dependency",
+            listOf("3.0.0", "2.0.0"),
+            mavenProject
+        )
+
+        val recommendation = service.findFirstSatisfiedRecommendationForTrigger(
+            managed,
+            ComparableVersion("2.14.0"),
+            trigger,
+            emptyList(),
+            null
+        )
+
+        assertNotNull(recommendation)
+        assertEquals("2.0.0", recommendation!!.triggerTargetVersion)
+        assertEquals(listOf("2.0.0", "3.0.0"), recommendation.targetVersionOptions.map { it.version })
+        assertEquals(listOf("2.15.2", "2.16.1"), recommendation.targetVersionOptions.map { it.transitiveVersionInTarget })
+    }
+
+    /**
      * Prüft den globalen, passenden und abweichenden Koordinatenfilter.
      */
     fun testCoordinateScopeMatchesOnlyTheRequestedCoordinate() {

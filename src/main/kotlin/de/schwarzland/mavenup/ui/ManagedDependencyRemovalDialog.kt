@@ -13,6 +13,8 @@ import com.intellij.util.ui.HTMLEditorKitBuilder
 import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.UIUtil
 import de.schwarzland.mavenup.model.ManagedDependencyRemovalRecommendation
+import de.schwarzland.mavenup.model.ManagedDependencyTargetVersion
+import org.apache.maven.artifact.versioning.ComparableVersion
 import java.awt.Component
 import java.awt.Graphics
 import java.awt.event.MouseAdapter
@@ -29,6 +31,16 @@ import javax.swing.table.TableRowSorter
  * Spaltenindex für die Auswahl-Checkbox.
  */
 private const val COLUMN_SELECT = 0
+
+/**
+ * Spaltenindex für die abgestimmte Trigger-Zielversion.
+ */
+private const val COLUMN_TARGET_VERSION = 4
+
+/**
+ * Spaltenindex für die bereitgestellte transitive Version.
+ */
+private const val COLUMN_PROVIDED_VERSION = 5
 
 /**
  * Dialog zur interaktiven Prüfung und Übernahme von Empfehlungen zur Bereinigung
@@ -49,6 +61,21 @@ class ManagedDependencyRemovalDialog(
     private val onApply: ((List<ManagedDependencyRemovalRecommendation>) -> Unit)? = null
 ) : DialogWrapper(project) {
 
+    /**
+     * Ergebnis der gemeinsamen Versionsauflösung für die aktuelle Tabellenauswahl.
+     *
+     * @property recommendationsByRow Aufgelöste Empfehlungen, nach Tabellenmodellzeile indiziert.
+     * @property conflictingRows Ausgewählte Zeilen ohne gemeinsame Zielversion.
+     */
+    private data class SelectionResolution(
+        val recommendationsByRow: Map<Int, ManagedDependencyRemovalRecommendation>,
+        val conflictingRows: Set<Int>
+    ) {
+        /** Gibt an, ob mindestens eine ausgewählte Trigger-Gruppe einen Zielversionskonflikt hat. */
+        val hasConflicts: Boolean
+            get() = conflictingRows.isNotEmpty()
+    }
+
     private val selectionStates = BooleanArray(recommendations.size) { true }
     private lateinit var tableModel: DefaultTableModel
     private lateinit var table: JBTable
@@ -65,21 +92,17 @@ class ManagedDependencyRemovalDialog(
         setOKButtonText(MyMessageBundle.message("managed.dependency.removal.dialog.apply"))
         init()
         updateDetailPanel(0)
+        updateOkActionState()
     }
 
     /**
-     * Liefert die Liste aller vom Anwender ausgewählten Empfehlungen.
+     * Liefert die ausgewählten Empfehlungen mit jeweils abgestimmter gemeinsamer Zielversion.
      *
      * @return Liste der ausgewählten [ManagedDependencyRemovalRecommendation].
      */
     fun getSelectedRecommendations(): List<ManagedDependencyRemovalRecommendation> {
-        val result = mutableListOf<ManagedDependencyRemovalRecommendation>()
-        for (i in recommendations.indices) {
-            if (selectionStates[i]) {
-                result.add(recommendations[i])
-            }
-        }
-        return result
+        val resolution = resolveSelectedRecommendations()
+        return if (resolution.hasConflicts) emptyList() else resolution.recommendationsByRow.values.toList()
     }
 
     /**
@@ -182,6 +205,7 @@ class ManagedDependencyRemovalDialog(
                 if (column == COLUMN_SELECT && aValue is Boolean) {
                     selectionStates[row] = aValue
                     super.setValueAt(aValue, row, column)
+                    refreshTargetVersionCells()
                     updateOkActionState()
                 } else {
                     super.setValueAt(aValue, row, column)
@@ -225,6 +249,7 @@ class ManagedDependencyRemovalDialog(
         if (recommendations.isNotEmpty()) {
             table.setRowSelectionInterval(0, 0)
         }
+        refreshTargetVersionCells()
 
         return table
     }
@@ -257,7 +282,7 @@ class ManagedDependencyRemovalDialog(
      */
     internal fun updateDetailPanel(modelRow: Int) {
         if (modelRow !in recommendations.indices) return
-        val rec = recommendations[modelRow]
+        val rec = resolveSelectedRecommendations().recommendationsByRow[modelRow] ?: recommendations[modelRow]
 
         val explanation = if (rec.triggerType == "parent") {
             if (rec.triggerTargetVersion == rec.triggerCurrentVersion) {
@@ -345,7 +370,7 @@ class ManagedDependencyRemovalDialog(
      * Aktualisiert die Aktivierung des OK-Buttons.
      */
     private fun updateOkActionState() {
-        isOKActionEnabled = selectionStates.any { it }
+        isOKActionEnabled = selectionStates.any { it } && !resolveSelectedRecommendations().hasConflicts
     }
 
     /**
@@ -379,12 +404,116 @@ class ManagedDependencyRemovalDialog(
     }
 
     /**
-     * Führt die Bestätigungsaktion aus und übergibt die ausgewählten Empfehlungen an den Callback.
+     * Führt die Bestätigungsaktion aus, wenn die Auswahl für jeden Trigger eine gemeinsame Zielversion hat.
      */
     public override fun doOKAction() {
-        onApply?.invoke(getSelectedRecommendations())
+        val selectedRecommendations = getSelectedRecommendations()
+        if (selectedRecommendations.isEmpty()) return
+        onApply?.invoke(selectedRecommendations)
         super.doOKAction()
     }
+
+    /**
+     * Stimmt ausgewählte Empfehlungen derselben Trigger-Komponente auf eine gemeinsame
+     * niedrigste kompatible Zielversion ab.
+     *
+     * @return Die aufgelösten Empfehlungen nach Modellzeile oder `null`, wenn ein Konflikt besteht.
+     */
+    private fun resolveSelectedRecommendations(): SelectionResolution {
+        val selectedByTrigger = recommendations.indices
+            .filter { selectionStates[it] }
+            .groupBy { triggerKey(recommendations[it]) }
+        val resolved = mutableMapOf<Int, ManagedDependencyRemovalRecommendation>()
+        val conflictingRows = mutableSetOf<Int>()
+
+        for (indices in selectedByTrigger.values) {
+            val commonVersions = indices
+                .map { index -> targetVersionOptions(recommendations[index]).map { it.version }.toSet() }
+                .reduce { common, versions -> common.intersect(versions) }
+            val targetVersion = commonVersions
+                .sortedWith { left, right ->
+                    val versionComparison = ComparableVersion(left).compareTo(ComparableVersion(right))
+                    if (versionComparison != 0) versionComparison else left.compareTo(right)
+                }
+                .firstOrNull()
+            if (targetVersion == null) {
+                conflictingRows.addAll(indices)
+                continue
+            }
+
+            for (index in indices) {
+                val recommendation = recommendations[index]
+                val option = targetVersionOptions(recommendation).first { it.version == targetVersion }
+                resolved[index] = recommendation.copy(
+                    triggerTargetVersion = option.version,
+                    transitiveVersionInTarget = option.transitiveVersionInTarget,
+                    consumers = option.consumers
+                )
+            }
+        }
+        return SelectionResolution(resolved, conflictingRows)
+    }
+
+    /**
+     * Liefert alle geprüften Optionen oder den einzelnen Vorschlag für ältere Empfehlungsersteller.
+     *
+     * @param recommendation Die Bereinigungsempfehlung.
+     * @return Die verifizierten Zielversionen samt bereitgestellter Version und Konsumenten-Pfaden.
+     */
+    private fun targetVersionOptions(
+        recommendation: ManagedDependencyRemovalRecommendation
+    ) = recommendation.targetVersionOptions.ifEmpty {
+        listOf(
+            ManagedDependencyTargetVersion(
+                recommendation.triggerTargetVersion,
+                recommendation.transitiveVersionInTarget,
+                recommendation.consumers
+            )
+        )
+    }
+
+    /**
+     * Aktualisiert die angezeigten Ziel- und bereitgestellten Versionen anhand der Auswahl.
+     */
+    private fun refreshTargetVersionCells() {
+        if (!::tableModel.isInitialized) return
+        val resolution = resolveSelectedRecommendations()
+        for (index in recommendations.indices) {
+            val recommendation = resolution.recommendationsByRow[index]
+            if (index in resolution.conflictingRows) {
+                tableModel.setValueAt(
+                    MyMessageBundle.message("managed.dependency.removal.dialog.targetVersion.conflict"),
+                    index,
+                    COLUMN_TARGET_VERSION
+                )
+                tableModel.setValueAt("", index, COLUMN_PROVIDED_VERSION)
+            } else {
+                tableModel.setValueAt(
+                    recommendation?.triggerTargetVersion ?: recommendations[index].triggerTargetVersion,
+                    index,
+                    COLUMN_TARGET_VERSION
+                )
+                tableModel.setValueAt(
+                    recommendation?.transitiveVersionInTarget ?: recommendations[index].transitiveVersionInTarget,
+                    index,
+                    COLUMN_PROVIDED_VERSION
+                )
+            }
+        }
+        val selectedRow = table.selectedRow
+        if (selectedRow >= 0) {
+            updateDetailPanel(table.convertRowIndexToModel(selectedRow))
+        }
+    }
+
+    /**
+     * Erzeugt den Gruppenschlüssel einer auslösenden Komponente.
+     *
+     * @param recommendation Die Bereinigungsempfehlung.
+     * @return Maven-Koordinate der auslösenden Komponente.
+     */
+    private fun triggerKey(recommendation: ManagedDependencyRemovalRecommendation): String =
+        "${recommendation.triggerGroupId}:${recommendation.triggerArtifactId}"
 
     /**
      * Zeichnet eine dauerhaft sichtbare Trennlinie mit drei mittigen Griffpunkten direkt

@@ -11,6 +11,7 @@
 
 ### Changed
 
+- **When selected cleanup recommendations share a trigger component, MavenUp now chooses the lowest target version verified to satisfy every selected managed dependency and blocks application when no common version exists.**
 - **Cleanup recommendation actions in the toolbar and row context menu are disabled while a check is already running.**
 - **Cleanup recommendations use a vertically adjustable table/detail split with a remembered divider position and fully scrollable, wrapping explanations and consumer paths.**
 - **Cleanup recommendation checks now show the active project and dependency in a cancellable background progress task.**

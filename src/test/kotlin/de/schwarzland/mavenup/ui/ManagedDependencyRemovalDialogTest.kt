@@ -10,6 +10,7 @@ import com.intellij.util.ui.UIUtil
 import com.intellij.util.ui.JBUI
 import de.schwarzland.mavenup.model.ConsumerDependencyInfo
 import de.schwarzland.mavenup.model.ManagedDependencyRemovalRecommendation
+import de.schwarzland.mavenup.model.ManagedDependencyTargetVersion
 import javax.swing.JEditorPane
 import javax.swing.JComponent
 import javax.swing.UIManager
@@ -22,6 +23,107 @@ import java.awt.image.BufferedImage
  * Tests für [ManagedDependencyRemovalDialog].
  */
 class ManagedDependencyRemovalDialogTest : BasePlatformTestCase() {
+
+    /**
+     * Prüft, dass ausgewählte Empfehlungen dieselbe niedrigste gemeinsame Zielversion verwenden.
+     */
+    fun testSelectedRecommendationsUseLowestCommonTargetVersion() {
+        val consumer = ConsumerDependencyInfo("com.example", "consumer", "2.0.0", "consumer -> managed")
+        val first = recommendation(
+            managedArtifactId = "first-managed",
+            targetVersionOptions = listOf(
+                ManagedDependencyTargetVersion("2.0.0", "1.5.0", listOf(consumer)),
+                ManagedDependencyTargetVersion("3.0.0", "1.6.0", listOf(consumer))
+            )
+        )
+        val second = recommendation(
+            managedArtifactId = "second-managed",
+            targetVersionOptions = listOf(
+                ManagedDependencyTargetVersion("3.0.0", "2.5.0", listOf(consumer)),
+                ManagedDependencyTargetVersion("4.0.0", "2.6.0", listOf(consumer))
+            )
+        )
+        val dialog = ManagedDependencyRemovalDialog(project, listOf(first, second))
+        Disposer.register(testRootDisposable, dialog.disposable)
+        val table = UIUtil.findComponentOfType(dialog.createCenterPanel(), JBTable::class.java)!!
+
+        val selected = dialog.getSelectedRecommendations()
+        assertEquals(listOf("3.0.0", "3.0.0"), selected.map { it.triggerTargetVersion })
+        assertEquals(listOf("1.6.0", "2.5.0"), selected.map { it.transitiveVersionInTarget })
+        assertEquals("3.0.0", table.model.getValueAt(0, 4))
+        assertEquals("3.0.0", table.model.getValueAt(1, 4))
+
+        table.model.setValueAt(false, 1, 0)
+        assertEquals("2.0.0", dialog.getSelectedRecommendations().single().triggerTargetVersion)
+    }
+
+    /**
+     * Prüft, dass ein Konflikt sichtbar ist und die Anwendung bis zur Auflösung verhindert.
+     */
+    fun testConflictingTargetVersionsPreventApplyingSelectedRecommendations() {
+        val consumer = ConsumerDependencyInfo("com.example", "consumer", "2.0.0", "consumer -> managed")
+        val first = recommendation(
+            managedArtifactId = "first-managed",
+            targetVersionOptions = listOf(ManagedDependencyTargetVersion("2.0.0", "1.5.0", listOf(consumer)))
+        )
+        val second = recommendation(
+            managedArtifactId = "second-managed",
+            targetVersionOptions = listOf(ManagedDependencyTargetVersion("3.0.0", "2.5.0", listOf(consumer)))
+        )
+        val independent = recommendation(
+            managedArtifactId = "independent-managed",
+            triggerArtifactId = "other-trigger",
+            targetVersionOptions = listOf(ManagedDependencyTargetVersion("4.0.0", "3.5.0", listOf(consumer)))
+        )
+        var appliedRecommendations: List<ManagedDependencyRemovalRecommendation>? = null
+        val dialog = ManagedDependencyRemovalDialog(project, listOf(first, second, independent)) {
+            appliedRecommendations = it
+        }
+        Disposer.register(testRootDisposable, dialog.disposable)
+        val table = UIUtil.findComponentOfType(dialog.createCenterPanel(), JBTable::class.java)!!
+
+        assertTrue(dialog.getSelectedRecommendations().isEmpty())
+        assertEquals(
+            MyMessageBundle.message("managed.dependency.removal.dialog.targetVersion.conflict"),
+            table.model.getValueAt(0, 4)
+        )
+        assertEquals("4.0.0", table.model.getValueAt(2, 4))
+        dialog.doOKAction()
+        assertNull(appliedRecommendations)
+
+        table.model.setValueAt(false, 1, 0)
+        assertEquals(
+            "2.0.0",
+            dialog.getSelectedRecommendations().first { it.managedArtifactId == "first-managed" }.triggerTargetVersion
+        )
+    }
+
+    /**
+     * Erstellt eine Testempfehlung mit den angegebenen geprüften Zielversionen.
+     *
+     * @param managedArtifactId Artefakt-ID des verwalteten Eintrags.
+     * @param triggerArtifactId Artefakt-ID der auslösenden Komponente.
+     * @param targetVersionOptions Geprüfte Zielversionen und bereitgestellte Versionen.
+     * @return Die konfigurierte Bereinigungsempfehlung.
+     */
+    private fun recommendation(
+        managedArtifactId: String,
+        triggerArtifactId: String = "trigger",
+        targetVersionOptions: List<ManagedDependencyTargetVersion>
+    ) = ManagedDependencyRemovalRecommendation(
+        managedGroupId = "com.example",
+        managedArtifactId = managedArtifactId,
+        managedCurrentVersion = "1.0.0",
+        triggerGroupId = "com.example",
+        triggerArtifactId = triggerArtifactId,
+        triggerType = "dependency",
+        triggerCurrentVersion = "1.0.0",
+        triggerTargetVersion = targetVersionOptions.first().version,
+        transitiveVersionInTarget = targetVersionOptions.first().transitiveVersionInTarget,
+        consumers = targetVersionOptions.first().consumers,
+        isSatisfiedAcrossAllConsumers = true,
+        targetVersionOptions = targetVersionOptions
+    )
 
     /** Prüft Auswahl, Detailwechsel und die unveränderte Übernahme ausgewählter Empfehlungen. */
     fun testDialogInitializationAndSelection() {

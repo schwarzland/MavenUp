@@ -272,10 +272,12 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   aus dem Maven-Projektmodell herangezogen. Führt eine
   Multi-Consumer-Validierung durch: wenn ein Artefakt über mehrere direkte Abhängigkeitspfade genutzt wird,
   wird eine Bereinigungsempfehlung nur ausgegeben, wenn alle Konsumenten kompatibel versorgt sind.
+  Ermittelt und speichert alle geprüften kompatiblen Zielversionen pro Empfehlung, damit die Dialogauswahl
+  für mehrere verwaltete Einträge desselben Triggers eine gemeinsame niedrigste Zielversion bestimmen kann.
   Ein optionaler IntelliJ-`ProgressIndicator` meldet Projekt, Managed-Koordinate, Upgrade-Trigger und
   Kandidatenversion als Fortschrittsdetails und prüft Abbruch regelmäßig in Analyse-, PSI- und
   Baumdurchläufen; Abbruchausnahmen aus Versionsabfragen werden nicht als leere Kandidatenliste verschluckt.
   DEBUG-Logs erfassen Start und Abschluss mit Koordinatenfiltern und Ergebnisanzahl, projektbezogene
   Eintrags-/Triggerzahlen, übersprungene Prüfungen, gekürzte Kandidatenlisten und Bewertungen mit Ablehnungsgründen.
-- **ManagedDependencyRemovalRecommendation / ConsumerDependencyInfo / TemporaryArtifactCoordinate / TemporaryDependencyNode**:
+- **ManagedDependencyRemovalRecommendation / ManagedDependencyTargetVersion / ConsumerDependencyInfo / TemporaryArtifactCoordinate / TemporaryDependencyNode**:
   Datenmodelle für Bereinigungsempfehlungen und den temporären Abhängigkeitsgraphen (`model/ManagedDependencyRemovalRecommendation.kt`).

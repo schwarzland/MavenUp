@@ -1,6 +1,19 @@
 package de.schwarzland.mavenup.model
 
 /**
+ * Beschreibt die Wirkung einer Zielversion auf eine verwaltete Abhängigkeit.
+ *
+ * @property version Die geprüfte Zielversion der auslösenden Komponente.
+ * @property transitiveVersionInTarget Die von dieser Zielversion bereitgestellte Version.
+ * @property consumers Die zu dieser Zielversion ermittelten Konsumenten-Pfade.
+ */
+data class ManagedDependencyTargetVersion(
+    val version: String,
+    val transitiveVersionInTarget: String,
+    val consumers: List<ConsumerDependencyInfo>
+)
+
+/**
  * Repräsentiert eine Empfehlung zur Bereinigung und Entfernung einer verwalteten Abhängigkeit
  * aus `<dependencyManagement>`, wenn ein übergeordnetes POM (`<parent>`) oder eine direkte
  * Abhängigkeit auf eine neuere Version aktualisiert wird, die das Artefakt transitiv in einer
@@ -17,6 +30,8 @@ package de.schwarzland.mavenup.model
  * @property transitiveVersionInTarget Die durch die Zielversion transitiv bereitgestellte Version der verwalteten Abhängigkeit.
  * @property consumers Die Liste aller Konsumenten bzw. Abhängigkeitspfade im Projekt, die die verwaltete Abhängigkeit nutzen.
  * @property isSatisfiedAcrossAllConsumers `true`, wenn alle Konsumenten eine kompatible Version (`>= managedCurrentVersion`) erhalten.
+ * @property targetVersionOptions Alle geprüften Zielversionen, die diese Empfehlung einzeln erfüllen;
+ * leer bedeutet, dass nur `triggerTargetVersion` geprüft wurde.
  */
 data class ManagedDependencyRemovalRecommendation(
     val managedGroupId: String,
@@ -29,7 +44,8 @@ data class ManagedDependencyRemovalRecommendation(
     val triggerTargetVersion: String,
     val transitiveVersionInTarget: String,
     val consumers: List<ConsumerDependencyInfo>,
-    val isSatisfiedAcrossAllConsumers: Boolean
+    val isSatisfiedAcrossAllConsumers: Boolean,
+    val targetVersionOptions: List<ManagedDependencyTargetVersion> = emptyList()
 )
 
 /**
