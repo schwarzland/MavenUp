@@ -128,9 +128,13 @@ class ManagedDependencyRemovalDialogTest : BasePlatformTestCase() {
         targetVersionOptions = targetVersionOptions
     )
 
-    /** Prüft Auswahl, Detailwechsel und die unveränderte Übernahme ausgewählter Empfehlungen. */
-    fun testDialogInitializationAndSelection() {
-        val rec1 = ManagedDependencyRemovalRecommendation(
+    /**
+     * Erstellt zwei Empfehlungen mit unterschiedlichen Details für den Auswahltest.
+     *
+     * @return Jackson- und SLF4J-Empfehlungen in Tabellenreihenfolge.
+     */
+    private fun selectionTestRecommendations() = listOf(
+        ManagedDependencyRemovalRecommendation(
             managedGroupId = "com.fasterxml.jackson.core",
             managedArtifactId = "jackson-databind",
             managedCurrentVersion = "2.14.0",
@@ -149,9 +153,8 @@ class ManagedDependencyRemovalDialogTest : BasePlatformTestCase() {
                 )
             ),
             isSatisfiedAcrossAllConsumers = true
-        )
-
-        val rec2 = ManagedDependencyRemovalRecommendation(
+        ),
+        ManagedDependencyRemovalRecommendation(
             managedGroupId = "org.slf4j",
             managedArtifactId = "slf4j-api",
             managedCurrentVersion = "1.7.36",
@@ -171,6 +174,11 @@ class ManagedDependencyRemovalDialogTest : BasePlatformTestCase() {
             ),
             isSatisfiedAcrossAllConsumers = true
         )
+    )
+
+    /** Prüft Auswahl, Detailwechsel und die unveränderte Übernahme ausgewählter Empfehlungen. */
+    fun testDialogInitializationAndSelection() {
+        val (rec1, rec2) = selectionTestRecommendations()
 
         var appliedRecommendations: List<ManagedDependencyRemovalRecommendation>? = null
         val dialog = ManagedDependencyRemovalDialog(

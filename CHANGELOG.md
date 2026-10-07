@@ -18,6 +18,7 @@
 - **Cleanup recommendation checks now show the active project and dependency in a cancellable background progress task.**
 - **Expanded cleanup DEBUG logs with analysis scope, candidate evaluations, POM cache and local-repository hits, and individual HTTP GET attempts and response statuses without exposing credentials.**
 - **Moved project-wide cleanup recommendations under the Managed Entries toolbar menu, renamed that action to Check Cleanup Recommendations, and shortened the row context action to Check Cleanup Recommendation.**
+- Refactored the managed dependency dialog selection test to keep it within the configured method-length limit.
 
 ### Fixed
 
