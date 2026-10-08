@@ -32,6 +32,18 @@ class TemporaryDependencyTreeResolver(
     private val pomContentFetcher: ((groupId: String, artifactId: String, version: String) -> String?)? = null
 ) {
     private val pomCache = mutableMapOf<String, String>()
+    private val mutableResolutionIssues = mutableSetOf<String>()
+
+    /** POM-Koordinaten, deren Abruf oder Auflösung seit dem letzten Cleanup-Lauf unvollständig war. */
+    internal val resolutionIssues: Set<String>
+        get() = mutableResolutionIssues.toSet()
+
+    /**
+     * Löscht die Auflösungsdiagnosen vor einer neuen Bereinigungsanalyse.
+     */
+    internal fun resetResolutionIssues() {
+        mutableResolutionIssues.clear()
+    }
 
     /**
      * Erstellt einen Cache-Schlüssel für ein Artefakt.
@@ -65,6 +77,8 @@ class TemporaryDependencyTreeResolver(
             val content = pomContentFetcher.invoke(groupId, artifactId, version)
             if (content != null) {
                 pomCache[key] = content
+            } else {
+                mutableResolutionIssues.add("POM: $key")
             }
             LOG.debug("POM provider lookup for $key: found=${content != null}")
             return content
@@ -87,6 +101,7 @@ class TemporaryDependencyTreeResolver(
         }
 
         LOG.debug("POM not found for $key in configured repositories")
+        mutableResolutionIssues.add("POM: $key")
         return null
     }
 
@@ -432,11 +447,15 @@ class TemporaryDependencyTreeResolver(
         val key = artifactKey(groupId, artifactId, version)
         if (!visitedParents.add(key)) {
             LOG.warn("Cycle detected in parent chain: $key")
+            mutableResolutionIssues.add("POM parent cycle: $key")
             return null
         }
 
         val xml = fetchPomXml(groupId, artifactId, version) ?: return null
-        val doc = parseXml(xml) ?: return null
+        val doc = parseXml(xml) ?: run {
+            mutableResolutionIssues.add("Invalid POM: $key")
+            return null
+        }
         val raw = extractRawPomData(doc)
 
         val effGroupId = raw.groupId ?: groupId

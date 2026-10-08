@@ -10,6 +10,28 @@ import org.junit.Test
  */
 class TemporaryDependencyTreeResolverTest {
 
+    /**
+     * Prüft, dass fehlende und ungültige POM-Daten als Diagnose erhalten bleiben und zurücksetzbar sind.
+     */
+    @Test
+    fun testResolutionIssuesTrackMissingAndInvalidPoms() {
+        val resolver = TemporaryDependencyTreeResolver { _, artifactId, _ ->
+            if (artifactId == "invalid") "<project>" else null
+        }
+
+        assertTrue(resolver.resolveEffectivePom("g", "missing", "1") == null)
+        assertTrue(resolver.resolveEffectivePom("g", "invalid", "1") == null)
+
+        assertEquals(
+            setOf("POM: g:missing:1", "Invalid POM: g:invalid:1"),
+            resolver.resolutionIssues
+        )
+
+        resolver.resetResolutionIssues()
+
+        assertTrue(resolver.resolutionIssues.isEmpty())
+    }
+
     @Test
     fun testResolveSimplePomWithProperties() {
         val pomXml = """

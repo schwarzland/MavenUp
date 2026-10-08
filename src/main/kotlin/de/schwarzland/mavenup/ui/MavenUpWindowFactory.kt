@@ -3451,50 +3451,42 @@ class MavenUpWindowFactory : ToolWindowFactory {
             isCheckingManagedRemoval = true
             refreshToolbar()
             val managedDependencyType = MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
-            val managedCoordinate = target
-                ?.takeIf { it.type == managedDependencyType }
-                ?.dependencyKey
-            val triggerCoordinate = target
-                ?.takeIf { it.type == "dependency" || it.type == PARENT_TYPE }
-                ?.dependencyKey
-
-            ProgressManager.getInstance().run(
-                object : Task.Backgroundable(
-                    project,
-                    MyMessageBundle.message("toolwindow.MyToolWindow.checkManagedRemoval.progress"),
-                    true
-                ) {
-                    private var recommendations: List<ManagedDependencyRemovalRecommendation> = emptyList()
-
-                    override fun run(indicator: ProgressIndicator) {
-                        indicator.isIndeterminate = true
-                        val recommendationService = ManagedDependencyRecommendationService(project)
-                        recommendations = recommendationService.findRecommendations(
-                            availableVersions,
-                            managedCoordinate,
-                            triggerCoordinate,
-                            indicator
-                        )
-                    }
-
-                    override fun onSuccess() {
-                        if (recommendations.isEmpty()) {
+            val scope = ManagedDependencyCleanupScope.fromTarget(target, managedDependencyType)
+            ManagedDependencyCleanupCheckRunner(project, availableVersions).start(
+                scope = scope,
+                onSuccess = { result ->
+                    if (result.recommendations.isEmpty()) {
+                        if (result.isIncomplete) {
+                            Messages.showWarningDialog(
+                                project,
+                                MyMessageBundle.message(
+                                    "managed.dependency.removal.incomplete.none",
+                                    scope.description,
+                                    incompleteCleanupLookupSummary(result.incompleteLookups)
+                                ),
+                                MyMessageBundle.message("managed.dependency.removal.dialog.title")
+                            )
+                        } else {
                             Messages.showInfoMessage(
                                 project,
                                 MyMessageBundle.message("toolwindow.MyToolWindow.checkManagedRemoval.noneFound"),
                                 MyMessageBundle.message("managed.dependency.removal.dialog.title")
                             )
-                        } else {
-                            ManagedDependencyRemovalDialog(project, recommendations) { selectedRecs, showPending ->
-                                applyManagedDependencyRemovalRecommendations(selectedRecs, showPending)
-                            }.show()
                         }
+                    } else {
+                        ManagedDependencyRemovalDialog(
+                            project = project,
+                            recommendations = result.recommendations,
+                            scopeDescription = scope.description,
+                            incompleteLookups = result.incompleteLookups
+                        ) { selectedRecs, showPending ->
+                            applyManagedDependencyRemovalRecommendations(selectedRecs, showPending)
+                        }.show()
                     }
-
-                    override fun onFinished() {
-                        isCheckingManagedRemoval = false
-                        refreshToolbar()
-                    }
+                },
+                onFinished = {
+                    isCheckingManagedRemoval = false
+                    refreshToolbar()
                 }
             )
         }

@@ -50,6 +50,8 @@ private const val COLUMN_PROVIDED_VERSION = 5
  *
  * Zeigt die erkannten Empfehlungen in einer Tabelle mit Auswahl-Checkboxen sowie
  * detaillierte Erklärungen und Pfadangaben zur jeweils selektierten Zeile an.
+ * Der Dialog zeigt außerdem den projektweiten Prüfumfang, das Quellprojekt jeder Empfehlung
+ * und bei fehlenden Quelldaten einen deutlichen Hinweis auf möglicherweise unvollständige Ergebnisse.
  * Ein vertikaler Splitter speichert die vom Anwender gewählte Aufteilung zwischen
  * Tabelle und vollständig scrollbar dargestellten Details.
  * Eine nicht gespeicherte, initial deaktivierte Option fordert nach der Übernahme
@@ -57,11 +59,15 @@ private const val COLUMN_PROVIDED_VERSION = 5
  *
  * @param project Das aktuelle IntelliJ-Projekt.
  * @property recommendations Die Liste der zur Bereinigung vorgeschlagenen Empfehlungen.
+ * @property scopeDescription Erklärung des projektweiten Prüfumfangs und möglicher Koordinatenfilter.
+ * @property incompleteLookups Koordinaten, deren Versions- oder POM-Daten nicht verfügbar waren.
  * @property onApply Optionaler Callback mit ausgewählten Empfehlungen und gewünschtem Pending-Filterwechsel.
  */
 class ManagedDependencyRemovalDialog(
     project: Project,
     private val recommendations: List<ManagedDependencyRemovalRecommendation>,
+    private val scopeDescription: String = MyMessageBundle.message("managed.dependency.removal.scope.global"),
+    private val incompleteLookups: Set<String> = emptySet(),
     private val onApply: ((List<ManagedDependencyRemovalRecommendation>, Boolean) -> Unit)? = null
 ) : DialogWrapper(project) {
 
@@ -146,6 +152,15 @@ class ManagedDependencyRemovalDialog(
                 )).align(Align.FILL)
             }
             row {
+                text(StringUtil.escapeXmlEntities(scopeDescription)).align(Align.FILL)
+            }
+            if (incompleteLookups.isNotEmpty()) {
+                row {
+                    text(StringUtil.escapeXmlEntities(incompleteCleanupLookupSummary(incompleteLookups)))
+                        .align(Align.FILL)
+                }
+            }
+            row {
                 cell(splitter).align(Align.FILL)
             }.resizableRow()
             row {
@@ -202,7 +217,8 @@ class ManagedDependencyRemovalDialog(
             MyMessageBundle.message("managed.dependency.removal.dialog.table.header.currentVersion"),
             MyMessageBundle.message("managed.dependency.removal.dialog.table.header.trigger"),
             MyMessageBundle.message("managed.dependency.removal.dialog.table.header.targetVersion"),
-            MyMessageBundle.message("managed.dependency.removal.dialog.table.header.providedVersion")
+            MyMessageBundle.message("managed.dependency.removal.dialog.table.header.providedVersion"),
+            MyMessageBundle.message("managed.dependency.removal.dialog.table.header.project")
         )
 
         tableModel = object : DefaultTableModel(columnNames, 0) {
@@ -236,7 +252,8 @@ class ManagedDependencyRemovalDialog(
                     rec.managedCurrentVersion,
                     triggerLabel,
                     rec.triggerTargetVersion,
-                    rec.transitiveVersionInTarget
+                    rec.transitiveVersionInTarget,
+                    rec.sourceProjectId
                 )
             )
         }
@@ -361,8 +378,13 @@ class ManagedDependencyRemovalDialog(
         val pathsTitle = StringUtil.escapeXmlEntities(
             MyMessageBundle.message("managed.dependency.removal.dialog.detail.consumers.title")
         )
+        val sourcePom = rec.sourcePomPath.takeIf { it.isNotBlank() }?.let {
+            "<p><b>${StringUtil.escapeXmlEntities(
+                MyMessageBundle.message("managed.dependency.removal.dialog.detail.sourcePom")
+            )}</b> ${StringUtil.escapeXmlEntities(it)}</p>"
+        }.orEmpty()
         detailEditor.text = "<html><body>${StringUtil.escapeXmlEntities(explanation)}" +
-            "<p><b>$pathsTitle</b></p>$paths</body></html>"
+            "$sourcePom<p><b>$pathsTitle</b></p>$paths</body></html>"
         detailEditor.caretPosition = 0
     }
 

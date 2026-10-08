@@ -23,7 +23,10 @@ UI-Komponenten: [`components-ui.md`](components-ui.md) und
 - **ManagedDependencyRemovalDialog**: interaktiver `DialogWrapper` zur Prüfung und Übernahme von
   Bereinigungsempfehlungen für redundante `<dependencyManagement>`-Einträge. Zeigt eine Tabelle der
   Empfehlungen mit Checkbox-Auswahl (`COLUMN_SELECT`), Managed-Koordinate, aktueller Version, Trigger-Komponente,
-  Zielversion und bereitgestellter Version sowie Schaltflächen zum Auswählen und Abwählen aller Einträge.
+  Zielversion, bereitgestellter Version und Maven-Projekt sowie Schaltflächen zum Auswählen und Abwählen aller Einträge.
+  Ein Scope-Hinweis stellt klar, dass auch zeilenbezogene Filter alle Maven-Module durchsuchen; die Detailansicht
+  zeigt zusätzlich den Quell-POM-Pfad jeder Empfehlung. Nicht verfügbare Versions- oder POM-Daten werden mit einer
+  sichtbaren **INCOMPLETE CHECK**-Warnung gekennzeichnet.
   Das Layout verwendet Kotlin UI DSL v2 und einen vertikalen `JBSplitter` mit initial 65 Prozent Tabellenhöhe,
   Mindesthöhen und IDE-weit gespeicherter Aufteilung (`MavenUp.ManagedDependencyRemovalDialog.splitter`).
   `configureDivider` zeichnet mit der privaten `CleanupDividerBorder` direkt auf dem nativen Divider

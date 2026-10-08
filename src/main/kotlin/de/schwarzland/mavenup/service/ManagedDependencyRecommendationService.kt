@@ -81,7 +81,8 @@ class ManagedDependencyRecommendationService(
         managedCoordinate: String? = null,
         triggerCoordinate: String? = null
     ): List<ManagedDependencyRemovalRecommendation> =
-        findRecommendations(availableVersionsMap, managedCoordinate, triggerCoordinate, null)
+        findRecommendationsWithStatus(availableVersionsMap, managedCoordinate, triggerCoordinate, null)
+            .recommendations
 
     /**
      * Ermittelt Empfehlungen mit optionaler Fortschrittsanzeige und Abbruchunterstützung.
@@ -97,8 +98,28 @@ class ManagedDependencyRecommendationService(
         managedCoordinate: String?,
         triggerCoordinate: String?,
         indicator: ProgressIndicator?
-    ): List<ManagedDependencyRemovalRecommendation> {
+    ): List<ManagedDependencyRemovalRecommendation> =
+        findRecommendationsWithStatus(availableVersionsMap, managedCoordinate, triggerCoordinate, indicator)
+            .recommendations
+
+    /**
+     * Ermittelt Empfehlungen und hält fehlende Versions- oder POM-Daten als unvollständige Abfragen fest.
+     *
+     * @param availableVersionsMap Bereits ermittelte Versionen (`groupId:artifactId` -> Versionsliste).
+     * @param managedCoordinate Optionaler Filter für den verwalteten Eintrag.
+     * @param triggerCoordinate Optionaler Filter für den Upgrade-Auslöser.
+     * @param indicator Optionaler Fortschrittsindikator für Statusdetails und Abbruch.
+     * @return Empfehlungen sowie Koordinaten, deren Quelldaten nicht vollständig verfügbar waren.
+     */
+    internal fun findRecommendationsWithStatus(
+        availableVersionsMap: Map<String, List<String>>,
+        managedCoordinate: String?,
+        triggerCoordinate: String?,
+        indicator: ProgressIndicator?
+    ): ManagedDependencyRecommendationResult {
         indicator?.checkCanceled()
+        treeResolver.resetResolutionIssues()
+        val incompleteLookups = mutableSetOf<String>()
         val mavenProjects = MavenProjectsManager.getInstance(project).projects.toList()
         LOG.debug(
             "Cleanup analysis started: projects=${mavenProjects.size}, " +
@@ -112,11 +133,20 @@ class ManagedDependencyRecommendationService(
                 availableVersionsMap,
                 managedCoordinate,
                 triggerCoordinate,
-                indicator
+                indicator,
+                incompleteLookups
             )
         }
-        LOG.debug("Cleanup analysis completed: recommendations=${recommendations.size}")
-        return recommendations
+        incompleteLookups.addAll(treeResolver.resolutionIssues)
+        val result = ManagedDependencyRecommendationResult(recommendations, incompleteLookups.toSortedSet())
+        LOG.debug(
+            "Cleanup analysis completed: recommendations=${recommendations.size}, " +
+                "incomplete lookups=${result.incompleteLookups.size}"
+        )
+        if (result.isIncomplete) {
+            LOG.warn("Cleanup analysis may be incomplete; unavailable lookups: ${result.incompleteLookups.joinToString()}")
+        }
+        return result
     }
 
     /**
@@ -127,6 +157,7 @@ class ManagedDependencyRecommendationService(
      * @param managedCoordinate Optional: begrenzt die Analyse auf diesen verwalteten Eintrag.
      * @param triggerCoordinate Optional: begrenzt die Analyse auf Updates dieses Triggers.
      * @param indicator Optionaler Fortschrittsindikator für Statusdetails und Abbruch.
+     * @param incompleteLookups Set zum Sammeln nicht verfügbarer Versions- und POM-Daten.
      * @return Liste der Empfehlungen für dieses Projekt.
      */
     private fun findRecommendationsForProject(
@@ -134,7 +165,8 @@ class ManagedDependencyRecommendationService(
         availableVersionsMap: Map<String, List<String>>,
         managedCoordinate: String?,
         triggerCoordinate: String?,
-        indicator: ProgressIndicator?
+        indicator: ProgressIndicator?,
+        incompleteLookups: MutableSet<String>
     ): List<ManagedDependencyRemovalRecommendation> {
         indicator?.checkCanceled()
         indicator?.text2 = "${mavenProject.mavenId}: dependencyManagement"
@@ -149,7 +181,12 @@ class ManagedDependencyRecommendationService(
 
         indicator?.checkCanceled()
         indicator?.text2 = "${mavenProject.mavenId}: triggers"
-        val triggers = collectTriggerCandidates(mavenProject, availableVersionsMap, indicator).filter {
+        val triggers = collectTriggerCandidates(
+            mavenProject,
+            availableVersionsMap,
+            indicator,
+            incompleteLookups
+        ).filter {
             matchesCoordinateScope(it.groupId, it.artifactId, triggerCoordinate)
         }
         LOG.debug("Cleanup project ${mavenProject.mavenId}: triggers=${triggers.size}")
@@ -391,7 +428,9 @@ class ManagedDependencyRecommendationService(
             triggerTargetVersion = targetVersion,
             transitiveVersionInTarget = providedVersion,
             consumers = consumerInfos,
-            isSatisfiedAcrossAllConsumers = true
+            isSatisfiedAcrossAllConsumers = true,
+            sourceProjectId = sourceProjectId(managed.mavenProject),
+            sourcePomPath = managed.mavenProject.file.path
         )
     }
 
@@ -466,8 +505,25 @@ class ManagedDependencyRecommendationService(
             triggerTargetVersion = targetVersion,
             transitiveVersionInTarget = providedVersion,
             consumers = consumerInfos,
-            isSatisfiedAcrossAllConsumers = consumerPaths.isEmpty() || isSingleConsumerOrAllTrigger
+            isSatisfiedAcrossAllConsumers = consumerPaths.isEmpty() || isSingleConsumerOrAllTrigger,
+            sourceProjectId = sourceProjectId(managed.mavenProject),
+            sourcePomPath = managed.mavenProject.file.path
         )
+    }
+
+    /**
+     * Liefert die Projektkoordinate, sofern IntelliJ das Maven-Modell bereits geladen hat.
+     *
+     * @param mavenProject Das Quellprojekt der Empfehlung.
+     * @return Maven-Koordinate oder leer, wenn das Modell noch keine Koordinaten enthält.
+     */
+    private fun sourceProjectId(mavenProject: MavenProject): String {
+        return try {
+            mavenProject.mavenId.toString()
+        } catch (_: NullPointerException) {
+            LOG.debug("Maven coordinates are not available for ${mavenProject.file.path}")
+            ""
+        }
     }
 
     /**
@@ -590,12 +646,14 @@ class ManagedDependencyRecommendationService(
      * @param mavenProject Das Maven-Projekt.
      * @param availableVersionsMap Bereits bekannte verfügbare Versionen.
      * @param indicator Optionaler Fortschrittsindikator für Statusdetails und Abbruch.
+     * @param incompleteLookups Set zum Sammeln fehlender Versionslisten.
      * @return Liste der [TriggerCandidate] inklusive aktueller Version und verfügbarer neuerer Versionen.
      */
     internal fun collectTriggerCandidates(
         mavenProject: MavenProject,
         availableVersionsMap: Map<String, List<String>>,
-        indicator: ProgressIndicator? = null
+        indicator: ProgressIndicator? = null,
+        incompleteLookups: MutableSet<String> = mutableSetOf()
     ): List<TriggerCandidate> {
         val candidates = mutableListOf<TriggerCandidate>()
         val effectiveProperties =
@@ -613,7 +671,8 @@ class ManagedDependencyRecommendationService(
                 effectiveProperties,
                 mavenProject,
                 availableVersionsMap,
-                indicator
+                indicator,
+                incompleteLookups
             )
             if (parentCandidate != null) {
                 candidates.add(parentCandidate)
@@ -629,7 +688,8 @@ class ManagedDependencyRecommendationService(
                     mavenProject,
                     availableVersionsMap,
                     resolvedDependencies,
-                    indicator
+                    indicator,
+                    incompleteLookups
                 )
                 if (depCandidate != null) {
                     candidates.add(depCandidate)
@@ -648,6 +708,7 @@ class ManagedDependencyRecommendationService(
      * @param mavenProject Das zugehörige Maven-Projekt.
      * @param availableVersionsMap Bereits bekannte verfügbare Versionen.
      * @param indicator Optionaler Fortschrittsindikator für Abbruchprüfungen.
+     * @param incompleteLookups Set zum Sammeln fehlender Versionslisten.
      * @return Der Parent-Kandidat oder `null`, wenn kein Parent deklariert ist.
      */
     private fun extractParentCandidate(
@@ -655,7 +716,8 @@ class ManagedDependencyRecommendationService(
         effectiveProperties: Map<String, String>,
         mavenProject: MavenProject,
         availableVersionsMap: Map<String, List<String>>,
-        indicator: ProgressIndicator?
+        indicator: ProgressIndicator?,
+        incompleteLookups: MutableSet<String>
     ): TriggerCandidate? {
         val parentTag = rootTag.findFirstSubTag("parent") ?: return null
         val g = parentTag.findFirstSubTag("groupId")?.value?.text?.trim().orEmpty()
@@ -672,7 +734,7 @@ class ManagedDependencyRecommendationService(
         }
         if (resolvedV.isNotEmpty()) {
             indicator?.text2 = "${mavenProject.mavenId}: $g:$a"
-            val versions = getCandidateVersions(g, a, resolvedV, availableVersionsMap, indicator)
+            val versions = getCandidateVersions(g, a, resolvedV, availableVersionsMap, indicator, incompleteLookups)
             val allVersions = (listOf(resolvedV) + versions).distinct()
             return TriggerCandidate(g, a, resolvedV, "parent", allVersions, mavenProject)
         }
@@ -691,6 +753,7 @@ class ManagedDependencyRecommendationService(
      * @param availableVersionsMap Bereits bekannte verfügbare Versionen.
      * @param resolvedDependencies Map der aufgelösten Abhängigkeitsknoten (`groupId:artifactId` -> Knoten).
      * @param indicator Optionaler Fortschrittsindikator für Abbruchprüfungen.
+     * @param incompleteLookups Set zum Sammeln fehlender Versionslisten.
      * @return Der Dependency-Kandidat oder `null`, wenn keine gültige Koordinate vorliegt.
      */
     private fun extractDependencyCandidate(
@@ -699,7 +762,8 @@ class ManagedDependencyRecommendationService(
         mavenProject: MavenProject,
         availableVersionsMap: Map<String, List<String>>,
         resolvedDependencies: Map<String, MavenArtifactNode>,
-        indicator: ProgressIndicator?
+        indicator: ProgressIndicator?,
+        incompleteLookups: MutableSet<String>
     ): TriggerCandidate? {
         val g = depTag.findFirstSubTag("groupId")?.value?.text?.trim().orEmpty()
         val a = depTag.findFirstSubTag("artifactId")?.value?.text?.trim().orEmpty()
@@ -712,7 +776,7 @@ class ManagedDependencyRecommendationService(
             return null
         }
         indicator?.text2 = "${mavenProject.mavenId}: $g:$a"
-        val versions = getCandidateVersions(g, a, resolvedV, availableVersionsMap, indicator)
+        val versions = getCandidateVersions(g, a, resolvedV, availableVersionsMap, indicator, incompleteLookups)
         val allVersions = (listOf(resolvedV) + versions).distinct()
         return TriggerCandidate(g, a, resolvedV, "dependency", allVersions, mavenProject)
     }
@@ -753,15 +817,17 @@ class ManagedDependencyRecommendationService(
      * @param currentVersion Die aktuelle Version.
      * @param availableVersionsMap Bereits bekannte verfügbare Versionen.
      * @param indicator Optionaler Fortschrittsindikator für Abbruchprüfungen.
+     * @param incompleteLookups Set zum Sammeln von nicht verfügbaren Versionslisten.
      * @return Liste verfügbarer Versionen, die neuer als [currentVersion] sind.
      */
     @Suppress("TooGenericExceptionCaught")
-    private fun getCandidateVersions(
+    internal fun getCandidateVersions(
         groupId: String,
         artifactId: String,
         currentVersion: String,
         availableVersionsMap: Map<String, List<String>>,
-        indicator: ProgressIndicator?
+        indicator: ProgressIndicator?,
+        incompleteLookups: MutableSet<String>
     ): List<String> {
         indicator?.checkCanceled()
         if (candidateVersionsProvider != null) {
@@ -773,6 +839,9 @@ class ManagedDependencyRecommendationService(
         val key = "$groupId:$artifactId"
         val knownList = availableVersionsMap[key]
         if (knownList != null) {
+            if (knownList.isEmpty()) {
+                incompleteLookups.add("Versions: $key")
+            }
             val currentComp = ComparableVersion(currentVersion)
             LOG.debug("Cleanup reuses known versions for $key: ${summarizeForDebugLog(knownList)}")
             return knownList.filter {
@@ -784,8 +853,14 @@ class ManagedDependencyRecommendationService(
         return try {
             LOG.debug("Cleanup fetching candidate versions for $key")
             val apiService = DependencyApiService(project)
-            val fetched = apiService.fetchAllVersions(groupId, artifactId)
+            var lookupFailed = false
+            val fetched = apiService.fetchAllVersions(groupId, artifactId) {
+                lookupFailed = true
+            }
             indicator?.checkCanceled()
+            if (lookupFailed) {
+                incompleteLookups.add("Versions: $key")
+            }
             val currentComp = ComparableVersion(currentVersion)
             fetched.filter {
                 indicator?.checkCanceled()
@@ -794,7 +869,8 @@ class ManagedDependencyRecommendationService(
         } catch (e: ProcessCanceledException) {
             throw e
         } catch (e: Exception) {
-            LOG.debug("Could not fetch candidate versions for $groupId:$artifactId: ${e.message}")
+            incompleteLookups.add("Versions: $key")
+            LOG.warn("Could not fetch candidate versions for $key (${e.javaClass.simpleName})")
             emptyList()
         }
     }

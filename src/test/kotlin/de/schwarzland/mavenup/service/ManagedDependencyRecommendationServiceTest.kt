@@ -60,7 +60,7 @@ class ManagedDependencyRecommendationServiceTest : BasePlatformTestCase() {
                 null
             }
         }
-        val mavenProject = MavenProject(myFixture.configureByText("pom.xml", "<project></project>").virtualFile)
+        val mavenProject = createMavenProject()
         val service = ManagedDependencyRecommendationService(project, treeResolver = resolver)
         val managed = ManagedDependencyRecommendationService.ManagedDependencyDeclaration(
             "com.fasterxml.jackson.core",
@@ -89,6 +89,8 @@ class ManagedDependencyRecommendationServiceTest : BasePlatformTestCase() {
         assertEquals("2.0.0", recommendation!!.triggerTargetVersion)
         assertEquals(listOf("2.0.0", "3.0.0"), recommendation.targetVersionOptions.map { it.version })
         assertEquals(listOf("2.15.2", "2.16.1"), recommendation.targetVersionOptions.map { it.transitiveVersionInTarget })
+        assertEquals("", recommendation.sourceProjectId)
+        assertEquals(mavenProject.file.path, recommendation.sourcePomPath)
     }
 
     /**
@@ -101,6 +103,26 @@ class ManagedDependencyRecommendationServiceTest : BasePlatformTestCase() {
         assertTrue(service.matchesCoordinateScope("com.example", "library", "com.example:library"))
         assertFalse(service.matchesCoordinateScope("com.example", "library", "com.example:other"))
         assertFalse(service.matchesCoordinateScope("com.example", "library", ""))
+    }
+
+    /**
+     * Prüft, dass eine vorhandene, aber leere Versionsliste nicht als erfolgreiche Prüfung gilt.
+     */
+    fun testEmptyCachedVersionListIsReportedAsIncomplete() {
+        val service = ManagedDependencyRecommendationService(project)
+        val incompleteLookups = mutableSetOf<String>()
+
+        val versions = service.getCandidateVersions(
+            "com.example",
+            "library",
+            "1.0.0",
+            mapOf("com.example:library" to emptyList()),
+            null,
+            incompleteLookups
+        )
+
+        assertEmpty(versions)
+        assertEquals(setOf("Versions: com.example:library"), incompleteLookups)
     }
 
     private fun createArtifact(groupId: String, artifactId: String, version: String): MavenArtifact {
@@ -119,6 +141,20 @@ class ManagedDependencyRecommendationServiceTest : BasePlatformTestCase() {
             true,
             false
         )
+    }
+
+    /**
+     * Erstellt ein Maven-Projekt mit vollständigen Koordinaten für Empfehlungstests.
+     *
+     * @return Das aus dem Test-POM geladene Maven-Projekt.
+     */
+    private fun createMavenProject(): MavenProject {
+        val pom = myFixture.configureByText(
+            "pom.xml",
+            "<project><modelVersion>4.0.0</modelVersion><groupId>com.example</groupId>" +
+                "<artifactId>sample</artifactId><version>1.0.0</version></project>"
+        )
+        return MavenProject(pom.virtualFile)
     }
 
     private fun createArtifactNode(groupId: String, artifactId: String, version: String): MavenArtifactNode {
@@ -146,7 +182,7 @@ class ManagedDependencyRecommendationServiceTest : BasePlatformTestCase() {
             if (g == "com.example" && a == "direct-lib" && v == "2.0.0") directPom else null
         }
 
-        val dummyMavenProject = MavenProject(myFixture.configureByText("pom.xml", "<project></project>").virtualFile)
+        val dummyMavenProject = createMavenProject()
         val service = ManagedDependencyRecommendationService(
             project = project,
             treeResolver = resolver
@@ -212,7 +248,7 @@ class ManagedDependencyRecommendationServiceTest : BasePlatformTestCase() {
             if (g == "org.springframework.boot" && a == "spring-boot-starter-parent" && v == "3.2.0") parentPom else null
         }
 
-        val dummyMavenProject = MavenProject(myFixture.configureByText("pom.xml", "<project></project>").virtualFile)
+        val dummyMavenProject = createMavenProject()
         val service = ManagedDependencyRecommendationService(
             project = project,
             treeResolver = resolver
@@ -268,7 +304,7 @@ class ManagedDependencyRecommendationServiceTest : BasePlatformTestCase() {
             if (g == "com.example" && a == "lib-y" && v == "2.0.0") directPomY else null
         }
 
-        val dummyMavenProject = MavenProject(myFixture.configureByText("pom.xml", "<project></project>").virtualFile)
+        val dummyMavenProject = createMavenProject()
         val service = ManagedDependencyRecommendationService(
             project = project,
             treeResolver = resolver
@@ -331,7 +367,7 @@ class ManagedDependencyRecommendationServiceTest : BasePlatformTestCase() {
             if (g == "com.example" && a == "root-parent" && v == "2.0.0") parentPom else null
         }
 
-        val dummyMavenProject = MavenProject(myFixture.configureByText("pom.xml", "<project></project>").virtualFile)
+        val dummyMavenProject = createMavenProject()
         val service = ManagedDependencyRecommendationService(
             project = project,
             treeResolver = resolver

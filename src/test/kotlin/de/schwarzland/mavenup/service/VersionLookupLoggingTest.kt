@@ -182,7 +182,20 @@ class VersionLookupLoggingTest : BasePlatformTestCase() {
         assertTrue(messages.contains("Cleanup analysis started: projects=0, managed=all, trigger=all"))
         assertTrue(messages.contains("Cleanup analysis started: projects=0, managed=g:managed, trigger=all"))
         assertTrue(messages.contains("Cleanup analysis started: projects=0, managed=all, trigger=g:parent"))
-        assertEquals(3, messages.count { it == "Cleanup analysis completed: recommendations=0" })
+        assertEquals(
+            3,
+            messages.count { it.startsWith("Cleanup analysis completed: recommendations=0, incomplete lookups=0") }
+        )
+    }
+
+    /** Eine leere Analyse ohne Maven-Projekte ist vollständig, nicht fehlgeschlagen. */
+    fun testEmptyCleanupAnalysisReportsCompleteResult() {
+        val result = ManagedDependencyRecommendationService(project)
+            .findRecommendationsWithStatus(emptyMap(), null, null, null)
+
+        assertEmpty(result.recommendations)
+        assertTrue(result.incompleteLookups.isEmpty())
+        assertFalse(result.isIncomplete)
     }
 
     /** Kandidatenbewertungen erklären fehlende, zu alte und kompatible bereitgestellte Versionen. */

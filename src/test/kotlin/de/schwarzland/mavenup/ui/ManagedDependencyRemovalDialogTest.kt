@@ -59,6 +59,35 @@ class ManagedDependencyRemovalDialogTest : BasePlatformTestCase() {
     }
 
     /**
+     * Prüft, dass Empfehlungstabelle und Details das Quellprojekt einer Empfehlung offenlegen.
+     */
+    fun testDialogShowsSourceProjectAndPomPath() {
+        val recommendation = selectionTestRecommendations().first().copy(
+            sourceProjectId = "com.example:module-a:1.0",
+            sourcePomPath = "C:/workspace/module-a/pom.xml"
+        )
+        val dialog = ManagedDependencyRemovalDialog(
+            project,
+            listOf(recommendation),
+            "Scope: every Maven module in this IntelliJ project"
+        )
+        Disposer.register(testRootDisposable, dialog.disposable)
+
+        assertEquals("C:/workspace/module-a/pom.xml", dialog.getSelectedRecommendations().single().sourcePomPath)
+        val panel = dialog.createCenterPanel()
+        val table = UIUtil.findComponentOfType(panel, JBTable::class.java)!!
+        val splitter = UIUtil.findComponentOfType(panel, JBSplitter::class.java)!!
+        val detail = UIUtil.findComponentOfType(splitter.secondComponent, JEditorPane::class.java)!!
+
+        assertEquals(
+            MyMessageBundle.message("managed.dependency.removal.dialog.table.header.project"),
+            table.model.getColumnName(6)
+        )
+        assertEquals("com.example:module-a:1.0", table.model.getValueAt(0, 6))
+        assertTrue(detail.text, detail.text.contains("C:/workspace/module-a/pom.xml"))
+    }
+
+    /**
      * Prüft, dass ein Konflikt sichtbar ist und die Anwendung bis zur Auflösung verhindert.
      */
     fun testConflictingTargetVersionsPreventApplyingSelectedRecommendations() {

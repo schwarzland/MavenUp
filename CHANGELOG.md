@@ -12,6 +12,7 @@
 
 ### Changed
 
+- **Cleanup checks now show their project-wide scope, identify each recommendation's Maven project and source POM, and warn when version or candidate POM lookups leave the results incomplete.**
 - **When selected cleanup recommendations share a trigger component, MavenUp now chooses the lowest target version verified to satisfy every selected managed dependency and blocks application when no common version exists.**
 - **Cleanup recommendation actions in the toolbar and row context menu are disabled while a check is already running.**
 - **Cleanup recommendations use a vertically adjustable table/detail split with a remembered divider position and fully scrollable, wrapping explanations and consumer paths.**

@@ -32,6 +32,8 @@ data class ManagedDependencyTargetVersion(
  * @property isSatisfiedAcrossAllConsumers `true`, wenn alle Konsumenten eine kompatible Version (`>= managedCurrentVersion`) erhalten.
  * @property targetVersionOptions Alle geprüften Zielversionen, die diese Empfehlung einzeln erfüllen;
  * leer bedeutet, dass nur `triggerTargetVersion` geprüft wurde.
+ * @property sourceProjectId Maven-Koordinate des Projekts, aus dessen POM diese Empfehlung stammt.
+ * @property sourcePomPath Pfad zur POM-Datei, aus der diese Empfehlung stammt.
  */
 data class ManagedDependencyRemovalRecommendation(
     val managedGroupId: String,
@@ -45,7 +47,9 @@ data class ManagedDependencyRemovalRecommendation(
     val transitiveVersionInTarget: String,
     val consumers: List<ConsumerDependencyInfo>,
     val isSatisfiedAcrossAllConsumers: Boolean,
-    val targetVersionOptions: List<ManagedDependencyTargetVersion> = emptyList()
+    val targetVersionOptions: List<ManagedDependencyTargetVersion> = emptyList(),
+    val sourceProjectId: String = "",
+    val sourcePomPath: String = ""
 )
 
 /**
