@@ -31,6 +31,13 @@ UI-Komponenten: [`components-ui.md`](components-ui.md) und
   und nicht expandierte BOM-Inhalte als nicht analysiert ab; BOM-Imports sind selbst keine Kandidaten.
   Das Layout verwendet Kotlin UI DSL v2 und einen vertikalen `JBSplitter` mit initial 65 Prozent Tabellenhöhe,
   Mindesthöhen und IDE-weit gespeicherter Aufteilung (`MavenUp.ManagedDependencyRemovalDialog.splitter`).
+- **RedundantManagedDependencyDialog**: interaktiver `DialogWrapper` zur Prüfung und Übernahme redundanter
+  `<dependencyManagement>`-Einträge im Ist-Zustand. Zeigt eine Tabelle mit Checkbox-Auswahl (`COLUMN_SELECT`),
+  Managed-Koordinate, aktueller Version, Redundanzgrund (`RedundancyReason`), bereitgestellter Version und Maven-Projekt
+  sowie Schaltflächen zum Auswählen und Abwählen aller Einträge. In der Detailansicht werden der genaue Redundanznachweis
+  (Parent-POM-Quelle, direkte Deklaration oder Konsumentenpfade) und der Quell-POM-Pfad formatiert dargestellt.
+  Über eine Checkbox **Show all pending changes after applying** können nach der Übernahme optional alle Haupttabellenfilter
+  zurückgesetzt werden. Nutzt einen vertikalen `JBSplitter` mit Proportion-Key `MavenUp.RedundantManagedDependencyDialog.splitter`.
   `configureDivider` zeichnet mit der privaten `CleanupDividerBorder` direkt auf dem nativen Divider
   eine themeabhängige Linie und drei mittige Griffpunkte; die zehn DPI-skalierten Pixel hohe Ziehfläche
   behält den nativen Resize-Cursor und die Mausbehandlung bei und hebt den Griff bei Hover hervor.

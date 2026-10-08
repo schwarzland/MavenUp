@@ -1,6 +1,7 @@
 package de.schwarzland.mavenup.ui
 
 import de.schwarzland.mavenup.model.ManagedDependencyRemovalRecommendation
+import de.schwarzland.mavenup.model.RedundantManagedDependencyRecommendation
 import de.schwarzland.mavenup.service.ManagedDependencyRecommendationService
 import de.schwarzland.mavenup.model.ApiError
 import de.schwarzland.mavenup.model.DependencyUpdate
@@ -345,6 +346,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
             get() = vulnerabilityScanErrors.isNotEmpty()
         private var isUpdating = false
         private var isRefreshing = false
+        /** `true`, solange eine Prüfung auf redundante verwaltete Abhängigkeiten (Ist-Zustand) läuft. */
+        internal var isCheckingRedundantManaged = false
         /** `true`, solange eine Bereinigungsempfehlungsprüfung läuft. */
         internal var isCheckingManagedRemoval = false
 
@@ -1217,6 +1220,15 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 })
                 addSeparator()
                 add(toolbarAction(
+                    "toolwindow.MyToolWindow.checkRedundantManaged.menuItem",
+                    AllIcons.Actions.Unshare,
+                    { !showingTransitiveView && isCheckRedundantManagedEnabled() },
+                    descriptionProvider = {
+                        MyMessageBundle.message("toolwindow.MyToolWindow.checkRedundantManaged.tooltip")
+                    },
+                    isMenuItem = true
+                ) { checkRedundantManagedDependencyAction() })
+                add(toolbarAction(
                     "toolwindow.MyToolWindow.checkManagedRemoval.menuItem",
                     AllIcons.Actions.GC,
                     { !showingTransitiveView && isCheckManagedRemovalEnabled() },
@@ -1539,6 +1551,15 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 markManagedEntryForRemoval(dependencyKey, target.type, target.currentVersion)
             }
             val managedDependencyType = MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
+            if (target.type == managedDependencyType) {
+                addContextMenuAction(
+                    group,
+                    MyMessageBundle.message("toolwindow.MyToolWindow.checkRedundantManaged.contextMenu"),
+                    isCheckRedundantManagedEnabled()
+                ) {
+                    checkRedundantManagedDependencyAction(target)
+                }
+            }
             if (target.type == managedDependencyType || target.type == "dependency" || target.type == PARENT_TYPE) {
                 addContextMenuAction(
                     group,
@@ -3433,12 +3454,89 @@ class MavenUpWindowFactory : ToolWindowFactory {
             canCheckVulnerabilities(isRefreshing, isUpdating)
 
         /**
+         * Prüft, ob die Prüfung auf redundante verwaltete Abhängigkeiten (Ist-Zustand) derzeit gestartet werden darf.
+         *
+         * @return `true`, wenn keine andere Tool-Window-Operation und keine Bereinigungsprüfung läuft.
+         */
+        internal fun isCheckRedundantManagedEnabled(): Boolean =
+            !isRefreshing && !isSearchingVersions && !isUpdating && !isCheckingManagedRemoval && !isCheckingRedundantManaged
+
+        /**
          * Prüft, ob die Prüfung auf redundante verwaltete Abhängigkeiten derzeit gestartet werden darf.
          *
          * @return `true`, wenn keine andere Tool-Window-Operation und keine Bereinigungsprüfung läuft.
          */
         internal fun isCheckManagedRemovalEnabled(): Boolean =
-            !isRefreshing && !isSearchingVersions && !isUpdating && !isCheckingManagedRemoval
+            !isRefreshing && !isSearchingVersions && !isUpdating && !isCheckingManagedRemoval && !isCheckingRedundantManaged
+
+        /**
+         * Startet die Prüfung auf redundante verwaltete Abhängigkeiten im Ist-Zustand.
+         *
+         * @param target Optionaler Kontextmenü-Eintrag zur Begrenzung auf eine konkrete verwaltete Abhängigkeit.
+         */
+        internal fun checkRedundantManagedDependencyAction(target: DependencyContextMenuTarget? = null) {
+            if (!isCheckRedundantManagedEnabled()) return
+            isCheckingRedundantManaged = true
+            refreshToolbar()
+            val managedDependencyType = MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
+            val scope = RedundantManagedDependencyScope.fromTarget(target, managedDependencyType)
+            RedundantManagedDependencyCheckRunner(project).start(
+                scope = scope,
+                onSuccess = { recommendations ->
+                    if (recommendations.isEmpty()) {
+                        Messages.showInfoMessage(
+                            project,
+                            MyMessageBundle.message(
+                                "redundant.managed.dependency.noneFound",
+                                scope.description,
+                                MyMessageBundle.message("toolwindow.MyToolWindow.checkRedundantManaged.noneFound"),
+                                MyMessageBundle.message("managed.dependency.removal.coverage.limitations")
+                            ),
+                            MyMessageBundle.message("redundant.managed.dependency.dialog.title")
+                        )
+                    } else {
+                        RedundantManagedDependencyDialog(
+                            project = project,
+                            recommendations = recommendations,
+                            scopeDescription = scope.description
+                        ) { selectedRecs, showPending ->
+                            applyRedundantManagedDependencyRecommendations(selectedRecs, showPending)
+                        }.show()
+                    }
+                },
+                onFinished = {
+                    isCheckingRedundantManaged = false
+                    refreshToolbar()
+                }
+            )
+        }
+
+        /**
+         * Übernimmt die ausgewählten redundanten verwalteten Abhängigkeiten und markiert sie zur Entfernung.
+         *
+         * @param recs Die ausgewählten Empfehlungen.
+         * @param showAllPendingChanges Bei `true` werden Filter zurückgesetzt und die Ansicht auf alle Änderungen gestellt.
+         */
+        internal fun applyRedundantManagedDependencyRecommendations(
+            recs: List<RedundantManagedDependencyRecommendation>,
+            showAllPendingChanges: Boolean = false
+        ) {
+            if (recs.isEmpty()) return
+            val managedType = MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
+            for (rec in recs) {
+                val managedKey = "${rec.groupId}:${rec.artifactId}"
+                markManagedEntryForRemoval(managedKey, managedType, rec.currentVersion)
+            }
+
+            cancelActiveCellEditing()
+            table.repaint()
+            updateUpdateButtonState()
+            if (showAllPendingChanges) {
+                resetAllFilters()
+                changesFilterComboBox.selectedItem = PendingChangesFilter.ALL_CHANGES
+            }
+            applyRowFilter()
+        }
 
         /**
          * Startet die projektweite oder auf die angeklickte Zeile begrenzte Bereinigungsanalyse.
