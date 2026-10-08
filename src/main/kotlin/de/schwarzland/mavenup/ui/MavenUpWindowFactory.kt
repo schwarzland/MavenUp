@@ -3462,14 +3462,20 @@ class MavenUpWindowFactory : ToolWindowFactory {
                                 MyMessageBundle.message(
                                     "managed.dependency.removal.incomplete.none",
                                     scope.description,
-                                    incompleteCleanupLookupSummary(result.incompleteLookups)
+                                    incompleteCleanupLookupSummary(result.incompleteLookups),
+                                    MyMessageBundle.message("managed.dependency.removal.coverage.limitations")
                                 ),
                                 MyMessageBundle.message("managed.dependency.removal.dialog.title")
                             )
                         } else {
                             Messages.showInfoMessage(
                                 project,
-                                MyMessageBundle.message("toolwindow.MyToolWindow.checkManagedRemoval.noneFound"),
+                                MyMessageBundle.message(
+                                    "managed.dependency.removal.noneFound",
+                                    scope.description,
+                                    MyMessageBundle.message("toolwindow.MyToolWindow.checkManagedRemoval.noneFound"),
+                                    MyMessageBundle.message("managed.dependency.removal.coverage.limitations")
+                                ),
                                 MyMessageBundle.message("managed.dependency.removal.dialog.title")
                             )
                         }

@@ -11,6 +11,8 @@ import com.intellij.util.ui.JBUI
 import de.schwarzland.mavenup.model.ConsumerDependencyInfo
 import de.schwarzland.mavenup.model.ManagedDependencyRemovalRecommendation
 import de.schwarzland.mavenup.model.ManagedDependencyTargetVersion
+import java.awt.Component
+import java.awt.Container
 import javax.swing.JEditorPane
 import javax.swing.JComponent
 import javax.swing.JCheckBox
@@ -85,6 +87,25 @@ class ManagedDependencyRemovalDialogTest : BasePlatformTestCase() {
         )
         assertEquals("com.example:module-a:1.0", table.model.getValueAt(0, 6))
         assertTrue(detail.text, detail.text.contains("C:/workspace/module-a/pom.xml"))
+        assertTrue(componentTreeContainsText(panel, "COVERAGE LIMITATION"))
+        val coverageNote = MyMessageBundle.message("managed.dependency.removal.coverage.limitations")
+        assertTrue(coverageNote.contains("Maven profiles"))
+        assertTrue(coverageNote.contains("inherited dependencyManagement entries"))
+        assertTrue(coverageNote.contains("Imported BOMs are not expanded"))
+    }
+
+    /**
+     * Prüft rekursiv, ob ein UI-Baum den angegebenen sichtbaren Text enthält.
+     *
+     * @param component Zu durchsuchende UI-Komponente.
+     * @param text Gesuchter Textausschnitt.
+     * @return `true`, wenn ein Label oder Editor den Text enthält.
+     */
+    private fun componentTreeContainsText(component: Component, text: String): Boolean = when (component) {
+        is JEditorPane -> component.text.contains(text)
+        is javax.swing.JLabel -> component.text?.contains(text) == true
+        is Container -> component.components.any { componentTreeContainsText(it, text) }
+        else -> false
     }
 
     /**

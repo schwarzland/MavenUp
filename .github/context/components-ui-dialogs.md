@@ -26,7 +26,9 @@ UI-Komponenten: [`components-ui.md`](components-ui.md) und
   Zielversion, bereitgestellter Version und Maven-Projekt sowie Schaltflächen zum Auswählen und Abwählen aller Einträge.
   Ein Scope-Hinweis stellt klar, dass auch zeilenbezogene Filter alle Maven-Module durchsuchen; die Detailansicht
   zeigt zusätzlich den Quell-POM-Pfad jeder Empfehlung. Nicht verfügbare Versions- oder POM-Daten werden mit einer
-  sichtbaren **INCOMPLETE CHECK**-Warnung gekennzeichnet.
+  sichtbaren **INCOMPLETE CHECK**-Warnung gekennzeichnet. Ein zusätzlicher Coverage-Hinweis erscheint
+  immer – auch bei null Treffern – und grenzt Profileinträge, geerbte `dependencyManagement`-Einträge
+  und nicht expandierte BOM-Inhalte als nicht analysiert ab; BOM-Imports sind selbst keine Kandidaten.
   Das Layout verwendet Kotlin UI DSL v2 und einen vertikalen `JBSplitter` mit initial 65 Prozent Tabellenhöhe,
   Mindesthöhen und IDE-weit gespeicherter Aufteilung (`MavenUp.ManagedDependencyRemovalDialog.splitter`).
   `configureDivider` zeichnet mit der privaten `CleanupDividerBorder` direkt auf dem nativen Divider

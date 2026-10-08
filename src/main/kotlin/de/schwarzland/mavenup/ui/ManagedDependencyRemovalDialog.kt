@@ -50,8 +50,9 @@ private const val COLUMN_PROVIDED_VERSION = 5
  *
  * Zeigt die erkannten Empfehlungen in einer Tabelle mit Auswahl-Checkboxen sowie
  * detaillierte Erklärungen und Pfadangaben zur jeweils selektierten Zeile an.
- * Der Dialog zeigt außerdem den projektweiten Prüfumfang, das Quellprojekt jeder Empfehlung
- * und bei fehlenden Quelldaten einen deutlichen Hinweis auf möglicherweise unvollständige Ergebnisse.
+ * Der Dialog zeigt außerdem den projektweiten Prüfumfang, das Quellprojekt jeder Empfehlung,
+ * bei fehlenden Quelldaten einen deutlichen Hinweis auf möglicherweise unvollständige Ergebnisse
+ * und die Maven-Deklarationen, die von dieser Prüfung nicht abgedeckt werden.
  * Ein vertikaler Splitter speichert die vom Anwender gewählte Aufteilung zwischen
  * Tabelle und vollständig scrollbar dargestellten Details.
  * Eine nicht gespeicherte, initial deaktivierte Option fordert nach der Übernahme
@@ -153,6 +154,13 @@ class ManagedDependencyRemovalDialog(
             }
             row {
                 text(StringUtil.escapeXmlEntities(scopeDescription)).align(Align.FILL)
+            }
+            row {
+                text(
+                    StringUtil.escapeXmlEntities(
+                        MyMessageBundle.message("managed.dependency.removal.coverage.limitations")
+                    )
+                ).align(Align.FILL)
             }
             if (incompleteLookups.isNotEmpty()) {
                 row {

@@ -54,7 +54,8 @@ injizierte Seams/Interfaces netzwerkfrei getestet.
 `ManagedDependencyRemovalDialogTest` prüft Auswahl und Übernahme sowie das skalierbare Split-Layout,
 die gespeicherte Aufteilung, lange und leere Detailinhalte, HTML-Maskierung, den sichtbaren
 Splitter-Griff inklusive Theme-Farben, Hover und Mausziehen sowie die optionale Folgeansicht
-einschließlich Standardzustand, Abbruch und ungültiger Auswahl;
+einschließlich Standardzustand, Abbruch und ungültiger Auswahl sowie den sichtbaren Hinweis auf
+nicht analysierte Maven-Profile, geerbte `dependencyManagement`-Einträge und BOM-Inhalte;
 `ManagedDependencyRemovalIntegrationTest` prüft den optionalen Haupttabellen-Filterwechsel auf alle
 ausstehenden Änderungen, bestehende Vormerkungen, unveränderte Sortierung und Filtererhalt ohne Option;
 `VersionLookupLoggingTest` prüft DEBUG-Ausgaben und lokale HTTP-Versuche einschließlich Cache-Treffern,
