@@ -79,10 +79,15 @@ class RedundantManagedDependencyDialog(
     fun getSelectedRecommendations(): List<RedundantManagedDependencyRecommendation> =
         recommendations.filterIndexed { index, _ -> selectionStates.getOrElse(index) { false } }
 
+    /**
+     * Erstellt die größenveränderliche Übersicht mit einem unabhängig vom Detailtext schrumpfbaren Layout.
+     */
     public override fun createCenterPanel(): JComponent {
         val recommendationsPanel = panel {
             row {
-                cell(JBScrollPane(buildTable())).align(Align.FILL)
+                cell(JBScrollPane(buildTable()).apply {
+                    preferredSize = JBUI.size(0, 120)
+                }).align(Align.FILL).resizableColumn()
             }.resizableRow()
             row {
                 button(MyMessageBundle.message("redundant.managed.dependency.dialog.selectAll")) {
@@ -105,13 +110,13 @@ class RedundantManagedDependencyDialog(
 
         return panel {
             row {
-                label(MyMessageBundle.message("redundant.managed.dependency.dialog.explanation"))
+                text(MyMessageBundle.message("redundant.managed.dependency.dialog.explanation"), maxLineLength = 60)
             }
             row {
                 comment(scopeDescription)
             }
             row {
-                cell(splitter).align(Align.FILL)
+                cell(splitter).align(Align.FILL).resizableColumn()
             }.resizableRow()
             row {
                 checkBox(MyMessageBundle.message("redundant.managed.dependency.dialog.showPending"))
@@ -127,16 +132,19 @@ class RedundantManagedDependencyDialog(
         }
     }
 
+    /** Markiert den nativen Trenner mit einer themenabhängigen Griffleiste und Hover-Rückmeldung. */
     private fun configureDivider(splitter: JBSplitter) {
         val divider = splitter.divider ?: return
         val border = RedundantDividerBorder()
         divider.border = border
         divider.addMouseListener(object : MouseAdapter() {
+            /** Hebt die Griffleiste beim Eintritt des Mauszeigers hervor. */
             override fun mouseEntered(e: MouseEvent?) {
                 border.hovered = true
                 divider.repaint()
             }
 
+            /** Entfernt die Hervorhebung beim Verlassen der Griffleiste. */
             override fun mouseExited(e: MouseEvent?) {
                 border.hovered = false
                 divider.repaint()
@@ -144,6 +152,7 @@ class RedundantManagedDependencyDialog(
         })
     }
 
+    /** Erstellt die sortierbare Empfehlungstabelle und synchronisiert Auswahl und Detailansicht. */
     private fun buildTable(): JBTable {
         val columnNames = arrayOf(
             MyMessageBundle.message("redundant.managed.dependency.dialog.table.header.select"),
@@ -155,11 +164,14 @@ class RedundantManagedDependencyDialog(
         )
 
         tableModel = object : DefaultTableModel(columnNames, 0) {
+            /** Liefert den Checkbox-Typ für die Auswahlspalte und Texttypen für die übrigen Spalten. */
             override fun getColumnClass(columnIndex: Int): Class<*> =
                 if (columnIndex == COLUMN_SELECT) Boolean::class.javaObjectType else String::class.java
 
+            /** Erlaubt Änderungen ausschließlich in der Auswahlspalte. */
             override fun isCellEditable(row: Int, column: Int): Boolean = column == COLUMN_SELECT
 
+            /** Übernimmt Checkbox-Änderungen in den Auswahlzustand und aktualisiert die Übernahmeaktion. */
             override fun setValueAt(aValue: Any?, row: Int, column: Int) {
                 if (column == COLUMN_SELECT && aValue is Boolean) {
                     selectionStates[row] = aValue
@@ -209,6 +221,7 @@ class RedundantManagedDependencyDialog(
         return table
     }
 
+    /** Sortiert Koordinaten natürlich und Versionsspalten nach der Maven-Versionsordnung. */
     private fun buildRowSorter(model: DefaultTableModel): TableRowSorter<DefaultTableModel> =
         TableRowSorter(model).apply {
             setSortable(COLUMN_SELECT, false)
@@ -229,17 +242,24 @@ class RedundantManagedDependencyDialog(
             sortKeys = listOf(RowSorter.SortKey(COLUMN_MANAGED_DEPENDENCY, SortOrder.ASCENDING))
         }
 
+    /**
+     * Erstellt den Detailbereich mit weichem Zeilenumbruch ohne horizontale Scrollleiste.
+     */
     private fun buildDetailPanel(): JComponent = panel {
         row {
             label(MyMessageBundle.message("redundant.managed.dependency.dialog.detail.title")).bold()
         }
         row {
-            cell(JBScrollPane(detailEditor)).align(Align.FILL)
+            cell(JBScrollPane(detailEditor).apply {
+                horizontalScrollBarPolicy = JBScrollPane.HORIZONTAL_SCROLLBAR_NEVER
+                preferredSize = JBUI.size(0, 80)
+            }).align(Align.FILL).resizableColumn()
         }.resizableRow()
     }.apply {
         minimumSize = JBUI.size(0, 80)
     }
 
+    /** Zeigt HTML-maskierte Nachweise und Quellpfade zur Modellzeile und setzt die Leseposition zurück. */
     private fun updateDetailPanel(modelRow: Int) {
         if (modelRow !in recommendations.indices) {
             detailEditor.text = ""
@@ -277,6 +297,7 @@ class RedundantManagedDependencyDialog(
         detailEditor.caretPosition = 0
     }
 
+    /** Setzt alle Checkboxen auf den angegebenen Auswahlzustand. */
     internal fun setAllSelected(selected: Boolean) {
         for (i in selectionStates.indices) {
             selectionStates[i] = selected
@@ -285,10 +306,12 @@ class RedundantManagedDependencyDialog(
         updateOkActionState()
     }
 
+    /** Aktiviert die Übernahmeaktion genau dann, wenn mindestens eine Empfehlung ausgewählt ist. */
     private fun updateOkActionState() {
         isOKActionEnabled = selectionStates.any { it }
     }
 
+    /** Übernimmt den UI-Zustand und übergibt ausgewählte Empfehlungen und Filterwunsch an den Callback. */
     override fun doOKAction() {
         dialogPanel.apply()
         val selected = getSelectedRecommendations()
@@ -296,6 +319,7 @@ class RedundantManagedDependencyDialog(
         super.doOKAction()
     }
 
+    /** Liefert die lokalisierte Bezeichnung des Redundanzgrunds. */
     private fun reasonLabel(reason: RedundancyReason): String = when (reason) {
         RedundancyReason.PARENT_MANAGED -> MyMessageBundle.message("redundant.managed.dependency.reason.parentManaged")
         RedundancyReason.DIRECT_DEPENDENCY_MATCH -> MyMessageBundle.message("redundant.managed.dependency.reason.directMatch")
@@ -303,9 +327,11 @@ class RedundantManagedDependencyDialog(
         RedundancyReason.UNUSED -> MyMessageBundle.message("redundant.managed.dependency.reason.unused")
     }
 
+    /** Zeichnet eine themenabhängige Trennlinie mit mittiger, bei Hover hervorgehobener Griffleiste. */
     private class RedundantDividerBorder : AbstractBorder() {
         var hovered = false
 
+        /** Zeichnet die Linie und drei Griffpunkte ohne Änderungen am übergebenen Grafikkontext. */
         override fun paintBorder(component: Component, graphics: Graphics, x: Int, y: Int, width: Int, height: Int) {
             val painter = graphics.create()
             try {

@@ -18,6 +18,7 @@
 
 ### Fixed
 
+- **Fixed Redundant Managed Dependencies becoming impossible to narrow after displaying long redundancy details or widening the dialog.**
 - **Fixed unintended SNAPSHOT version selections after startup and refresh, including misleading dropdown values and updates created by opening an unchanged editor.**
 - **Fixed higher SNAPSHOT versions appearing below the latest release in New Version dropdowns and version preselection, while preserving release priority over other versions.**
 - Fixed timestamped Maven snapshot resolutions replacing declared `*-SNAPSHOT` versions in MavenUp, which could hide cached versions from the update list.

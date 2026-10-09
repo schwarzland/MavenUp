@@ -27,11 +27,14 @@ UI-Komponenten: [`components-ui.md`](components-ui.md) und
   (Parent-POM-Quelle, direkte Deklaration oder Konsumentenpfade) und der Quell-POM-Pfad formatiert dargestellt.
   Über eine Checkbox **Show all pending changes after applying** können nach der Übernahme optional alle Haupttabellenfilter
   zurückgesetzt werden. Nutzt einen vertikalen `JBSplitter` mit Proportion-Key `MavenUp.RedundantManagedDependencyDialog.splitter`.
-  `configureDivider` zeichnet mit der privaten `CleanupDividerBorder` direkt auf dem nativen Divider
+  `configureDivider` zeichnet mit der privaten `RedundantDividerBorder` direkt auf dem nativen Divider
   eine themeabhängige Linie und drei mittige Griffpunkte; die zehn DPI-skalierten Pixel hohe Ziehfläche
   behält den nativen Resize-Cursor und die Mausbehandlung bei und hebt den Griff bei Hover hervor.
   Der skalierbare Dialog zeigt unter **Redundancy Details** Erklärtext und Konsumenten-Abhängigkeitspfade
   gemeinsam in einem scrollbar dargestellten, HTML-maskierten `JEditorPane` mit `HTMLEditorKitBuilder`-Word-Wrap;
+  inhaltsunabhängige Preferred-Sizes der beiden Scrollpanes verhindern dynamisch wachsende Mindestbreiten
+  im UI-DSL-Layout, resizable Columns erlauben das Verkleinern und die horizontale Detail-Scrollleiste ist deaktiviert.
+  Der einleitende Erklärungstext wird ebenfalls umbrochen.
   beim Zeilenwechsel wird die Leseposition zurückgesetzt. Über `getSelectedRecommendations` werden die
   ausgewählten Einträge an den Callback übergeben und in `MyToolWindow` zur Entfernungsvormerkung angewendet.
   Unterhalb des Splitters bietet eine initial deaktivierte, nicht gespeicherte UI-DSL-Checkbox
