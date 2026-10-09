@@ -25,6 +25,12 @@ UI-Komponenten: [`components-ui.md`](components-ui.md) und
   Managed-Koordinate, aktueller Version, Redundanzgrund (`RedundancyReason`), bereitgestellter Version und Maven-Projekt
   sowie Schaltflächen zum Auswählen und Abwählen aller Einträge. In der Detailansicht werden der genaue Redundanznachweis
   (Parent-POM-Quelle, direkte Deklaration oder Konsumentenpfade) und der Quell-POM-Pfad formatiert dargestellt.
+  Der initial markierte sichtbare Tabellen-Datensatz bestimmt die initiale Detailansicht; die Reason-Erklärung dupliziert
+  keine darunter separat gelisteten Consumer Paths. Reason-Labels unterscheiden gleiche, höhere und gemischte
+  bereitgestellte Versionen.
+  Die Spalte **Maven Project** erscheint nur bei Empfehlungen aus mehr als einem Projekt; im Detailbereich steht der
+  POM-Pfad nach **Source POM:** in einer eigenen Zeile. Der Einleitungstext escaped den XML-Namen
+  `<dependencyManagement>`, damit er als Text und nicht als HTML-Tag dargestellt wird.
   Über eine Checkbox **Show all pending changes after applying** können nach der Übernahme optional alle Haupttabellenfilter
   zurückgesetzt werden. Nutzt einen vertikalen `JBSplitter` mit Proportion-Key `MavenUp.RedundantManagedDependencyDialog.splitter`.
   `configureDivider` zeichnet mit der privaten `RedundantDividerBorder` direkt auf dem nativen Divider
@@ -32,13 +38,15 @@ UI-Komponenten: [`components-ui.md`](components-ui.md) und
   behält den nativen Resize-Cursor und die Mausbehandlung bei und hebt den Griff bei Hover hervor.
   Der skalierbare Dialog zeigt unter **Redundancy Details** Erklärtext und Konsumenten-Abhängigkeitspfade
   gemeinsam in einem scrollbar dargestellten, HTML-maskierten `JEditorPane` mit `HTMLEditorKitBuilder`-Word-Wrap;
+  die Reason-Erklärung beginnt nach dem Label mit einem Zeilenumbruch, Consumer Paths werden als Aufzählung
+  dargestellt, und **Mark Selected Entries for Removal** markiert ausgewählte Einträge nur zur späteren Entfernung;
   inhaltsunabhängige Preferred-Sizes der beiden Scrollpanes verhindern dynamisch wachsende Mindestbreiten
   im UI-DSL-Layout, resizable Columns erlauben das Verkleinern und die horizontale Detail-Scrollleiste ist deaktiviert.
   Der einleitende Erklärungstext wird ebenfalls umbrochen.
   beim Zeilenwechsel wird die Leseposition zurückgesetzt. Über `getSelectedRecommendations` werden die
   ausgewählten Einträge an den Callback übergeben und in `MyToolWindow` zur Entfernungsvormerkung angewendet.
   Unterhalb des Splitters bietet eine initial deaktivierte, nicht gespeicherte UI-DSL-Checkbox
-  **Show all pending changes after applying** einen sichtbaren Kommentar zum Filterwechsel.
+  **Show all pending changes after staging** einen sichtbaren Kommentar zum Filterwechsel.
   `bindSelected` bindet sie an den Dialogzustand; `doOKAction` übernimmt diesen nur bei gültiger
   Auswahl über `DialogPanel.apply` und übergibt Empfehlungen und Boolean an den Callback.
 - **TransitiveVulnerabilitiesView**: eigenständige `JBPanel`-Ansicht (Top-Level in `ui`), die alle

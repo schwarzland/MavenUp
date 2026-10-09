@@ -151,12 +151,12 @@ class RedundantManagedDependencyService(
         val managedComp = ComparableVersion(managed.currentVersion)
         val consumerPaths = findProjectConsumersForManaged(mavenProject, managed.groupId, managed.artifactId, indicator)
 
-        // 1. Kriterium: Bereits durch Parent verwaltet
+        // 1. Kriterium: Parent-Verwaltung liefert dieselbe oder eine höhere Version
         val parentRec = evaluateParentManaged(managed, mavenProject, key, managedComp, consumerPaths)
         if (parentRec != null) return parentRec
 
-        // 2. Kriterium: Direkte Abhängigkeit mit identischer expliziter Version
-        val directRec = evaluateDirectMatch(managed, mavenProject, key, managedComp, directDependenciesWithExplicitVersion, consumerPaths)
+        // 2. Kriterium: Direkte Abhängigkeit legt mindestens die verwaltete Version fest
+        val directRec = evaluateDirectMatch(managed, key, managedComp, directDependenciesWithExplicitVersion, consumerPaths)
         if (directRec != null) return directRec
 
         // 3. Kriterium: Ungenutzter / verwaister Eintrag im Projekt
@@ -189,10 +189,17 @@ class RedundantManagedDependencyService(
     }
 
     /**
-     * Prüft, ob die verwaltete Abhängigkeit bereits durch ein Parent-POM verwaltet wird.
+     * Prüft, ob die effektive Parent-Verwaltung dieselbe oder eine höhere Version als der lokale Eintrag liefert.
+     *
+     * @param managed Die deklarierte verwaltete Abhängigkeit.
+     * @param mavenProject Das Maven-Projekt mit Parent-Deklaration.
+     * @param key Koordinate `groupId:artifactId` der verwalteten Abhängigkeit.
+     * @param managedComp Die vergleichbare Version des lokalen Eintrags.
+     * @param consumerPaths Die bekannten Pfade, die das Artefakt im Projekt verwenden.
+     * @return Eine Empfehlung bei gleicher oder höherer Parent-Version oder `null`.
      */
     @Suppress("TooGenericExceptionCaught")
-    private fun evaluateParentManaged(
+    internal fun evaluateParentManaged(
         managed: ManagedDependencyDeclaration,
         mavenProject: MavenProject,
         key: String,
@@ -207,11 +214,10 @@ class RedundantManagedDependencyService(
                 parentInfo.version
             )
             val parentVersion = parentMgmt[key]
-            if (parentVersion != null && ComparableVersion(parentVersion) >= managedComp) {
+            if (parentVersion != null && ComparableVersion(parentVersion).compareTo(managedComp) >= 0) {
                 val consumerInfos = formatConsumerInfos(
                     consumerPaths = consumerPaths,
-                    fallbackSource = "${parentInfo.groupId}:${parentInfo.artifactId}",
-                    resolvedVersion = parentVersion
+                    resolvedVersion = { parentVersion }
                 )
                 RedundantManagedDependencyRecommendation(
                     groupId = managed.groupId,
@@ -220,8 +226,15 @@ class RedundantManagedDependencyService(
                     reason = RedundancyReason.PARENT_MANAGED,
                     reasonDetail = MyMessageBundle.message(
                         "redundant.managed.dependency.reason.parentManaged.detail",
-                        "${parentInfo.artifactId}:${parentInfo.version}",
-                        parentVersion
+                        "${parentInfo.groupId}:${parentInfo.artifactId}:${parentInfo.version}",
+                        key,
+                        parentVersion,
+                        managed.currentVersion,
+                        if (ComparableVersion(parentVersion).compareTo(managedComp) == 0) {
+                            MyMessageBundle.message("redundant.managed.dependency.versionRelation.same")
+                        } else {
+                            MyMessageBundle.message("redundant.managed.dependency.versionRelation.higher")
+                        }
                     ),
                     providedVersion = parentVersion,
                     consumers = consumerInfos,
@@ -240,22 +253,32 @@ class RedundantManagedDependencyService(
     }
 
     /**
-     * Prüft, ob die verwaltete Abhängigkeit als direkte Abhängigkeit mit identischer Version deklariert ist.
+     * Prüft, ob eine direkte Deklaration mindestens die verwaltete Version festlegt und keine weiteren bekannten Pfade auf Management angewiesen sind.
+     *
+     * @param managed Die deklarierte verwaltete Abhängigkeit.
+     * @param key Koordinate `groupId:artifactId` der verwalteten Abhängigkeit.
+     * @param managedComp Die vergleichbare Version des lokalen Eintrags.
+     * @param directDependenciesWithExplicitVersion Direkte Abhängigkeiten mit expliziter Version.
+     * @param consumerPaths Die bekannten Pfade, die das Artefakt im Projekt verwenden.
+     * @return Eine Empfehlung, wenn die direkte Deklaration dieselbe oder eine höhere Version festlegt, sonst `null`.
      */
-    private fun evaluateDirectMatch(
+    internal fun evaluateDirectMatch(
         managed: ManagedDependencyDeclaration,
-        mavenProject: MavenProject,
         key: String,
         managedComp: ComparableVersion,
         directDependenciesWithExplicitVersion: Map<String, String>,
         consumerPaths: List<List<MavenArtifactNode>>
     ): RedundantManagedDependencyRecommendation? {
         val directVersion = directDependenciesWithExplicitVersion[key] ?: return null
-        if (ComparableVersion(directVersion) >= managedComp) {
+        val otherManagedConsumers = consumerPaths.any { path ->
+            path.size > 1 || path.firstOrNull()?.artifact?.let {
+                it.groupId != managed.groupId || it.artifactId != managed.artifactId
+            } == true
+        }
+        if (ComparableVersion(directVersion).compareTo(managedComp) >= 0 && !otherManagedConsumers) {
             val consumerInfos = formatConsumerInfos(
                 consumerPaths = consumerPaths,
-                fallbackSource = key,
-                resolvedVersion = directVersion
+                resolvedVersion = { directVersion }
             )
             return RedundantManagedDependencyRecommendation(
                 groupId = managed.groupId,
@@ -264,7 +287,14 @@ class RedundantManagedDependencyService(
                 reason = RedundancyReason.DIRECT_DEPENDENCY_MATCH,
                 reasonDetail = MyMessageBundle.message(
                     "redundant.managed.dependency.reason.directMatch.detail",
-                    directVersion
+                    key,
+                    directVersion,
+                    managed.currentVersion,
+                    if (ComparableVersion(directVersion).compareTo(managedComp) == 0) {
+                        MyMessageBundle.message("redundant.managed.dependency.versionRelation.same")
+                    } else {
+                        MyMessageBundle.message("redundant.managed.dependency.versionRelation.higher")
+                    }
                 ),
                 providedVersion = directVersion,
                 consumers = consumerInfos,
@@ -276,7 +306,7 @@ class RedundantManagedDependencyService(
     }
 
     /**
-     * Prüft, ob alle Konsumentenpfade durch ihre direkten Ursprungsabhängigkeiten mindestens die verwaltete Version transitiv erhalten.
+     * Prüft, ob alle Konsumentenpfade von ihren direkten Ursprungsabhängigkeiten mindestens die verwaltete Version erhalten.
      *
      * @param managed Die deklarierte verwaltete Abhängigkeit.
      * @param managedComp Die [ComparableVersion] der aktuellen verwalteten Version.
@@ -285,7 +315,7 @@ class RedundantManagedDependencyService(
      * @return [RedundantManagedDependencyRecommendation] oder `null`.
      */
     @Suppress("TooGenericExceptionCaught")
-    private fun evaluateTransitiveMatch(
+    internal fun evaluateTransitiveMatch(
         managed: ManagedDependencyDeclaration,
         managedComp: ComparableVersion,
         consumerPaths: List<List<MavenArtifactNode>>,
@@ -293,9 +323,10 @@ class RedundantManagedDependencyService(
     ): RedundantManagedDependencyRecommendation? {
         val key = "${managed.groupId}:${managed.artifactId}"
         var allMatch = true
-        var resolvedProvidedVersion: String? = null
+        val providedVersionsByRoot = mutableMapOf<String, String>()
 
-        val rootArtifacts = consumerPaths.mapNotNull { it.firstOrNull()?.artifact }.distinctBy { "${it.groupId}:${it.artifactId}" }
+        val rootArtifacts = consumerPaths.mapNotNull { it.firstOrNull()?.artifact }
+            .distinctBy { "${it.groupId}:${it.artifactId}:${it.version}" }
         if (rootArtifacts.isEmpty()) return null
 
         for (root in rootArtifacts) {
@@ -310,17 +341,19 @@ class RedundantManagedDependencyService(
             }
 
             val transVersion = transitives[key]
-            if (transVersion == null || ComparableVersion(transVersion) < managedComp) {
+            if (transVersion == null || ComparableVersion(transVersion).compareTo(managedComp) < 0) {
                 allMatch = false
                 break
             }
-            if (resolvedProvidedVersion == null) {
-                resolvedProvidedVersion = transVersion
-            }
+            providedVersionsByRoot["${root.groupId}:${root.artifactId}:${root.version}"] = transVersion
         }
 
-        if (allMatch && resolvedProvidedVersion != null) {
-            val consumerInfos = formatConsumerInfos(consumerPaths, key, resolvedProvidedVersion)
+        if (allMatch && providedVersionsByRoot.isNotEmpty()) {
+            val consumerInfos = formatConsumerInfos(consumerPaths) { root ->
+                providedVersionsByRoot["${root.groupId}:${root.artifactId}:${root.version}"].orEmpty()
+            }
+            val providedVersions = providedVersionsByRoot.values.distinct()
+            val providedVersion = providedVersions.joinToString(", ")
             return RedundantManagedDependencyRecommendation(
                 groupId = managed.groupId,
                 artifactId = managed.artifactId,
@@ -328,9 +361,11 @@ class RedundantManagedDependencyService(
                 reason = RedundancyReason.TRANSITIVE_MATCH,
                 reasonDetail = MyMessageBundle.message(
                     "redundant.managed.dependency.reason.transitiveMatch.detail",
-                    resolvedProvidedVersion
+                    key,
+                    managed.currentVersion,
+                    providedVersion
                 ),
-                providedVersion = resolvedProvidedVersion,
+                providedVersion = providedVersion,
                 consumers = consumerInfos,
                 sourceProjectId = sourceProjectId(managed.mavenProject),
                 sourcePomPath = managed.mavenProject.file.path
@@ -439,32 +474,24 @@ class RedundantManagedDependencyService(
 
     /**
      * Formatiert Konsumentenpfade in [ConsumerDependencyInfo]-Objekte.
+     *
+     * @param consumerPaths Die bekannten Maven-Abhängigkeitspfade.
+     * @param resolvedVersion Die ohne den lokalen Management-Eintrag bereitgestellte Version je Pfadursprung.
+     * @return Konsumenteninformationen mit Pfad und bereitgestellter Version.
      */
     private fun formatConsumerInfos(
         consumerPaths: List<List<MavenArtifactNode>>,
-        fallbackSource: String,
-        resolvedVersion: String
+        resolvedVersion: (org.jetbrains.idea.maven.model.MavenArtifact) -> String
     ): List<ConsumerDependencyInfo> {
-        if (consumerPaths.isEmpty()) {
-            val parts = fallbackSource.split(":")
-            val g = parts.getOrNull(0).orEmpty()
-            val a = parts.getOrNull(1).orEmpty()
-            return listOf(
-                ConsumerDependencyInfo(
-                    groupId = g,
-                    artifactId = a,
-                    resolvedVersion = resolvedVersion,
-                    pathDescription = fallbackSource
-                )
-            )
-        }
         return consumerPaths.map { path ->
             val root = path.first().artifact
-            val pathDesc = path.joinToString(" -> ") { "${it.artifact.artifactId}:${it.artifact.version}" }
+            val pathDesc = path.joinToString(" -> ") {
+                "${it.artifact.groupId}:${it.artifact.artifactId}:${it.artifact.version}"
+            }
             ConsumerDependencyInfo(
                 groupId = root.groupId,
                 artifactId = root.artifactId,
-                resolvedVersion = resolvedVersion,
+                resolvedVersion = resolvedVersion(root),
                 pathDescription = pathDesc
             )
         }

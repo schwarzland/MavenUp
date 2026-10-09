@@ -48,6 +48,8 @@ class RedundantManagedDependencyDialogTest : BasePlatformTestCase() {
         val dialog = RedundantManagedDependencyDialog(project, listOf(shortRecommendation, longRecommendation))
         Disposer.register(testRootDisposable, dialog.disposable)
         val center = dialog.createCenterPanel()
+        assertTrue("The initial dialog should provide a larger workspace", center.preferredSize.width >= JBUI.scale(1000))
+        assertTrue("The initial dialog should provide a larger workspace", center.preferredSize.height >= JBUI.scale(700))
         val table = UIUtil.findComponentOfType(center, JBTable::class.java)!!
         val splitter = UIUtil.findComponentOfType(center, JBSplitter::class.java)!!
         val scroll = UIUtil.findComponentOfType(splitter.secondComponent, JBScrollPane::class.java)!!
@@ -103,6 +105,14 @@ class RedundantManagedDependencyDialogTest : BasePlatformTestCase() {
             reason = RedundancyReason.PARENT_MANAGED,
             reasonDetail = "Managed by parent POM parent:1.0 with version 1.0.0",
             providedVersion = "1.0.0",
+            consumers = listOf(
+                ConsumerDependencyInfo(
+                    groupId = "org.example",
+                    artifactId = "consumer",
+                    resolvedVersion = "1.0.0",
+                    pathDescription = "org.example:consumer:1.0.0 -> org.example:lib-a:1.0.0"
+                )
+            ),
             sourceProjectId = "my-module",
             sourcePomPath = "/path/to/pom.xml"
         )
@@ -122,7 +132,7 @@ class RedundantManagedDependencyDialogTest : BasePlatformTestCase() {
 
         val dialog = RedundantManagedDependencyDialog(
             project = project,
-            recommendations = listOf(rec1, rec2),
+            recommendations = listOf(rec2, rec1),
             scopeDescription = "Test Scope",
             onApply = { recs, showPending ->
                 appliedRecs = recs
@@ -136,7 +146,20 @@ class RedundantManagedDependencyDialogTest : BasePlatformTestCase() {
 
         val table = UIUtil.findComponentOfType(centerPanel, JBTable::class.java)!!
         assertEquals(2, table.rowCount)
-        assertEquals(6, table.columnCount)
+        assertEquals(5, table.columnCount)
+        assertFalse((0 until table.columnCount).any { table.getColumnName(it) == "Maven Project" })
+
+        val splitter = UIUtil.findComponentOfType(centerPanel, JBSplitter::class.java)!!
+        val scroll = UIUtil.findComponentOfType(splitter.secondComponent, JBScrollPane::class.java)!!
+        val editor = scroll.viewport.view as JEditorPane
+        assertEquals(0, table.selectedRow)
+        assertEquals("org.example:lib-a", table.getValueAt(table.selectedRow, 1))
+        assertTrue("Initial details must describe the selected sorted row", editor.text.contains(rec1.reasonDetail))
+        assertTrue(editor.text.contains("Consumer Paths in Project"))
+        assertTrue("Consumer paths should be rendered as a bulleted list", editor.text.contains("<li>"))
+        assertTrue("The reason label should be followed by a line break", editor.text.contains("<br"))
+        assertTrue("The source POM label should be followed by a line break", editor.text.contains("Source POM:</b><br"))
+        assertEquals("Mark Selected Entries for Removal", MyMessageBundle.message("redundant.managed.dependency.dialog.stageRemoval"))
 
         // All selected initially
         assertEquals(2, dialog.getSelectedRecommendations().size)
@@ -153,14 +176,126 @@ class RedundantManagedDependencyDialogTest : BasePlatformTestCase() {
         assertTrue(dialog.isOKActionEnabled)
 
         // Check details panel HTML content
-        val splitter = UIUtil.findComponentOfType(centerPanel, JBSplitter::class.java)!!
-        val scroll = UIUtil.findComponentOfType(splitter.secondComponent, JBScrollPane::class.java)!!
-        val editor = scroll.viewport.view as JEditorPane
-
         table.setRowSelectionInterval(0, 0)
         assertTrue(editor.text.contains("Managed by parent POM"))
 
         table.setRowSelectionInterval(1, 1)
         assertTrue(editor.text.contains("Unused in project"))
     }
+
+    /**
+     * Prüft die Reason-Labels für gleiche, höhere und gemischte bereitgestellte Versionen.
+     */
+    fun testReasonLabelsDescribeProvidedVersionRelation() {
+        val sameParent = recommendation(
+            artifactId = "a-same-parent",
+            reason = RedundancyReason.PARENT_MANAGED,
+            currentVersion = "1.0",
+            providedVersion = "1.0"
+        )
+        val higherParent = recommendation(
+            artifactId = "b-higher-parent",
+            reason = RedundancyReason.PARENT_MANAGED,
+            currentVersion = "1.0",
+            providedVersion = "1.1"
+        )
+        val higherDirect = recommendation(
+            artifactId = "c-higher-direct",
+            reason = RedundancyReason.DIRECT_DEPENDENCY_MATCH,
+            currentVersion = "1.0",
+            providedVersion = "1.2"
+        )
+        val mixedTransitive = recommendation(
+            artifactId = "d-mixed-transitive",
+            reason = RedundancyReason.TRANSITIVE_MATCH,
+            currentVersion = "1.0",
+            providedVersion = "1.0, 1.3",
+            consumers = listOf(
+                consumer("consumer-a", "1.0"),
+                consumer("consumer-b", "1.3")
+            )
+        )
+
+        val dialog = RedundantManagedDependencyDialog(
+            project,
+            listOf(mixedTransitive, higherDirect, higherParent, sameParent)
+        )
+        Disposer.register(testRootDisposable, dialog.disposable)
+        val centerPanel = dialog.createCenterPanel()
+        val table = UIUtil.findComponentOfType(centerPanel, JBTable::class.java)!!
+
+        assertEquals("Version Managed by Parent (Same Version)", table.getValueAt(0, 3))
+        assertEquals("Version Managed by Parent (Higher Version)", table.getValueAt(1, 3))
+        assertEquals("Explicit Direct Dependency (Higher Version)", table.getValueAt(2, 3))
+        assertEquals("Version Provided Transitively (Same and Higher Versions)", table.getValueAt(3, 3))
+    }
+
+    /**
+     * Prüft die Projektspalte, wenn Empfehlungen aus mehreren Maven-Projekten stammen.
+     */
+    fun testProjectColumnIsShownForMultipleProjects() {
+        val recommendations = listOf(
+            recommendation(
+                artifactId = "lib-a",
+                reason = RedundancyReason.UNUSED,
+                currentVersion = "1.0",
+                providedVersion = ""
+            ).copy(sourceProjectId = "module-a"),
+            recommendation(
+                artifactId = "lib-b",
+                reason = RedundancyReason.UNUSED,
+                currentVersion = "1.0",
+                providedVersion = ""
+            ).copy(sourceProjectId = "module-b")
+        )
+        val dialog = RedundantManagedDependencyDialog(project, recommendations)
+        Disposer.register(testRootDisposable, dialog.disposable)
+        val centerPanel = dialog.createCenterPanel()
+        val table = UIUtil.findComponentOfType(centerPanel, JBTable::class.java)!!
+
+        assertEquals(6, table.columnCount)
+        assertEquals("Maven Project", table.getColumnName(5))
+    }
+
+    /**
+     * Prüft, dass der Dialogtext die Maven-XML-Bezeichnung als Text statt als HTML-Tag enthält.
+     */
+    fun testExplanationIncludesDependencyManagementName() {
+        val explanation = MyMessageBundle.message("redundant.managed.dependency.dialog.explanation")
+
+        assertTrue(explanation.contains("Review candidate entries"))
+        assertTrue(explanation.contains("dependencyManagement"))
+        assertFalse(explanation.contains("in  are"))
+    }
+
+    /**
+     * Erstellt eine Empfehlung für Tests der tabellarischen Reason-Beschriftung.
+     */
+    private fun recommendation(
+        artifactId: String,
+        reason: RedundancyReason,
+        currentVersion: String,
+        providedVersion: String,
+        consumers: List<ConsumerDependencyInfo> = emptyList()
+    ): RedundantManagedDependencyRecommendation = RedundantManagedDependencyRecommendation(
+        groupId = "org.example",
+        artifactId = artifactId,
+        currentVersion = currentVersion,
+        reason = reason,
+        reasonDetail = "Details",
+        providedVersion = providedVersion,
+        consumers = consumers,
+        sourceProjectId = "module",
+        sourcePomPath = ""
+    )
+
+    /**
+     * Erstellt einen Consumer Path mit bereitgestellter Version.
+     */
+    private fun consumer(artifactId: String, version: String): ConsumerDependencyInfo = ConsumerDependencyInfo(
+        groupId = "org.example",
+        artifactId = artifactId,
+        resolvedVersion = version,
+        pathDescription = "org.example:$artifactId:1.0 -> org.example:lib:$version"
+    )
 }

@@ -67,9 +67,8 @@ class RedundantManagedDependencyDialog(
     init {
         title = MyMessageBundle.message("redundant.managed.dependency.dialog.title")
         isResizable = true
-        setOKButtonText(MyMessageBundle.message("redundant.managed.dependency.dialog.apply"))
+        setOKButtonText(MyMessageBundle.message("redundant.managed.dependency.dialog.stageRemoval"))
         init()
-        updateDetailPanel(0)
         updateOkActionState()
     }
 
@@ -110,7 +109,7 @@ class RedundantManagedDependencyDialog(
 
         return panel {
             row {
-                text(MyMessageBundle.message("redundant.managed.dependency.dialog.explanation"), maxLineLength = 60)
+                text(MyMessageBundle.message("redundant.managed.dependency.dialog.explanation"), maxLineLength = 80)
             }
             row {
                 comment(scopeDescription)
@@ -128,7 +127,7 @@ class RedundantManagedDependencyDialog(
             }
         }.also {
             dialogPanel = it
-            it.preferredSize = JBUI.size(880, 560)
+            it.preferredSize = JBUI.size(1040, 720)
         }
     }
 
@@ -154,16 +153,19 @@ class RedundantManagedDependencyDialog(
 
     /** Erstellt die sortierbare Empfehlungstabelle und synchronisiert Auswahl und Detailansicht. */
     private fun buildTable(): JBTable {
-        val columnNames = arrayOf(
+        val showProjectColumn = recommendations.map { it.sourceProjectId }.distinct().size > 1
+        val columnNames = mutableListOf(
             MyMessageBundle.message("redundant.managed.dependency.dialog.table.header.select"),
             MyMessageBundle.message("redundant.managed.dependency.dialog.table.header.managedDependency"),
             MyMessageBundle.message("redundant.managed.dependency.dialog.table.header.currentVersion"),
             MyMessageBundle.message("redundant.managed.dependency.dialog.table.header.reason"),
-            MyMessageBundle.message("redundant.managed.dependency.dialog.table.header.providedVersion"),
-            MyMessageBundle.message("redundant.managed.dependency.dialog.table.header.project")
+            MyMessageBundle.message("redundant.managed.dependency.dialog.table.header.providedVersion")
         )
+        if (showProjectColumn) {
+            columnNames.add(MyMessageBundle.message("redundant.managed.dependency.dialog.table.header.project"))
+        }
 
-        tableModel = object : DefaultTableModel(columnNames, 0) {
+        tableModel = object : DefaultTableModel(columnNames.toTypedArray(), 0) {
             /** Liefert den Checkbox-Typ für die Auswahlspalte und Texttypen für die übrigen Spalten. */
             override fun getColumnClass(columnIndex: Int): Class<*> =
                 if (columnIndex == COLUMN_SELECT) Boolean::class.javaObjectType else String::class.java
@@ -184,16 +186,17 @@ class RedundantManagedDependencyDialog(
         }
 
         recommendations.forEachIndexed { index, rec ->
-            tableModel.addRow(
-                arrayOf<Any>(
-                    selectionStates[index],
-                    "${rec.groupId}:${rec.artifactId}",
-                    rec.currentVersion,
-                    reasonLabel(rec.reason),
-                    rec.providedVersion ?: "-",
-                    rec.sourceProjectId
-                )
+            val row = mutableListOf<Any>(
+                selectionStates[index],
+                "${rec.groupId}:${rec.artifactId}",
+                rec.currentVersion,
+                reasonLabel(rec),
+                rec.providedVersion ?: "-"
             )
+            if (showProjectColumn) {
+                row.add(rec.sourceProjectId)
+            }
+            tableModel.addRow(row.toTypedArray())
         }
 
         table = JBTable(tableModel).apply {
@@ -216,6 +219,7 @@ class RedundantManagedDependencyDialog(
 
         if (recommendations.isNotEmpty()) {
             table.setRowSelectionInterval(0, 0)
+            updateDetailPanel(table.convertRowIndexToModel(0))
         }
 
         return table
@@ -234,7 +238,9 @@ class RedundantManagedDependencyDialog(
             setComparator(COLUMN_PROVIDED_VERSION) { o1, o2 ->
                 ComparableVersion(o1?.toString().orEmpty()).compareTo(ComparableVersion(o2?.toString().orEmpty()))
             }
-            for (col in listOf(COLUMN_MANAGED_DEPENDENCY, COLUMN_REASON, COLUMN_PROJECT)) {
+            val textColumns = listOf(COLUMN_MANAGED_DEPENDENCY, COLUMN_REASON) +
+                if (model.columnCount > COLUMN_PROJECT) listOf(COLUMN_PROJECT) else emptyList()
+            for (col in textColumns) {
                 setComparator(col) { o1, o2 ->
                     StringUtil.naturalCompare(o1?.toString().orEmpty(), o2?.toString().orEmpty())
                 }
@@ -274,7 +280,7 @@ class RedundantManagedDependencyDialog(
         val sourcePom = rec.sourcePomPath.takeIf { it.isNotBlank() }?.let {
             "<p><b>${StringUtil.escapeXmlEntities(
                 MyMessageBundle.message("redundant.managed.dependency.dialog.detail.sourcePom")
-            )}</b> ${StringUtil.escapeXmlEntities(it)}</p>"
+            )}</b><br/>${StringUtil.escapeXmlEntities(it)}</p>"
         }.orEmpty()
 
         val paths = if (rec.consumers.isEmpty()) {
@@ -282,17 +288,17 @@ class RedundantManagedDependencyDialog(
                 MyMessageBundle.message("redundant.managed.dependency.dialog.detail.consumers.empty")
             )
         } else {
-            rec.consumers.joinToString("<br/>") { consumer ->
-                StringUtil.escapeXmlEntities(
+            rec.consumers.joinToString(separator = "", prefix = "<ul>", postfix = "</ul>") { consumer ->
+                "<li>${StringUtil.escapeXmlEntities(
                     "${consumer.groupId}:${consumer.artifactId} -> ${consumer.pathDescription}"
-                )
+                )}</li>"
             }
         }
         val pathsTitle = StringUtil.escapeXmlEntities(
             MyMessageBundle.message("redundant.managed.dependency.dialog.detail.consumers.title")
         )
 
-        detailEditor.text = "<html><body><p><b>$reasonTitle</b> $reasonDetail</p>" +
+        detailEditor.text = "<html><body><p><b>$reasonTitle</b><br/>$reasonDetail</p>" +
             "$sourcePom<p><b>$pathsTitle</b></p>$paths</body></html>"
         detailEditor.caretPosition = 0
     }
@@ -319,12 +325,45 @@ class RedundantManagedDependencyDialog(
         super.doOKAction()
     }
 
-    /** Liefert die lokalisierte Bezeichnung des Redundanzgrunds. */
-    private fun reasonLabel(reason: RedundancyReason): String = when (reason) {
-        RedundancyReason.PARENT_MANAGED -> MyMessageBundle.message("redundant.managed.dependency.reason.parentManaged")
-        RedundancyReason.DIRECT_DEPENDENCY_MATCH -> MyMessageBundle.message("redundant.managed.dependency.reason.directMatch")
-        RedundancyReason.TRANSITIVE_MATCH -> MyMessageBundle.message("redundant.managed.dependency.reason.transitiveMatch")
-        RedundancyReason.UNUSED -> MyMessageBundle.message("redundant.managed.dependency.reason.unused")
+    /** Liefert die lokalisierte Bezeichnung des Redundanzgrunds mit zutreffender Versionsrelation. */
+    private fun reasonLabel(recommendation: RedundantManagedDependencyRecommendation): String {
+        val relation = versionRelation(recommendation)
+        return when (recommendation.reason) {
+            RedundancyReason.PARENT_MANAGED ->
+                MyMessageBundle.message("redundant.managed.dependency.reason.parentManaged", relation)
+            RedundancyReason.DIRECT_DEPENDENCY_MATCH ->
+                MyMessageBundle.message("redundant.managed.dependency.reason.directMatch", relation)
+            RedundancyReason.TRANSITIVE_MATCH ->
+                MyMessageBundle.message("redundant.managed.dependency.reason.transitiveMatch", relation)
+            RedundancyReason.UNUSED -> MyMessageBundle.message("redundant.managed.dependency.reason.unused")
+        }
+    }
+
+    /**
+     * Bestimmt, ob die bereitgestellten Versionen mit der verwalteten Version übereinstimmen oder höher sind.
+     *
+     * @param recommendation Die zu beschriftende Empfehlung.
+     * @return Die lokalisierte Kennzeichnung „Same Version“, „Higher Version“ oder eine gemischte Kennzeichnung.
+     */
+    private fun versionRelation(recommendation: RedundantManagedDependencyRecommendation): String {
+        val providedVersions = if (recommendation.reason == RedundancyReason.TRANSITIVE_MATCH) {
+            recommendation.consumers.map { it.resolvedVersion }.filter(String::isNotBlank).distinct()
+        } else {
+            listOfNotNull(recommendation.providedVersion)
+        }
+        val currentVersion = ComparableVersion(recommendation.currentVersion)
+        val hasSameVersion = providedVersions.any {
+            ComparableVersion(it).compareTo(currentVersion) == 0
+        }
+        val hasHigherVersion = providedVersions.any {
+            ComparableVersion(it).compareTo(currentVersion) > 0
+        }
+        val key = when {
+            hasSameVersion && hasHigherVersion -> "redundant.managed.dependency.reason.versionLabel.mixed"
+            hasHigherVersion -> "redundant.managed.dependency.reason.versionLabel.higher"
+            else -> "redundant.managed.dependency.reason.versionLabel.same"
+        }
+        return MyMessageBundle.message(key)
     }
 
     /** Zeichnet eine themenabhängige Trennlinie mit mittiger, bei Hover hervorgehobener Griffleiste. */

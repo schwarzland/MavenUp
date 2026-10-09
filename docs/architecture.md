@@ -26,7 +26,7 @@ The plugin is clearly divided into three layers.
 - `PomNavigationService`: locates dependency, parent, plugin, and version-property definitions in the `pom.xml` and opens the editor at the respective location; `findProperty`/`navigateToProperty` also resolve properties declared inside a `<profile>` and accept both `name` and `${name}`.
 - `DependencyHierarchyService`: builds the dependency inclusion and management tree for a selected Maven coordinate, including parent POMs, BOM imports, managed entries, and resolved transitive paths.
 - `TemporaryDependencyTreeResolver`: resolves temporary in-memory dependency trees and effective `<dependencyManagement>` for candidate artifact versions from local and remote Maven repositories with property interpolation, BOM imports, and cycle detection.
-- `RedundantManagedDependencyService`: detects redundant `<dependencyManagement>` entries in the current project configuration (already managed by parent, declared directly with matching version, satisfied transitively across all consumers, or unused).
+- `RedundantManagedDependencyService`: detects candidate `<dependencyManagement>` removals and explains the version source (effective parent management, a direct declaration, or every known transitive consumer path), including whether a same or higher version would be used after removal.
 - Supported CVSS vectors from OSV are converted into comparable base scores with `us.springett:cvss-calculator`. For not-yet-supported vectors, the finding is retained and uses the severity of the source.
 
 ## UI (`de.schwarzland.mavenup.ui`)

@@ -8,12 +8,16 @@
 
 - **Added managed dependency redundancy analysis for `<dependencyManagement>` entries across the current project configuration without upgrading parent POMs or direct dependencies.**
 - **Added interactive `RedundantManagedDependencyDialog` with a visible, theme-aware split divider, centered grip with hover feedback, remembered divider position, and word-wrapping HTML details to inspect, select, and stage redundant managed dependencies for removal across the project.**
-- **Added an optional Show all pending changes after applying checkbox to redundant managed dependencies, clearing all main-table filters and activating Pending: All Changes after applying the selection.**
+- **Added an optional Show all pending changes after staging checkbox to redundant managed dependencies, clearing all main-table filters and activating Pending: All Changes after staging the selection.**
 - **Added in-memory dependency tree resolution via `TemporaryDependencyTreeResolver` with multi-consumer compatibility validation to detect transitively satisfied managed dependencies without mutating project files.**
 - **Expanded redundancy DEBUG logs with analysis scope, results, POM cache and local-repository hits, and individual HTTP GET attempts and response statuses without exposing credentials.**
 
 ### Changed
 
+- **Clarified redundancy dialog source POM details and consumer paths, and show the Maven Project column only for results spanning multiple projects.**
+- **Expanded the redundancy review dialog, displayed consumer paths as a bulleted list, and renamed its action to Mark Selected Entries for Removal to clarify that changes are staged until Update.**
+- **Clarified redundancy labels as Version Managed by Parent and Version Provided Transitively, and distinguish Same Version, Higher Version, or Same and Higher Versions without repeating consumer paths already listed in the details panel.**
+- **Clarified managed dependency redundancy reasons with the version source and per-path versions, and let users review candidates even when removing the entry may select a higher version.**
 - **Renamed the redundancy actions to Check Managed Dependencies for Redundancy... and Check This Managed Dependency for Redundancy so the toolbar and context-menu labels clearly refer to the same check.**
 - **Updated the Managed Entries tooltip to describe the redundancy check alongside removal or comment-out actions and clarify that filter scope applies only to those bulk actions.**
 
@@ -23,6 +27,9 @@
 
 ### Fixed
 
+- **Fixed the redundancy dialog introduction so `<dependencyManagement>` renders as text instead of disappearing as an HTML tag.**
+- **Fixed the initial Redundancy Details panel to show the currently selected table row, including after the table's default sort.**
+- **Reported candidate removals only when parent, direct, and every known transitive source supplies at least the currently managed version.**
 - **Fixed Redundant Managed Dependencies becoming impossible to narrow after displaying long redundancy details or widening the dialog.**
 - **Fixed unintended SNAPSHOT version selections after startup and refresh, including misleading dropdown values and updates created by opening an unchanged editor.**
 - **Fixed higher SNAPSHOT versions appearing below the latest release in New Version dropdowns and version preselection, while preserving release priority over other versions.**

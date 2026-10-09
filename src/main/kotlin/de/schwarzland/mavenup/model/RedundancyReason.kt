@@ -5,17 +5,17 @@ package de.schwarzland.mavenup.model
  */
 enum class RedundancyReason {
     /**
-     * Die Abhängigkeit wird bereits durch ein übergeordnetes `<parent>`-POM verwaltet.
+     * Die effektive Parent-Verwaltung liefert dieselbe oder eine höhere Version als der lokale Eintrag.
      */
     PARENT_MANAGED,
 
     /**
-     * Die Abhängigkeit ist im Projekt als direkte `<dependency>` mit identischer Version deklariert.
+     * Die Abhängigkeit ist direkt mit derselben oder einer höheren expliziten Version deklariert.
      */
     DIRECT_DEPENDENCY_MATCH,
 
     /**
-     * Alle Konsumenten im Abhängigkeitsbaum erhalten auch ohne lokale Verwaltung dieselbe (oder neuere) transitive Version.
+     * Alle bekannten Konsumentenpfade erhalten auch ohne lokale Verwaltung dieselbe oder eine höhere transitive Version.
      */
     TRANSITIVE_MATCH,
 
