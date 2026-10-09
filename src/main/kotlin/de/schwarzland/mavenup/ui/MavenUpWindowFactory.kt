@@ -1,8 +1,6 @@
 package de.schwarzland.mavenup.ui
 
-import de.schwarzland.mavenup.model.ManagedDependencyRemovalRecommendation
 import de.schwarzland.mavenup.model.RedundantManagedDependencyRecommendation
-import de.schwarzland.mavenup.service.ManagedDependencyRecommendationService
 import de.schwarzland.mavenup.model.ApiError
 import de.schwarzland.mavenup.model.DependencyUpdate
 import de.schwarzland.mavenup.model.VulnerabilityAdvisory
@@ -348,8 +346,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private var isRefreshing = false
         /** `true`, solange eine Prüfung auf redundante verwaltete Abhängigkeiten (Ist-Zustand) läuft. */
         internal var isCheckingRedundantManaged = false
-        /** `true`, solange eine Bereinigungsempfehlungsprüfung läuft. */
-        internal var isCheckingManagedRemoval = false
 
         /**
          * `true`, solange eine Online-Suche nach neuen Versionen läuft.
@@ -1228,15 +1224,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     },
                     isMenuItem = true
                 ) { checkRedundantManagedDependencyAction() })
-                add(toolbarAction(
-                    "toolwindow.MyToolWindow.checkManagedRemoval.menuItem",
-                    AllIcons.Actions.GC,
-                    { !showingTransitiveView && isCheckManagedRemovalEnabled() },
-                    descriptionProvider = {
-                        MyMessageBundle.message("toolwindow.MyToolWindow.checkManagedRemoval.tooltip")
-                    },
-                    isMenuItem = true
-                ) { checkManagedDependencyRemovalAction() })
             }
 
             toolbarGroup.apply {
@@ -1558,15 +1545,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     isCheckRedundantManagedEnabled()
                 ) {
                     checkRedundantManagedDependencyAction(target)
-                }
-            }
-            if (target.type == managedDependencyType || target.type == "dependency" || target.type == PARENT_TYPE) {
-                addContextMenuAction(
-                    group,
-                    MyMessageBundle.message("toolwindow.MyToolWindow.checkManagedRemoval.contextMenu"),
-                    isCheckManagedRemovalEnabled()
-                ) {
-                    checkManagedDependencyRemovalAction(target)
                 }
             }
         }
@@ -3456,18 +3434,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /**
          * Prüft, ob die Prüfung auf redundante verwaltete Abhängigkeiten (Ist-Zustand) derzeit gestartet werden darf.
          *
-         * @return `true`, wenn keine andere Tool-Window-Operation und keine Bereinigungsprüfung läuft.
+         * @return `true`, wenn keine andere Tool-Window-Operation läuft.
          */
         internal fun isCheckRedundantManagedEnabled(): Boolean =
-            !isRefreshing && !isSearchingVersions && !isUpdating && !isCheckingManagedRemoval && !isCheckingRedundantManaged
-
-        /**
-         * Prüft, ob die Prüfung auf redundante verwaltete Abhängigkeiten derzeit gestartet werden darf.
-         *
-         * @return `true`, wenn keine andere Tool-Window-Operation und keine Bereinigungsprüfung läuft.
-         */
-        internal fun isCheckManagedRemovalEnabled(): Boolean =
-            !isRefreshing && !isSearchingVersions && !isUpdating && !isCheckingManagedRemoval && !isCheckingRedundantManaged
+            !isRefreshing && !isSearchingVersions && !isUpdating && !isCheckingRedundantManaged
 
         /**
          * Startet die Prüfung auf redundante verwaltete Abhängigkeiten im Ist-Zustand.
@@ -3526,103 +3496,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
             for (rec in recs) {
                 val managedKey = "${rec.groupId}:${rec.artifactId}"
                 markManagedEntryForRemoval(managedKey, managedType, rec.currentVersion)
-            }
-
-            cancelActiveCellEditing()
-            table.repaint()
-            updateUpdateButtonState()
-            if (showAllPendingChanges) {
-                resetAllFilters()
-                changesFilterComboBox.selectedItem = PendingChangesFilter.ALL_CHANGES
-            }
-            applyRowFilter()
-        }
-
-        /**
-         * Startet die projektweite oder auf die angeklickte Zeile begrenzte Bereinigungsanalyse.
-         *
-         * @param target Optionaler Kontextmenü-Eintrag; verwaltete Dependencies filtern den Ziel-Eintrag,
-         * direkte Dependencies und Parent-POMs filtern den Upgrade-Trigger.
-         */
-        internal fun checkManagedDependencyRemovalAction(target: DependencyContextMenuTarget? = null) {
-            if (!isCheckManagedRemovalEnabled()) return
-            isCheckingManagedRemoval = true
-            refreshToolbar()
-            val managedDependencyType = MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
-            val scope = ManagedDependencyCleanupScope.fromTarget(target, managedDependencyType)
-            ManagedDependencyCleanupCheckRunner(project, availableVersions).start(
-                scope = scope,
-                onSuccess = { result ->
-                    if (result.recommendations.isEmpty()) {
-                        if (result.isIncomplete) {
-                            Messages.showWarningDialog(
-                                project,
-                                MyMessageBundle.message(
-                                    "managed.dependency.removal.incomplete.none",
-                                    scope.description,
-                                    incompleteCleanupLookupSummary(result.incompleteLookups),
-                                    MyMessageBundle.message("managed.dependency.removal.coverage.limitations")
-                                ),
-                                MyMessageBundle.message("managed.dependency.removal.dialog.title")
-                            )
-                        } else {
-                            Messages.showInfoMessage(
-                                project,
-                                MyMessageBundle.message(
-                                    "managed.dependency.removal.noneFound",
-                                    scope.description,
-                                    MyMessageBundle.message("toolwindow.MyToolWindow.checkManagedRemoval.noneFound"),
-                                    MyMessageBundle.message("managed.dependency.removal.coverage.limitations")
-                                ),
-                                MyMessageBundle.message("managed.dependency.removal.dialog.title")
-                            )
-                        }
-                    } else {
-                        ManagedDependencyRemovalDialog(
-                            project = project,
-                            recommendations = result.recommendations,
-                            scopeDescription = scope.description,
-                            incompleteLookups = result.incompleteLookups
-                        ) { selectedRecs, showPending ->
-                            applyManagedDependencyRemovalRecommendations(selectedRecs, showPending)
-                        }.show()
-                    }
-                },
-                onFinished = {
-                    isCheckingManagedRemoval = false
-                    refreshToolbar()
-                }
-            )
-        }
-
-        /**
-         * Wendet die vom Benutzer im Dialog ausgewählten Empfehlungen zur Bereinigung verwalteter Abhängigkeiten an.
-         *
-         * Setzt für die auslösende Komponente die Zielversion und markiert die redundante verwaltete
-         * Abhängigkeit zur Entfernung (`removeFromPom = true`).
-         * Auf Wunsch werden anschließend nur die Haupttabellenfilter zurückgesetzt und alle
-         * ausstehenden Änderungen angezeigt; Sortierung und vorgemerkte Änderungen bleiben erhalten.
-         *
-         * @param recs Die Liste der ausgewählten [ManagedDependencyRemovalRecommendation].
-         * @param showAllPendingChanges Aktiviert nach der Übernahme den alleinigen Pending-Filter für alle Änderungen.
-         */
-        internal fun applyManagedDependencyRemovalRecommendations(
-            recs: List<ManagedDependencyRemovalRecommendation>,
-            showAllPendingChanges: Boolean = false
-        ) {
-            if (recs.isEmpty()) return
-            for (rec in recs) {
-                val triggerKey = "${rec.triggerGroupId}:${rec.triggerArtifactId}"
-                val managedKey = "${rec.managedGroupId}:${rec.managedArtifactId}"
-
-                // 1. Zielversion für die auslösende Komponente setzen
-                if (rec.triggerTargetVersion != rec.triggerCurrentVersion) {
-                    synchronizePropertyVersions(triggerKey, rec.triggerTargetVersion)
-                }
-
-                // 2. Verwalteten Eintrag zur Entfernung vormerken
-                val managedType = MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
-                markManagedEntryForRemoval(managedKey, managedType, rec.managedCurrentVersion)
             }
 
             cancelActiveCellEditing()

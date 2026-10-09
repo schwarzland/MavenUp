@@ -6,7 +6,6 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.schwarzland.mavenup.model.RedundancyReason
 import org.jetbrains.idea.maven.model.MavenArtifact
 import org.jetbrains.idea.maven.model.MavenArtifactNode
-import org.jetbrains.idea.maven.model.MavenId
 import org.jetbrains.idea.maven.project.MavenProject
 
 /**

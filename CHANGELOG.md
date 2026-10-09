@@ -7,28 +7,17 @@
 ### Added
 
 - **Added Check Redundant Managed Dependencies action in the Managed Entries toolbar menu and Check if redundant in the row context menu for managed dependencies, analyzing whether entries in `<dependencyManagement>` are redundant in the current project configuration without upgrading parent POMs or dependencies.**
-- **Added interactive `RedundantManagedDependencyDialog` to inspect, select, and stage redundant managed dependencies for removal across the project.**
-- **Added an optional Show all pending changes after applying checkbox to cleanup recommendations, clearing all main-table filters and activating Pending: All Changes after applying the selection.**
-- Added automatic detection and recommendation of redundant `<dependencyManagement>` declarations when parent POMs or direct dependencies are upgraded, including in-memory candidate POM resolution via `TemporaryDependencyTreeResolver` and multi-consumer compatibility validation.
-- Added a dedicated interactive `ManagedDependencyRemovalDialog` accessible via the toolbar (**Cleanup**) and table context menu, displaying candidate target versions, explanations, and affected consumer paths with one-click application to the MavenUp update pipeline.
+- **Added interactive `RedundantManagedDependencyDialog` with a visible, theme-aware split divider, centered grip with hover feedback, remembered divider position, and word-wrapping HTML details to inspect, select, and stage redundant managed dependencies for removal across the project.**
+- **Added an optional Show all pending changes after applying checkbox to redundant managed dependencies, clearing all main-table filters and activating Pending: All Changes after applying the selection.**
+- **Added in-memory dependency tree resolution via `TemporaryDependencyTreeResolver` with multi-consumer compatibility validation to detect transitively satisfied managed dependencies without mutating project files.**
+- **Expanded redundancy DEBUG logs with analysis scope, results, POM cache and local-repository hits, and individual HTTP GET attempts and response statuses without exposing credentials.**
 
-### Changed
+### Removed
 
-- **Cleanup checks now explicitly identify profile declarations, inherited `dependencyManagement` entries, and imported BOM contents as outside the analysis scope, including when no recommendations are found.**
-- **Cleanup checks now show their project-wide scope, identify each recommendation's Maven project and source POM, and warn when version or candidate POM lookups leave the results incomplete.**
-- **When selected cleanup recommendations share a trigger component, MavenUp now chooses the lowest target version verified to satisfy every selected managed dependency and blocks application when no common version exists.**
-- **Cleanup recommendation actions in the toolbar and row context menu are disabled while a check is already running.**
-- **Cleanup recommendations use a vertically adjustable table/detail split with a remembered divider position and fully scrollable, wrapping explanations and consumer paths.**
-- **Cleanup recommendation checks now show the active project and dependency in a cancellable background progress task.**
-- **Expanded cleanup DEBUG logs with analysis scope, candidate evaluations, POM cache and local-repository hits, and individual HTTP GET attempts and response statuses without exposing credentials.**
-- **Moved project-wide cleanup recommendations under the Managed Entries toolbar menu, renamed that action to Check Cleanup Recommendations, and shortened the row context action to Check Cleanup Recommendation.**
-- Refactored the managed dependency dialog selection test to keep it within the configured method-length limit.
+- **Removed the Check Cleanup Recommendations feature from the Managed Entries toolbar menu and row context menu.**
 
 ### Fixed
 
-- **Fixed cleanup recommendations not recognizing managed dependencies that are already provided by the current version of direct dependencies or parent POMs.**
-- **Fixed cleanup recommendations not recognizing direct dependencies that omit an explicit version in `pom.xml` (e.g. versions inherited via parent POM or dependencyManagement) as candidate triggers.**
-- **Made the cleanup dialog's resize divider visible with a theme-aware line, centered grip, and hover feedback across the draggable area.**
 - **Fixed unintended SNAPSHOT version selections after startup and refresh, including misleading dropdown values and updates created by opening an unchanged editor.**
 - **Fixed higher SNAPSHOT versions appearing below the latest release in New Version dropdowns and version preselection, while preserving release priority over other versions.**
 - Fixed timestamped Maven snapshot resolutions replacing declared `*-SNAPSHOT` versions in MavenUp, which could hide cached versions from the update list.

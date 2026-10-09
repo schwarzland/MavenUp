@@ -27,8 +27,8 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
 ## Kernkomponenten (`src/main/kotlin/de/schwarzland/mavenup/`)
 
 ### Paketstruktur
-- **`model`**: `DependencyUpdate`, `VulnerabilityAdvisory`, `VulnerabilitySeverity`, `AffectedVersionRange`, `DependencyHierarchyNode`, `DependencyHierarchyNodeType`, `ManagedDependencyRemovalRecommendation`, `ManagedDependencyTargetVersion`, `ConsumerDependencyInfo`, `TemporaryArtifactCoordinate`, `TemporaryDependencyNode` – reine Daten-DTOs ohne Logik.
-- **`service`**: Alle externen API-Zugriffe, Settings, Startup-Logik, Abhängigkeitshierarchie-Analyse, temporäre POM-Auflösung, Bereinigungsempfehlungen und Hilfsfunktionen.
+- **`model`**: `DependencyUpdate`, `VulnerabilityAdvisory`, `VulnerabilitySeverity`, `AffectedVersionRange`, `DependencyHierarchyNode`, `DependencyHierarchyNodeType`, `RedundantManagedDependencyRecommendation`, `ConsumerDependencyInfo`, `TemporaryArtifactCoordinate`, `TemporaryDependencyNode` – reine Daten-DTOs ohne Logik.
+- **`service`**: Alle externen API-Zugriffe, Settings, Startup-Logik, Abhängigkeitshierarchie-Analyse, temporäre POM-Auflösung, Redundanzprüfungen und Hilfsfunktionen.
 - **`ui`**: Tool-Window, Dialoge, Settings-UI, I18n-Bundle sowie ausgelagerte, zustandslose UI-Hilfsdateien.
 
 ### Komponentenreferenz
@@ -51,15 +51,10 @@ Projekt-/PSI-Umgebung erben von `BasePlatformTestCase` (z. B. `MavenUpWindowFact
 `VulnerabilityScanServiceTest`). Netzwerklastige Services werden über
 injizierte Seams/Interfaces netzwerkfrei getestet.
 `CacheContentsDialogTest` deckt TTL-Anzeige und Invalidierung ab;
-`ManagedDependencyRemovalDialogTest` prüft Auswahl und Übernahme sowie das skalierbare Split-Layout,
-die gespeicherte Aufteilung, lange und leere Detailinhalte, HTML-Maskierung, den sichtbaren
-Splitter-Griff inklusive Theme-Farben, Hover und Mausziehen sowie die optionale Folgeansicht
-einschließlich Standardzustand, Abbruch und ungültiger Auswahl sowie den sichtbaren Hinweis auf
-nicht analysierte Maven-Profile, geerbte `dependencyManagement`-Einträge und BOM-Inhalte;
-`ManagedDependencyRemovalIntegrationTest` prüft den optionalen Haupttabellen-Filterwechsel auf alle
-ausstehenden Änderungen, bestehende Vormerkungen, unveränderte Sortierung und Filtererhalt ohne Option;
+`RedundantManagedDependencyDialogTest` prüft Auswahl, Übernahme, Split-Layout und Folgeansichten;
+`RedundantManagedDependencyServiceTest` prüft die Erkennung redundanter Einträge (Parent-Management, direkte Abhängigkeit, transitive Bereitstellung, ungenutzt);
 `VersionLookupLoggingTest` prüft DEBUG-Ausgaben und lokale HTTP-Versuche einschließlich Cache-Treffern,
-Bereinigungsprüfungen, POM-Antwortstatus und Ausschluss von Zugangsdaten aus POM-Abfrage-Logs.
+Redundanzprüfungen, POM-Antwortstatus und Ausschluss von Zugangsdaten aus POM-Abfrage-Logs.
 
 ## KI-Agenten (Copilot / Junie)
 - Für KI-Agenten gelten die verbindlichen Arbeitsanweisungen in `.github/copilot-instructions.md`.

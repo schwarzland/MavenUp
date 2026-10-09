@@ -20,17 +20,6 @@ UI-Komponenten: [`components-ui.md`](components-ui.md) und
   `buildRowSorter()` macht die Spalten Group Id, Artifact Id und Type über `cellTextComparator`
   sortierbar (Zyklus aufsteigend → absteigend → unsortiert, `installSortableHeaderRenderer`);
   ab `CONFIRM_CURRENT_VERSION_COLUMN` (Index 3) sind die Versionsspalten nicht sortierbar.
-- **ManagedDependencyRemovalDialog**: interaktiver `DialogWrapper` zur Prüfung und Übernahme von
-  Bereinigungsempfehlungen für redundante `<dependencyManagement>`-Einträge. Zeigt eine Tabelle der
-  Empfehlungen mit Checkbox-Auswahl (`COLUMN_SELECT`), Managed-Koordinate, aktueller Version, Trigger-Komponente,
-  Zielversion, bereitgestellter Version und Maven-Projekt sowie Schaltflächen zum Auswählen und Abwählen aller Einträge.
-  Ein Scope-Hinweis stellt klar, dass auch zeilenbezogene Filter alle Maven-Module durchsuchen; die Detailansicht
-  zeigt zusätzlich den Quell-POM-Pfad jeder Empfehlung. Nicht verfügbare Versions- oder POM-Daten werden mit einer
-  sichtbaren **INCOMPLETE CHECK**-Warnung gekennzeichnet. Ein zusätzlicher Coverage-Hinweis erscheint
-  immer – auch bei null Treffern – und grenzt Profileinträge, geerbte `dependencyManagement`-Einträge
-  und nicht expandierte BOM-Inhalte als nicht analysiert ab; BOM-Imports sind selbst keine Kandidaten.
-  Das Layout verwendet Kotlin UI DSL v2 und einen vertikalen `JBSplitter` mit initial 65 Prozent Tabellenhöhe,
-  Mindesthöhen und IDE-weit gespeicherter Aufteilung (`MavenUp.ManagedDependencyRemovalDialog.splitter`).
 - **RedundantManagedDependencyDialog**: interaktiver `DialogWrapper` zur Prüfung und Übernahme redundanter
   `<dependencyManagement>`-Einträge im Ist-Zustand. Zeigt eine Tabelle mit Checkbox-Auswahl (`COLUMN_SELECT`),
   Managed-Koordinate, aktueller Version, Redundanzgrund (`RedundancyReason`), bereitgestellter Version und Maven-Projekt
@@ -41,13 +30,10 @@ UI-Komponenten: [`components-ui.md`](components-ui.md) und
   `configureDivider` zeichnet mit der privaten `CleanupDividerBorder` direkt auf dem nativen Divider
   eine themeabhängige Linie und drei mittige Griffpunkte; die zehn DPI-skalierten Pixel hohe Ziehfläche
   behält den nativen Resize-Cursor und die Mausbehandlung bei und hebt den Griff bei Hover hervor.
-  Der skalierbare Dialog zeigt unter **Recommendation Details** Erklärtext und Konsumenten-Abhängigkeitspfade
+  Der skalierbare Dialog zeigt unter **Redundancy Details** Erklärtext und Konsumenten-Abhängigkeitspfade
   gemeinsam in einem scrollbar dargestellten, HTML-maskierten `JEditorPane` mit `HTMLEditorKitBuilder`-Word-Wrap;
   beim Zeilenwechsel wird die Leseposition zurückgesetzt. Über `getSelectedRecommendations` werden die
-  ausgewählten Empfehlungen an den Callback übergeben und in `MyToolWindow` zur Versionsanpassung und
-  Entfernungsvormerkung angewendet. Empfehlungen derselben Trigger-Komponente werden auf die niedrigste
-  gemeinsame geprüfte Zielversion abgestimmt; ohne gemeinsame Version zeigt die Tabelle den Konflikt und
-  deaktiviert die Anwendung, bis die Auswahl angepasst wurde.
+  ausgewählten Einträge an den Callback übergeben und in `MyToolWindow` zur Entfernungsvormerkung angewendet.
   Unterhalb des Splitters bietet eine initial deaktivierte, nicht gespeicherte UI-DSL-Checkbox
   **Show all pending changes after applying** einen sichtbaren Kommentar zum Filterwechsel.
   `bindSelected` bindet sie an den Dialogzustand; `doOKAction` übernimmt diesen nur bei gültiger

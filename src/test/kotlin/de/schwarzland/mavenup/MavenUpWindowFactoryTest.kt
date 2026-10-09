@@ -370,7 +370,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
     }
 
     /**
-     * Prüft, dass das Managed-Entries-Untermenü seine Bulk-Aktionen und Bereinigungsempfehlungen enthält.
+     * Prüft, dass das Managed-Entries-Untermenü seine Bulk-Aktionen und die Redundanzprüfung enthält.
      */
     fun testManagedEntriesBulkMenuIsPresentInToolbar() {
         val toolWindowInstance = MavenUpWindowFactory().MyToolWindow(project)
@@ -380,26 +380,26 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         assertNotNull("Das \"Managed Entries\"-Untermenü sollte vorhanden sein", managedEntriesGroup)
         assertTrue(
-            "Das Untermenü sollte die Managed-Entries-Aktionen und die Bereinigungsempfehlung enthalten",
+            "Das Untermenü sollte die Managed-Entries-Aktionen und die Redundanzprüfung enthalten",
             managedEntriesGroup!!.childActionsOrStubs
                 .map { it.templatePresentation.text }
                 .containsAll(
                     listOf(
                         toolWindowInstance.managedDependenciesActionLabel(),
                         toolWindowInstance.managedPluginsActionLabel(),
-                        MyMessageBundle.message("toolwindow.MyToolWindow.checkManagedRemoval.menuItem")
+                        MyMessageBundle.message("toolwindow.MyToolWindow.checkRedundantManaged.menuItem")
                     )
                 )
         )
         assertFalse(
-            "Die Bereinigungsaktion sollte nicht mehr als eigener Toolbar-Button erscheinen",
+            "Die Redundanzprüfung sollte nicht als eigener oberster Toolbar-Button erscheinen",
             toolWindowInstance.topToolbarActions().any {
-                it.templatePresentation.text == MyMessageBundle.message("toolwindow.MyToolWindow.checkManagedRemoval.menuItem")
+                it.templatePresentation.text == MyMessageBundle.message("toolwindow.MyToolWindow.checkRedundantManaged.menuItem")
             }
         )
     }
 
-    fun testCleanupRecommendationActionsAreDisabledWhileCheckIsRunning() {
+    fun testRedundantManagedActionsAreDisabledWhileCheckIsRunning() {
         val toolWindowInstance = MavenUpWindowFactory().MyToolWindow(project)
         val toolbarGroup = toolWindowInstance.topToolbarActions()
             .filterIsInstance<DefaultActionGroup>()
@@ -408,13 +408,14 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
                     MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.group.button")
             }
         val toolbarAction = toolbarGroup.childActionsOrStubs
-            .first { it.templatePresentation.text == MyMessageBundle.message("toolwindow.MyToolWindow.checkManagedRemoval.menuItem") }
+            .first { it.templatePresentation.text == MyMessageBundle.message("toolwindow.MyToolWindow.checkRedundantManaged.menuItem") }
+        val managedDependencyType = MyMessageBundle.message("toolwindow.MyToolWindow.type.managedDependency")
         val contextAction = toolWindowInstance.buildContextMenuGroup(
-            DependencyContextMenuTarget(0, "com.example", "library", "", "dependency", "1.0.0")
+            DependencyContextMenuTarget(0, "com.example", "library", "", managedDependencyType, "1.0.0")
         ).getChildren(null).filterIsInstance<com.intellij.openapi.actionSystem.AnAction>()
             .first {
                 it.templatePresentation.text ==
-                    MyMessageBundle.message("toolwindow.MyToolWindow.checkManagedRemoval.contextMenu")
+                    MyMessageBundle.message("toolwindow.MyToolWindow.checkRedundantManaged.contextMenu")
             }
 
         fun isEnabled(action: com.intellij.openapi.actionSystem.AnAction): Boolean {
@@ -423,7 +424,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
             return event.presentation.isEnabled
         }
 
-        toolWindowInstance.isCheckingManagedRemoval = true
+        toolWindowInstance.isCheckingRedundantManaged = true
 
         assertFalse(isEnabled(toolbarAction))
         assertFalse(isEnabled(contextAction))
@@ -1228,26 +1229,26 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
     }
 
     /**
-     * Prüft, dass die Bereinigungsaktion nur für passende Dependency- und Parent-Zeilen erscheint.
+     * Prüft, dass die Aktion "Check if redundant" nur für verwaltete Abhängigkeiten erscheint.
      */
-    fun testCleanupContextActionIsLimitedToSupportedRows() {
+    fun testRedundantManagedContextActionIsLimitedToManagedDependencies() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
-        val cleanupLabel = MyMessageBundle.message("toolwindow.MyToolWindow.checkManagedRemoval.contextMenu")
-        assertEquals("Check Cleanup Recommendation", cleanupLabel)
+        val redundantLabel = MyMessageBundle.message("toolwindow.MyToolWindow.checkRedundantManaged.contextMenu")
+        assertEquals("Check if redundant", redundantLabel)
         val managedDependencyType = MyMessageBundle.message("toolwindow.MyToolWindow.type.managedDependency")
 
-        /** Prüft, ob der Kontextmenü-Aufbau die Bereinigungsaktion für den angegebenen Typ enthält. */
-        fun hasCleanupAction(type: String): Boolean =
+        /** Prüft, ob der Kontextmenü-Aufbau die Redundanzprüfung für den angegebenen Typ enthält. */
+        fun hasRedundantAction(type: String): Boolean =
             toolWindow.buildContextMenuGroup(
                 DependencyContextMenuTarget(0, "com.example", "library", "", type, "1.0.0")
             ).getChildren(null).filterIsInstance<com.intellij.openapi.actionSystem.AnAction>()
-                .any { it.templatePresentation.text == cleanupLabel }
+                .any { it.templatePresentation.text == redundantLabel }
 
-        assertTrue(hasCleanupAction(managedDependencyType))
-        assertTrue(hasCleanupAction("dependency"))
-        assertTrue(hasCleanupAction(PARENT_TYPE))
-        assertFalse(hasCleanupAction("plugin"))
-        assertFalse(hasCleanupAction(MANAGED_PLUGIN))
+        assertTrue(hasRedundantAction(managedDependencyType))
+        assertFalse(hasRedundantAction("dependency"))
+        assertFalse(hasRedundantAction(PARENT_TYPE))
+        assertFalse(hasRedundantAction("plugin"))
+        assertFalse(hasRedundantAction(MANAGED_PLUGIN))
     }
 
     fun testDependencyHierarchyClosableAfterVulnerabilityScanClearsTable() {

@@ -76,7 +76,7 @@ graph LR
     MRS -->|Evaluate All Consumers| REC[Managed Dependency Recommendations]
   end
 
-  subgraph UI & Application
+  subgraph UI and Application
     REC -->|Display| RDialog[ManagedDependencyRemovalDialog]
     RDialog -->|Apply Selection| TWState[ToolWindow State]
     TWState -->|Set Version & Mark Removal| Pending[selectedVersions & pendingManagedRemovalUpdates]

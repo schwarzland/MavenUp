@@ -264,27 +264,9 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   rekursiv, löst `<parent>`-Hierarchien und BOM-Imports auf und unterstützt Zyklenerkennung sowie Tiefenbegrenzungen.
   DEBUG-Logs unterscheiden POM-Speicher-Cache, lokale Treffer und Remote-Abfragen; `tryFetchPomFromRepository`
   protokolliert HTTP-GET-Versuche mit Artefaktpfad und Host, Antwortstatus und bei Fehlern nur die Exception-Klasse,
-  ohne vollständige URLs, Zugangsdaten, Header oder POM-Inhalte auszugeben. Für Cleanup-Läufe sammelt er fehlende,
+  ohne vollständige URLs, Zugangsdaten, Header oder POM-Inhalte auszugeben. Für Redundanzprüfungen sammelt er fehlende,
   ungültige und zyklische POM-Auflösungen und setzt diese Diagnosen vor jeder neuen Analyse zurück.
-- **ManagedDependencyRecommendationService**: analysiert deklarierte verwaltete Abhängigkeiten (`<dependencyManagement>`)
-  und prüft, ob übergeordnete POMs (`<parent>`) oder direkte Abhängigkeiten in ihrer aktuellen Version oder durch
-  Versionsaktualisierungen das Artefakt transitiv in einer kompatiblen Version (`>=` deklarierte Version) bereitstellen;
-  für direkte oder verwaltete Abhängigkeiten ohne explizite Versionsangabe in der `pom.xml` wird die aufgelöste Version
-  aus dem Maven-Projektmodell herangezogen. Führt eine
-  Multi-Consumer-Validierung durch: wenn ein Artefakt über mehrere direkte Abhängigkeitspfade genutzt wird,
-  wird eine Bereinigungsempfehlung nur ausgegeben, wenn alle Konsumenten kompatibel versorgt sind.
-  Ermittelt und speichert alle geprüften kompatiblen Zielversionen pro Empfehlung, damit die Dialogauswahl
-  für mehrere verwaltete Einträge desselben Triggers eine gemeinsame niedrigste Zielversion bestimmen kann.
-  Ein optionaler IntelliJ-`ProgressIndicator` meldet Projekt, Managed-Koordinate, Upgrade-Trigger und
-  Kandidatenversion als Fortschrittsdetails und prüft Abbruch regelmäßig in Analyse-, PSI- und
-  Baumdurchläufen; Abbruchausnahmen aus Versionsabfragen werden nicht als leere Kandidatenliste verschluckt.
-  `findRecommendationsWithStatus` liefert zusätzlich erkannte fehlende Versionslisten und Kandidaten-POMs als
-  `ManagedDependencyRecommendationResult`, damit die UI unvollständige Ergebnisse von einer erfolgreichen Prüfung
-  ohne Treffer unterscheiden kann. Empfehlungen enthalten Maven-Projekt-ID und Quell-POM-Pfad.
-  DEBUG-Logs erfassen Start und Abschluss mit Koordinatenfiltern und Ergebnisanzahl, projektbezogene
-  Eintrags-/Triggerzahlen, übersprungene Prüfungen, gekürzte Kandidatenlisten und Bewertungen mit Ablehnungsgründen.
-- **ManagedDependencyRemovalRecommendation / ManagedDependencyTargetVersion / ConsumerDependencyInfo / TemporaryArtifactCoordinate / TemporaryDependencyNode**:
-  Datenmodelle für Bereinigungsempfehlungen und den temporären Abhängigkeitsgraphen (`model/ManagedDependencyRemovalRecommendation.kt`); Empfehlungen tragen zusätzlich Quellprojekt und POM-Pfad.
-- **ManagedDependencyRecommendationResult**: Service-Ergebnis mit Empfehlungen und Koordinaten, deren Versions- oder POM-Daten nicht vollständig verfügbar waren.
+- **ConsumerDependencyInfo**: Datenmodell für Konsumenten- und Pfadbeschreibungen (`model/ConsumerDependencyInfo.kt`).
+- **TemporaryArtifactCoordinate / TemporaryDependencyNode**: Datenmodelle für den temporären Abhängigkeitsgraphen (`model/TemporaryDependencyNode.kt`).
 - **RedundantManagedDependencyService**: analysiert deklarierte verwaltete Abhängigkeiten (`<dependencyManagement>`) im aktuellen Projekt- und Versionsstand (Ist-Zustand ohne Version-Upgrades). Identifiziert redundante Einträge anhand von vier Kriterien: (1) bereits durch Parent verwaltet (`PARENT_MANAGED`), (2) direkte Abhängigkeit im Modul mit identischer expliziter Version (`DIRECT_DEPENDENCY_MATCH`), (3) ungenutzter/verwaister Eintrag ohne direkte oder transitive Konsumenten im Projekt (`UNUSED`), oder (4) identische Bereitstellung durch aktuelle transitive Abhängigkeiten aller Konsumenten (`TRANSITIVE_MATCH`). Schließt BOM-Imports (`type=pom`, `scope=import`) aus. Unterstützt optionale Koordinatenfilter und Abbruch via `ProgressIndicator`.
 - **RedundantManagedDependencyRecommendation / RedundancyReason**: Datenmodelle für redundante verwaltete Abhängigkeiten im Ist-Zustand (`model/RedundantManagedDependencyRecommendation.kt`, `model/RedundancyReason.kt`).

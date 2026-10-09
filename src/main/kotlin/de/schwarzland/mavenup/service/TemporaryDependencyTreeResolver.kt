@@ -34,12 +34,12 @@ class TemporaryDependencyTreeResolver(
     private val pomCache = mutableMapOf<String, String>()
     private val mutableResolutionIssues = mutableSetOf<String>()
 
-    /** POM-Koordinaten, deren Abruf oder Auflösung seit dem letzten Cleanup-Lauf unvollständig war. */
+    /** POM-Koordinaten, deren Abruf oder Auflösung seit dem letzten Analyselauf unvollständig war. */
     internal val resolutionIssues: Set<String>
         get() = mutableResolutionIssues.toSet()
 
     /**
-     * Löscht die Auflösungsdiagnosen vor einer neuen Bereinigungsanalyse.
+     * Löscht die Auflösungsdiagnosen vor einer neuen Redundanzanalyse.
      */
     internal fun resetResolutionIssues() {
         mutableResolutionIssues.clear()

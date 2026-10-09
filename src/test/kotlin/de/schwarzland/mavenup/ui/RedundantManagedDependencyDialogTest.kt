@@ -6,7 +6,6 @@ import com.intellij.ui.JBSplitter
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.table.JBTable
 import com.intellij.util.ui.UIUtil
-import de.schwarzland.mavenup.model.ConsumerDependencyInfo
 import de.schwarzland.mavenup.model.RedundancyReason
 import de.schwarzland.mavenup.model.RedundantManagedDependencyRecommendation
 import javax.swing.JEditorPane

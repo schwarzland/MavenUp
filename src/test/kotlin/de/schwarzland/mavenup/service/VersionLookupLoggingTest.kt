@@ -14,7 +14,7 @@ import java.util.logging.Level
 import java.util.logging.LogRecord
 import java.util.logging.Logger
 
-/** Prüft die DEBUG-Ausgabe von Cache-Entscheidungen, Repository-Anfragen und Bereinigungsanalysen. */
+/** Prüft die DEBUG-Ausgabe von Cache-Entscheidungen, Repository-Anfragen und Redundanzanalysen. */
 class VersionLookupLoggingTest : BasePlatformTestCase() {
 
     /** Jeder Cache-Zustand wird mit Artefakt protokolliert; nur Treffer vermeiden die Live-Abfrage. */
@@ -171,62 +171,19 @@ class VersionLookupLoggingTest : BasePlatformTestCase() {
         assertTrue(messages.contains("POM provider lookup for g:missing:1: found=false"))
     }
 
-    /** Auch ohne Maven-Projekte bleibt eine globale oder zeilenbezogene Analyse nachvollziehbar. */
-    fun testEmptyCleanupAnalysisLogsScopeAndCompletion() {
-        val service = ManagedDependencyRecommendationService(project)
-        val messages = captureDebugLogs(ManagedDependencyRecommendationService::class.java) {
-            assertEmpty(service.findRecommendations())
-            assertEmpty(service.findRecommendations(managedCoordinate = "g:managed"))
-            assertEmpty(service.findRecommendations(triggerCoordinate = "g:parent"))
+    /** Auch ohne Maven-Projekte bleibt eine globale oder zeilenbezogene Redundanzanalyse nachvollziehbar. */
+    fun testEmptyRedundantManagedAnalysisLogsScopeAndCompletion() {
+        val service = RedundantManagedDependencyService(project)
+        val messages = captureDebugLogs(RedundantManagedDependencyService::class.java) {
+            assertEmpty(service.findRedundantManagedDependencies())
+            assertEmpty(service.findRedundantManagedDependencies(managedCoordinate = "g:managed"))
         }
-        assertTrue(messages.contains("Cleanup analysis started: projects=0, managed=all, trigger=all"))
-        assertTrue(messages.contains("Cleanup analysis started: projects=0, managed=g:managed, trigger=all"))
-        assertTrue(messages.contains("Cleanup analysis started: projects=0, managed=all, trigger=g:parent"))
+        assertTrue(messages.contains("Redundant managed dependencies analysis started: projects=0, managed=all"))
+        assertTrue(messages.contains("Redundant managed dependencies analysis started: projects=0, managed=g:managed"))
         assertEquals(
-            3,
-            messages.count { it.startsWith("Cleanup analysis completed: recommendations=0, incomplete lookups=0") }
+            2,
+            messages.count { it.startsWith("Redundant managed dependencies analysis completed: results=0") }
         )
-    }
-
-    /** Eine leere Analyse ohne Maven-Projekte ist vollständig, nicht fehlgeschlagen. */
-    fun testEmptyCleanupAnalysisReportsCompleteResult() {
-        val result = ManagedDependencyRecommendationService(project)
-            .findRecommendationsWithStatus(emptyMap(), null, null, null)
-
-        assertEmpty(result.recommendations)
-        assertTrue(result.incompleteLookups.isEmpty())
-        assertFalse(result.isIncomplete)
-    }
-
-    /** Kandidatenbewertungen erklären fehlende, zu alte und kompatible bereitgestellte Versionen. */
-    fun testCleanupCandidateLogsRejectionAndAcceptance() {
-        val resolver = TemporaryDependencyTreeResolver { _, _, version ->
-            val managedDependency = if (version == "2") "" else """
-                <dependencyManagement><dependencies><dependency>
-                    <groupId>g</groupId><artifactId>managed</artifactId>
-                    <version>${if (version == "3") "0.5" else "1"}</version>
-                </dependency></dependencies></dependencyManagement>
-            """.trimIndent()
-            "<project><groupId>g</groupId><artifactId>parent</artifactId><version>$version</version>" +
-                "$managedDependency</project>"
-        }
-        val mavenProject = MavenProject(myFixture.configureByText("pom.xml", "<project/>").virtualFile)
-        val managed = ManagedDependencyRecommendationService.ManagedDependencyDeclaration("g", "managed", "1", mavenProject)
-        val trigger = ManagedDependencyRecommendationService.TriggerCandidate(
-            "g", "parent", "1", "parent", listOf("2", "3", "4"), mavenProject
-        )
-        val service = ManagedDependencyRecommendationService(project, resolver)
-        val messages = captureDebugLogs(ManagedDependencyRecommendationService::class.java) {
-            assertNull(service.evaluateTriggerRecommendation(managed, ComparableVersion("1"), trigger, "2", emptyList()))
-            assertNull(service.evaluateTriggerRecommendation(managed, ComparableVersion("1"), trigger, "3", emptyList()))
-            assertNotNull(service.evaluateTriggerRecommendation(managed, ComparableVersion("1"), trigger, "4", emptyList()))
-        }
-        assertTrue(messages.contains("Checking cleanup for g:managed:1 with parent g:parent:1 -> 2"))
-        assertTrue(messages.contains("Cleanup parent candidate g:parent:2 does not provide g:managed"))
-        assertTrue(messages.contains("Cleanup rejected for g:managed: provided 0.5 is older than 1"))
-        assertTrue(messages.contains(
-            "Cleanup candidate result for g:managed via g:parent:4: provided=1, all consumers satisfied=true"
-        ))
     }
 
     /** Zeichnet DEBUG-Nachrichten des IntelliJ-JUL-Loggers auf und stellt dessen Konfiguration wieder her. */
