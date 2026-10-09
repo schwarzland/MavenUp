@@ -1092,17 +1092,17 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertTrue("Hierarchy-Aktion sollte in der Toolbar vorhanden sein", hierarchyIndex > 0)
         assertTrue("Details-Aktion sollte in der Toolbar vorhanden sein", detailsIndex > 0)
         assertEquals(
-            "Details-Aktion muss direkt nach Hierarchy stehen",
-            hierarchyIndex + 1,
-            detailsIndex
+            "Hierarchy-Aktion muss direkt nach Details stehen",
+            detailsIndex + 1,
+            hierarchyIndex
         )
 
-        val navigatePomIndex = hierarchyIndex - 1
+        val navigatePomIndex = detailsIndex - 1
         val navigatePomAction = allActions[navigatePomIndex]
         val navigatePomEvent = com.intellij.testFramework.TestActionEvent.createTestEvent(navigatePomAction)
         ActionUtil.updateAction(navigatePomAction, navigatePomEvent)
         assertEquals(
-            "Die Aktion direkt vor Hierarchy muss die pom.xml-Navigation sein",
+            "Die Aktion direkt vor Details muss die pom.xml-Navigation sein",
             MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.navigateToPom.short"),
             navigatePomEvent.presentation.text
         )

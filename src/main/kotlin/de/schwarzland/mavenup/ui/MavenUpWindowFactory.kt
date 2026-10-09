@@ -1275,6 +1275,12 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_CONTEXT_MENU_NAVIGATE_TO_POM)
                     }
                 ) { navigateToPomForSelectedRow() })
+                add(toolbarAction(
+                    "toolwindow.MyToolWindow.vulnerabilityDetails.button",
+                    AllIcons.General.BalloonWarning,
+                    { isVulnerabilityDetailsEnabled() },
+                    shortLabelKey = "toolwindow.MyToolWindow.vulnerabilityDetails.button.short"
+                ) { openVulnerabilityDetailsForSelectedRow() })
                 add(dynamicToggleAction(
                     icon = AllIcons.Actions.ShowAsTree,
                     isEnabled = { isDependencyHierarchyEnabled() },
@@ -1285,12 +1291,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         MyMessageBundle.message("toolwindow.MyToolWindow.dependencyHierarchy.tooltip")
                     }
                 ) { open -> toggleDependencyHierarchy(open) })
-                add(toolbarAction(
-                    "toolwindow.MyToolWindow.vulnerabilityDetails.button",
-                    AllIcons.General.BalloonWarning,
-                    { isVulnerabilityDetailsEnabled() },
-                    shortLabelKey = "toolwindow.MyToolWindow.vulnerabilityDetails.button.short"
-                ) { openVulnerabilityDetailsForSelectedRow() })
                 add(Separator.getInstance())
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.settings.button",
