@@ -5,7 +5,6 @@ import com.intellij.openapi.diagnostic.awaitLogQueueProcessed
 import com.intellij.openapi.util.io.FileUtil
 import com.sun.net.httpserver.HttpServer
 import org.apache.maven.artifact.versioning.ComparableVersion
-import org.jetbrains.idea.maven.project.MavenProject
 import org.jetbrains.idea.maven.project.MavenProjectsManager
 import java.io.File
 import java.net.InetSocketAddress

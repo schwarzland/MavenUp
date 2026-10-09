@@ -274,13 +274,6 @@ class RedundantManagedDependencyServiceTest : BasePlatformTestCase() {
         val service = RedundantManagedDependencyService(project, treeResolver = resolver)
 
         val managed = service.collectManagedDependencies(mavenProject).first()
-        val rec = service.evaluateRedundancy(
-            managed = managed,
-            mavenProject = mavenProject,
-            allProjects = listOf(mavenProject),
-            directDependenciesWithExplicitVersion = emptyMap(),
-            indicator = null
-        )
 
         // Da spring-boot-starter-test im pom nicht direkt als <dependency> eingetragen ist, fällt es auf UNUSED zurück,
         // außer wenn es als Consumer-Pfad übergeben wird:
