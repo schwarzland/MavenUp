@@ -56,8 +56,9 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   Einstellungsänderungen erhalten. Beim Empfang wird die Toolbar neu aufgebaut,
   der Tool-Window-Badge aktualisiert und
   `applySelectLatestVersionSetting()` nur dann aufgerufen, wenn sich `versionAutoSelectionMode`
-  tatsächlich geändert hat, damit andere Einstellungsänderungen die bereits getroffene **New Version**-Auswahl
-  nicht zurücksetzen.
+  tatsächlich geändert hat; der Moduswechsel wendet die Strategie auf die aktuelle Versionsanzeige an,
+  wobei `DISABLED` keine automatische Update-Auswahl speichert. Andere Einstellungsänderungen setzen die
+  bereits getroffene **New Version**-Auswahl nicht zurück.
 - **MavenRepositoryBrowser**: Enum in `service`, definiert die zwei konfigurierbaren
   Repository-Browser-Optionen (`MVN_REPOSITORY`, `SONATYPE_CENTRAL`) und erzeugt die jeweilige
   Versions-URL für groupId/artifactId/version.
@@ -192,7 +193,12 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
 - **DependencyVersionService**: fragt über `searchVersions` die verfügbaren Versionen aller
   Dependencies/Plugins ab (inkl. PSI-Erfassung verwalteter Einträge und Property-Schnittmengen)
   und liefert gefilterte Versionen, ungefilterte Versionen (`rawVersions`) und Vorauswahl als
-  `VersionSearchResult`. `fetchAvailableVersions` ruft gezielt die ungefilterten Versionslisten einer
+  `VersionSearchResult`. `processProjectUpdates` verwendet für bekannte Koordinaten die aktuelle
+  Version aus `currentVersions` des Refresh-Schnappschusses; unbekannte Koordinaten fallen auf die
+  Maven-/PSI-Version zurück. Property-Schnittmengen nutzen dieselben konsistenten Koordinatenversionen.
+  Die Funktion ist `internal`, damit diese Versionszuordnung ohne Repository-Netzwerkzugriffe testbar
+  ist. Bei deaktivierter Auto-Auswahl wird keine Versionsauswahl gespeichert.
+  `fetchAvailableVersions` ruft gezielt die ungefilterten Versionslisten einer
   übergebenen Koordinatenmenge ab (ohne Vorauswahl; genutzt für die
   verwundbaren transitiven Koordinaten nach einem Scan). Versionsabfrage (`fetchAllVersions`) und
   Einstellungsfilter (`applyVersionSettings`) sind als Funktions-Seams per Konstruktor injizierbar
@@ -252,3 +258,33 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   `DEPENDENCY_MANAGEMENT`, `PLUGIN_MANAGEMENT`, `DIRECT_DEPENDENCY`, `DIRECT_PLUGIN` und `TRANSITIVE_DEPENDENCY`.
   `DependencyHierarchyNode` hält Typ, GroupId, ArtifactId, aufgelöste und rohe Version, Property-Namen, Scope,
   Management-Status (`isManaged`), VirtualFile der `pom.xml` und das deklarierende `XmlTag`.
+- **TemporaryDependencyTreeResolver**: löst temporäre Abhängigkeitsbäume und effektives `<dependencyManagement>`
+  für Kandidaten-POMs im Arbeitsspeicher auf. Lädt POMs aus dem lokalen Maven-Cache (`~/.m2/repository`) oder
+  über konfigurierte Remote-Repositories (inkl. Maven-Central- und Server-Credentials), interpoliert Properties
+  rekursiv, löst `<parent>`-Hierarchien und BOM-Imports auf und unterstützt Zyklenerkennung sowie Tiefenbegrenzungen.
+  DEBUG-Logs unterscheiden POM-Speicher-Cache, lokale Treffer und Remote-Abfragen; `tryFetchPomFromRepository`
+  protokolliert HTTP-GET-Versuche mit Artefaktpfad und Host, Antwortstatus und bei Fehlern nur die Exception-Klasse,
+  ohne vollständige URLs, Zugangsdaten, Header oder POM-Inhalte auszugeben. Für Cleanup-Läufe sammelt er fehlende,
+  ungültige und zyklische POM-Auflösungen und setzt diese Diagnosen vor jeder neuen Analyse zurück.
+- **ManagedDependencyRecommendationService**: analysiert deklarierte verwaltete Abhängigkeiten (`<dependencyManagement>`)
+  und prüft, ob übergeordnete POMs (`<parent>`) oder direkte Abhängigkeiten in ihrer aktuellen Version oder durch
+  Versionsaktualisierungen das Artefakt transitiv in einer kompatiblen Version (`>=` deklarierte Version) bereitstellen;
+  für direkte oder verwaltete Abhängigkeiten ohne explizite Versionsangabe in der `pom.xml` wird die aufgelöste Version
+  aus dem Maven-Projektmodell herangezogen. Führt eine
+  Multi-Consumer-Validierung durch: wenn ein Artefakt über mehrere direkte Abhängigkeitspfade genutzt wird,
+  wird eine Bereinigungsempfehlung nur ausgegeben, wenn alle Konsumenten kompatibel versorgt sind.
+  Ermittelt und speichert alle geprüften kompatiblen Zielversionen pro Empfehlung, damit die Dialogauswahl
+  für mehrere verwaltete Einträge desselben Triggers eine gemeinsame niedrigste Zielversion bestimmen kann.
+  Ein optionaler IntelliJ-`ProgressIndicator` meldet Projekt, Managed-Koordinate, Upgrade-Trigger und
+  Kandidatenversion als Fortschrittsdetails und prüft Abbruch regelmäßig in Analyse-, PSI- und
+  Baumdurchläufen; Abbruchausnahmen aus Versionsabfragen werden nicht als leere Kandidatenliste verschluckt.
+  `findRecommendationsWithStatus` liefert zusätzlich erkannte fehlende Versionslisten und Kandidaten-POMs als
+  `ManagedDependencyRecommendationResult`, damit die UI unvollständige Ergebnisse von einer erfolgreichen Prüfung
+  ohne Treffer unterscheiden kann. Empfehlungen enthalten Maven-Projekt-ID und Quell-POM-Pfad.
+  DEBUG-Logs erfassen Start und Abschluss mit Koordinatenfiltern und Ergebnisanzahl, projektbezogene
+  Eintrags-/Triggerzahlen, übersprungene Prüfungen, gekürzte Kandidatenlisten und Bewertungen mit Ablehnungsgründen.
+- **ManagedDependencyRemovalRecommendation / ManagedDependencyTargetVersion / ConsumerDependencyInfo / TemporaryArtifactCoordinate / TemporaryDependencyNode**:
+  Datenmodelle für Bereinigungsempfehlungen und den temporären Abhängigkeitsgraphen (`model/ManagedDependencyRemovalRecommendation.kt`); Empfehlungen tragen zusätzlich Quellprojekt und POM-Pfad.
+- **ManagedDependencyRecommendationResult**: Service-Ergebnis mit Empfehlungen und Koordinaten, deren Versions- oder POM-Daten nicht vollständig verfügbar waren.
+- **RedundantManagedDependencyService**: analysiert deklarierte verwaltete Abhängigkeiten (`<dependencyManagement>`) im aktuellen Projekt- und Versionsstand (Ist-Zustand ohne Version-Upgrades). Identifiziert redundante Einträge anhand von vier Kriterien: (1) bereits durch Parent verwaltet (`PARENT_MANAGED`), (2) direkte Abhängigkeit im Modul mit identischer expliziter Version (`DIRECT_DEPENDENCY_MATCH`), (3) ungenutzter/verwaister Eintrag ohne direkte oder transitive Konsumenten im Projekt (`UNUSED`), oder (4) identische Bereitstellung durch aktuelle transitive Abhängigkeiten aller Konsumenten (`TRANSITIVE_MATCH`). Schließt BOM-Imports (`type=pom`, `scope=import`) aus. Unterstützt optionale Koordinatenfilter und Abbruch via `ProgressIndicator`.
+- **RedundantManagedDependencyRecommendation / RedundancyReason**: Datenmodelle für redundante verwaltete Abhängigkeiten im Ist-Zustand (`model/RedundantManagedDependencyRecommendation.kt`, `model/RedundancyReason.kt`).

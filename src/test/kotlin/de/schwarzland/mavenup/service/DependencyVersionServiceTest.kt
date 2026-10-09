@@ -2,6 +2,7 @@ package de.schwarzland.mavenup.service
 
 import com.intellij.openapi.progress.EmptyProgressIndicator
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import org.jetbrains.idea.maven.project.MavenProject
 
 /**
  * Testet die Versionsauswahl-Logik des [DependencyVersionService] über injizierte Versionsdaten,
@@ -218,7 +219,7 @@ class DependencyVersionServiceTest : BasePlatformTestCase() {
             )
 
             assertEquals(listOf("2.0.0", "1.0.0"), available["com.example:lib"])
-            assertEquals("1.0.0", selected["com.example:lib"])
+            assertTrue(selected.isEmpty())
         }
     }
 
@@ -267,8 +268,7 @@ class DependencyVersionServiceTest : BasePlatformTestCase() {
             assertEquals(listOf("2.0.0", "1.0.0"), available["com.example:a"])
             assertEquals(listOf("2.0.0", "1.0.0"), available["com.example:b"])
             assertEquals(listOf("2.0.0", "1.0.0"), raw["com.example:a"])
-            assertEquals("1.0.0", selected["com.example:a"])
-            assertEquals("1.0.0", selected["com.example:b"])
+            assertTrue(selected.isEmpty())
         }
     }
 
@@ -308,5 +308,74 @@ class DependencyVersionServiceTest : BasePlatformTestCase() {
         assertTrue(result.rawVersions.isEmpty())
         assertTrue(result.selectedVersions.isEmpty())
         assertEquals(0, result.cachedArtifactCount)
+    }
+
+    /** Verwendet den Schnappschuss auch fuer Filter und Vorauswahl statt einer Maven-Zeitstempelversion. */
+    fun testProcessProjectUpdatesUsesSnapshotVersionAndFallsBackForUnknownCoordinates() {
+        withAutoSelectionMode(VersionAutoSelectionMode.DISABLED) {
+            val pom = myFixture.configureByText("pom.xml", """
+                <project>
+                    <dependencies>
+                        <dependency><groupId>com.example</groupId><artifactId>snapshot</artifactId>
+                            <version>5.0.0-20261005.135311-3</version></dependency>
+                        <dependency><groupId>com.example</groupId><artifactId>fallback</artifactId>
+                            <version>2.0.0</version></dependency>
+                    </dependencies>
+                </project>
+            """.trimIndent())
+            val filteredAgainst = mutableListOf<String>()
+            val service = DependencyVersionService(
+                project,
+                fetchAllVersions = { _, _, _ -> listOf("5.1.0-SNAPSHOT", "5.0.0-SNAPSHOT") },
+                applyVersionSettings = { versions, current ->
+                    filteredAgainst.add(current)
+                    versions
+                }
+            )
+            val selected = mutableMapOf<String, String>()
+            service.processProjectUpdates(
+                MavenProject(pom.virtualFile).apply {
+                    updateState(emptyList(), java.util.Properties(), emptyList())
+                },
+                mapOf("com.example:snapshot" to "5.0.0-SNAPSHOT"),
+                EmptyProgressIndicator(),
+                mutableMapOf(),
+                mutableMapOf(),
+                selected,
+                mutableSetOf()
+            )
+            assertEquals(listOf("5.0.0-SNAPSHOT", "2.0.0"), filteredAgainst)
+            assertTrue(selected.isEmpty())
+        }
+    }
+
+    /** Deaktivierte Vorauswahl verwirft auch alte Auswahlen einer gemeinsamen Property. */
+    fun testIntersectVersionsClearsSelectionsWhenDisabledOrIntersectionIsEmpty() {
+        val keys = listOf("com.example:a", "com.example:b")
+        for (mode in VersionAutoSelectionMode.entries) {
+            withAutoSelectionMode(mode) {
+                val service = serviceReturning(emptyList())
+                val selected = keys.associateWith { "9.0.0" }.toMutableMap()
+                service.intersectVersions(
+                    keys,
+                    keys.associateWith { "1.0.0" },
+                    mutableMapOf(),
+                    mutableMapOf(keys[0] to listOf("2.0.0"), keys[1] to listOf("3.0.0")),
+                    selected
+                )
+                assertTrue(selected.isEmpty())
+            }
+        }
+        withAutoSelectionMode(VersionAutoSelectionMode.DISABLED) {
+            val selected = keys.associateWith { "9.0.0" }.toMutableMap()
+            serviceReturning(emptyList()).intersectVersions(
+                keys,
+                keys.associateWith { "1.0.0" },
+                mutableMapOf(),
+                keys.associateWith { listOf("2.0.0", "1.0.0") }.toMutableMap(),
+                selected
+            )
+            assertTrue(selected.isEmpty())
+        }
     }
 }
