@@ -126,6 +126,69 @@ class TemporaryDependencyTreeResolverTest {
     }
 
     @Test
+    fun testResolveEffectiveDependencyManagementExcludingCurrentPomEntryKeepsParentFallback() {
+        val parentPomXml = """
+            <project>
+                <modelVersion>4.0.0</modelVersion>
+                <groupId>com.example</groupId>
+                <artifactId>parent-pom</artifactId>
+                <version>2.0.0</version>
+                <dependencyManagement>
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.xmlunit</groupId>
+                            <artifactId>xmlunit-core</artifactId>
+                            <version>2.9.0</version>
+                        </dependency>
+                    </dependencies>
+                </dependencyManagement>
+            </project>
+        """.trimIndent()
+
+        val childPomXml = """
+            <project>
+                <modelVersion>4.0.0</modelVersion>
+                <parent>
+                    <groupId>com.example</groupId>
+                    <artifactId>parent-pom</artifactId>
+                    <version>2.0.0</version>
+                </parent>
+                <groupId>com.example</groupId>
+                <artifactId>child-app</artifactId>
+                <version>2.0.0</version>
+                <dependencyManagement>
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.xmlunit</groupId>
+                            <artifactId>xmlunit-core</artifactId>
+                            <version>2.9.1</version>
+                        </dependency>
+                    </dependencies>
+                </dependencyManagement>
+            </project>
+        """.trimIndent()
+
+        val resolver = TemporaryDependencyTreeResolver { g, a, v ->
+            when ("$g:$a:$v") {
+                "com.example:parent-pom:2.0.0" -> parentPomXml
+                "com.example:child-app:2.0.0" -> childPomXml
+                else -> null
+            }
+        }
+
+        val withLocalOverride = resolver.resolveEffectiveDependencyManagement("com.example", "child-app", "2.0.0")
+        assertEquals("2.9.1", withLocalOverride["org.xmlunit:xmlunit-core"])
+
+        val withoutLocalOverride = resolver.resolveEffectiveDependencyManagementExcludingCurrentPomEntry(
+            groupId = "com.example",
+            artifactId = "child-app",
+            version = "2.0.0",
+            excludedManagedCoordinate = "org.xmlunit:xmlunit-core"
+        )
+        assertEquals("2.9.0", withoutLocalOverride["org.xmlunit:xmlunit-core"])
+    }
+
+    @Test
     fun testResolveTransitiveDependencies() {
         val directPom = """
             <project>

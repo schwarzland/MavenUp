@@ -305,7 +305,7 @@ class RedundantManagedDependencyServiceTest : BasePlatformTestCase() {
             </project>
         """.trimIndent()
 
-        val resolver = TemporaryDependencyTreeResolver { groupId, artifactId, version ->
+        val resolver = TemporaryDependencyTreeResolver { groupId, artifactId, _ ->
             if (groupId == "org.springframework.boot" && artifactId == "spring-boot-starter-test") {
                 starterPom
             } else {
@@ -326,10 +326,11 @@ class RedundantManagedDependencyServiceTest : BasePlatformTestCase() {
         val managedComp = org.apache.maven.artifact.versioning.ComparableVersion("2.9.1")
 
         val transRec = service.evaluateTransitiveMatch(
-            managed,
-            managedComp,
-            listOf(consumerPath),
-            null
+            managed = managed,
+            mavenProject = mavenProject,
+            managedComp = managedComp,
+            consumerPaths = listOf(consumerPath),
+            indicator = null
         )
 
         assertNotNull(transRec)
@@ -341,7 +342,7 @@ class RedundantManagedDependencyServiceTest : BasePlatformTestCase() {
         assertFalse(transRec.reasonDetail.contains("org.springframework.boot:spring-boot-starter-test:3.3.5"))
         assertTrue(transRec.consumers.single().pathDescription.contains("org.springframework.boot:spring-boot-starter-test:3.3.5"))
 
-        val higherVersionResolver = TemporaryDependencyTreeResolver { groupId, artifactId, version ->
+        val higherVersionResolver = TemporaryDependencyTreeResolver { groupId, artifactId, _ ->
             if (groupId == "org.springframework.boot" && artifactId == "spring-boot-starter-test") {
                 starterPom.replace("2.9.1", "2.9.2")
             } else {
@@ -351,6 +352,7 @@ class RedundantManagedDependencyServiceTest : BasePlatformTestCase() {
         val higherVersionService = RedundantManagedDependencyService(project, treeResolver = higherVersionResolver)
         val higherTransitiveRecommendation = higherVersionService.evaluateTransitiveMatch(
                 managed = managed,
+                mavenProject = mavenProject,
                 managedComp = managedComp,
                 consumerPaths = listOf(consumerPath),
                 indicator = null
@@ -359,6 +361,96 @@ class RedundantManagedDependencyServiceTest : BasePlatformTestCase() {
         assertEquals("2.9.2", higherTransitiveRecommendation!!.providedVersion)
         assertTrue(higherTransitiveRecommendation.reasonDetail.contains("2.9.2"))
         assertTrue(higherTransitiveRecommendation.reasonDetail.contains("may change the resolved version"))
+    }
+
+    /**
+     * Prüft, dass TRANSITIVE_MATCH verworfen wird, wenn ohne lokalen Managed-Entry eine niedrigere
+     * Fallback-Version aus Parent-/BOM-Management wirksam wäre.
+     */
+    fun testTransitiveMatchIsRejectedWhenFallbackManagementWouldDowngradeVersion() {
+        val projectPom = """
+            <project>
+                <modelVersion>4.0.0</modelVersion>
+                <parent>
+                    <groupId>com.example</groupId>
+                    <artifactId>parent</artifactId>
+                    <version>1.0.0</version>
+                </parent>
+                <groupId>com.example</groupId>
+                <artifactId>sample</artifactId>
+                <version>1.0.0</version>
+                <dependencyManagement>
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.xmlunit</groupId>
+                            <artifactId>xmlunit-core</artifactId>
+                            <version>2.9.1</version>
+                        </dependency>
+                    </dependencies>
+                </dependencyManagement>
+            </project>
+        """.trimIndent()
+        val pom = myFixture.configureByText("pom.xml", projectPom)
+
+        val parentPom = """
+            <project>
+                <modelVersion>4.0.0</modelVersion>
+                <groupId>com.example</groupId>
+                <artifactId>parent</artifactId>
+                <version>1.0.0</version>
+                <dependencyManagement>
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.xmlunit</groupId>
+                            <artifactId>xmlunit-core</artifactId>
+                            <version>2.9.0</version>
+                        </dependency>
+                    </dependencies>
+                </dependencyManagement>
+            </project>
+        """.trimIndent()
+
+        val starterPom = """
+            <project>
+                <modelVersion>4.0.0</modelVersion>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-starter-test</artifactId>
+                <version>3.3.5</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.xmlunit</groupId>
+                        <artifactId>xmlunit-core</artifactId>
+                        <version>2.9.1</version>
+                    </dependency>
+                </dependencies>
+            </project>
+        """.trimIndent()
+
+        val resolver = TemporaryDependencyTreeResolver { groupId, artifactId, version ->
+            when ("$groupId:$artifactId:$version") {
+                "com.example:sample:1.0.0" -> projectPom
+                "com.example:parent:1.0.0" -> parentPom
+                "org.springframework.boot:spring-boot-starter-test:3.3.5" -> starterPom
+                else -> null
+            }
+        }
+
+        val mavenProject = MavenProject(pom.virtualFile)
+        val service = RedundantManagedDependencyService(project, treeResolver = resolver)
+        val managed = service.collectManagedDependencies(mavenProject).first()
+        val managedComp = org.apache.maven.artifact.versioning.ComparableVersion("2.9.1")
+
+        val starterNode = createArtifactNode("org.springframework.boot", "spring-boot-starter-test", "3.3.5")
+        val xmlunitNode = createArtifactNode("org.xmlunit", "xmlunit-core", "2.9.1")
+        val recommendation = service.evaluateTransitiveMatch(
+            managed = managed,
+            mavenProject = mavenProject,
+            managedComp = managedComp,
+            consumerPaths = listOf(listOf(starterNode, xmlunitNode)),
+            indicator = null
+        )
+
+        assertNull(recommendation)
     }
 
     /**

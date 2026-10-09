@@ -53,7 +53,7 @@ injizierte Seams/Interfaces netzwerkfrei getestet.
 `CacheContentsDialogTest` deckt TTL-Anzeige und Invalidierung ab;
 `RedundantManagedDependencyDialogTest` prüft Auswahl, Übernahme, Split-Layout, Folgeansichten und
 inhaltsunabhängiges Verkleinern bei langen Detailtexten;
-`RedundantManagedDependencyServiceTest` prüft die Erkennung redundanter Einträge (Parent-Management, direkte Abhängigkeit, transitive Bereitstellung, ungenutzt);
+`RedundantManagedDependencyServiceTest` prüft die Erkennung redundanter Einträge (Parent-Management, direkte Abhängigkeit, transitive Bereitstellung, ungenutzt) einschließlich des Falls, dass ohne lokalen Managed-Override ein niedrigeres Parent-/BOM-Fallback wirksam wäre;
 `VersionLookupLoggingTest` prüft DEBUG-Ausgaben und lokale HTTP-Versuche einschließlich Cache-Treffern,
 Redundanzprüfungen, POM-Antwortstatus und Ausschluss von Zugangsdaten aus POM-Abfrage-Logs.
 

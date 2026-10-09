@@ -442,6 +442,7 @@ class TemporaryDependencyTreeResolver(
         groupId: String,
         artifactId: String,
         version: String,
+        excludedManagedCoordinateInCurrentPom: String? = null,
         visitedParents: MutableSet<String> = mutableSetOf()
     ): EffectivePomModel? {
         val key = artifactKey(groupId, artifactId, version)
@@ -474,7 +475,12 @@ class TemporaryDependencyTreeResolver(
         val effectiveDepMgmt = mutableMapOf<String, String>()
         parentModel?.dependencyManagement?.let { effectiveDepMgmt.putAll(it) }
 
-        processBomImportsAndDeclaredDepMgmt(raw, interpolatedProperties, effectiveDepMgmt)
+        processBomImportsAndDeclaredDepMgmt(
+            raw = raw,
+            properties = interpolatedProperties,
+            effectiveDepMgmt = effectiveDepMgmt,
+            excludedManagedCoordinateInCurrentPom = excludedManagedCoordinateInCurrentPom
+        )
         val resolvedDeps = resolveDeclaredDependencies(raw, interpolatedProperties, effectiveDepMgmt)
 
         return EffectivePomModel(
@@ -496,7 +502,12 @@ class TemporaryDependencyTreeResolver(
             !raw.parentArtifactId.isNullOrEmpty() &&
             !raw.parentVersion.isNullOrEmpty()
         ) {
-            resolveEffectivePom(raw.parentGroupId, raw.parentArtifactId, raw.parentVersion, visitedParents)
+            resolveEffectivePom(
+                groupId = raw.parentGroupId,
+                artifactId = raw.parentArtifactId,
+                version = raw.parentVersion,
+                visitedParents = visitedParents
+            )
         } else {
             null
         }
@@ -535,7 +546,8 @@ class TemporaryDependencyTreeResolver(
     private fun processBomImportsAndDeclaredDepMgmt(
         raw: RawPomData,
         properties: Map<String, String>,
-        effectiveDepMgmt: MutableMap<String, String>
+        effectiveDepMgmt: MutableMap<String, String>,
+        excludedManagedCoordinateInCurrentPom: String?
     ) {
         for (dep in raw.declaredDependencyManagement) {
             val depG = interpolateText(dep.groupId, properties)
@@ -543,14 +555,23 @@ class TemporaryDependencyTreeResolver(
             val depV = dep.version?.let { interpolateText(it, properties) }
 
             if (dep.type.equals("pom", ignoreCase = true) && dep.scope.equals("import", ignoreCase = true) && !depV.isNullOrEmpty()) {
-                val bomModel = resolveEffectivePom(depG, depA, depV, mutableSetOf())
+                val bomModel = resolveEffectivePom(
+                    groupId = depG,
+                    artifactId = depA,
+                    version = depV,
+                    visitedParents = mutableSetOf()
+                )
                 bomModel?.dependencyManagement?.forEach { (mgmtKey, mgmtVersion) ->
                     if (!effectiveDepMgmt.containsKey(mgmtKey)) {
                         effectiveDepMgmt[mgmtKey] = mgmtVersion
                     }
                 }
             } else if (!depV.isNullOrEmpty()) {
-                effectiveDepMgmt["$depG:$depA"] = depV
+                val depKey = "$depG:$depA"
+                if (depKey == excludedManagedCoordinateInCurrentPom) {
+                    continue
+                }
+                effectiveDepMgmt[depKey] = depV
             }
         }
     }
@@ -727,6 +748,35 @@ class TemporaryDependencyTreeResolver(
         version: String
     ): Map<String, String> {
         val model = resolveEffectivePom(groupId, artifactId, version) ?: return emptyMap()
+        return model.dependencyManagement
+    }
+
+    /**
+     * Ermittelt das effektive `<dependencyManagement>` eines POMs, wobei ein lokaler Managed-Entry
+     * im aktuellen POM gezielt ausgeschlossen wird.
+     *
+     * Parent- und BOM-Management bleiben dabei unverändert wirksam und können dieselbe Koordinate
+     * weiterhin bereitstellen.
+     *
+     * @param groupId Die Group-ID des aktuellen POMs.
+     * @param artifactId Die Artefakt-ID des aktuellen POMs.
+     * @param version Die Version des aktuellen POMs.
+     * @param excludedManagedCoordinate Die auszuschließende Koordinate (`groupId:artifactId`).
+     * @return Eine Map von `groupId:artifactId` zu verwalteter Version ohne den lokalen Override.
+     */
+    @Suppress("unused")
+    fun resolveEffectiveDependencyManagementExcludingCurrentPomEntry(
+        groupId: String,
+        artifactId: String,
+        version: String,
+        excludedManagedCoordinate: String
+    ): Map<String, String> {
+        val model = resolveEffectivePom(
+            groupId = groupId,
+            artifactId = artifactId,
+            version = version,
+            excludedManagedCoordinateInCurrentPom = excludedManagedCoordinate
+        ) ?: return emptyMap()
         return model.dependencyManagement
     }
 }

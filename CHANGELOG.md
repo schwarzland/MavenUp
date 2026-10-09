@@ -27,6 +27,7 @@
 
 ### Fixed
 
+- **Fixed false-positive "Version Provided Transitively" recommendations by evaluating the effective fallback version from parent/imported BOM dependency management when the local `<dependencyManagement>` entry is removed.**
 - **Fixed the redundancy dialog introduction so `<dependencyManagement>` renders as text instead of disappearing as an HTML tag.**
 - **Fixed the initial Redundancy Details panel to show the currently selected table row, including after the table's default sort.**
 - **Reported candidate removals only when parent, direct, and every known transitive source supplies at least the currently managed version.**

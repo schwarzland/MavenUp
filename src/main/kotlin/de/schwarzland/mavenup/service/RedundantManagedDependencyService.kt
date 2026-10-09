@@ -12,6 +12,7 @@ import de.schwarzland.mavenup.model.RedundancyReason
 import de.schwarzland.mavenup.model.RedundantManagedDependencyRecommendation
 import de.schwarzland.mavenup.ui.MyMessageBundle
 import org.apache.maven.artifact.versioning.ComparableVersion
+import org.jetbrains.idea.maven.model.MavenArtifact
 import org.jetbrains.idea.maven.model.MavenArtifactNode
 import org.jetbrains.idea.maven.project.MavenProject
 import org.jetbrains.idea.maven.project.MavenProjectsManager
@@ -179,6 +180,7 @@ class RedundantManagedDependencyService(
         if (consumerPaths.isNotEmpty()) {
             return evaluateTransitiveMatch(
                 managed = managed,
+                mavenProject = mavenProject,
                 managedComp = managedComp,
                 consumerPaths = consumerPaths,
                 indicator = indicator
@@ -309,6 +311,7 @@ class RedundantManagedDependencyService(
      * Prüft, ob alle Konsumentenpfade von ihren direkten Ursprungsabhängigkeiten mindestens die verwaltete Version erhalten.
      *
      * @param managed Die deklarierte verwaltete Abhängigkeit.
+     * @param mavenProject Das Quellprojekt der lokalen `dependencyManagement`-Deklaration.
      * @param managedComp Die [ComparableVersion] der aktuellen verwalteten Version.
      * @param consumerPaths Alle ermittelten Konsumentenpfade im Modul.
      * @param indicator Optionaler Fortschrittsindikator.
@@ -317,38 +320,26 @@ class RedundantManagedDependencyService(
     @Suppress("TooGenericExceptionCaught")
     internal fun evaluateTransitiveMatch(
         managed: ManagedDependencyDeclaration,
+        mavenProject: MavenProject,
         managedComp: ComparableVersion,
         consumerPaths: List<List<MavenArtifactNode>>,
         indicator: ProgressIndicator?
     ): RedundantManagedDependencyRecommendation? {
         val key = "${managed.groupId}:${managed.artifactId}"
-        var allMatch = true
-        val providedVersionsByRoot = mutableMapOf<String, String>()
 
         val rootArtifacts = consumerPaths.mapNotNull { it.firstOrNull()?.artifact }
             .distinctBy { "${it.groupId}:${it.artifactId}:${it.version}" }
         if (rootArtifacts.isEmpty()) return null
 
-        for (root in rootArtifacts) {
-            indicator?.checkCanceled()
-            val transitives = try {
-                treeResolver.resolveTransitiveDependencies(root.groupId, root.artifactId, root.version)
-            } catch (e: ProcessCanceledException) {
-                throw e
-            } catch (e: Exception) {
-                LOG.warn("Could not resolve transitive dependencies for ${root.groupId}:${root.artifactId}:${root.version}", e)
-                emptyMap()
-            }
+        val providedVersionsByRoot = resolveProvidedVersionsByRoot(
+            managedCoordinate = key,
+            mavenProject = mavenProject,
+            managedComp = managedComp,
+            rootArtifacts = rootArtifacts,
+            indicator = indicator
+        ) ?: return null
 
-            val transVersion = transitives[key]
-            if (transVersion == null || ComparableVersion(transVersion).compareTo(managedComp) < 0) {
-                allMatch = false
-                break
-            }
-            providedVersionsByRoot["${root.groupId}:${root.artifactId}:${root.version}"] = transVersion
-        }
-
-        if (allMatch && providedVersionsByRoot.isNotEmpty()) {
+        if (providedVersionsByRoot.isNotEmpty()) {
             val consumerInfos = formatConsumerInfos(consumerPaths) { root ->
                 providedVersionsByRoot["${root.groupId}:${root.artifactId}:${root.version}"].orEmpty()
             }
@@ -373,6 +364,145 @@ class RedundantManagedDependencyService(
         }
 
         return null
+    }
+
+    /**
+     * Ermittelt je Verbraucherwurzel die wirksame Version der verwalteten Koordinate.
+     *
+     * Berücksichtigt zuerst den Fallback aus effektivem Dependency-Management ohne lokalen Override.
+     * Falls kein solcher Fallback ermittelbar ist, wird die Version aus der transitiven Auflösung der
+     * jeweiligen Verbraucherwurzel abgeleitet.
+     *
+     * @return Map `groupId:artifactId:version` der Wurzel auf wirksame Version oder `null`, wenn
+     *         mindestens eine Wurzel eine zu niedrige/fehlende Version liefert.
+     */
+    @Suppress("TooGenericExceptionCaught")
+    private fun resolveProvidedVersionsByRoot(
+        managedCoordinate: String,
+        mavenProject: MavenProject,
+        managedComp: ComparableVersion,
+        rootArtifacts: List<MavenArtifact>,
+        indicator: ProgressIndicator?
+    ): Map<String, String>? {
+        val fallbackManagedVersion = resolveFallbackManagedVersionWithoutLocalEntry(mavenProject, managedCoordinate)
+        if (!fallbackManagedVersion.isNullOrBlank()) {
+            if (ComparableVersion(fallbackManagedVersion).compareTo(managedComp) < 0) {
+                return null
+            }
+            return rootArtifacts.associate { root ->
+                "${root.groupId}:${root.artifactId}:${root.version}" to fallbackManagedVersion
+            }
+        }
+
+        val versionsByRoot = mutableMapOf<String, String>()
+        for (root in rootArtifacts) {
+            indicator?.checkCanceled()
+            val transitives = try {
+                treeResolver.resolveTransitiveDependencies(root.groupId, root.artifactId, root.version)
+            } catch (e: ProcessCanceledException) {
+                throw e
+            } catch (e: Exception) {
+                LOG.warn("Could not resolve transitive dependencies for ${root.groupId}:${root.artifactId}:${root.version}", e)
+                emptyMap()
+            }
+
+            val transVersion = transitives[managedCoordinate]
+            if (transVersion == null || ComparableVersion(transVersion).compareTo(managedComp) < 0) {
+                return null
+            }
+            versionsByRoot["${root.groupId}:${root.artifactId}:${root.version}"] = transVersion
+        }
+        return versionsByRoot
+    }
+
+    /**
+     * Ermittelt die effektive verwaltete Version für eine Koordinate, wenn der lokale
+     * `<dependencyManagement>`-Override im aktuellen POM entfernt wird.
+     *
+     * @param mavenProject Das zugehörige Maven-Projekt.
+     * @param managedCoordinate Die Koordinate `groupId:artifactId`.
+     * @return Die wirksame Fallback-Version ohne lokalen Override oder `null`, wenn sie nicht auflösbar ist.
+     */
+    @Suppress("TooGenericExceptionCaught")
+    internal fun resolveFallbackManagedVersionWithoutLocalEntry(
+        mavenProject: MavenProject,
+        managedCoordinate: String
+    ): String? {
+        val projectCoordinates = extractProjectCoordinates(mavenProject) ?: return null
+        if (projectCoordinates.groupId.isBlank() || projectCoordinates.artifactId.isBlank() || projectCoordinates.version.isBlank()) {
+            return null
+        }
+
+        return try {
+            treeResolver.resolveEffectiveDependencyManagementExcludingCurrentPomEntry(
+                groupId = projectCoordinates.groupId,
+                artifactId = projectCoordinates.artifactId,
+                version = projectCoordinates.version,
+                excludedManagedCoordinate = managedCoordinate
+            )[managedCoordinate]
+        } catch (e: ProcessCanceledException) {
+            throw e
+        } catch (e: Exception) {
+            LOG.warn(
+                "Could not resolve fallback dependencyManagement for ${mavenProject.file.path} and $managedCoordinate",
+                e
+            )
+            null
+        }
+    }
+
+    /**
+     * Beschreibt die auflösbaren Projektkoordinaten eines Maven-Moduls.
+     */
+    internal data class ProjectCoordinates(
+        val groupId: String,
+        val artifactId: String,
+        val version: String
+    )
+
+    /**
+     * Ermittelt die Projektkoordinaten bevorzugt aus dem Maven-Modell und optional als Fallback
+     * direkt aus der `pom.xml`.
+     */
+    internal fun extractProjectCoordinates(mavenProject: MavenProject): ProjectCoordinates? {
+        val mavenId = try {
+            mavenProject.mavenId
+        } catch (_: NullPointerException) {
+            null
+        }
+        val modelGroupId = mavenId?.groupId.orEmpty()
+        val modelArtifactId = mavenId?.artifactId.orEmpty()
+        val modelVersion = mavenId?.version.orEmpty()
+        if (modelGroupId.isNotBlank() && modelArtifactId.isNotBlank() && modelVersion.isNotBlank()) {
+            return ProjectCoordinates(modelGroupId, modelArtifactId, modelVersion)
+        }
+
+        var result: ProjectCoordinates? = null
+        val effectiveProperties = try {
+            mavenProject.properties.entries.associate { (k, v) -> k.toString() to v.toString() }
+        } catch (_: NullPointerException) {
+            emptyMap()
+        }
+        ApplicationManager.getApplication().runReadAction {
+            val psiFile = PsiManager.getInstance(project).findFile(mavenProject.file) as? XmlFile ?: return@runReadAction
+            val rootTag = psiFile.document?.rootTag ?: return@runReadAction
+            val parentTag = rootTag.findFirstSubTag("parent")
+
+            val artifactId = rootTag.findFirstSubTag("artifactId")?.value?.text?.trim().orEmpty()
+            if (artifactId.isEmpty()) return@runReadAction
+
+            val rawGroupId = rootTag.findFirstSubTag("groupId")?.value?.text?.trim()
+                ?: parentTag?.findFirstSubTag("groupId")?.value?.text?.trim().orEmpty()
+            val rawVersion = rootTag.findFirstSubTag("version")?.value?.text?.trim()
+                ?: parentTag?.findFirstSubTag("version")?.value?.text?.trim().orEmpty()
+
+            val resolvedGroupId = resolvePropertyPlaceholder(rawGroupId, effectiveProperties).ifEmpty { rawGroupId }
+            val resolvedVersion = resolvePropertyPlaceholder(rawVersion, effectiveProperties).ifEmpty { rawVersion }
+            if (resolvedGroupId.isNotEmpty() && resolvedVersion.isNotEmpty()) {
+                result = ProjectCoordinates(resolvedGroupId, artifactId, resolvedVersion)
+            }
+        }
+        return result
     }
 
     /**
@@ -551,8 +681,8 @@ class RedundantManagedDependencyService(
 
         if (!visited.add(currentNode)) return
 
-        val childDeps = try { currentNode.dependencies } catch (_: NullPointerException) { null }
-        for (child in childDeps.orEmpty()) {
+        val childDeps: List<MavenArtifactNode> = try { currentNode.dependencies } catch (_: NullPointerException) { null } ?: emptyList()
+        for (child in childDeps) {
             findPathsToTarget(child, targetGroupId, targetArtifactId, newPath, visited, result, indicator)
         }
     }
