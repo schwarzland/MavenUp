@@ -20,6 +20,7 @@
 - **Clarified managed dependency redundancy reasons with the version source and per-path versions, and let users review candidates even when removing the entry may select a higher version.**
 - **Renamed the redundancy actions to Check Managed Dependencies for Redundancy... and Check This Managed Dependency for Redundancy so the toolbar and context-menu labels clearly refer to the same check.**
 - **Updated the Managed Entries tooltip to describe the redundancy check alongside removal or comment-out actions and clarify that filter scope applies only to those bulk actions.**
+- Added a regression test that reproduces the `tools.jackson.core:jackson-core` fallback from `3.1.7` to `3.1.5` and verifies that this downgrade is not flagged as a transitive redundancy match.
 
 ### Removed
 

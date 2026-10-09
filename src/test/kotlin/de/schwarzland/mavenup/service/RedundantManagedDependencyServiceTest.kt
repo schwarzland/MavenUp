@@ -454,6 +454,97 @@ class RedundantManagedDependencyServiceTest : BasePlatformTestCase() {
     }
 
     /**
+     * Prüft den Jackson-Fall: Ohne lokalen Managed-Override für `jackson-core` fällt die wirksame
+     * Version auf 3.1.5 zurück, daher darf kein `TRANSITIVE_MATCH` vorgeschlagen werden.
+     */
+    fun testTransitiveMatchIsRejectedForJacksonCoreFallbackDowngrade() {
+        val projectPom = """
+            <project>
+                <modelVersion>4.0.0</modelVersion>
+                <parent>
+                    <groupId>com.example</groupId>
+                    <artifactId>parent</artifactId>
+                    <version>1.0.0</version>
+                </parent>
+                <groupId>com.example</groupId>
+                <artifactId>sample</artifactId>
+                <version>1.0.0</version>
+                <dependencyManagement>
+                    <dependencies>
+                        <dependency>
+                            <groupId>tools.jackson.core</groupId>
+                            <artifactId>jackson-core</artifactId>
+                            <version>3.1.7</version>
+                        </dependency>
+                    </dependencies>
+                </dependencyManagement>
+            </project>
+        """.trimIndent()
+        val pom = myFixture.configureByText("pom.xml", projectPom)
+
+        val parentPom = """
+            <project>
+                <modelVersion>4.0.0</modelVersion>
+                <groupId>com.example</groupId>
+                <artifactId>parent</artifactId>
+                <version>1.0.0</version>
+                <dependencyManagement>
+                    <dependencies>
+                        <dependency>
+                            <groupId>tools.jackson.core</groupId>
+                            <artifactId>jackson-core</artifactId>
+                            <version>3.1.5</version>
+                        </dependency>
+                    </dependencies>
+                </dependencyManagement>
+            </project>
+        """.trimIndent()
+
+        val consumerPom = """
+            <project>
+                <modelVersion>4.0.0</modelVersion>
+                <groupId>tools.jackson.dataformat</groupId>
+                <artifactId>jackson-dataformat-xml</artifactId>
+                <version>3.1.7</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>tools.jackson.core</groupId>
+                        <artifactId>jackson-core</artifactId>
+                        <version>3.1.7</version>
+                    </dependency>
+                </dependencies>
+            </project>
+        """.trimIndent()
+
+        val resolver = TemporaryDependencyTreeResolver { groupId, artifactId, version ->
+            when ("$groupId:$artifactId:$version") {
+                "com.example:sample:1.0.0" -> projectPom
+                "com.example:parent:1.0.0" -> parentPom
+                "tools.jackson.dataformat:jackson-dataformat-xml:3.1.7" -> consumerPom
+                else -> null
+            }
+        }
+
+        val mavenProject = MavenProject(pom.virtualFile)
+        val service = RedundantManagedDependencyService(project, treeResolver = resolver)
+        val managed = service.collectManagedDependencies(mavenProject).first()
+        val managedComp = org.apache.maven.artifact.versioning.ComparableVersion("3.1.7")
+
+        val consumerNode = createArtifactNode("tools.jackson.dataformat", "jackson-dataformat-xml", "3.1.7")
+        val jacksonCoreNode = createArtifactNode("tools.jackson.core", "jackson-core", "3.1.7")
+        val recommendation = service.evaluateTransitiveMatch(
+            managed = managed,
+            mavenProject = mavenProject,
+            managedComp = managedComp,
+            consumerPaths = listOf(listOf(consumerNode, jacksonCoreNode)),
+            indicator = null
+        )
+
+        assertNull(recommendation)
+        assertEquals("3.1.5", service.resolveFallbackManagedVersionWithoutLocalEntry(mavenProject, "tools.jackson.core:jackson-core"))
+    }
+
+    /**
      * Prüft, dass BOM-Imports (<type>pom</type> mit <scope>import</scope>) ignoriert werden.
      */
     fun testBomImportsAreIgnored() {

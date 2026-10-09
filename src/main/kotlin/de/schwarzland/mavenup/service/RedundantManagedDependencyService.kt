@@ -611,7 +611,7 @@ class RedundantManagedDependencyService(
      */
     private fun formatConsumerInfos(
         consumerPaths: List<List<MavenArtifactNode>>,
-        resolvedVersion: (org.jetbrains.idea.maven.model.MavenArtifact) -> String
+        resolvedVersion: (MavenArtifact) -> String
     ): List<ConsumerDependencyInfo> {
         return consumerPaths.map { path ->
             val root = path.first().artifact
