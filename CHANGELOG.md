@@ -6,11 +6,16 @@
 
 ### Added
 
-- **Added Check Redundant Managed Dependencies action in the Managed Entries toolbar menu and Check if redundant in the row context menu for managed dependencies, analyzing whether entries in `<dependencyManagement>` are redundant in the current project configuration without upgrading parent POMs or dependencies.**
+- **Added managed dependency redundancy analysis for `<dependencyManagement>` entries across the current project configuration without upgrading parent POMs or direct dependencies.**
 - **Added interactive `RedundantManagedDependencyDialog` with a visible, theme-aware split divider, centered grip with hover feedback, remembered divider position, and word-wrapping HTML details to inspect, select, and stage redundant managed dependencies for removal across the project.**
 - **Added an optional Show all pending changes after applying checkbox to redundant managed dependencies, clearing all main-table filters and activating Pending: All Changes after applying the selection.**
 - **Added in-memory dependency tree resolution via `TemporaryDependencyTreeResolver` with multi-consumer compatibility validation to detect transitively satisfied managed dependencies without mutating project files.**
 - **Expanded redundancy DEBUG logs with analysis scope, results, POM cache and local-repository hits, and individual HTTP GET attempts and response statuses without exposing credentials.**
+
+### Changed
+
+- **Renamed the redundancy actions to Check Managed Dependencies for Redundancy... and Check This Managed Dependency for Redundancy so the toolbar and context-menu labels clearly refer to the same check.**
+- **Updated the Managed Entries tooltip to describe the redundancy check alongside removal or comment-out actions and clarify that filter scope applies only to those bulk actions.**
 
 ### Removed
 

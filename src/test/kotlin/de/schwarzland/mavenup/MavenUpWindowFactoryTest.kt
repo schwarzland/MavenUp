@@ -1229,12 +1229,12 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
     }
 
     /**
-     * Prüft, dass die Aktion "Check if redundant" nur für verwaltete Abhängigkeiten erscheint.
+     * Prüft, dass die Aktion "Check This Managed Dependency for Redundancy" nur für verwaltete Abhängigkeiten erscheint.
      */
     fun testRedundantManagedContextActionIsLimitedToManagedDependencies() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         val redundantLabel = MyMessageBundle.message("toolwindow.MyToolWindow.checkRedundantManaged.contextMenu")
-        assertEquals("Check if redundant", redundantLabel)
+        assertEquals("Check This Managed Dependency for Redundancy", redundantLabel)
         val managedDependencyType = MyMessageBundle.message("toolwindow.MyToolWindow.type.managedDependency")
 
         /** Prüft, ob der Kontextmenü-Aufbau die Redundanzprüfung für den angegebenen Typ enthält. */
@@ -3421,6 +3421,11 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
                 toolWindow.managedEntriesGroupTooltip()
             )
             assertEquals(
+                "Comment out managed dependencies or managed plugins in pom.xml, or check managed dependencies for redundancy. " +
+                    "With an active filter, you can choose whether comment-out actions apply to all matching entries or only the currently visible ones.",
+                toolWindow.managedEntriesGroupTooltip()
+            )
+            assertEquals(
                 MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.commentOutFromPom"),
                 toolWindow.managedEntryContextMenuLabel()
             )
@@ -3449,6 +3454,11 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
             )
             assertEquals(
                 MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.group.tooltip"),
+                toolWindow.managedEntriesGroupTooltip()
+            )
+            assertEquals(
+                "Remove managed dependencies or managed plugins from pom.xml, or check managed dependencies for redundancy. " +
+                    "With an active filter, you can choose whether removal actions apply to all matching entries or only the currently visible ones.",
                 toolWindow.managedEntriesGroupTooltip()
             )
             assertEquals(
