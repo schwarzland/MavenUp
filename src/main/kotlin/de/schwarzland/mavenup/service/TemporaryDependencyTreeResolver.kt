@@ -142,7 +142,15 @@ class TemporaryDependencyTreeResolver(
     private fun resolveLocalRepositoryPath(): File {
         if (project != null) {
             try {
-                val repositoryPath = MavenProjectsManager.getInstance(project).repositoryPath
+                val manager = MavenProjectsManager.getInstance(project)
+                // Prüfe zuerst, ob ein lokaler Repository-Pfad überschrieben wurde.
+                val overridden = manager.generalSettings.localRepository
+                if (overridden.isNotBlank()) {
+                    val file = File(overridden)
+                    if (file.isDirectory) return file
+                }
+                // Fallback auf den effektiven Repository-Pfad.
+                val repositoryPath = manager.repositoryPath
                 val file = repositoryPath.toFile()
                 if (file.isDirectory) return file
             } catch (_: Exception) {

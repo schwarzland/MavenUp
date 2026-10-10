@@ -133,9 +133,11 @@ class VersionLookupLoggingTest : BasePlatformTestCase() {
         val localPom = File(localRepository, "g${File.separator}a${File.separator}1${File.separator}a-1.pom")
         assertTrue(localPom.parentFile.mkdirs())
         localPom.writeText("<project/>")
-        val settings = MavenProjectsManager.getInstance(project).generalSettings
+        val mavenManager = MavenProjectsManager.getInstance(project)
+        val settings = mavenManager.generalSettings
         val oldRepository = settings.localRepository
         settings.setLocalRepository(localRepository.path)
+        mavenManager.initForTests()
         try {
             val resolver = TemporaryDependencyTreeResolver(project)
             val messages = captureDebugLogs(TemporaryDependencyTreeResolver::class.java) {
