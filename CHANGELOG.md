@@ -26,6 +26,7 @@
 - **Updated the Managed Entries tooltip to describe the redundancy check alongside removal or comment-out actions and clarify that filter scope applies only to those bulk actions.**
 - Moved the **Hierarchy** toolbar action to the right of **Vulnerability Details** so selection-dependent actions are grouped in a clearer left-to-right flow.
 - Added a regression test that reproduces the `tools.jackson.core:jackson-core` fallback from `3.1.7` to `3.1.5` and verifies that this downgrade is not flagged as a transitive redundancy match.
+- Expanded the unit test suite for managed dependency redundancy analysis with comprehensive coverage for negative cases (parent with lower version, missing parent coordinate, exception handling), helper methods (coordinate scope filtering, consumer path detection, project-wide usage checks), property placeholder handling, multi-module scenarios, and criterion prioritization.
 
 ### Removed
 
