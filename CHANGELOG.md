@@ -6,43 +6,33 @@
 
 ### Added
 
-- **Added structured Markdown source templates for JetBrains Marketplace Custom Pages under `docs/assets/marketplace/custom/` covering Getting Started, Privacy & Security, Vulnerability Management, and Configuration & FAQ.**
-- **Added managed dependency redundancy analysis for `<dependencyManagement>` entries across the current project configuration without upgrading parent POMs or direct dependencies.**
-- **Added interactive `RedundantManagedDependencyDialog` with a visible, theme-aware split divider, centered grip with hover feedback, remembered divider position, and word-wrapping HTML details to inspect, select, and stage redundant managed dependencies for removal across the project.**
-- **Added an optional Show all pending changes after staging checkbox to redundant managed dependencies, clearing all main-table filters and activating Pending: All Changes after staging the selection.**
-- **Added in-memory dependency tree resolution via `TemporaryDependencyTreeResolver` with multi-consumer compatibility validation to detect transitively satisfied managed dependencies without mutating project files.**
-- **Expanded redundancy DEBUG logs with analysis scope, results, POM cache and local-repository hits, and individual HTTP GET attempts and response statuses without exposing credentials.**
+- **Added managed dependency redundancy analysis** for `<dependencyManagement>` entries that detects transitively satisfied managed dependencies without mutating project files, using in-memory dependency tree resolution with multi-consumer compatibility validation.
+- Added an interactive review dialog for redundant managed dependencies with a theme-aware split divider, remembered divider position, word-wrapping HTML details, and consumer paths displayed as a bulleted list.
+- Added an optional **Show all pending changes after staging** checkbox that clears all main-table filters and activates Pending: All Changes after staging the selection.
+- Added **Check Managed Dependencies for Redundancy...** toolbar action and **Check for Redundancy** context menu action to start the redundancy check.
+- Added **Mark Selected Entries for Removal** staging action that clarifies changes are staged until Update.
+- Added redundancy reason labels **Version Managed by Parent** and **Version Provided Transitively**, distinguishing Same Version, Higher Version, or Same and Higher Versions.
+- Highlighted affected candidate and parent dependencies with theme-aware colors and bolded version numbers in the details panel.
+- Enlarged the redundancy dialog into a dedicated resizable information dialog when no redundancy is found.
+- Clarified source POM details and consumer paths, and show the Maven Project column only for multi-project results.
+- **Added structured Markdown source templates for JetBrains Marketplace Custom Pages** under `docs/assets/marketplace/custom/` covering Getting Started, Privacy & Security, Vulnerability Management, and Configuration & FAQ.
+- Expanded redundancy DEBUG logs with analysis scope, results, POM cache and local-repository hits, and individual HTTP GET attempts and response statuses without exposing credentials.
+- Added a regression test for the `tools.jackson.core:jackson-core` fallback scenario and expanded the unit test suite with comprehensive coverage for negative cases, helper methods, property placeholder handling, multi-module scenarios, and criterion prioritization.
 
 ### Changed
 
-- **Renamed the row context menu actions to "Select Highest Major Version", "Select Highest Minor Version", and "Select Recommended Version" to align with the toolbar selection menu and establish a consistent interaction vocabulary.**
-- **Highlighted affected candidate and parent dependencies with theme-aware colors and bolded all version numbers within the Redundant Managed Dependencies details panel (reason and consumer paths).**
-- **Enlarged the "Redundant Managed Dependencies" dialog when no redundancy is found into a dedicated, resizable information dialog without scrollbars.**
-- **Clarified redundancy dialog source POM details and consumer paths, and show the Maven Project column only for results spanning multiple projects.**
-- **Expanded the redundancy review dialog, displayed consumer paths as a bulleted list, and renamed its action to Mark Selected Entries for Removal to clarify that changes are staged until Update.**
-- **Clarified redundancy labels as Version Managed by Parent and Version Provided Transitively, and distinguish Same Version, Higher Version, or Same and Higher Versions without repeating consumer paths already listed in the details panel.**
-- **Clarified managed dependency redundancy reasons with the version source and per-path versions, and let users review candidates even when removing the entry may select a higher version.**
-- **Renamed the redundancy actions to Check Managed Dependencies for Redundancy... and Check for Redundancy so the toolbar and context-menu labels clearly refer to the same check.**
-- **Updated the Managed Entries tooltip to describe the redundancy check alongside removal or comment-out actions and clarify that filter scope applies only to those bulk actions.**
+- **Updated the Managed Entries tooltip** to describe the redundancy check alongside removal or comment-out actions and clarify that filter scope applies only to those bulk actions.
+- **Renamed row context menu actions** to "Select Highest Major Version", "Select Highest Minor Version", and "Select Recommended Version" to align with the toolbar selection menu.
 - Moved the **Hierarchy** toolbar action to the right of **Vulnerability Details** so selection-dependent actions are grouped in a clearer left-to-right flow.
-- Added a regression test that reproduces the `tools.jackson.core:jackson-core` fallback from `3.1.7` to `3.1.5` and verifies that this downgrade is not flagged as a transitive redundancy match.
-- Expanded the unit test suite for managed dependency redundancy analysis with comprehensive coverage for negative cases (parent with lower version, missing parent coordinate, exception handling), helper methods (coordinate scope filtering, consumer path detection, project-wide usage checks), property placeholder handling, multi-module scenarios, and criterion prioritization.
-
-### Removed
-
-- **Removed the Check Cleanup Recommendations feature from the Managed Entries toolbar menu and row context menu.**
 
 ### Fixed
 
-- **Fixed "Set Recommended Version" in toolbar and context menus to only offer and select versions that are present in the list of available versions, and disabled the action when the recommended version is missing or hidden by "Hide unstable versions".**
-- **Fixed false-positive "Version Provided Transitively" recommendations by evaluating the effective fallback version from parent/imported BOM dependency management when the local `<dependencyManagement>` entry is removed.**
-- **Fixed the redundancy dialog introduction so `<dependencyManagement>` renders as text instead of disappearing as an HTML tag.**
-- **Fixed the initial Redundancy Details panel to show the currently selected table row, including after the table's default sort.**
-- **Reported candidate removals only when parent, direct, and every known transitive source supplies at least the currently managed version.**
-- **Fixed Redundant Managed Dependencies becoming impossible to narrow after displaying long redundancy details or widening the dialog.**
-- **Fixed unintended SNAPSHOT version selections after startup and refresh, including misleading dropdown values and updates created by opening an unchanged editor.**
-- **Fixed higher SNAPSHOT versions appearing below the latest release in New Version dropdowns and version preselection, while preserving release priority over other versions.**
-- Fixed timestamped Maven snapshot resolutions replacing declared `*-SNAPSHOT` versions in MavenUp, which could hide cached versions from the update list.
+- **Fixed false-positive "Version Provided Transitively" recommendations** by evaluating the effective fallback version from parent/imported BOM dependency management when the local `<dependencyManagement>` entry is removed, and reporting candidate removals only when parent, direct, and every known transitive source supplies at least the currently managed version.
+- **Fixed the redundancy dialog introduction** so `<dependencyManagement>` renders as text instead of disappearing as an HTML tag.
+- **Fixed the initial Redundancy Details panel** to show the currently selected table row, including after the table's default sort.
+- **Fixed the Redundant Managed Dependencies dialog** becoming impossible to narrow after displaying long redundancy details or widening the dialog.
+- **Fixed SNAPSHOT version handling** to prevent unintended SNAPSHOT version selections after startup and refresh, including misleading dropdown values, updates created by opening an unchanged editor, higher SNAPSHOT versions appearing below the latest release in dropdowns and version preselection, and timestamped Maven snapshot resolutions replacing declared `*-SNAPSHOT` versions.
+- **Fixed "Set Recommended Version"** in toolbar and context menus to only offer and select versions present in the available versions list, disabling the action when the recommended version is missing or hidden by "Hide unstable versions".
 - Fixed internal IntelliJ API usage in candidate POM local repository resolution by replacing the deprecated internal call with the public repository path API.
 
 ## 3.4.0
