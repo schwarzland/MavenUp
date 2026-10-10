@@ -2,6 +2,8 @@ package de.schwarzland.mavenup.ui
 
 import com.intellij.openapi.util.Disposer
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
+import com.intellij.ui.ColorUtil
+import com.intellij.ui.JBColor
 import com.intellij.ui.JBSplitter
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.table.JBTable
@@ -10,6 +12,7 @@ import com.intellij.util.ui.UIUtil
 import de.schwarzland.mavenup.model.ConsumerDependencyInfo
 import de.schwarzland.mavenup.model.RedundancyReason
 import de.schwarzland.mavenup.model.RedundantManagedDependencyRecommendation
+import java.awt.Color
 import java.awt.Container
 import javax.swing.JEditorPane
 
@@ -298,4 +301,106 @@ class RedundantManagedDependencyDialogTest : BasePlatformTestCase() {
         resolvedVersion = version,
         pathDescription = "org.example:$artifactId:1.0 -> org.example:lib:$version"
     )
+
+    /**
+     * Prüft die Definition der Hervorhebungsfarbe für Light- und Dark-Mode.
+     */
+    fun testAffectedDependencyColorDefinition() {
+        val color = RedundantManagedDependencyDialog.AFFECTED_DEPENDENCY_COLOR
+        assertNotNull(color)
+        val htmlColor = ColorUtil.toHtmlColor(color)
+        assertTrue(htmlColor.startsWith("#"))
+    }
+
+    /**
+     * Prüft, dass die betroffene Koordinate in der Redundanzbegründung farblich hervorgehoben wird.
+     */
+    fun testFormatReasonDetailHighlightsAffectedDependency() {
+        val target = "org.apache.tomcat.embed:tomcat-embed-core"
+        val reason = "Parent hierarchy org.springframework.boot:spring-boot-starter-parent:4.1.1 manages " +
+            "org.apache.tomcat.embed:tomcat-embed-core at version 11.0.24, which is higher than the local version 11.0.20."
+        val colorHex = "#0055aa"
+
+        val formatted = formatReasonDetail(reason, target, colorHex)
+        assertTrue(formatted.contains("<span style=\"color: #0055aa;\">org.apache.tomcat.embed:tomcat-embed-core</span>"))
+        assertFalse(formatted.contains("<span style=\"color: #0055aa;\">org.springframework.boot:spring-boot-starter-parent"))
+    }
+
+    /**
+     * Prüft, dass die betroffene Abhängigkeit am Ende und innerhalb von Konsumentenpfaden farblich hervorgehoben wird.
+     */
+    fun testFormatConsumerPathHighlightsAffectedDependency() {
+        val target = "org.apache.tomcat.embed:tomcat-embed-core"
+        val colorHex = "#0055aa"
+        val path1 = "org.springframework.boot:spring-boot-starter-web:4.1.1 -> " +
+            "org.springframework.boot:spring-boot-starter-tomcat:4.1.1 -> " +
+            "org.springframework.boot:spring-boot-starter-tomcat-runtime:4.1.1 -> " +
+            "org.apache.tomcat.embed:tomcat-embed-core:11.0.20"
+        val path2 = "org.springframework.boot:spring-boot-starter-web:4.1.1 -> " +
+            "org.springframework.boot:spring-boot-starter-tomcat:4.1.1 -> " +
+            "org.springframework.boot:spring-boot-starter-tomcat-runtime:4.1.1 -> " +
+            "org.apache.tomcat.embed:tomcat-embed-websocket:11.0.24 -> " +
+            "org.apache.tomcat.embed:tomcat-embed-core:11.0.20"
+
+        val formatted1 = formatConsumerPath(path1, target, colorHex)
+        assertTrue(formatted1.contains("<span style=\"color: #0055aa;\">org.apache.tomcat.embed:tomcat-embed-core:11.0.20</span>"))
+        assertFalse(formatted1.contains("<span style=\"color: #0055aa;\">org.springframework.boot:spring-boot-starter-web"))
+
+        val formatted2 = formatConsumerPath(path2, target, colorHex)
+        assertTrue(formatted2.contains("<span style=\"color: #0055aa;\">org.apache.tomcat.embed:tomcat-embed-core:11.0.20</span>"))
+        assertFalse(formatted2.contains("<span style=\"color: #0055aa;\">org.apache.tomcat.embed:tomcat-embed-websocket"))
+    }
+
+    /**
+     * Prüft die Detailansicht im Dialog für das im Issue beschriebene Szenario mit farblicher Hervorhebung.
+     */
+    fun testDialogDetailsPanelRendersColoredAffectedDependency() {
+        val path1 = "org.springframework.boot:spring-boot-starter-web:4.1.1 -> " +
+            "org.springframework.boot:spring-boot-starter-tomcat:4.1.1 -> " +
+            "org.springframework.boot:spring-boot-starter-tomcat-runtime:4.1.1 -> " +
+            "org.apache.tomcat.embed:tomcat-embed-core:11.0.20"
+        val path2 = "org.springframework.boot:spring-boot-starter-web:4.1.1 -> " +
+            "org.springframework.boot:spring-boot-starter-tomcat:4.1.1 -> " +
+            "org.springframework.boot:spring-boot-starter-tomcat-runtime:4.1.1 -> " +
+            "org.apache.tomcat.embed:tomcat-embed-websocket:11.0.24 -> " +
+            "org.apache.tomcat.embed:tomcat-embed-core:11.0.20"
+
+        val rec = RedundantManagedDependencyRecommendation(
+            groupId = "org.apache.tomcat.embed",
+            artifactId = "tomcat-embed-core",
+            currentVersion = "11.0.20",
+            reason = RedundancyReason.PARENT_MANAGED,
+            reasonDetail = "Parent hierarchy org.springframework.boot:spring-boot-starter-parent:4.1.1 manages " +
+                "org.apache.tomcat.embed:tomcat-embed-core at version 11.0.24, which is higher than the local version 11.0.20. " +
+                "Removing the local entry will make Maven use 11.0.24; review the affected consumer paths before applying.",
+            providedVersion = "11.0.24",
+            consumers = listOf(
+                ConsumerDependencyInfo(
+                    groupId = "org.springframework.boot",
+                    artifactId = "spring-boot-starter-web",
+                    resolvedVersion = "11.0.24",
+                    pathDescription = path1
+                ),
+                ConsumerDependencyInfo(
+                    groupId = "org.springframework.boot",
+                    artifactId = "spring-boot-starter-web",
+                    resolvedVersion = "11.0.24",
+                    pathDescription = path2
+                )
+            ),
+            sourceProjectId = "pellet-price-backend",
+            sourcePomPath = "/Users/michael/Coding/Schwarzland/pellet-price-backend/pom.xml"
+        )
+
+        val dialog = RedundantManagedDependencyDialog(project, listOf(rec))
+        Disposer.register(testRootDisposable, dialog.disposable)
+        val centerPanel = dialog.createCenterPanel()
+        val splitter = UIUtil.findComponentOfType(centerPanel, JBSplitter::class.java)!!
+        val scroll = UIUtil.findComponentOfType(splitter.secondComponent, JBScrollPane::class.java)!!
+        val editor = scroll.viewport.view as JEditorPane
+
+        val colorHex = ColorUtil.toHtmlColor(RedundantManagedDependencyDialog.AFFECTED_DEPENDENCY_COLOR)
+        assertTrue(editor.text.contains(colorHex))
+        assertTrue(editor.text.contains("tomcat-embed-core"))
+    }
 }

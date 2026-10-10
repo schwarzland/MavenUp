@@ -14,6 +14,7 @@
 
 ### Changed
 
+- **Highlighted affected candidate dependencies within the Redundant Managed Dependencies details panel (reason and consumer paths) with theme-aware colors for light and dark mode.**
 - **Enlarged the "Redundant Managed Dependencies" dialog when no redundancy is found into a dedicated, resizable information dialog without scrollbars.**
 - **Clarified redundancy dialog source POM details and consumer paths, and show the Maven Project column only for results spanning multiple projects.**
 - **Expanded the redundancy review dialog, displayed consumer paths as a bulleted list, and renamed its action to Mark Selected Entries for Removal to clarify that changes are staged until Update.**

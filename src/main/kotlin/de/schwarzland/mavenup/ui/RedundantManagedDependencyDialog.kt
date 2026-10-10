@@ -4,6 +4,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogPanel
 import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.openapi.util.text.StringUtil
+import com.intellij.ui.ColorUtil
 import com.intellij.ui.JBColor
 import com.intellij.ui.JBSplitter
 import com.intellij.ui.components.JBScrollPane
@@ -18,6 +19,7 @@ import com.intellij.util.ui.UIUtil
 import de.schwarzland.mavenup.model.RedundancyReason
 import de.schwarzland.mavenup.model.RedundantManagedDependencyRecommendation
 import org.apache.maven.artifact.versioning.ComparableVersion
+import java.awt.Color
 import java.awt.Component
 import java.awt.Graphics
 import java.awt.event.MouseAdapter
@@ -277,10 +279,13 @@ class RedundantManagedDependencyDialog(
         }
 
         val rec = recommendations[modelRow]
+        val targetCoordinate = "${rec.groupId}:${rec.artifactId}"
+        val colorHex = ColorUtil.toHtmlColor(AFFECTED_DEPENDENCY_COLOR)
+
         val reasonTitle = StringUtil.escapeXmlEntities(
             MyMessageBundle.message("redundant.managed.dependency.dialog.detail.reason")
         )
-        val reasonDetail = StringUtil.escapeXmlEntities(rec.reasonDetail)
+        val reasonDetail = formatReasonDetail(rec.reasonDetail, targetCoordinate, colorHex)
         val sourcePom = rec.sourcePomPath.takeIf { it.isNotBlank() }?.let {
             "<p><b>${StringUtil.escapeXmlEntities(
                 MyMessageBundle.message("redundant.managed.dependency.dialog.detail.sourcePom")
@@ -293,7 +298,7 @@ class RedundantManagedDependencyDialog(
             )
         } else {
             rec.consumers.joinToString(separator = "", prefix = "<ul>", postfix = "</ul>") { consumer ->
-                "<li>${StringUtil.escapeXmlEntities(consumer.pathDescription)}</li>"
+                "<li>${formatConsumerPath(consumer.pathDescription, targetCoordinate, colorHex)}</li>"
             }
         }
         val pathsTitle = StringUtil.escapeXmlEntities(
@@ -397,4 +402,63 @@ class RedundantManagedDependencyDialog(
             }
         }
     }
+
+    companion object {
+        /** Textfarbe zur Hervorhebung betroffener Abhängigkeiten in Light- und Dark-Mode. */
+        internal val AFFECTED_DEPENDENCY_COLOR = JBColor(Color(0x00, 0x55, 0xAA), Color(0x58, 0x9D, 0xF6))
+    }
+}
+
+/**
+ * Formatiert die Redundanzbegründung für die HTML-Detailansicht und hebt die betroffene Koordinate farblich hervor.
+ *
+ * @param reasonDetail Der unformatierte Begründungstext.
+ * @param targetCoordinate Die Koordinate `groupId:artifactId` der betroffenen Abhängigkeit.
+ * @param colorHex Der hexadezimale Farbcode zur themenabhängigen Darstellung.
+ * @return Der HTML-formatierte und maskierte Begründungstext mit farblicher Hervorhebung.
+ */
+internal fun formatReasonDetail(
+    reasonDetail: String,
+    targetCoordinate: String,
+    colorHex: String
+): String {
+    val escapedReason = StringUtil.escapeXmlEntities(reasonDetail)
+    if (targetCoordinate.isBlank()) return escapedReason
+    val escapedTarget = StringUtil.escapeXmlEntities(targetCoordinate)
+    val regex = Regex("""(?<![a-zA-Z0-9_\-\.:])${Regex.escape(escapedTarget)}(?![a-zA-Z0-9_\-\.])""")
+    return regex.replace(escapedReason) { match ->
+        "<span style=\"color: $colorHex;\">${match.value}</span>"
+    }
+}
+
+/**
+ * Formatiert einen Konsumentenpfad für die HTML-Detailansicht und hebt betroffene Abhängigkeiten farblich hervor.
+ *
+ * @param pathDescription Der Abhängigkeitspfad mit Trennern (` -> `).
+ * @param targetCoordinate Die Koordinate `groupId:artifactId` der betroffenen Abhängigkeit.
+ * @param colorHex Der hexadezimale Farbcode zur themenabhängigen Darstellung.
+ * @return Der HTML-formatierte und maskierte Konsumentenpfad mit farblicher Hervorhebung.
+ */
+internal fun formatConsumerPath(
+    pathDescription: String,
+    targetCoordinate: String,
+    colorHex: String
+): String {
+    if (targetCoordinate.isBlank()) {
+        return StringUtil.escapeXmlEntities(pathDescription)
+    }
+    val segments = pathDescription.split(" -> ")
+    val formattedSegments = segments.map { segment ->
+        val trimmed = segment.trim()
+        val isTarget = trimmed == targetCoordinate ||
+            trimmed.startsWith("$targetCoordinate:") ||
+            trimmed.startsWith("$targetCoordinate ")
+        val escaped = StringUtil.escapeXmlEntities(trimmed)
+        if (isTarget) {
+            "<span style=\"color: $colorHex;\">$escaped</span>"
+        } else {
+            escaped
+        }
+    }
+    return formattedSegments.joinToString(" -&gt; ")
 }
