@@ -27,8 +27,8 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
 ## Kernkomponenten (`src/main/kotlin/de/schwarzland/mavenup/`)
 
 ### Paketstruktur
-- **`model`**: `DependencyUpdate`, `VulnerabilityAdvisory`, `VulnerabilitySeverity`, `AffectedVersionRange`, `DependencyHierarchyNode`, `DependencyHierarchyNodeType` – reine Daten-DTOs ohne Logik.
-- **`service`**: Alle externen API-Zugriffe, Settings, Startup-Logik, Abhängigkeitshierarchie-Analyse und Hilfsfunktionen.
+- **`model`**: `DependencyUpdate`, `VulnerabilityAdvisory`, `VulnerabilitySeverity`, `AffectedVersionRange`, `DependencyHierarchyNode`, `DependencyHierarchyNodeType`, `RedundantManagedDependencyRecommendation`, `ConsumerDependencyInfo`, `TemporaryArtifactCoordinate`, `TemporaryDependencyNode` – reine Daten-DTOs ohne Logik.
+- **`service`**: Alle externen API-Zugriffe, Settings, Startup-Logik, Abhängigkeitshierarchie-Analyse, temporäre POM-Auflösung, Redundanzprüfungen und Hilfsfunktionen.
 - **`ui`**: Tool-Window, Dialoge, Settings-UI, I18n-Bundle sowie ausgelagerte, zustandslose UI-Hilfsdateien.
 
 ### Komponentenreferenz
@@ -46,10 +46,16 @@ Reine Logik nutzt JUnit (z. B. `VulnerabilityApiServiceTest`, `VersionAutoSelect
 Projekt-/PSI-Umgebung erben von `BasePlatformTestCase` (z. B. `MavenUpWindowFactoryTest`,
 `RefreshSnapshotCollectorTest`, `PomNavigationServiceTest`, `PomUpdateServiceTest`, `VersionStatusUiTest`,
 `InheritedVersionUiTest`,
-`DependencyVersionServiceTest`, `VulnerabilityScanServiceTest`). Netzwerklastige Services werden über
+`DependencyVersionServiceTest` (Refresh-Snapshot-Abgleich und Fallback für unbekannte Koordinaten),
+`VersionSelectionIntegrationTest` (Dropdown-Anzeige, Editor-Abschluss, Property-Synchronisation und Filter),
+`VulnerabilityScanServiceTest`). Netzwerklastige Services werden über
 injizierte Seams/Interfaces netzwerkfrei getestet.
 `CacheContentsDialogTest` deckt TTL-Anzeige und Invalidierung ab;
-`VersionLookupLoggingTest` prüft DEBUG-Ausgaben und lokale HTTP-Versuche einschließlich Cache-Treffern.
+`RedundantManagedDependencyDialogTest` prüft Auswahl, Übernahme, Split-Layout, Folgeansichten und
+inhaltsunabhängiges Verkleinern bei langen Detailtexten;
+`RedundantManagedDependencyServiceTest` prüft die Erkennung redundanter Einträge (Parent-Management, direkte Abhängigkeit, transitive Bereitstellung, ungenutzt) einschließlich des Falls, dass ohne lokalen Managed-Override ein niedrigeres Parent-/BOM-Fallback wirksam wäre;
+`VersionLookupLoggingTest` prüft DEBUG-Ausgaben und lokale HTTP-Versuche einschließlich Cache-Treffern,
+Redundanzprüfungen, POM-Antwortstatus und Ausschluss von Zugangsdaten aus POM-Abfrage-Logs.
 
 ## KI-Agenten (Copilot / Junie)
 - Für KI-Agenten gelten die verbindlichen Arbeitsanweisungen in `.github/copilot-instructions.md`.

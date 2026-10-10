@@ -1,5 +1,6 @@
 package de.schwarzland.mavenup.ui
 
+import de.schwarzland.mavenup.model.RedundantManagedDependencyRecommendation
 import de.schwarzland.mavenup.model.ApiError
 import de.schwarzland.mavenup.model.DependencyUpdate
 import de.schwarzland.mavenup.model.VulnerabilityAdvisory
@@ -236,8 +237,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private val pomNavigationService = PomNavigationService(project)
         private val toolWindowBadgeService = ToolWindowBadgeService.getInstance(project)
         private val availableVersions = mutableMapOf<String, List<String>>()
-        private val selectedVersions = mutableMapOf<String, String>()
-        private val pendingManagedRemovalUpdates = mutableMapOf<String, DependencyUpdate>()
+        internal val selectedVersions = mutableMapOf<String, String>()
+        internal val pendingManagedRemovalUpdates = mutableMapOf<String, DependencyUpdate>()
         private val dependencyToProperty = mutableMapOf<String, String>()
         private val knownDependencies = mutableMapOf<String, String>() // key to current version
         private val knownTypes = mutableMapOf<String, String>()
@@ -343,6 +344,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
             get() = vulnerabilityScanErrors.isNotEmpty()
         private var isUpdating = false
         private var isRefreshing = false
+        /** `true`, solange eine Prüfung auf redundante verwaltete Abhängigkeiten (Ist-Zustand) läuft. */
+        internal var isCheckingRedundantManaged = false
 
         /**
          * `true`, solange eine Online-Suche nach neuen Versionen läuft.
@@ -672,10 +675,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     val upToDate = isVersionUpToDate(effectiveVersion, newestVersion)
                     val hasChange = effectiveVersion != currentVersion && effectiveVersion.isNotEmpty()
 
-                    val combo = ComboBox(versions.toTypedArray()).apply {
-                        if (effectiveVersion.isNotEmpty()) {
-                            selectedItem = effectiveVersion
-                        }
+                    val combo = createVersionComboBox(versions, effectiveVersion).apply {
                         if (hasChange) {
                             foreground = versionStatusColor(upToDate)
                         }
@@ -695,10 +695,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 }
 
             table.columnModel.getColumn(NEW_VERSION_COLUMN).cellEditor = object : AbstractTableCellEditor() {
-                private var currentComboBox: ComboBox<String>? = null
                 private var currentKey: String? = null
                 private var editorPanel: JPanel? = null
 
+                /** Erstellt den Editor mit expliziter Auswahl; nur Wertwechsel synchronisieren Maven-Properties. */
                 override fun getTableCellEditorComponent(
                     table: JTable?, value: Any?, isSelected: Boolean, row: Int, column: Int
                 ): Component {
@@ -708,16 +708,12 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
                     @Suppress("UNCHECKED_CAST")
                     val versions = value as? List<String> ?: emptyList()
-                    val combo = ComboBox(versions.toTypedArray())
-
                     val currentVersion = table?.getValueAt(row, CURRENT_VERSION_COLUMN) as? String ?: ""
                     val newestVersion = versions.firstOrNull() ?: ""
 
                     val selectedVersion = if (currentKey != null) selectedVersions[currentKey!!] else null
                     val effectiveVersion = selectedVersion ?: currentVersion
-                    if (effectiveVersion.isNotEmpty()) {
-                        combo.selectedItem = effectiveVersion
-                    }
+                    val combo = createVersionComboBox(versions, effectiveVersion)
 
                     val upToDate = isVersionUpToDate(effectiveVersion, newestVersion)
                     val hasChange = effectiveVersion != currentVersion && effectiveVersion.isNotEmpty()
@@ -736,7 +732,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     combo.addActionListener {
                         val selected = combo.selectedItem as? String
                         val key = currentKey
-                        if (key != null && selected != null) {
+                        if (key != null && selected != null &&
+                            selected != (selectedVersions[key] ?: currentVersion)
+                        ) {
                             synchronizePropertyVersions(key, selected)
                         }
                         updateUpdateButtonState()
@@ -744,7 +742,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         applyRowFilter()
                     }
 
-                    currentComboBox = combo
                     val panel = createVersionPanel(
                         combo,
                         versionStatusText(upToDate),
@@ -756,11 +753,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     return panel
                 }
 
+                /** Liefert die Kandidatenliste ohne eine unveraenderte Auswahl als Update zu speichern. */
                 override fun getCellEditorValue(): Any? {
-                    val selected = currentComboBox?.selectedItem as? String
-                    if (currentKey != null && selected != null) {
-                        synchronizePropertyVersions(currentKey!!, selected)
-                    }
                     updateUpdateButtonState()
                     val groupId = currentKey?.substringBefore(":")
                     val artifactId = currentKey?.substringAfter(":")
@@ -845,6 +839,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     return
                 }
 
+                dropUnavailableVersionSelections()
                 updateUpdateButtonState()
                 updateTypeFilterOptions()
                 updateUpdatesFilterState()
@@ -1219,6 +1214,16 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 ) {
                     if (!showingTransitiveView) confirmAndRemoveManagedEntries(MANAGED_PLUGIN)
                 })
+                addSeparator()
+                add(toolbarAction(
+                    "toolwindow.MyToolWindow.checkRedundantManaged.menuItem",
+                    AllIcons.Actions.Unshare,
+                    { !showingTransitiveView && isCheckRedundantManagedEnabled() },
+                    descriptionProvider = {
+                        MyMessageBundle.message("toolwindow.MyToolWindow.checkRedundantManaged.tooltip")
+                    },
+                    isMenuItem = true
+                ) { checkRedundantManagedDependencyAction() })
             }
 
             toolbarGroup.apply {
@@ -1270,6 +1275,12 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_CONTEXT_MENU_NAVIGATE_TO_POM)
                     }
                 ) { navigateToPomForSelectedRow() })
+                add(toolbarAction(
+                    "toolwindow.MyToolWindow.vulnerabilityDetails.button",
+                    AllIcons.General.BalloonWarning,
+                    { isVulnerabilityDetailsEnabled() },
+                    shortLabelKey = "toolwindow.MyToolWindow.vulnerabilityDetails.button.short"
+                ) { openVulnerabilityDetailsForSelectedRow() })
                 add(dynamicToggleAction(
                     icon = AllIcons.Actions.ShowAsTree,
                     isEnabled = { isDependencyHierarchyEnabled() },
@@ -1280,12 +1291,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         MyMessageBundle.message("toolwindow.MyToolWindow.dependencyHierarchy.tooltip")
                     }
                 ) { open -> toggleDependencyHierarchy(open) })
-                add(toolbarAction(
-                    "toolwindow.MyToolWindow.vulnerabilityDetails.button",
-                    AllIcons.General.BalloonWarning,
-                    { isVulnerabilityDetailsEnabled() },
-                    shortLabelKey = "toolwindow.MyToolWindow.vulnerabilityDetails.button.short"
-                ) { openVulnerabilityDetailsForSelectedRow() })
                 add(Separator.getInstance())
                 add(toolbarAction(
                     "toolwindow.MyToolWindow.settings.button",
@@ -1496,7 +1501,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
-         * Fügt die versionsbezogenen Aktionen und die Entfernungsaktion hinzu.
+         * Fügt Versionsaktionen sowie passende Aktionen zur Bereinigung und Entfernung hinzu.
          *
          * @param group Aktionsgruppe des Kontextmenüs.
          * @param target Daten der angeklickten Tabellenzeile.
@@ -1531,6 +1536,16 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 isManagedEntryRemovalEnabled(dependencyKey, target.type)
             ) {
                 markManagedEntryForRemoval(dependencyKey, target.type, target.currentVersion)
+            }
+            val managedDependencyType = MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
+            if (target.type == managedDependencyType) {
+                addContextMenuAction(
+                    group,
+                    MyMessageBundle.message("toolwindow.MyToolWindow.checkRedundantManaged.contextMenu"),
+                    isCheckRedundantManagedEnabled()
+                ) {
+                    checkRedundantManagedDependencyAction(target)
+                }
             }
         }
 
@@ -2186,7 +2201,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
          *
          * @param state Der nach Projektstart oder Maven-Import erfasste Zustand.
          */
-        private fun applyAutomaticVersionSearchState(state: AutomaticVersionSearchState) {
+        internal fun applyAutomaticVersionSearchState(state: AutomaticVersionSearchState) {
             if (isUpdating || project.isDisposed) return
 
             refreshGeneration++
@@ -2232,6 +2247,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 addDependencyRow(row, declaredCoordinates)
             }
 
+            dropUnavailableVersionSelections()
             updateUpdateButtonState()
             updateTypeFilterOptions()
             updateUpdatesFilterState()
@@ -2431,7 +2447,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * Wendet die konfigurierte Auto-Selektionsstrategie auf alle bereits geladenen Abhängigkeiten an.
          *
          * Wird aufgerufen, wenn sich die Einstellung ändert, damit die "New Version"-Spalte sofort
-         * die korrekte Auswahl widerspiegelt.
+         * die korrekte Auswahl widerspiegelt. Bei deaktivierter Vorauswahl werden gespeicherte
+         * Ziele entfernt; die Anzeige verwendet dann die aktuelle Version.
          */
         internal fun applySelectLatestVersionSetting() {
             if (availableVersions.isEmpty()) return
@@ -2447,7 +2464,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         selectedVersions.remove(key)
                     }
                 } else {
-                    selectedVersions[key] = currentVersion
+                    selectedVersions.remove(key)
                 }
             }
             cancelActiveCellEditing()
@@ -2519,12 +2536,13 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
-         * Verwirft Versionsauswahlen, die in den aktuell angebotenen Versionen nicht mehr enthalten sind.
+         * Verwirft unveränderte und nicht mehr angebotene Zielauswahlen auch bei leeren Versionslisten.
+         * Eine fehlende Auswahl bedeutet, dass die aktuelle Tabellen-Version beibehalten wird.
          */
         private fun dropUnavailableVersionSelections() {
             selectedVersions.entries.removeAll { (key, version) ->
                 val versions = availableVersions[key].orEmpty()
-                versions.isNotEmpty() && version !in versions
+                version == knownDependencies[key] || version !in versions
             }
         }
 
@@ -3335,7 +3353,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * @param key Der Schlüssel (`groupId:artifactId`) der geänderten Dependency.
          * @param selected Die neu ausgewählte Version.
          */
-        private fun synchronizePropertyVersions(key: String, selected: String) {
+        internal fun synchronizePropertyVersions(key: String, selected: String) {
             selectedVersions[key] = selected
             val property = dependencyToProperty[key]
             if (property != null) {
@@ -3412,6 +3430,77 @@ class MavenUpWindowFactory : ToolWindowFactory {
          */
         internal fun isCheckVulnerabilitiesEnabled(): Boolean =
             canCheckVulnerabilities(isRefreshing, isUpdating)
+
+        /**
+         * Prüft, ob die Prüfung auf redundante verwaltete Abhängigkeiten (Ist-Zustand) derzeit gestartet werden darf.
+         *
+         * @return `true`, wenn keine andere Tool-Window-Operation läuft.
+         */
+        internal fun isCheckRedundantManagedEnabled(): Boolean =
+            !isRefreshing && !isSearchingVersions && !isUpdating && !isCheckingRedundantManaged
+
+        /**
+         * Startet die Prüfung auf redundante verwaltete Abhängigkeiten im Ist-Zustand.
+         *
+         * @param target Optionaler Kontextmenü-Eintrag zur Begrenzung auf eine konkrete verwaltete Abhängigkeit.
+         */
+        internal fun checkRedundantManagedDependencyAction(target: DependencyContextMenuTarget? = null) {
+            if (!isCheckRedundantManagedEnabled()) return
+            isCheckingRedundantManaged = true
+            refreshToolbar()
+            val managedDependencyType = MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
+            val scope = RedundantManagedDependencyScope.fromTarget(target, managedDependencyType)
+            RedundantManagedDependencyCheckRunner(project).start(
+                scope = scope,
+                onSuccess = { recommendations ->
+                    if (recommendations.isEmpty()) {
+                        RedundantManagedDependencyNoneFoundDialog(
+                            project = project,
+                            scopeDescription = scope.description
+                        ).show()
+                    } else {
+                        RedundantManagedDependencyDialog(
+                            project = project,
+                            recommendations = recommendations,
+                            scopeDescription = scope.description
+                        ) { selectedRecs, showPending ->
+                            applyRedundantManagedDependencyRecommendations(selectedRecs, showPending)
+                        }.show()
+                    }
+                },
+                onFinished = {
+                    isCheckingRedundantManaged = false
+                    refreshToolbar()
+                }
+            )
+        }
+
+        /**
+         * Übernimmt die ausgewählten redundanten verwalteten Abhängigkeiten und markiert sie zur Entfernung.
+         *
+         * @param recs Die ausgewählten Empfehlungen.
+         * @param showAllPendingChanges Bei `true` werden Filter zurückgesetzt und die Ansicht auf alle Änderungen gestellt.
+         */
+        internal fun applyRedundantManagedDependencyRecommendations(
+            recs: List<RedundantManagedDependencyRecommendation>,
+            showAllPendingChanges: Boolean = false
+        ) {
+            if (recs.isEmpty()) return
+            val managedType = MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
+            for (rec in recs) {
+                val managedKey = "${rec.groupId}:${rec.artifactId}"
+                markManagedEntryForRemoval(managedKey, managedType, rec.currentVersion)
+            }
+
+            cancelActiveCellEditing()
+            table.repaint()
+            updateUpdateButtonState()
+            if (showAllPendingChanges) {
+                resetAllFilters()
+                changesFilterComboBox.selectedItem = PendingChangesFilter.ALL_CHANGES
+            }
+            applyRowFilter()
+        }
 
         /**
          * Prüft, ob für die aktuell selektierte Zeile die Repository-Browser-Aktion verfügbar ist.
@@ -3807,6 +3896,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         availableVersions.putAll(result.availableVersions)
                         rawAvailableVersions.putAll(result.rawVersions)
                         selectedVersions.putAll(result.selectedVersions)
+                        dropUnavailableVersionSelections()
                         versionSearchRepositoryError = reportedRepositoryApiError.get()
                         refreshApiErrorBanner()
                         val dependenciesWithVersions = result.availableVersions.values.count { it.isNotEmpty() }

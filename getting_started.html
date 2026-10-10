@@ -38,11 +38,8 @@
         Versions</strong> toolbar action to discard all selections. When no filter is active it asks for confirmation
         first, and you can disable this from the dialog's "Don't ask again" option or in the settings; when a filter is
         active it instead asks whether to reset all dependencies or only the currently filtered ones.</li>
-    <li><strong>Update your project</strong>: To remove a no-longer-needed managed dependency or plugin, right-click it and choose <strong>Remove from pom.xml</strong>; its New Version value changes to <em>Will be removed</em> until you choose <strong>Update</strong>, <strong>Reset to Current Version</strong> for that row, or a single-entry <strong>Set to ... Version</strong> action. Click <strong>Update</strong> to review the planned changes in a confirmation
-        dialog and apply the selected versions to the relevant <code>pom.xml</code> files. Entries listed as
-        <em>transitive -&gt; managed dependency</em> are pinned in <code>dependencyManagement</code> for the first time. The
-        <strong>Sync Maven Changes after update</strong> checkbox is enabled by default and triggers the IDE's Maven sync
-        immediately after the change.</li>
+    <li><strong>Check redundant managed dependencies</strong>: Open <strong>Managed Entries &gt; Check Managed Dependencies for Redundancy...</strong> (or choose <strong>Check This Managed Dependency for Redundancy</strong> in the context menu of a managed dependency) to review entries managed by a parent, declared directly, provided transitively, or unused. The dialog shows the reason and consumer paths; select entries and click <strong>Mark Selected Entries for Removal</strong> to stage removals. Use <strong>Update</strong> separately to review and write the staged changes to <code>pom.xml</code>.</li>
+    <li><strong>Update your project</strong>: Click <strong>Update</strong> to review planned changes in a confirmation dialog and apply the selected versions to the relevant <code>pom.xml</code> files. To remove a no-longer-needed managed dependency or plugin directly, right-click it and choose <strong>Remove from pom.xml</strong>; its New Version value changes to <em>Will be removed</em> until you update, reset the row, or choose a single-entry version action. Entries listed as <em>transitive -&gt; managed dependency</em> are pinned in <code>dependencyManagement</code> for the first time. The <strong>Sync Maven Changes after update</strong> checkbox is enabled by default and triggers the IDE's Maven sync immediately after the change.</li>
     <li><strong>Inspect or clear cached results</strong>: In <strong>Settings &gt; Tools &gt; Maven Up</strong> under
         <strong>Versions and Updates</strong> or <strong>Vulnerability Check</strong>, click <strong>Show Cache Contents...</strong>
         to inspect version metadata or vulnerability results and their remaining <strong>TTL (s)</strong> at snapshot time.
@@ -84,9 +81,10 @@
         <strong>Set Highest Minor Version</strong> for just that dependency (available once its versions have been
         retrieved via "Refresh and Search for New Versions"), <strong>Set Recommended Version</strong> to jump to the fix version
         recommended for that dependency's own security findings, <strong>Reset to Current Version</strong> to discard that
-        dependency's selection, <strong>Show Dependency Hierarchy</strong> (visualizes the parent POM, BOM imports, and inclusion hierarchy for managed entries; it first opens paths that lead to a table entry or CVE finding while keeping unreferenced transitive-only branches available but collapsed, and is also available for every coordinate in the <strong>Transitive CVEs</strong> tab), and <strong>Show Vulnerability Details</strong> (disabled when the dependency has no
+        dependency's selection,         <strong>Check This Managed Dependency for Redundancy</strong> on managed dependencies (checks if the entry is redundant in the current configuration), <strong>Show Dependency Hierarchy</strong> (visualizes the parent POM, BOM imports, and inclusion hierarchy for managed entries; it first opens paths that lead to a table entry or CVE finding while keeping unreferenced transitive-only branches available but collapsed, and is also available for every coordinate in the <strong>Transitive CVEs</strong> tab), and <strong>Show Vulnerability Details</strong> (disabled when the dependency has no
         findings). All entries stay visible and only toggle their enabled state.</li>
-    <li><strong>Open the current artifact page</strong>: Select a row and use the top action toolbar to open the current
+    <li><strong>Open the current artifact page</strong>: Select a row and use the top action toolbar actions in this order:
+        <strong>Open on [Browser]</strong>, <strong>Vulnerability Details</strong>, and <strong>Hierarchy</strong>. The first action opens the current
         version in the configured repository browser, such as <strong>MVN Repository</strong> or
         <strong>Sonatype Central</strong>.</li>
 </ul>

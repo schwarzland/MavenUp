@@ -73,7 +73,7 @@ Afterwards, run `gradlew --stop` once so the Gradle daemon picks up the new sett
 ### Trace cache usage and API requests
 
 Open **Help > Diagnostic Tools > Debug Log Settings** and add `#de.schwarzland.mavenup.service`.
-Repeat a version search or vulnerability scan, then inspect `idea.log` via **Help > Show Log in Explorer**
+Repeat a version search, vulnerability scan, or redundant managed dependency check, then inspect `idea.log` via **Help > Show Log in Explorer**
 (the menu name varies by operating system).
 
 Version searches emit `Version cache hit`, `Version cache miss`, `Version cache expired`, or
@@ -81,6 +81,14 @@ Version searches emit `Version cache hit`, `Version cache miss`, `Version cache 
 actual HTTP GET attempt and its repository host, including attempts that subsequently fail; a cache hit
 does not produce a repository request. Successful repository responses retain their INFO summary and
 failed responses their WARN diagnostics. See [FEATURES.md](../FEATURES.md) for the diagnostic feature overview.
+
+Redundancy checks emit `Redundant managed dependencies analysis started` with the scope,
+and `Redundant managed dependencies analysis completed` with the result count.
+`POM cache hit` and `Local Maven POM hit` explain why no remote request is needed; corresponding misses
+identify fallback lookups. `Querying POM` identifies each HTTP GET attempt by artifact path and repository
+host, and `POM response` includes the HTTP status (including 404 and server errors). Request failures
+report the exception class instead of potentially sensitive URL or exception text; credentials, headers,
+full repository URLs, and POM contents are not included in these request diagnostics.
 
 ### Increase the Git buffer size
 

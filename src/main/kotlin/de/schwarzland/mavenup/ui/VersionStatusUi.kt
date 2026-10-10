@@ -10,6 +10,7 @@ import java.awt.Graphics
 import java.awt.Graphics2D
 import java.awt.RenderingHints
 import javax.swing.BorderFactory
+import javax.swing.DefaultComboBoxModel
 import javax.swing.Icon
 import javax.swing.JComponent
 import javax.swing.JLabel
@@ -201,6 +202,22 @@ internal fun applyVersionDropdownRenderer(
         }
     }
 }
+
+/**
+ * Erstellt die Versionsauswahl, ohne den ersten Kandidaten unbeabsichtigt vorauszuwählen.
+ *
+ * Die Modell-Auswahl darf außerhalb der Kandidatenliste liegen: So bleibt auch eine gefilterte
+ * oder nicht mehr veröffentlichte aktuelle Version sichtbar. Die Repository-Reihenfolge und
+ * die zur Update-Ermittlung verwendete Liste bleiben unverändert; Freitexteingaben sind nicht möglich.
+ *
+ * @param versions Tatsächlich angebotene Repository-Versionen in unveränderter Reihenfolge.
+ * @param effectiveVersion Anzuzeigende Auswahl oder aktuelle Version, auch wenn sie nicht angeboten wird.
+ * @return Nicht editierbare ComboBox mit explizit gesetzter Modell-Auswahl.
+ */
+internal fun createVersionComboBox(versions: List<String>, effectiveVersion: String): ComboBox<String> =
+    ComboBox(DefaultComboBoxModel(versions.toTypedArray()).apply {
+        selectedItem = effectiveVersion.takeIf { it.isNotEmpty() }
+    })
 
 /**
  * Erzeugt den lokalisierten Tooltip-Text für die Versionszelle.

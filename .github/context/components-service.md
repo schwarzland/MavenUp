@@ -56,8 +56,9 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   Einstellungsänderungen erhalten. Beim Empfang wird die Toolbar neu aufgebaut,
   der Tool-Window-Badge aktualisiert und
   `applySelectLatestVersionSetting()` nur dann aufgerufen, wenn sich `versionAutoSelectionMode`
-  tatsächlich geändert hat, damit andere Einstellungsänderungen die bereits getroffene **New Version**-Auswahl
-  nicht zurücksetzen.
+  tatsächlich geändert hat; der Moduswechsel wendet die Strategie auf die aktuelle Versionsanzeige an,
+  wobei `DISABLED` keine automatische Update-Auswahl speichert. Andere Einstellungsänderungen setzen die
+  bereits getroffene **New Version**-Auswahl nicht zurück.
 - **MavenRepositoryBrowser**: Enum in `service`, definiert die zwei konfigurierbaren
   Repository-Browser-Optionen (`MVN_REPOSITORY`, `SONATYPE_CENTRAL`) und erzeugt die jeweilige
   Versions-URL für groupId/artifactId/version.
@@ -192,7 +193,12 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
 - **DependencyVersionService**: fragt über `searchVersions` die verfügbaren Versionen aller
   Dependencies/Plugins ab (inkl. PSI-Erfassung verwalteter Einträge und Property-Schnittmengen)
   und liefert gefilterte Versionen, ungefilterte Versionen (`rawVersions`) und Vorauswahl als
-  `VersionSearchResult`. `fetchAvailableVersions` ruft gezielt die ungefilterten Versionslisten einer
+  `VersionSearchResult`. `processProjectUpdates` verwendet für bekannte Koordinaten die aktuelle
+  Version aus `currentVersions` des Refresh-Schnappschusses; unbekannte Koordinaten fallen auf die
+  Maven-/PSI-Version zurück. Property-Schnittmengen nutzen dieselben konsistenten Koordinatenversionen.
+  Die Funktion ist `internal`, damit diese Versionszuordnung ohne Repository-Netzwerkzugriffe testbar
+  ist. Bei deaktivierter Auto-Auswahl wird keine Versionsauswahl gespeichert.
+  `fetchAvailableVersions` ruft gezielt die ungefilterten Versionslisten einer
   übergebenen Koordinatenmenge ab (ohne Vorauswahl; genutzt für die
   verwundbaren transitiven Koordinaten nach einem Scan). Versionsabfrage (`fetchAllVersions`) und
   Einstellungsfilter (`applyVersionSettings`) sind als Funktions-Seams per Konstruktor injizierbar
@@ -252,3 +258,15 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   `DEPENDENCY_MANAGEMENT`, `PLUGIN_MANAGEMENT`, `DIRECT_DEPENDENCY`, `DIRECT_PLUGIN` und `TRANSITIVE_DEPENDENCY`.
   `DependencyHierarchyNode` hält Typ, GroupId, ArtifactId, aufgelöste und rohe Version, Property-Namen, Scope,
   Management-Status (`isManaged`), VirtualFile der `pom.xml` und das deklarierende `XmlTag`.
+- **TemporaryDependencyTreeResolver**: löst temporäre Abhängigkeitsbäume und effektives `<dependencyManagement>`
+  für Kandidaten-POMs im Arbeitsspeicher auf. Lädt POMs aus dem lokalen Maven-Cache (`~/.m2/repository`) oder
+  über konfigurierte Remote-Repositories (inkl. Maven-Central- und Server-Credentials), interpoliert Properties
+  rekursiv, löst `<parent>`-Hierarchien und BOM-Imports auf und unterstützt Zyklenerkennung sowie Tiefenbegrenzungen.
+  DEBUG-Logs unterscheiden POM-Speicher-Cache, lokale Treffer und Remote-Abfragen; `tryFetchPomFromRepository`
+  protokolliert HTTP-GET-Versuche mit Artefaktpfad und Host, Antwortstatus und bei Fehlern nur die Exception-Klasse,
+  ohne vollständige URLs, Zugangsdaten, Header oder POM-Inhalte auszugeben. Für Redundanzprüfungen sammelt er fehlende,
+  ungültige und zyklische POM-Auflösungen und setzt diese Diagnosen vor jeder neuen Analyse zurück.
+- **ConsumerDependencyInfo**: Datenmodell für Konsumenten- und Pfadbeschreibungen (`model/ConsumerDependencyInfo.kt`).
+- **TemporaryArtifactCoordinate / TemporaryDependencyNode**: Datenmodelle für den temporären Abhängigkeitsgraphen (`model/TemporaryDependencyNode.kt`).
+- **RedundantManagedDependencyService**: analysiert deklarierte verwaltete Abhängigkeiten (`<dependencyManagement>`) im aktuellen Projekt- und Versionsstand (Ist-Zustand ohne Version-Upgrades). Meldet Parent-Verwaltung (`PARENT_MANAGED`) und direkte Deklarationen (`DIRECT_DEPENDENCY_MATCH`) bei gleicher oder höherer Version; direkte Deklarationen gelten nur dann als ausreichender Grund, wenn keine weiteren bekannten Verbraucherpfade von der Verwaltung abhängen. Eine transitive Redundanz (`TRANSITIVE_MATCH`) wird nur gemeldet, wenn alle bekannten Verbraucherpfade ohne den lokalen Eintrag mindestens die verwaltete Version erhalten; dafür wird zuerst die effektive Fallback-Version aus Parent-/BOM-Management ohne lokalen Override ermittelt und nur bei fehlendem Fallback auf die reine transitive Auflösung der Verbraucherpfade zurückgegriffen. Die Begründungen nennen die konkrete Versionsquelle und weisen auf mögliche Versionsänderungen hin; transitive Verbraucherpfade listen jeweils die bereitgestellte Version auf, damit Anwender über das Entfernen entscheiden können. Niedrigere, fehlende oder nicht auflösbare Versionen reichen nicht aus. Ungenutzte Einträge erhalten `UNUSED`. BOM-Imports (`type=pom`, `scope=import`) werden als Einträge ausgeschlossen. Unterstützt optionale Koordinatenfilter und Abbruch via `ProgressIndicator`.
+- **RedundantManagedDependencyRecommendation / RedundancyReason**: Datenmodelle für redundante verwaltete Abhängigkeiten im Ist-Zustand (`model/RedundantManagedDependencyRecommendation.kt`, `model/RedundancyReason.kt`).

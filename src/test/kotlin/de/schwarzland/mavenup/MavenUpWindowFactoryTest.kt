@@ -8,6 +8,9 @@ import de.schwarzland.mavenup.model.DependencyUpdate
 import de.schwarzland.mavenup.service.MavenUpSettings
 import de.schwarzland.mavenup.service.MavenRepositoryBrowser
 import de.schwarzland.mavenup.service.VersionAutoSelectionMode
+import de.schwarzland.mavenup.service.AutomaticVersionSearchState
+import de.schwarzland.mavenup.service.VersionSearchResult
+import de.schwarzland.mavenup.ui.RefreshRow
 import de.schwarzland.mavenup.ui.DEPENDENCY_HIERARCHY_PANEL_INITIAL_WIDTH_PROPORTION
 import de.schwarzland.mavenup.ui.DependencyContextMenuTarget
 import de.schwarzland.mavenup.ui.buildMavenRepositoryUrl
@@ -366,6 +369,9 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         }
     }
 
+    /**
+     * Prüft, dass das Managed-Entries-Untermenü seine Bulk-Aktionen und die Redundanzprüfung enthält.
+     */
     fun testManagedEntriesBulkMenuIsPresentInToolbar() {
         val toolWindowInstance = MavenUpWindowFactory().MyToolWindow(project)
         val managedEntriesGroup = toolWindowInstance.topToolbarActions()
@@ -374,16 +380,54 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         assertNotNull("Das \"Managed Entries\"-Untermenü sollte vorhanden sein", managedEntriesGroup)
         assertTrue(
-            "Das Untermenü sollte die beiden Managed-Entries-Aktionen enthalten",
+            "Das Untermenü sollte die Managed-Entries-Aktionen und die Redundanzprüfung enthalten",
             managedEntriesGroup!!.childActionsOrStubs
                 .map { it.templatePresentation.text }
                 .containsAll(
                     listOf(
                         toolWindowInstance.managedDependenciesActionLabel(),
-                        toolWindowInstance.managedPluginsActionLabel()
+                        toolWindowInstance.managedPluginsActionLabel(),
+                        MyMessageBundle.message("toolwindow.MyToolWindow.checkRedundantManaged.menuItem")
                     )
                 )
         )
+        assertFalse(
+            "Die Redundanzprüfung sollte nicht als eigener oberster Toolbar-Button erscheinen",
+            toolWindowInstance.topToolbarActions().any {
+                it.templatePresentation.text == MyMessageBundle.message("toolwindow.MyToolWindow.checkRedundantManaged.menuItem")
+            }
+        )
+    }
+
+    fun testRedundantManagedActionsAreDisabledWhileCheckIsRunning() {
+        val toolWindowInstance = MavenUpWindowFactory().MyToolWindow(project)
+        val toolbarGroup = toolWindowInstance.topToolbarActions()
+            .filterIsInstance<DefaultActionGroup>()
+            .first {
+                it.templatePresentation.text ==
+                    MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.group.button")
+            }
+        val toolbarAction = toolbarGroup.childActionsOrStubs
+            .first { it.templatePresentation.text == MyMessageBundle.message("toolwindow.MyToolWindow.checkRedundantManaged.menuItem") }
+        val managedDependencyType = MyMessageBundle.message("toolwindow.MyToolWindow.type.managedDependency")
+        val contextAction = toolWindowInstance.buildContextMenuGroup(
+            DependencyContextMenuTarget(0, "com.example", "library", "", managedDependencyType, "1.0.0")
+        ).getChildren(null).filterIsInstance<com.intellij.openapi.actionSystem.AnAction>()
+            .first {
+                it.templatePresentation.text ==
+                    MyMessageBundle.message("toolwindow.MyToolWindow.checkRedundantManaged.contextMenu")
+            }
+
+        fun isEnabled(action: com.intellij.openapi.actionSystem.AnAction): Boolean {
+            val event = com.intellij.testFramework.TestActionEvent.createTestEvent(action)
+            ActionUtil.updateAction(action, event)
+            return event.presentation.isEnabled
+        }
+
+        toolWindowInstance.isCheckingRedundantManaged = true
+
+        assertFalse(isEnabled(toolbarAction))
+        assertFalse(isEnabled(contextAction))
     }
 
     fun testRefreshSnapshotCollectionRunsOutsideEdt() {
@@ -427,51 +471,37 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertEquals("2.0.0", updates.single().newVersion)
     }
 
+    /** Prueft die echte Vorauswahl und das Verwerfen von Updates beim Ausschalten. */
     fun testVersionAutoSelectionModeSetting() {
         val factory = MavenUpWindowFactory()
         val toolWindowInstance = factory.MyToolWindow(project)
         val settings = MavenUpSettings.getInstance()
-
-        // Mock data
         val key = "com.example:test-artifact"
         val versions = listOf("1.1.0", "1.0.0")
         val currentVersion = "1.0.0"
-
-        settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.LATEST
-        
-        // Use reflection to access internal maps for verification
-        val availableVersionsField = toolWindowInstance.javaClass.getDeclaredField("availableVersions").apply { isAccessible = true }
-        val selectedVersionsField = toolWindowInstance.javaClass.getDeclaredField("selectedVersions").apply { isAccessible = true }
-        val knownDependenciesField = toolWindowInstance.javaClass.getDeclaredField("knownDependencies").apply { isAccessible = true }
-
-        val availableVersions = availableVersionsField.get(toolWindowInstance) as MutableMap<String, List<String>>
-        val selectedVersions = selectedVersionsField.get(toolWindowInstance) as MutableMap<String, String>
-        val knownDependencies = knownDependenciesField.get(toolWindowInstance) as MutableMap<String, String>
-
-        knownDependencies[key] = currentVersion
-        
-        // Simulate checkArtifactUpdate logic manually for testing the selection logic
-        fun simulateCheck(v: String) {
-            availableVersions[key] = versions
-            if (versions.first() != v &&
-                settings.state.versionAutoSelectionMode != VersionAutoSelectionMode.DISABLED
-            ) {
-                selectedVersions[key] = versions.first()
-            } else if (settings.state.versionAutoSelectionMode == VersionAutoSelectionMode.DISABLED) {
-                selectedVersions[key] = v
-            }
+        val original = settings.state.versionAutoSelectionMode
+        try {
+            val candidates = mapOf(key to versions)
+            toolWindowInstance.applyAutomaticVersionSearchState(
+                AutomaticVersionSearchState(
+                    RefreshSnapshot(
+                        listOf(RefreshRow("com.example", "test-artifact", "", "dependency", currentVersion)),
+                        emptyMap()
+                    ),
+                    VersionSearchResult(candidates, candidates, emptyMap()),
+                    null
+                )
+            )
+            settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.LATEST
+            toolWindowInstance.applySelectLatestVersionSetting()
+            assertEquals("1.1.0", toolWindowInstance.selectedVersions[key])
+            settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.DISABLED
+            toolWindowInstance.applySelectLatestVersionSetting()
+            assertNull(toolWindowInstance.selectedVersions[key])
+            assertFalse(toolWindowInstance.hasSelectedUpdates())
+        } finally {
+            settings.state.versionAutoSelectionMode = original
         }
-
-        simulateCheck(currentVersion)
-        assertEquals("1.1.0", selectedVersions[key])
-
-        // Test with VersionAutoSelectionMode.DISABLED
-        settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.DISABLED
-        selectedVersions.clear()
-        simulateCheck(currentVersion)
-        assertEquals("1.0.0", selectedVersions[key])
-        
-        settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.LATEST
     }
 
     fun testUpdatesFilterIsDisabledUntilSuccessfulVersionScan() {
@@ -1062,17 +1092,17 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertTrue("Hierarchy-Aktion sollte in der Toolbar vorhanden sein", hierarchyIndex > 0)
         assertTrue("Details-Aktion sollte in der Toolbar vorhanden sein", detailsIndex > 0)
         assertEquals(
-            "Details-Aktion muss direkt nach Hierarchy stehen",
-            hierarchyIndex + 1,
-            detailsIndex
+            "Hierarchy-Aktion muss direkt nach Details stehen",
+            detailsIndex + 1,
+            hierarchyIndex
         )
 
-        val navigatePomIndex = hierarchyIndex - 1
+        val navigatePomIndex = detailsIndex - 1
         val navigatePomAction = allActions[navigatePomIndex]
         val navigatePomEvent = com.intellij.testFramework.TestActionEvent.createTestEvent(navigatePomAction)
         ActionUtil.updateAction(navigatePomAction, navigatePomEvent)
         assertEquals(
-            "Die Aktion direkt vor Hierarchy muss die pom.xml-Navigation sein",
+            "Die Aktion direkt vor Details muss die pom.xml-Navigation sein",
             MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.navigateToPom.short"),
             navigatePomEvent.presentation.text
         )
@@ -1196,6 +1226,29 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         // Toggle close
         toolWindow.toggleDependencyHierarchy(false)
         assertFalse(toolWindow.isDependencyHierarchyVisible())
+    }
+
+    /**
+     * Prüft, dass die Aktion "Check This Managed Dependency for Redundancy" nur für verwaltete Abhängigkeiten erscheint.
+     */
+    fun testRedundantManagedContextActionIsLimitedToManagedDependencies() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val redundantLabel = MyMessageBundle.message("toolwindow.MyToolWindow.checkRedundantManaged.contextMenu")
+        assertEquals("Check This Managed Dependency for Redundancy", redundantLabel)
+        val managedDependencyType = MyMessageBundle.message("toolwindow.MyToolWindow.type.managedDependency")
+
+        /** Prüft, ob der Kontextmenü-Aufbau die Redundanzprüfung für den angegebenen Typ enthält. */
+        fun hasRedundantAction(type: String): Boolean =
+            toolWindow.buildContextMenuGroup(
+                DependencyContextMenuTarget(0, "com.example", "library", "", type, "1.0.0")
+            ).getChildren(null).filterIsInstance<com.intellij.openapi.actionSystem.AnAction>()
+                .any { it.templatePresentation.text == redundantLabel }
+
+        assertTrue(hasRedundantAction(managedDependencyType))
+        assertFalse(hasRedundantAction("dependency"))
+        assertFalse(hasRedundantAction(PARENT_TYPE))
+        assertFalse(hasRedundantAction("plugin"))
+        assertFalse(hasRedundantAction(MANAGED_PLUGIN))
     }
 
     fun testDependencyHierarchyClosableAfterVulnerabilityScanClearsTable() {
@@ -1832,7 +1885,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         assertEquals(
             "Ein Scan ohne jeden Befund muss dies im Empty State melden",
-            "No vulnerabilities found in the last scan.",
+            "No vulnerabilities were found in the last scan.",
             view.table.emptyText.text
         )
     }
@@ -1853,7 +1906,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         assertEquals(
             "Nur direkte Befunde müssen im Empty State erklärt werden",
-            "No transitive vulnerabilities found. All findings affect directly declared dependencies.",
+            "No transitive vulnerabilities were found. All findings affect directly declared dependencies.",
             view.table.emptyText.text
         )
     }
@@ -2207,10 +2260,10 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         toolWindow.applySelectLatestVersionSetting()
         assertEquals("2.0.0", selectedVersions[key])
 
-        // With DISABLED mode, the current version should be selected
+        // With DISABLED mode, no update should be selected.
         settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.DISABLED
         toolWindow.applySelectLatestVersionSetting()
-        assertEquals("1.0.0", selectedVersions[key])
+        assertNull(selectedVersions[key])
 
         // Reset
         settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.LATEST
@@ -3368,6 +3421,11 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
                 toolWindow.managedEntriesGroupTooltip()
             )
             assertEquals(
+                "Comment out managed dependencies or managed plugins in pom.xml, or check managed dependencies for redundancy. " +
+                    "With an active filter, you can choose whether comment-out actions apply to all matching entries or only the currently visible ones.",
+                toolWindow.managedEntriesGroupTooltip()
+            )
+            assertEquals(
                 MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.commentOutFromPom"),
                 toolWindow.managedEntryContextMenuLabel()
             )
@@ -3396,6 +3454,11 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
             )
             assertEquals(
                 MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.group.tooltip"),
+                toolWindow.managedEntriesGroupTooltip()
+            )
+            assertEquals(
+                "Remove managed dependencies or managed plugins from pom.xml, or check managed dependencies for redundancy. " +
+                    "With an active filter, you can choose whether removal actions apply to all matching entries or only the currently visible ones.",
                 toolWindow.managedEntriesGroupTooltip()
             )
             assertEquals(

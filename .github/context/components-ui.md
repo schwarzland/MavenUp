@@ -35,6 +35,9 @@ Beschreibt die zustandslosen Hilfsdateien und die I18n-Anbindung in
     (Textvariante darauf aufbauend), `applyVersionDropdownRenderer` (gemeinsamer Dropdown-Renderer
     beider Tabellen: markiert die aktuelle Version mit „(current)" und die empfohlene Fix-Version mit
     „(recommended)" jeweils fett, während das Anzeigefeld Farbe/Font der ComboBox behält),
+    `createVersionComboBox` (gemeinsame Erzeugung einer nicht editierbaren ComboBox mit
+    `DefaultComboBoxModel`: setzt den angezeigten Wert über `selectedItem`, ohne Repository-Kandidaten
+    oder deren Reihenfolge zu verändern, und zeigt so auch einen nicht angebotenen aktuellen Wert),
     `createVersionPanel` samt Status-Glyphen und `JBColor`-Werten.
   - `DependencyFilterModel.kt`: `TriStateFilter`, `TriStateFilterLabels`,
     `triStateFilterOptionLabel`, `triStateFilterRenderer` (geteilter Combobox-Renderer von Haupttabelle
