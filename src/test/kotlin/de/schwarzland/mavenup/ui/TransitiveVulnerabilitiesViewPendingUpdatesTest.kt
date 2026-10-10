@@ -221,6 +221,67 @@ class TransitiveVulnerabilitiesViewPendingUpdatesTest : BasePlatformTestCase() {
         assertFalse(view.isVersionResetEnabledForDependency("org.other:missing"))
     }
 
+    fun testRecommendedVersionDisabledWhenNotContainedInAvailableVersions() {
+        val view = TransitiveVulnerabilitiesView(project)
+        val coordinate = "org.trans:lib:10.1.50"
+        val advisories = mapOf(
+            coordinate to listOf(
+                VulnerabilityAdvisory(
+                    id = "CVE-1",
+                    severity = VulnerabilitySeverity.HIGH,
+                    sources = setOf("OSV"),
+                    fixedVersions = setOf("10.1.58")
+                )
+            )
+        )
+        view.update(
+            advisories,
+            setOf(coordinate),
+            emptyMap(),
+            mapOf("org.trans:lib" to listOf("10.1.59", "10.1.57", "10.1.50"))
+        )
+        assertFalse(view.hasRecommendedVersions())
+        assertFalse(view.hasRecommendedVersionForDependency("org.trans:lib"))
+        view.selectRecommendedVersionForDependency("org.trans:lib")
+        assertFalse(view.selectedVersions.containsKey("org.trans:lib"))
+    }
+
+    fun testRecommendedVersionDisabledWhenFilteredByUnstableVersions() {
+        val view = TransitiveVulnerabilitiesView(project)
+        val coordinate = "org.trans:lib:1.2.0"
+        val advisories = mapOf(
+            coordinate to listOf(
+                VulnerabilityAdvisory(
+                    id = "CVE-1",
+                    severity = VulnerabilitySeverity.HIGH,
+                    sources = setOf("OSV"),
+                    fixedVersions = setOf("1.2.4-RC1")
+                )
+            )
+        )
+        // When unstable versions are included:
+        view.update(
+            advisories,
+            setOf(coordinate),
+            emptyMap(),
+            mapOf("org.trans:lib" to listOf("1.2.4-RC1", "1.2.0"))
+        )
+        assertTrue(view.hasRecommendedVersions())
+        assertTrue(view.hasRecommendedVersionForDependency("org.trans:lib"))
+
+        // When unstable versions are excluded:
+        view.update(
+            advisories,
+            setOf(coordinate),
+            emptyMap(),
+            mapOf("org.trans:lib" to listOf("1.2.0"))
+        )
+        assertFalse(view.hasRecommendedVersions())
+        assertFalse(view.hasRecommendedVersionForDependency("org.trans:lib"))
+        view.selectRecommendedVersionForDependency("org.trans:lib")
+        assertFalse(view.selectedVersions.containsKey("org.trans:lib"))
+    }
+
     fun testRecommendedRowHeightIsAppliedAndSurvivesUpdate() {
         val view = TransitiveVulnerabilitiesView(project)
         val expected = recommendedTableRowHeight()

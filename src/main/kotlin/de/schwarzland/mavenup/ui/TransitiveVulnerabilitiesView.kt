@@ -1128,8 +1128,15 @@ internal class TransitiveVulnerabilitiesView(
             .map { "${it.groupId}:${it.artifactId}" }
             .toSet()
         recommendedByKey = rows
-            .filter { it.recommendedVersion.isNotEmpty() }
-            .associate { "${it.groupId}:${it.artifactId}" to it.recommendedVersion }
+            .mapNotNull { row ->
+                val key = "${row.groupId}:${row.artifactId}"
+                val selectable = selectableRecommendedVersion(
+                    row.recommendedVersion,
+                    availableVersions[key].orEmpty()
+                )
+                if (selectable.isNotEmpty()) key to selectable else null
+            }
+            .toMap()
         advisoriesByKey = rows.associate { row ->
             "${row.groupId}:${row.artifactId}" to row.cell.allAdvisories
         }

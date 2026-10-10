@@ -2208,6 +2208,97 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertFalse(toolWindow.hasRecommendedVersionForDependency(key))
     }
 
+    /**
+     * Stellt sicher, dass eine berechnete empfohlene Version nicht angeboten oder gesetzt werden kann,
+     * wenn sie nicht exakt in der Liste der verfügbaren Versionen enthalten ist.
+     */
+    fun testRecommendedVersionMustBeContainedInAvailableVersions() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        val key = "com.example:direct"
+        val knownDependencies = toolWindow.javaClass.getDeclaredField("knownDependencies")
+            .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, String>
+        val availableVersions = toolWindow.javaClass.getDeclaredField("availableVersions")
+            .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, List<String>>
+        val selectedVersions = toolWindow.javaClass.getDeclaredField("selectedVersions")
+            .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, String>
+        val advisories = toolWindow.javaClass.getDeclaredField("vulnerabilityAdvisories")
+            .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, List<VulnerabilityAdvisory>>
+
+        knownDependencies[key] = "10.1.50"
+        availableVersions[key] = listOf("10.1.59", "10.1.57", "10.1.50")
+        advisories["$key:10.1.50"] = listOf(
+            VulnerabilityAdvisory(
+                id = "CVE-5",
+                severity = VulnerabilitySeverity.HIGH,
+                sources = setOf("OSV"),
+                fixedVersions = setOf("10.1.58")
+            )
+        )
+
+        assertEquals("", toolWindow.recommendedVersionForDependency(key))
+        assertFalse(toolWindow.hasRecommendedVersionForDependency(key))
+        assertFalse(toolWindow.hasRecommendedVersions())
+        assertFalse(toolWindow.isRecommendedSelectionEnabledForCurrentView())
+
+        toolWindow.selectRecommendedVersionForDependency(key)
+        assertNull(selectedVersions[key])
+    }
+
+    /**
+     * Stellt sicher, dass eine empfohlene Version nicht gesetzt werden kann, wenn "Hide unstable versions"
+     * aktiv ist und die empfohlene Version eine instabile Version ist, die aus den verfügbaren Versionen
+     * ausgefiltert wird.
+     */
+    fun testRecommendedVersionDisabledWhenUnstableAndHideUnstableVersionsActive() {
+        val settings = MavenUpSettings.getInstance()
+        val originalHide = settings.state.hideUnstableVersions
+        val originalQualifiers = settings.state.hiddenVersionQualifiers
+        try {
+            val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+            toolWindow.getContent()
+
+            val key = "com.example:direct"
+            val knownDependencies = toolWindow.javaClass.getDeclaredField("knownDependencies")
+                .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, String>
+            val rawAvailableVersions = toolWindow.javaClass.getDeclaredField("rawAvailableVersions")
+                .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, List<String>>
+            val advisories = toolWindow.javaClass.getDeclaredField("vulnerabilityAdvisories")
+                .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, List<VulnerabilityAdvisory>>
+
+            knownDependencies[key] = "1.0.0"
+            rawAvailableVersions[key] = listOf("1.2.0-beta-1", "1.0.0")
+            advisories["$key:1.0.0"] = listOf(
+                VulnerabilityAdvisory(
+                    id = "CVE-6",
+                    severity = VulnerabilitySeverity.HIGH,
+                    sources = setOf("OSV"),
+                    fixedVersions = setOf("1.2.0-beta-1")
+                )
+            )
+
+            settings.state.hideUnstableVersions = false
+            toolWindow.applyVersionVisibilitySettings()
+
+            assertEquals("1.2.0-beta-1", toolWindow.recommendedVersionForDependency(key))
+            assertTrue(toolWindow.hasRecommendedVersionForDependency(key))
+            assertTrue(toolWindow.hasRecommendedVersions())
+
+            settings.state.hideUnstableVersions = true
+            settings.state.hiddenVersionQualifiers = "beta,alpha,rc"
+            toolWindow.applyVersionVisibilitySettings()
+
+            assertEquals("", toolWindow.recommendedVersionForDependency(key))
+            assertFalse(toolWindow.hasRecommendedVersionForDependency(key))
+            assertFalse(toolWindow.hasRecommendedVersions())
+            assertFalse(toolWindow.isRecommendedSelectionEnabledForCurrentView())
+        } finally {
+            settings.state.hideUnstableVersions = originalHide
+            settings.state.hiddenVersionQualifiers = originalQualifiers
+        }
+    }
+
     fun testTransitiveTabTitleDropsCountWhenFindingsCleared() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         toolWindow.getContent()

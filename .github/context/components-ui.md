@@ -72,7 +72,7 @@ Beschreibt die zustandslosen Hilfsdateien und die I18n-Anbindung in
   - `VersionAutoSelection.kt`: `chooseAutoSelectedVersion`, `latestVersionWithinSameMajor`,
     `extractLeadingMajorNumber`, `selectableRecommendedVersion` (zustandslose Auto-Selektions-Helfer;
     `selectableRecommendedVersion` bildet eine empfohlene Fix-Version auf die tatsächlich abrufbaren
-    Versionen ab – exakter Treffer oder niedrigste Version, die die Empfehlung erreicht).
+    Versionen ab – nur bei exaktem Treffer in der Liste der verfügbaren Versionen, andernfalls leer).
   - `HelpTooltipExtensions.kt`: `HelpTooltip.withWrappingDescription` (versionsunabhängige
     `setDescription`-Brücke via Reflection).
 
