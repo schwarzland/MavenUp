@@ -4046,6 +4046,25 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
     }
 
     /**
+     * Stellt sicher, dass die Bezeichnungen der Kontextmenüeinträge zur Versionsauswahl
+     * einheitlich "Select..." verwenden.
+     */
+    fun testContextMenuSelectionActionLabels() {
+        assertEquals(
+            "Select Highest Major Version",
+            MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.selectHighestMajor")
+        )
+        assertEquals(
+            "Select Highest Minor Version",
+            MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.selectHighestMinor")
+        )
+        assertEquals(
+            "Select Recommended Version",
+            MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.selectRecommended")
+        )
+    }
+
+    /**
      * Ermittelt den Splitter zwischen der Haupttabelle und dem Hierarchiepanel.
      *
      * @param component Die Wurzelkomponente des Tool Windows.

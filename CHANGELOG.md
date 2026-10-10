@@ -14,6 +14,7 @@
 
 ### Changed
 
+- **Renamed the row context menu actions to "Select Highest Major Version", "Select Highest Minor Version", and "Select Recommended Version" to align with the toolbar selection menu and establish a consistent interaction vocabulary.**
 - **Highlighted affected candidate and parent dependencies with theme-aware colors and bolded all version numbers within the Redundant Managed Dependencies details panel (reason and consumer paths).**
 - **Enlarged the "Redundant Managed Dependencies" dialog when no redundancy is found into a dedicated, resizable information dialog without scrollbars.**
 - **Clarified redundancy dialog source POM details and consumer paths, and show the Maven Project column only for results spanning multiple projects.**

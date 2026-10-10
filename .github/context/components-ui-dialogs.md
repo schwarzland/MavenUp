@@ -115,8 +115,8 @@ UI-Komponenten: [`components-ui.md`](components-ui.md) und
   Ein Rechtsklick öffnet über IntelliJs `ActionSystem` ein Kontextmenü (`showContextMenu`) mit
   **Filter by "..."** (nur beim Rechtsklick auf die Spalten GroupId oder ArtifactId mit nicht-leerem Wert; setzt den
   angeklickten Wert über `filterPanel.filterBy` als alleinigen Textfilter),
-  **Open on [Browser]** (konfigurierter Repository-Browser), den Versionsauswahl-Aktionen **Set Highest Major Version**,
-  **Set Highest Minor Version** und **Set Recommended Version** (`selectHighestMajorVersionForDependency`/
+  **Open on [Browser]** (konfigurierter Repository-Browser), den Versionsauswahl-Aktionen **Select Highest Major Version**,
+  **Select Highest Minor Version** und **Select Recommended Version** (`selectHighestMajorVersionForDependency`/
   `selectHighestMinorVersionForDependency`/`selectRecommendedVersionForDependency`, aktiv über
   `hasSelectableVersionsForDependency`/`hasRecommendedVersionForDependency`), **Reset to Current Version**
   (`resetVersionForDependency`/`isVersionResetEnabledForDependency`), **Show Dependency Hierarchy**

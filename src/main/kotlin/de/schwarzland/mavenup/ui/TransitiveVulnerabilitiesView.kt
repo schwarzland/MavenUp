@@ -924,7 +924,7 @@ internal class TransitiveVulnerabilitiesView(
      * Angelehnt an das Kontextmenü der Haupttabelle bietet es **Filter by "…"** (übernimmt den Wert der
      * angeklickten GroupId- oder ArtifactId-Zelle als Textfilter), **Open on `<Browser>`** (öffnet die
      * angeklickte Koordinate im konfigurierten Maven-Repository-Browser), die Versionsauswahl-Aktionen
-     * **Set Highest Major Version**, **Set Highest Minor Version** und **Set Recommended Version**, ein
+     * **Select Highest Major Version**, **Select Highest Minor Version** und **Select Recommended Version**, ein
      * **Reset to Current Version** (nur aktiv, wenn eine abweichende Version gewählt wurde) sowie **Show
      * Vulnerability Details** (öffnet den Detaildialog; nur aktiv, wenn Sicherheitswarnungen vorliegen).
      * Das Menü wird über IntelliJs `ActionSystem` erzeugt, damit Theme, Abstände und Auswahlfarben der IDE
