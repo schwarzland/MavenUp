@@ -85,6 +85,7 @@ Marketplace graphics are structured under `docs/assets/marketplace/`:
 
 ```text
 docs/assets/marketplace/
+├── custom/               # JetBrains Marketplace Custom Pages (.md)
 ├── raw/                  # Unprocessed raw UI screenshots (HiDPI / 2x resolution)
 │   ├── dependencies_raw.png
 │   └── vulnerabilities_raw.png

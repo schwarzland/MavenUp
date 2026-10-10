@@ -65,13 +65,14 @@ Redundanzprüfungen, POM-Antwortstatus und Ausschluss von Zugangsdaten aus POM-A
 
 ## Doku- und Prozesspflichten
 Siehe `.github/copilot-instructions.md` für die verbindliche Arbeitsanweisung
-(README/CHANGELOG/FEATURES/plugin.xml-Description/Unittests pflegen, kein `git commit`).
+(README/CHANGELOG/FEATURES/plugin.xml-Description/Unittests/getting_started.html/Marketplace-Custom-Pages pflegen, kein `git commit`).
 Die README ist eine schlanke, englische Landing Page; die ausführliche Dokumentation liegt (Englisch) unter
 `docs/` (`usage.md`, `configuration.md`, `privacy-and-security.md`, `architecture.md`, `development.md`,
-`release-and-ci.md`, `licenses.md`).
+`release-and-ci.md`, `licenses.md`, `assets/marketplace/`).
 
 ## Sonstiges
 - Proxy-Einstellungen gehören NICHT in die projektweite `gradle.properties`, sondern
   in die user-lokale `~/.gradle/gradle.properties`.
 - `checkliste-publication.md` enthält Checkliste für Plugin-Veröffentlichung.
 - `getting_started.html` ist die *Getting Started*-Seite im JetBrains Marketplace / Plugin Manager. Sie erklärt neuen Nutzern in einem kompakten HTML-Kurzleitfaden die ersten Schritte: Tool-Window öffnen, Refresh, Update-Check, Version auswählen, Update anwenden. Muss bei jeder Bedienungsänderung (neue Aktionen, umbenannte Buttons, neue Dialoge) aktuell gehalten werden.
+- `docs/assets/marketplace/custom/` enthält die Markdown-Quelldateien für die benutzerdefinierten Reiter (*Custom Pages*) auf der JetBrains-Marketplace-Detailseite (`getting-started.md`, `privacy-and-security.md`, `vulnerability-management.md`, `configuration-and-faq.md`). Sie müssen bei jeder Änderung an Workflows, Security, CVE-Remediation oder Konfiguration verbindlich gepflegt werden.

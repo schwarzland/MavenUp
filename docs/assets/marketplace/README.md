@@ -11,6 +11,12 @@ The visual assets use a **vector overlay approach** based on Draw.io / Diagrams.
 ```text
 docs/assets/marketplace/
 ├── README.md             # This guide
+├── custom/               # JetBrains Marketplace Custom Pages (Markdown tabs)
+│   ├── README.md
+│   ├── getting-started.md
+│   ├── privacy-and-security.md
+│   ├── vulnerability-management.md
+│   └── configuration-and-faq.md
 ├── raw/                  # Unprocessed raw UI screenshots (HiDPI / 2x resolution)
 │   ├── main_withoutVulnerabilities.png
 │   ├── main_selectNewVersion.png

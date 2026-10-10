@@ -20,11 +20,12 @@ Maßgeblich ist immer der Volltext in `.github/copilot-instructions.md`; diese L
 4. **Dokumentation unter `docs/`**: jede Änderung gehört in genau eine Datei (`usage.md`, `configuration.md`, `privacy-and-security.md`, `architecture.md`, `development.md`, `release-and-ci.md`, `licenses.md`) – keine Dopplungen.
 5. **plugin.xml** Description aktuell halten (Core Features vor Advanced Capabilities).
 6. **getting_started.html** aktualisieren, wenn sich die Bedienung für Einsteiger ändert.
-7. **Hohe Testabdeckung**: Jede neue/geänderte Logik benötigt Tests; keine Reflection auf private Methoden.
-8. **KDoc**: Alle berührten Klassen/Methoden müssen korrektes KDoc auf Deutsch haben.
-9. **Projektkontext** (`.github/copilot-project-context.md` und `.github/context/`) bei neuen, umbenannten oder entfernten Klassen und bei jeder neuen Einstellung mitpflegen.
-10. **Lizenzen**: Neue oder aktualisierte Abhängigkeiten im `implementation`-Scope in `docs/licenses.md` dokumentieren.
-11. **Refactoring**: Dateien über 800–1000 Zeilen aufteilen – vorher das Risiko benennen und den Anwender fragen.
-12. **UI**: Dialoge und Einstellungen folgen den IntelliJ Platform UI Guidelines (Kotlin UI DSL v2, Bindings, Unterseiten statt Scrollen, Read-only-Dialoge nur mit *Close*).
-13. **Diese Dateien unter `.junie/`** enthalten keine eigenständigen Regeln: Ändern sich die referenzierten Instruktions-, Kontext- oder Agentendateien, sind `guidelines.md` und `agents/` anzugleichen.
-14. **Kein git commit**: Junie soll keine Commits selbstständig ausführen.
+7. **Marketplace Custom Pages (`docs/assets/marketplace/custom/`)**: Markdown-Seiten für den JetBrains Marketplace (`getting-started.md`, `privacy-and-security.md`, `vulnerability-management.md`, `configuration-and-faq.md`) bei Änderungen an Workflows, Security, CVE-Remediation oder Konfiguration verbindlich aktuell halten.
+8. **Hohe Testabdeckung**: Jede neue/geänderte Logik benötigt Tests; keine Reflection auf private Methoden.
+9. **KDoc**: Alle berührten Klassen/Methoden müssen korrektes KDoc auf Deutsch haben.
+10. **Projektkontext** (`.github/copilot-project-context.md` und `.github/context/`) bei neuen, umbenannten oder entfernten Klassen und bei jeder neuen Einstellung mitpflegen.
+11. **Lizenzen**: Neue oder aktualisierte Abhängigkeiten im `implementation`-Scope in `docs/licenses.md` dokumentieren.
+12. **Refactoring**: Dateien über 800–1000 Zeilen aufteilen – vorher das Risiko benennen und den Anwender fragen.
+13. **UI**: Dialoge und Einstellungen folgen den IntelliJ Platform UI Guidelines (Kotlin UI DSL v2, Bindings, Unterseiten statt Scrollen, Read-only-Dialoge nur mit *Close*).
+14. **Diese Dateien unter `.junie/`** enthalten keine eigenständigen Regeln: Ändern sich die referenzierten Instruktions-, Kontext- oder Agentendateien, sind `guidelines.md` und `agents/` anzugleichen.
+15. **Kein git commit**: Junie soll keine Commits selbstständig ausführen.

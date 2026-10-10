@@ -1,6 +1,6 @@
 ---
 name: release-doc-check
-description: Prüft im Release-Branch die Release-Dokumentation (CHANGELOG.md, FEATURES.md, README.md, AGENTS.md, getting_started.html, plugin.xml <description>, Dateien unter docs/ und .github/context/) auf Vollständigkeit gegen das letzte Release, validiert Links, Einstellungen, Endpunkte, Lizenzen und Workflows und gleicht die Version in gradle.properties mit dem CHANGELOG und dem Branchnamen ab. Läuft ausschließlich auf einem Release-Branch – auf main oder feature/** bricht er ab.
+description: Prüft im Release-Branch die Release-Dokumentation (CHANGELOG.md, FEATURES.md, README.md, AGENTS.md, getting_started.html, plugin.xml <description>, Marketplace Custom Pages unter docs/assets/marketplace/custom/, Dateien unter docs/ und .github/context/) auf Vollständigkeit gegen das letzte Release, validiert Links, Einstellungen, Endpunkte, Lizenzen und Workflows und gleicht die Version in gradle.properties mit dem CHANGELOG und dem Branchnamen ab. Läuft ausschließlich auf einem Release-Branch – auf main oder feature/** bricht er ab.
 tools: ['edit', 'view', 'create', 'grep', 'glob', 'powershell']
 ---
 
@@ -93,7 +93,16 @@ direkt vor.
   `src/main/resources/META-INF/plugin.xml` ab, damit keine grundlegende Funktion fehlt;
   ergänze fehlende Workflows und aktualisiere umbenannte Aktionen oder geänderte Dialoge.
 
-### 6. Dokumentation unter `docs/`
+### 6. Marketplace Custom Pages unter `docs/assets/marketplace/custom/`
+- Prüfe die Markdown-Vorlagen für die JetBrains-Marketplace-Reiter auf Vollständigkeit und Aktualität:
+  - `getting-started.md`: 5-Schritte-Workflow, Tabellennavigation, Filter, BOM-/Inherited-Handling und Redundanzprüfung (`dependencyManagement`).
+  - `privacy-and-security.md`: Datenminimierung (nur Maven-Koordinaten), externe Endpunkte (Maven Central, OSV.dev, OSS Index), Private-GroupId-Schutz und Credential-Handling.
+  - `vulnerability-management.md`: OSV.dev & OSS Index Dual-Scanning, Schweregrade/CVSS/CWE, direkte vs. transitive CVEs und automatisches Transitive-Pinning mit XML-Kommentaren.
+  - `configuration-and-faq.md`: Einstellungsreferenz (Abgleich mit `MavenUpSettings.State`), Nexus/Artifactory/GitLab über `settings.xml` und FAQ.
+  - `README.md`: Index und empfohlene Tab-Konfiguration im Marketplace-Portal.
+- Ergänze fehlende oder geänderte Funktionen und entferne veraltete Angaben synchron zu `docs/` und `plugin.xml`.
+
+### 7. Dokumentation unter `docs/`
 - Prüfe jede thematisch betroffene Datei einzeln gegen ihre jeweilige Quelle:
   - `docs/usage.md`: Bedienung des Tool-Windows, Filter, Aktionen, Kontextmenü, Navigation.
   - `docs/configuration.md`: **alle** Einstellungen – gleiche die Felder von `MavenUpSettings.State`
@@ -121,7 +130,7 @@ direkt vor.
 - Neue `docs/`-Dateien, die für eine seit dem letzten Release ergänzte Funktion nötig sind, legst du an
   und verlinkst sie in `README.md`.
 
-### 7. gradle.properties – Version gegen CHANGELOG.md
+### 8. gradle.properties – Version gegen CHANGELOG.md
 - Vergleiche `version=` in `gradle.properties` mit der obersten Versionsnummer
   (`## x.y.z`) in `CHANGELOG.md` – nachdem ein eventuell verbliebener
   `## [Unreleased]`-Block gemäß Abschnitt 1 in die Release-Version umbenannt wurde.
@@ -132,7 +141,7 @@ direkt vor.
   und melde eine Abweichung.
 - Melde die Korrektur explizit in der Zusammenfassung.
 
-### 8. Link- und Verweisprüfung
+### 9. Link- und Verweisprüfung
 - Löse **alle** relativen Links in `README.md`, `FEATURES.md`, `AGENTS.md` und den Dateien unter
   `docs/` sowie `.github/` auf und prüfe, ob die Zieldatei bzw. das Zielverzeichnis existiert.
 - Prüfe ebenso referenzierte Bilder und Screenshots auf Existenz.
@@ -140,14 +149,14 @@ direkt vor.
 - Prüfe umgekehrt, ob jede Datei unter `docs/` von mindestens einer Stelle aus verlinkt ist
   (`README.md` bzw. `FEATURES.md`) – verwaiste Dateien meldest du.
 
-### 9. Versions- und Tag-Konsistenz
+### 10. Versions- und Tag-Konsistenz
 - Prüfe mit `git tag --list <version>`, dass für die Release-Version **noch kein** Tag existiert.
 - Prüfe, dass die Release-Version nach SemVer **größer** ist als das letzte Release
   (`git describe --tags --abbrev=0`) und dass keine Versionsnummer übersprungen oder
   doppelt vergeben wurde.
 - Melde Abweichungen; lege **keine** Tags an.
 
-### 10. CHANGELOG-Parsebarkeit für die Release-Notes
+### 11. CHANGELOG-Parsebarkeit für die Release-Notes
 - Aus dem obersten CHANGELOG-Block erzeugt das Gradle-Plugin `org.jetbrains.changelog` die
   `change-notes` des Plugins und die Notes des Draft Release. Prüfe daher:
   - Die Überschrift des obersten Blocks entspricht dem im Repository verwendeten Schema
@@ -156,21 +165,21 @@ direkt vor.
     Kategorien werden entfernt.
   - Es verbleiben keine Platzhalter- oder Link-Referenzen des `[Unreleased]`-Blocks.
 
-### 11. Kompatibilitätsangaben
+### 12. Kompatibilitätsangaben
 - Gleiche die in `build.gradle.kts` konfigurierte Plattformversion (`intellijIdea("…")`) sowie
   eine eventuelle `<idea-version>`-Angabe in `src/main/resources/META-INF/plugin.xml` mit den
   in `README.md`, `docs/development.md` und `docs/release-and-ci.md` genannten
   IDE-Versionsanforderungen ab.
 - Korrigiere abweichende Angaben in der Dokumentation – **nicht** in der Build-Konfiguration.
 
-### 12. Internationalisierung (nur melden)
+### 13. Internationalisierung (nur melden)
 - Prüfe `src/main/resources/messages/MyMessageBundle.properties` auf Schlüssel, die im Code
   nicht mehr verwendet werden (verwaist), und auf im Code referenzierte Schlüssel, die im
   Bundle fehlen.
 - Diese Datei gehört zum Produktivcode: **nimm hier keine Änderungen vor**, sondern melde die
   Befunde in der Zusammenfassung.
 
-### 13. Kontextdateien unter `.github/`
+### 14. Kontextdateien unter `.github/`
 - Gleiche `.github/copilot-project-context.md` und die Dateien unter `.github/context/`
   (`components-ui.md`, `components-ui-toolwindow.md`, `components-ui-dialogs.md`,
   `components-service.md`) mit den tatsächlich vorhandenen Klassen unter `src/main/kotlin/` ab.
@@ -184,13 +193,14 @@ direkt vor.
   muss zu den Definitionen unter `.github/agents/` passen. Korrigiere veraltete Verweise und
   ergänze fehlende Regeln – ohne dort eigenständige Regeln einzuführen.
 - Prüfe abschließend diese Agentendefinition selbst (`.github/agents/release-doc-check.md`)
-  gemäß Regel 13 der `.github/copilot-instructions.md`: Existieren alle hier genannten Dateien
+  gemäß Regel 14 der `.github/copilot-instructions.md`: Existieren alle hier genannten Dateien
   und Verzeichnisse noch, und passen Branching-, Versionierungs- und CHANGELOG-Konvention
   weiterhin zum Repository? Korrigiere Abweichungen.
 
 ## Arbeitsweise & Grenzen
 - Nimm nur Änderungen an den oben genannten Zielartefakten vor
   (`CHANGELOG.md`, `FEATURES.md`, `README.md`, `AGENTS.md`, `getting_started.html`, `plugin.xml`,
+  den Marketplace Custom Pages unter `docs/assets/marketplace/custom/`,
   den Dateien unter `docs/`, `.github/copilot-project-context.md`, den Dateien unter
   `.github/context/`, den Dateien unter `.junie/`, dieser Agentendefinition und `gradle.properties`).
 - `build.gradle.kts`, `gradle/libs.versions.toml`, die Dateien unter `.github/workflows/` und
