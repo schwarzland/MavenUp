@@ -244,7 +244,7 @@ class RedundantManagedDependencyNegativeCasesTest : BasePlatformTestCase() {
         val mavenProject = setupParentManagedProject().first
 
         val throwingResolver = TemporaryDependencyTreeResolver { _, _, _ ->
-            throw RuntimeException("Network error")
+            throw java.io.IOException("Network error")
         }
 
         val service = RedundantManagedDependencyService(project, treeResolver = throwingResolver)

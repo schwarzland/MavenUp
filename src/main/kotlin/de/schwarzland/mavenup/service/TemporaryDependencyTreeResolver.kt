@@ -4,7 +4,7 @@ import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import de.schwarzland.mavenup.model.TemporaryArtifactCoordinate
 import de.schwarzland.mavenup.model.TemporaryDependencyNode
-import org.jetbrains.idea.maven.project.MavenProjectsManager
+import org.jetbrains.idea.maven.project.MavenSettingsCache
 import org.w3c.dom.Document
 import org.w3c.dom.Element
 import java.io.ByteArrayInputStream
@@ -142,15 +142,8 @@ class TemporaryDependencyTreeResolver(
     private fun resolveLocalRepositoryPath(): File {
         if (project != null) {
             try {
-                val manager = MavenProjectsManager.getInstance(project)
-                // Prüfe zuerst, ob ein lokaler Repository-Pfad überschrieben wurde.
-                val overridden = manager.generalSettings.localRepository
-                if (overridden.isNotBlank()) {
-                    val file = File(overridden)
-                    if (file.isDirectory) return file
-                }
-                // Fallback auf den effektiven Repository-Pfad.
-                val repositoryPath = manager.repositoryPath
+                val cache = MavenSettingsCache.getInstance(project)
+                val repositoryPath = cache.getEffectiveUserLocalRepo()
                 val file = repositoryPath.toFile()
                 if (file.isDirectory) return file
             } catch (_: Exception) {

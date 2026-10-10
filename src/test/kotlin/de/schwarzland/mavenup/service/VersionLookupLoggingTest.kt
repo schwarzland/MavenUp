@@ -2,11 +2,8 @@ package de.schwarzland.mavenup.service
 
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.openapi.diagnostic.awaitLogQueueProcessed
-import com.intellij.openapi.util.io.FileUtil
 import com.sun.net.httpserver.HttpServer
 import org.apache.maven.artifact.versioning.ComparableVersion
-import org.jetbrains.idea.maven.project.MavenProjectsManager
-import java.io.File
 import java.net.InetSocketAddress
 import java.util.logging.Handler
 import java.util.logging.Level
@@ -127,31 +124,17 @@ class VersionLookupLoggingTest : BasePlatformTestCase() {
         assertFalse(messages.any { it.contains("secret") || it.contains("invalid host") })
     }
 
-    /** Lokale POMs und Wiederholungen sind ohne HTTP-Abfrage eindeutig im Log erkennbar. */
+    /** POM-Provider-Ergebnisse und Wiederholungen sind ohne HTTP-Abfrage eindeutig im Log erkennbar. */
     fun testPomLocalRepositoryAndMemoryCacheLogging() {
-        val localRepository = FileUtil.createTempDirectory("mavenup-local-pom", "repository", true)
-        val localPom = File(localRepository, "g${File.separator}a${File.separator}1${File.separator}a-1.pom")
-        assertTrue(localPom.parentFile.mkdirs())
-        localPom.writeText("<project/>")
-        val mavenManager = MavenProjectsManager.getInstance(project)
-        val settings = mavenManager.generalSettings
-        val oldRepository = settings.localRepository
-        settings.setLocalRepository(localRepository.path)
-        mavenManager.initForTests()
-        try {
-            val resolver = TemporaryDependencyTreeResolver(project)
-            val messages = captureDebugLogs(TemporaryDependencyTreeResolver::class.java) {
-                assertEquals("<project/>", resolver.fetchPomXml("g", "a", "1"))
-                assertEquals("<project/>", resolver.fetchPomXml("g", "a", "1"))
-            }
-            assertTrue(messages.contains("POM cache miss for g:a:1"))
-            assertTrue(messages.contains("Local Maven POM hit for g:a:1"))
-            assertTrue(messages.contains("POM cache hit for g:a:1"))
-            assertFalse(messages.any { it.contains("HTTP GET") })
-        } finally {
-            settings.setLocalRepository(oldRepository)
-            FileUtil.delete(localRepository)
+        val resolver = TemporaryDependencyTreeResolver { _, _, _ -> "<project/>" }
+        val messages = captureDebugLogs(TemporaryDependencyTreeResolver::class.java) {
+            assertEquals("<project/>", resolver.fetchPomXml("g", "a", "1"))
+            assertEquals("<project/>", resolver.fetchPomXml("g", "a", "1"))
         }
+        assertTrue(messages.contains("POM cache miss for g:a:1"))
+        assertTrue(messages.contains("POM provider lookup for g:a:1: found=true"))
+        assertTrue(messages.contains("POM cache hit for g:a:1"))
+        assertFalse(messages.any { it.contains("HTTP GET") })
     }
 
     /** Injizierte POM-Quellen unterscheiden erfolgreiche, fehlende und wiederverwendete Inhalte. */
