@@ -425,7 +425,7 @@ internal fun formatReasonDetail(
     val escapedReason = StringUtil.escapeXmlEntities(reasonDetail)
     if (targetCoordinate.isBlank()) return escapedReason
     val escapedTarget = StringUtil.escapeXmlEntities(targetCoordinate)
-    val regex = Regex("""(?<![a-zA-Z0-9_\-\.:])${Regex.escape(escapedTarget)}(?![a-zA-Z0-9_\-\.])""")
+    val regex = Regex("""(?<![a-zA-Z0-9_\-.:])${Regex.escape(escapedTarget)}(?![a-zA-Z0-9_\-.])""")
     return regex.replace(escapedReason) { match ->
         "<span style=\"color: $colorHex;\">${match.value}</span>"
     }

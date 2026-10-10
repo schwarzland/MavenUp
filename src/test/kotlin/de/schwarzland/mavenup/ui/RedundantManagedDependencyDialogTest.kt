@@ -3,7 +3,6 @@ package de.schwarzland.mavenup.ui
 import com.intellij.openapi.util.Disposer
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import com.intellij.ui.ColorUtil
-import com.intellij.ui.JBColor
 import com.intellij.ui.JBSplitter
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.table.JBTable
@@ -12,7 +11,6 @@ import com.intellij.util.ui.UIUtil
 import de.schwarzland.mavenup.model.ConsumerDependencyInfo
 import de.schwarzland.mavenup.model.RedundancyReason
 import de.schwarzland.mavenup.model.RedundantManagedDependencyRecommendation
-import java.awt.Color
 import java.awt.Container
 import javax.swing.JEditorPane
 
