@@ -14,6 +14,7 @@
 
 ### Changed
 
+- **Enlarged the "Redundant Managed Dependencies" dialog when no redundancy is found into a dedicated, resizable information dialog without scrollbars.**
 - **Clarified redundancy dialog source POM details and consumer paths, and show the Maven Project column only for results spanning multiple projects.**
 - **Expanded the redundancy review dialog, displayed consumer paths as a bulleted list, and renamed its action to Mark Selected Entries for Removal to clarify that changes are staged until Update.**
 - **Clarified redundancy labels as Version Managed by Parent and Version Provided Transitively, and distinguish Same Version, Higher Version, or Same and Higher Versions without repeating consumer paths already listed in the details panel.**

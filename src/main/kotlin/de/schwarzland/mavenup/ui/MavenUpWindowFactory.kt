@@ -3454,16 +3454,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 scope = scope,
                 onSuccess = { recommendations ->
                     if (recommendations.isEmpty()) {
-                        Messages.showInfoMessage(
-                            project,
-                            MyMessageBundle.message(
-                                "redundant.managed.dependency.noneFound",
-                                scope.description,
-                                MyMessageBundle.message("toolwindow.MyToolWindow.checkRedundantManaged.noneFound"),
-                                MyMessageBundle.message("managed.dependency.removal.coverage.limitations")
-                            ),
-                            MyMessageBundle.message("redundant.managed.dependency.dialog.title")
-                        )
+                        RedundantManagedDependencyNoneFoundDialog(
+                            project = project,
+                            scopeDescription = scope.description
+                        ).show()
                     } else {
                         RedundantManagedDependencyDialog(
                             project = project,

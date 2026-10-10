@@ -9,7 +9,8 @@ package de.schwarzland.mavenup.model
  * @property currentVersion Die aktuell im Projekt gepinnte Version der verwalteten Abhängigkeit.
  * @property reason Der ermittelte Grund für die Redundanz.
  * @property reasonDetail Eine textuelle Erklärung oder Spezifikation der Redundanzursache.
- * @property providedVersion Die durch Parent oder direkte Abhängigkeiten bereitgestellte Version bzw. eine kommaseparierte Liste transitiver bereitgestellter Versionen (`null` bei ungenutzten Einträgen).
+ * @property providedVersion Die durch Parent oder direkte Abhängigkeiten bereitgestellte Version bzw. eine
+ * kommaseparierte Liste transitiver bereitgestellter Versionen (`null` bei ungenutzten Einträgen).
  * @property consumers Die Liste aller Konsumenten bzw. Abhängigkeitspfade im Projekt, die die verwaltete Abhängigkeit nutzen.
  * @property sourceProjectId Maven-Koordinate bzw. Bezeichner des Moduls, aus dessen POM diese Empfehlung stammt.
  * @property sourcePomPath Pfad zur POM-Datei, aus der diese Empfehlung stammt.

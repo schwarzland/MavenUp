@@ -52,9 +52,67 @@ class RedundantManagedDependencyServiceTest : BasePlatformTestCase() {
     }
 
     /**
-     * Prüft die Erkennung von PARENT_MANAGED bei gleicher und höherer Parent-Version.
+     * Prüft die Erkennung von PARENT_MANAGED bei gleicher Parent-Version.
      */
     fun testParentManagedDependencyIsDetectedAsRedundant() {
+        val (mavenProject, parentPom) = setupParentManagedProject()
+
+        val resolver = TemporaryDependencyTreeResolver { groupId, artifactId, version ->
+            if (groupId == "com.example" && artifactId == "my-parent" && version == "1.0.0") {
+                parentPom
+            } else {
+                null
+            }
+        }
+
+        val service = RedundantManagedDependencyService(project, treeResolver = resolver)
+        val recommendations = service.findRedundantForProject(
+            mavenProject = mavenProject,
+            allProjects = listOf(mavenProject),
+            managedCoordinate = null,
+            indicator = null
+        )
+
+        assertEquals(1, recommendations.size)
+        val rec = recommendations.first()
+        assertEquals("org.apache.commons", rec.groupId)
+        assertEquals("commons-lang3", rec.artifactId)
+        assertEquals("3.12.0", rec.currentVersion)
+        assertEquals(RedundancyReason.PARENT_MANAGED, rec.reason)
+        assertEquals("3.12.0", rec.providedVersion)
+        assertTrue(rec.reasonDetail.contains("com.example:my-parent:1.0.0"))
+        assertTrue(rec.reasonDetail.contains("org.apache.commons:commons-lang3"))
+        assertTrue(rec.reasonDetail.contains("equal to the local version"))
+    }
+
+    /**
+     * Prüft die Erkennung von PARENT_MANAGED bei höherer Parent-Version.
+     */
+    fun testParentManagedDependencyWithHigherVersionIsDetectedAsRedundant() {
+        val (mavenProject, parentPom) = setupParentManagedProject()
+
+        val higherVersionResolver = TemporaryDependencyTreeResolver { groupId, artifactId, version ->
+            if (groupId == "com.example" && artifactId == "my-parent" && version == "1.0.0") {
+                parentPom.replace("3.12.0", "3.13.0")
+            } else {
+                null
+            }
+        }
+        val higherVersionService = RedundantManagedDependencyService(project, treeResolver = higherVersionResolver)
+        val managed = higherVersionService.collectManagedDependencies(mavenProject).first()
+        val higherParentRecommendation = higherVersionService.evaluateParentManaged(
+            managed = managed,
+            mavenProject = mavenProject,
+            key = "org.apache.commons:commons-lang3",
+            managedComp = org.apache.maven.artifact.versioning.ComparableVersion("3.12.0"),
+            consumerPaths = emptyList()
+        )
+        assertNotNull(higherParentRecommendation)
+        assertEquals("3.13.0", higherParentRecommendation!!.providedVersion)
+        assertTrue(higherParentRecommendation.reasonDetail.contains("higher than the local version 3.12.0"))
+    }
+
+    private fun setupParentManagedProject(): Pair<MavenProject, String> {
         val pom = myFixture.configureByText(
             "pom.xml",
             """
@@ -99,54 +157,7 @@ class RedundantManagedDependencyServiceTest : BasePlatformTestCase() {
             </project>
         """.trimIndent()
 
-        val resolver = TemporaryDependencyTreeResolver { groupId, artifactId, version ->
-            if (groupId == "com.example" && artifactId == "my-parent" && version == "1.0.0") {
-                parentPom
-            } else {
-                null
-            }
-        }
-
-        val mavenProject = MavenProject(pom.virtualFile)
-
-        val service = RedundantManagedDependencyService(project, treeResolver = resolver)
-        val recommendations = service.findRedundantForProject(
-            mavenProject = mavenProject,
-            allProjects = listOf(mavenProject),
-            managedCoordinate = null,
-            indicator = null
-        )
-
-        assertEquals(1, recommendations.size)
-        val rec = recommendations.first()
-        assertEquals("org.apache.commons", rec.groupId)
-        assertEquals("commons-lang3", rec.artifactId)
-        assertEquals("3.12.0", rec.currentVersion)
-        assertEquals(RedundancyReason.PARENT_MANAGED, rec.reason)
-        assertEquals("3.12.0", rec.providedVersion)
-        assertTrue(rec.reasonDetail.contains("com.example:my-parent:1.0.0"))
-        assertTrue(rec.reasonDetail.contains("org.apache.commons:commons-lang3"))
-        assertTrue(rec.reasonDetail.contains("equal to the local version"))
-
-        val higherVersionResolver = TemporaryDependencyTreeResolver { groupId, artifactId, version ->
-            if (groupId == "com.example" && artifactId == "my-parent" && version == "1.0.0") {
-                parentPom.replace("3.12.0", "3.13.0")
-            } else {
-                null
-            }
-        }
-        val higherVersionService = RedundantManagedDependencyService(project, treeResolver = higherVersionResolver)
-        val managed = higherVersionService.collectManagedDependencies(mavenProject).first()
-        val higherParentRecommendation = higherVersionService.evaluateParentManaged(
-                managed = managed,
-                mavenProject = mavenProject,
-                key = "org.apache.commons:commons-lang3",
-                managedComp = org.apache.maven.artifact.versioning.ComparableVersion("3.12.0"),
-                consumerPaths = emptyList()
-            )
-        assertNotNull(higherParentRecommendation)
-        assertEquals("3.13.0", higherParentRecommendation!!.providedVersion)
-        assertTrue(higherParentRecommendation.reasonDetail.contains("higher than the local version 3.12.0"))
+        return Pair(MavenProject(pom.virtualFile), parentPom)
     }
 
     /**
@@ -265,9 +276,71 @@ class RedundantManagedDependencyServiceTest : BasePlatformTestCase() {
     }
 
     /**
-     * Prüft die Erkennung von TRANSITIVE_MATCH bei gleicher und höherer transitiver Version.
+     * Prüft die Erkennung von TRANSITIVE_MATCH bei gleicher transitiver Version.
      */
     fun testTransitiveMatchIsDetectedAsRedundant() {
+        val (mavenProject, starterPom, consumerPath) = setupTransitiveMatchProject()
+
+        val resolver = TemporaryDependencyTreeResolver { groupId, artifactId, _ ->
+            if (groupId == "org.springframework.boot" && artifactId == "spring-boot-starter-test") {
+                starterPom
+            } else {
+                null
+            }
+        }
+
+        val service = RedundantManagedDependencyService(project, treeResolver = resolver)
+        val managed = service.collectManagedDependencies(mavenProject).first()
+        val managedComp = org.apache.maven.artifact.versioning.ComparableVersion("2.9.1")
+
+        val transRec = service.evaluateTransitiveMatch(
+            managed = managed,
+            mavenProject = mavenProject,
+            managedComp = managedComp,
+            consumerPaths = listOf(consumerPath),
+            indicator = null
+        )
+
+        assertNotNull(transRec)
+        assertEquals("org.xmlunit", transRec!!.groupId)
+        assertEquals("xmlunit-core", transRec.artifactId)
+        assertEquals(RedundancyReason.TRANSITIVE_MATCH, transRec.reason)
+        assertEquals("2.9.1", transRec.providedVersion)
+        assertTrue(transRec.reasonDetail.contains("org.xmlunit:xmlunit-core"))
+        assertFalse(transRec.reasonDetail.contains("org.springframework.boot:spring-boot-starter-test:3.3.5"))
+        assertTrue(transRec.consumers.single().pathDescription.contains("org.springframework.boot:spring-boot-starter-test:3.3.5"))
+    }
+
+    /**
+     * Prüft die Erkennung von TRANSITIVE_MATCH bei höherer transitiver Version.
+     */
+    fun testTransitiveMatchWithHigherVersionIsDetectedAsRedundant() {
+        val (mavenProject, starterPom, consumerPath) = setupTransitiveMatchProject()
+
+        val higherVersionResolver = TemporaryDependencyTreeResolver { groupId, artifactId, _ ->
+            if (groupId == "org.springframework.boot" && artifactId == "spring-boot-starter-test") {
+                starterPom.replace("2.9.1", "2.9.2")
+            } else {
+                null
+            }
+        }
+        val higherVersionService = RedundantManagedDependencyService(project, treeResolver = higherVersionResolver)
+        val managed = higherVersionService.collectManagedDependencies(mavenProject).first()
+        val managedComp = org.apache.maven.artifact.versioning.ComparableVersion("2.9.1")
+        val higherTransitiveRecommendation = higherVersionService.evaluateTransitiveMatch(
+            managed = managed,
+            mavenProject = mavenProject,
+            managedComp = managedComp,
+            consumerPaths = listOf(consumerPath),
+            indicator = null
+        )
+        assertNotNull(higherTransitiveRecommendation)
+        assertEquals("2.9.2", higherTransitiveRecommendation!!.providedVersion)
+        assertTrue(higherTransitiveRecommendation.reasonDetail.contains("2.9.2"))
+        assertTrue(higherTransitiveRecommendation.reasonDetail.contains("may change the resolved version"))
+    }
+
+    private fun setupTransitiveMatchProject(): Triple<MavenProject, String, List<MavenArtifactNode>> {
         val pom = myFixture.configureByText(
             "pom.xml",
             """
@@ -305,62 +378,11 @@ class RedundantManagedDependencyServiceTest : BasePlatformTestCase() {
             </project>
         """.trimIndent()
 
-        val resolver = TemporaryDependencyTreeResolver { groupId, artifactId, _ ->
-            if (groupId == "org.springframework.boot" && artifactId == "spring-boot-starter-test") {
-                starterPom
-            } else {
-                null
-            }
-        }
-
         val starterNode = createArtifactNode("org.springframework.boot", "spring-boot-starter-test", "3.3.5")
         val xmlunitNode = createArtifactNode("org.xmlunit", "xmlunit-core", "2.9.1")
         val consumerPath = listOf(starterNode, xmlunitNode)
 
-        val mavenProject = MavenProject(pom.virtualFile)
-        val service = RedundantManagedDependencyService(project, treeResolver = resolver)
-
-        val managed = service.collectManagedDependencies(mavenProject).first()
-
-        // Prüft die transitive Version anhand eines repräsentativen Konsumentenpfads.
-        val managedComp = org.apache.maven.artifact.versioning.ComparableVersion("2.9.1")
-
-        val transRec = service.evaluateTransitiveMatch(
-            managed = managed,
-            mavenProject = mavenProject,
-            managedComp = managedComp,
-            consumerPaths = listOf(consumerPath),
-            indicator = null
-        )
-
-        assertNotNull(transRec)
-        assertEquals("org.xmlunit", transRec!!.groupId)
-        assertEquals("xmlunit-core", transRec.artifactId)
-        assertEquals(RedundancyReason.TRANSITIVE_MATCH, transRec.reason)
-        assertEquals("2.9.1", transRec.providedVersion)
-        assertTrue(transRec.reasonDetail.contains("org.xmlunit:xmlunit-core"))
-        assertFalse(transRec.reasonDetail.contains("org.springframework.boot:spring-boot-starter-test:3.3.5"))
-        assertTrue(transRec.consumers.single().pathDescription.contains("org.springframework.boot:spring-boot-starter-test:3.3.5"))
-
-        val higherVersionResolver = TemporaryDependencyTreeResolver { groupId, artifactId, _ ->
-            if (groupId == "org.springframework.boot" && artifactId == "spring-boot-starter-test") {
-                starterPom.replace("2.9.1", "2.9.2")
-            } else {
-                null
-            }
-        }
-        val higherVersionService = RedundantManagedDependencyService(project, treeResolver = higherVersionResolver)
-        val higherTransitiveRecommendation = higherVersionService.evaluateTransitiveMatch(
-                managed = managed,
-                mavenProject = mavenProject,
-                managedComp = managedComp,
-                consumerPaths = listOf(consumerPath),
-                indicator = null
-            )
-        assertNotNull(higherTransitiveRecommendation)
-        assertEquals("2.9.2", higherTransitiveRecommendation!!.providedVersion)
-        assertTrue(higherTransitiveRecommendation.reasonDetail.contains("2.9.2"))
-        assertTrue(higherTransitiveRecommendation.reasonDetail.contains("may change the resolved version"))
+        return Triple(MavenProject(pom.virtualFile), starterPom, consumerPath)
     }
 
     /**
