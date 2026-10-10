@@ -8,6 +8,7 @@ import com.intellij.ui.JBColor
 import com.intellij.ui.JBSplitter
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.dsl.builder.Align
+import com.intellij.ui.dsl.builder.MAX_LINE_LENGTH_WORD_WRAP
 import com.intellij.ui.dsl.builder.bindSelected
 import com.intellij.ui.dsl.builder.panel
 import com.intellij.ui.table.JBTable
@@ -109,7 +110,10 @@ class RedundantManagedDependencyDialog(
 
         return panel {
             row {
-                text(MyMessageBundle.message("redundant.managed.dependency.dialog.explanation"), maxLineLength = 80)
+                text(
+                    MyMessageBundle.message("redundant.managed.dependency.dialog.explanation"),
+                    maxLineLength = MAX_LINE_LENGTH_WORD_WRAP
+                ).align(Align.FILL)
             }
             row {
                 comment(scopeDescription)
@@ -127,7 +131,7 @@ class RedundantManagedDependencyDialog(
             }
         }.also {
             dialogPanel = it
-            it.preferredSize = JBUI.size(1040, 720)
+            it.preferredSize = JBUI.size(1024, 680)
         }
     }
 
@@ -289,9 +293,7 @@ class RedundantManagedDependencyDialog(
             )
         } else {
             rec.consumers.joinToString(separator = "", prefix = "<ul>", postfix = "</ul>") { consumer ->
-                "<li>${StringUtil.escapeXmlEntities(
-                    "${consumer.groupId}:${consumer.artifactId} -> ${consumer.pathDescription}"
-                )}</li>"
+                "<li>${StringUtil.escapeXmlEntities(consumer.pathDescription)}</li>"
             }
         }
         val pathsTitle = StringUtil.escapeXmlEntities(
