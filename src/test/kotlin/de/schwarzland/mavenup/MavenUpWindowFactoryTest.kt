@@ -1885,7 +1885,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         assertEquals(
             "Ein Scan ohne jeden Befund muss dies im Empty State melden",
-            "No vulnerabilities found in the last scan.",
+            "No vulnerabilities were found in the last scan.",
             view.table.emptyText.text
         )
     }
@@ -1906,7 +1906,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         assertEquals(
             "Nur direkte Befunde müssen im Empty State erklärt werden",
-            "No transitive vulnerabilities found. All findings affect directly declared dependencies.",
+            "No transitive vulnerabilities were found. All findings affect directly declared dependencies.",
             view.table.emptyText.text
         )
     }

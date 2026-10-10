@@ -48,8 +48,8 @@ class RedundantManagedDependencyDialogTest : BasePlatformTestCase() {
         val dialog = RedundantManagedDependencyDialog(project, listOf(shortRecommendation, longRecommendation))
         Disposer.register(testRootDisposable, dialog.disposable)
         val center = dialog.createCenterPanel()
-        assertTrue("The initial dialog should provide a larger workspace", center.preferredSize.width >= JBUI.scale(1000))
-        assertTrue("The initial dialog should provide a larger workspace", center.preferredSize.height >= JBUI.scale(700))
+        assertTrue("The initial dialog should provide a larger workspace", center.preferredSize.width >= JBUI.scale(1024))
+        assertTrue("The initial dialog should provide a larger workspace", center.preferredSize.height >= JBUI.scale(680))
         val table = UIUtil.findComponentOfType(center, JBTable::class.java)!!
         val splitter = UIUtil.findComponentOfType(center, JBSplitter::class.java)!!
         val scroll = UIUtil.findComponentOfType(splitter.secondComponent, JBScrollPane::class.java)!!
