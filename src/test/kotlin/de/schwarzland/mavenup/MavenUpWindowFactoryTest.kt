@@ -1229,12 +1229,12 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
     }
 
     /**
-     * Prüft, dass die Aktion "Check This Managed Dependency for Redundancy" nur für verwaltete Abhängigkeiten erscheint.
+     * Prüft, dass die Aktion "Check for Redundancy" nur für verwaltete Abhängigkeiten erscheint.
      */
     fun testRedundantManagedContextActionIsLimitedToManagedDependencies() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         val redundantLabel = MyMessageBundle.message("toolwindow.MyToolWindow.checkRedundantManaged.contextMenu")
-        assertEquals("Check This Managed Dependency for Redundancy", redundantLabel)
+        assertEquals("Check for Redundancy", redundantLabel)
         val managedDependencyType = MyMessageBundle.message("toolwindow.MyToolWindow.type.managedDependency")
 
         /** Prüft, ob der Kontextmenü-Aufbau die Redundanzprüfung für den angegebenen Typ enthält. */

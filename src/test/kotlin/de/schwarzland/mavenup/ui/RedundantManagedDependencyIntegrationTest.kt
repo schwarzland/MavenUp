@@ -40,7 +40,7 @@ class RedundantManagedDependencyIntegrationTest : BasePlatformTestCase() {
     }
 
     /**
-     * Prüft, dass das Kontextmenü für verwaltete Abhängigkeiten die Aktion "Check This Managed Dependency for Redundancy" enthält.
+     * Prüft, dass das Kontextmenü für verwaltete Abhängigkeiten die Aktion "Check for Redundancy" enthält.
      */
     fun testContextMenuContainsCheckIfRedundantActionForManagedDependency() {
         val factory = MavenUpWindowFactory()
@@ -62,7 +62,7 @@ class RedundantManagedDependencyIntegrationTest : BasePlatformTestCase() {
         }
         assertTrue(hasCheckAction)
         assertEquals(
-            "Check This Managed Dependency for Redundancy",
+            "Check for Redundancy",
             MyMessageBundle.message("toolwindow.MyToolWindow.checkRedundantManaged.contextMenu")
         )
         assertEquals(
@@ -72,7 +72,7 @@ class RedundantManagedDependencyIntegrationTest : BasePlatformTestCase() {
     }
 
     /**
-     * Prüft, dass die Aktion "Check This Managed Dependency for Redundancy" bei normalen direkten Abhängigkeiten nicht im Kontextmenü erscheint.
+     * Prüft, dass die Aktion "Check for Redundancy" bei normalen direkten Abhängigkeiten nicht im Kontextmenü erscheint.
      */
     fun testContextMenuDoesNotContainCheckIfRedundantForDirectDependency() {
         val factory = MavenUpWindowFactory()
