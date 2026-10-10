@@ -25,8 +25,9 @@ UI-Komponenten: [`components-ui.md`](components-ui.md) und
   Managed-Koordinate, aktueller Version, Redundanzgrund (`RedundancyReason`), bereitgestellter Version und Maven-Projekt
   sowie Schaltflächen zum Auswählen und Abwählen aller Einträge. In der Detailansicht werden der genaue Redundanznachweis
   (Parent-POM-Quelle, direkte Deklaration oder Konsumentenpfade) und der Quell-POM-Pfad formatiert dargestellt; betroffene
-  Abhängigkeiten werden in der Begründung und in den Konsumentenpfaden über `formatReasonDetail` und `formatConsumerPath`
-  mit `AFFECTED_DEPENDENCY_COLOR` (themenabhängig für Light- und Dark-Mode) farblich hervorgehoben.
+  Ziel- und Parent-Abhängigkeiten werden in der Begründung und in den Konsumentenpfaden über `formatReasonDetail` und `formatConsumerPath`
+  mit `AFFECTED_DEPENDENCY_COLOR` (themenabhängig für Light- und Dark-Mode) farblich hervorgehoben und sämtliche Versionsangaben
+  werden fett dargestellt.
   Der initial markierte sichtbare Tabellen-Datensatz bestimmt die initiale Detailansicht; die Reason-Erklärung dupliziert
   keine darunter separat gelisteten Consumer Paths. Reason-Labels unterscheiden gleiche, höhere und gemischte
   bereitgestellte Versionen.

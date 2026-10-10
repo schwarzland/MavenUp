@@ -155,7 +155,8 @@ class RedundantManagedDependencyDialogTest : BasePlatformTestCase() {
         val editor = scroll.viewport.view as JEditorPane
         assertEquals(0, table.selectedRow)
         assertEquals("org.example:lib-a", table.getValueAt(table.selectedRow, 1))
-        assertTrue("Initial details must describe the selected sorted row", editor.text.contains(rec1.reasonDetail))
+        assertTrue("Initial details must describe the selected sorted row", editor.text.contains("Managed by parent POM"))
+        assertTrue(editor.text.contains("<b>1.0.0</b>"))
         assertTrue(editor.text.contains("Consumer Paths in Project"))
         assertTrue("Consumer paths should be rendered as a bulleted list", editor.text.contains("<li>"))
         assertTrue("The reason label should be followed by a line break", editor.text.contains("<br"))
@@ -311,9 +312,10 @@ class RedundantManagedDependencyDialogTest : BasePlatformTestCase() {
     }
 
     /**
-     * Prüft, dass die betroffene Koordinate in der Redundanzbegründung farblich hervorgehoben wird.
+     * Prüft, dass die betroffene Koordinate und die Parent-Koordinate farblich hervorgehoben und
+     * Versionsangaben fett formatiert werden.
      */
-    fun testFormatReasonDetailHighlightsAffectedDependency() {
+    fun testFormatReasonDetailHighlightsAffectedDependencyAndParentAndBoldsVersions() {
         val target = "org.apache.tomcat.embed:tomcat-embed-core"
         val reason = "Parent hierarchy org.springframework.boot:spring-boot-starter-parent:4.1.1 manages " +
             "org.apache.tomcat.embed:tomcat-embed-core at version 11.0.24, which is higher than the local version 11.0.20."
@@ -321,11 +323,31 @@ class RedundantManagedDependencyDialogTest : BasePlatformTestCase() {
 
         val formatted = formatReasonDetail(reason, target, colorHex)
         assertTrue(formatted.contains("<span style=\"color: #0055aa;\">org.apache.tomcat.embed:tomcat-embed-core</span>"))
-        assertFalse(formatted.contains("<span style=\"color: #0055aa;\">org.springframework.boot:spring-boot-starter-parent"))
+        assertTrue(formatted.contains("<span style=\"color: #0055aa;\">org.springframework.boot:spring-boot-starter-parent</span>"))
+        assertTrue(formatted.contains("<b>4.1.1</b>"))
+        assertTrue(formatted.contains("<b>11.0.24</b>"))
+        assertTrue(formatted.contains("<b>11.0.20</b>"))
     }
 
     /**
-     * Prüft, dass die betroffene Abhängigkeit am Ende und innerhalb von Konsumentenpfaden farblich hervorgehoben wird.
+     * Prüft die Formatierung der Redundanzbegründung für das im Issue beschriebene Spring-Beispiel.
+     */
+    fun testFormatReasonDetailForSpringExpressionExample() {
+        val target = "org.springframework:spring-expression"
+        val reason = "Parent hierarchy org.springframework.boot:spring-boot-starter-parent:3.5.16 manages " +
+            "org.springframework:spring-expression at version 6.2.19, which is equal to the local version 6.2.19. " +
+            "Removing the local entry will make Maven use 6.2.19; review the affected consumer paths before applying."
+        val colorHex = "#0055aa"
+
+        val formatted = formatReasonDetail(reason, target, colorHex)
+        assertTrue(formatted.contains("<span style=\"color: #0055aa;\">org.springframework:spring-expression</span>"))
+        assertTrue(formatted.contains("<span style=\"color: #0055aa;\">org.springframework.boot:spring-boot-starter-parent</span>"))
+        assertTrue(formatted.contains("<b>3.5.16</b>"))
+        assertTrue(formatted.contains("<b>6.2.19</b>"))
+    }
+
+    /**
+     * Prüft, dass die betroffene Abhängigkeit farblich hervorgehoben und alle Versionsnummern in Konsumentenpfaden fett formatiert werden.
      */
     fun testFormatConsumerPathHighlightsAffectedDependency() {
         val target = "org.apache.tomcat.embed:tomcat-embed-core"
@@ -341,12 +363,30 @@ class RedundantManagedDependencyDialogTest : BasePlatformTestCase() {
             "org.apache.tomcat.embed:tomcat-embed-core:11.0.20"
 
         val formatted1 = formatConsumerPath(path1, target, colorHex)
-        assertTrue(formatted1.contains("<span style=\"color: #0055aa;\">org.apache.tomcat.embed:tomcat-embed-core:11.0.20</span>"))
-        assertFalse(formatted1.contains("<span style=\"color: #0055aa;\">org.springframework.boot:spring-boot-starter-web"))
+        assertTrue(formatted1.contains("<span style=\"color: #0055aa;\">org.apache.tomcat.embed:tomcat-embed-core</span>:<b>11.0.20</b>"))
+        assertTrue(formatted1.contains("org.springframework.boot:spring-boot-starter-web:<b>4.1.1</b>"))
 
         val formatted2 = formatConsumerPath(path2, target, colorHex)
-        assertTrue(formatted2.contains("<span style=\"color: #0055aa;\">org.apache.tomcat.embed:tomcat-embed-core:11.0.20</span>"))
-        assertFalse(formatted2.contains("<span style=\"color: #0055aa;\">org.apache.tomcat.embed:tomcat-embed-websocket"))
+        assertTrue(formatted2.contains("<span style=\"color: #0055aa;\">org.apache.tomcat.embed:tomcat-embed-core</span>:<b>11.0.20</b>"))
+        assertTrue(formatted2.contains("org.apache.tomcat.embed:tomcat-embed-websocket:<b>11.0.24</b>"))
+    }
+
+    /**
+     * Prüft die Konsumentenpfad-Formatierung für das im Issue beschriebene Spring-Beispiel.
+     */
+    fun testFormatConsumerPathForSpringExpressionExample() {
+        val target = "org.springframework:spring-expression"
+        val colorHex = "#0055aa"
+        val path = "org.springframework.boot:spring-boot-starter-web:3.5.16 -> " +
+            "org.springframework:spring-webmvc:6.2.19 -> " +
+            "org.springframework:spring-context:6.2.19 -> " +
+            "org.springframework:spring-expression:6.2.19"
+
+        val formatted = formatConsumerPath(path, target, colorHex)
+        assertTrue(formatted.contains("org.springframework.boot:spring-boot-starter-web:<b>3.5.16</b>"))
+        assertTrue(formatted.contains("org.springframework:spring-webmvc:<b>6.2.19</b>"))
+        assertTrue(formatted.contains("org.springframework:spring-context:<b>6.2.19</b>"))
+        assertTrue(formatted.contains("<span style=\"color: #0055aa;\">org.springframework:spring-expression</span>:<b>6.2.19</b>"))
     }
 
     /**
@@ -400,5 +440,9 @@ class RedundantManagedDependencyDialogTest : BasePlatformTestCase() {
         val colorHex = ColorUtil.toHtmlColor(RedundantManagedDependencyDialog.AFFECTED_DEPENDENCY_COLOR)
         assertTrue(editor.text.contains(colorHex))
         assertTrue(editor.text.contains("tomcat-embed-core"))
+        assertTrue(editor.text.contains("spring-boot-starter-parent"))
+        assertTrue(editor.text.contains("<b>4.1.1</b>"))
+        assertTrue(editor.text.contains("<b>11.0.24</b>"))
+        assertTrue(editor.text.contains("<b>11.0.20</b>"))
     }
 }

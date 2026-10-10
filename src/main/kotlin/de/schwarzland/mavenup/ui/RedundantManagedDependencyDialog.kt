@@ -410,12 +410,13 @@ class RedundantManagedDependencyDialog(
 }
 
 /**
- * Formatiert die Redundanzbegründung für die HTML-Detailansicht und hebt die betroffene Koordinate farblich hervor.
+ * Formatiert die Redundanzbegründung für die HTML-Detailansicht, hebt Ziel- und Parent-Abhängigkeiten farblich
+ * hervor und stellt alle Versionsangaben fett dar.
  *
  * @param reasonDetail Der unformatierte Begründungstext.
  * @param targetCoordinate Die Koordinate `groupId:artifactId` der betroffenen Abhängigkeit.
  * @param colorHex Der hexadezimale Farbcode zur themenabhängigen Darstellung.
- * @return Der HTML-formatierte und maskierte Begründungstext mit farblicher Hervorhebung.
+ * @return Der HTML-formatierte und maskierte Begründungstext mit farblicher Hervorhebung und fetten Versionsnummern.
  */
 internal fun formatReasonDetail(
     reasonDetail: String,
@@ -423,41 +424,102 @@ internal fun formatReasonDetail(
     colorHex: String
 ): String {
     val escapedReason = StringUtil.escapeXmlEntities(reasonDetail)
-    if (targetCoordinate.isBlank()) return escapedReason
-    val escapedTarget = StringUtil.escapeXmlEntities(targetCoordinate)
-    val regex = Regex("""(?<![a-zA-Z0-9_\-.:])${Regex.escape(escapedTarget)}(?![a-zA-Z0-9_\-.])""")
-    return regex.replace(escapedReason) { match ->
-        "<span style=\"color: $colorHex;\">${match.value}</span>"
+    if (escapedReason.isBlank()) return escapedReason
+
+    val parentRegex = Regex("""(?i)\b(Parent hierarchy\s+)([a-zA-Z0-9_.\-]+:[a-zA-Z0-9_.\-]+)(?::([a-zA-Z0-9_.\-]+))?""")
+    var formatted = parentRegex.replace(escapedReason) { match ->
+        val prefix = match.groupValues[1]
+        val parentCoord = match.groupValues[2]
+        val rawParentVersion = match.groupValues[3]
+        val coloredCoord = "<span style=\"color: $colorHex;\">$parentCoord</span>"
+        if (rawParentVersion.isNotEmpty()) {
+            val cleanVersion = rawParentVersion.trimEnd('.', ';', ',', ':')
+            val trailingPunct = rawParentVersion.substring(cleanVersion.length)
+            if (cleanVersion.isNotEmpty()) {
+                "$prefix$coloredCoord:<b>$cleanVersion</b>$trailingPunct"
+            } else {
+                "$prefix$coloredCoord:$rawParentVersion"
+            }
+        } else {
+            "$prefix$coloredCoord"
+        }
     }
+
+    if (targetCoordinate.isNotBlank()) {
+        val escapedTarget = StringUtil.escapeXmlEntities(targetCoordinate)
+        val targetRegex = Regex("""(?<![a-zA-Z0-9_\-.:])${Regex.escape(escapedTarget)}(?![a-zA-Z0-9_\-.])""")
+        formatted = targetRegex.replace(formatted) { match ->
+            "<span style=\"color: $colorHex;\">${match.value}</span>"
+        }
+    }
+
+    val versionKeywordRegex = Regex("""\b(version\(s\)|version|use)(\s+)(\d[\w.\-]*(?:\s*,\s*\d[\w.\-]*)*)""")
+    formatted = versionKeywordRegex.replace(formatted) { match ->
+        val keyword = match.groupValues[1]
+        val spaces = match.groupValues[2]
+        val versionsPart = match.groupValues[3]
+        val boldedVersions = versionsPart.split(",").joinToString(",") { rawVer ->
+            val leadingSpaces = rawVer.takeWhile { it.isWhitespace() }
+            val trimmed = rawVer.trim()
+            val trailingPunct = trimmed.takeLastWhile { it in ".;:," }
+            val actualVersion = trimmed.dropLast(trailingPunct.length)
+            if (actualVersion.isNotEmpty()) {
+                "$leadingSpaces<b>$actualVersion</b>$trailingPunct"
+            } else {
+                rawVer
+            }
+        }
+        "$keyword$spaces$boldedVersions"
+    }
+
+    return formatted
 }
 
 /**
- * Formatiert einen Konsumentenpfad für die HTML-Detailansicht und hebt betroffene Abhängigkeiten farblich hervor.
+ * Formatiert einen Konsumentenpfad für die HTML-Detailansicht, hebt betroffene Zielabhängigkeiten farblich hervor
+ * und stellt Versionsnummern aller Pfadsegmente fett dar.
  *
  * @param pathDescription Der Abhängigkeitspfad mit Trennern (` -> `).
  * @param targetCoordinate Die Koordinate `groupId:artifactId` der betroffenen Abhängigkeit.
  * @param colorHex Der hexadezimale Farbcode zur themenabhängigen Darstellung.
- * @return Der HTML-formatierte und maskierte Konsumentenpfad mit farblicher Hervorhebung.
+ * @return Der HTML-formatierte und maskierte Konsumentenpfad mit farblicher Hervorhebung und fetten Versionsnummern.
  */
 internal fun formatConsumerPath(
     pathDescription: String,
     targetCoordinate: String,
     colorHex: String
 ): String {
-    if (targetCoordinate.isBlank()) {
-        return StringUtil.escapeXmlEntities(pathDescription)
+    if (pathDescription.isBlank()) {
+        return ""
     }
     val segments = pathDescription.split(" -> ")
     val formattedSegments = segments.map { segment ->
         val trimmed = segment.trim()
-        val isTarget = trimmed == targetCoordinate ||
-            trimmed.startsWith("$targetCoordinate:") ||
-            trimmed.startsWith("$targetCoordinate ")
-        val escaped = StringUtil.escapeXmlEntities(trimmed)
-        if (isTarget) {
-            "<span style=\"color: $colorHex;\">$escaped</span>"
+        val lastColon = trimmed.lastIndexOf(':')
+        if (lastColon > 0) {
+            val coord = trimmed.substring(0, lastColon)
+            val version = trimmed.substring(lastColon + 1)
+            val isTarget = targetCoordinate.isNotBlank() && coord == targetCoordinate
+            val escapedCoord = StringUtil.escapeXmlEntities(coord)
+            val escapedVersion = StringUtil.escapeXmlEntities(version)
+            val coordPart = if (isTarget) {
+                "<span style=\"color: $colorHex;\">$escapedCoord</span>"
+            } else {
+                escapedCoord
+            }
+            if (escapedVersion.isNotEmpty()) {
+                "$coordPart:<b>$escapedVersion</b>"
+            } else {
+                "$coordPart:"
+            }
         } else {
-            escaped
+            val isTarget = targetCoordinate.isNotBlank() && trimmed == targetCoordinate
+            val escaped = StringUtil.escapeXmlEntities(trimmed)
+            if (isTarget) {
+                "<span style=\"color: $colorHex;\">$escaped</span>"
+            } else {
+                escaped
+            }
         }
     }
     return formattedSegments.joinToString(" -&gt; ")
