@@ -171,6 +171,7 @@ class VersionLookupLoggingTest : BasePlatformTestCase() {
     }
 
     /** Zeichnet DEBUG-Nachrichten des IntelliJ-JUL-Loggers auf und stellt dessen Konfiguration wieder her. */
+    @Suppress("ApiStatusInternal")
     private fun captureDebugLogs(category: Class<*>, action: () -> Unit): List<String> {
         awaitLogQueueProcessed()
         val messages = mutableListOf<String>()
