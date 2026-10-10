@@ -1,6 +1,6 @@
 # Configuration, Enterprise Setup & FAQ
 
-MavenUp is highly customizable to match your team's development workflows, enterprise security policies, and private repository infrastructure.
+Maven Up is highly customizable to match your team's development workflows, enterprise security policies, and private repository infrastructure.
 
 ---
 
@@ -44,27 +44,27 @@ Tools
 ## 2. Enterprise Setup & Private Repositories
 
 ### Connecting to Nexus, Artifactory, or GitLab Package Registry
-MavenUp automatically discovers all active repositories declared in your project POMs, parent POMs, and your user-local `~/.m2/settings.xml`.
+Maven Up automatically discovers all active repositories declared in your project POMs, parent POMs, and your user-local `~/.m2/settings.xml`.
 
 * **Authentication:** Repository credentials (passwords or access tokens) configured in `<servers>` within `settings.xml` are resolved locally and sent exclusively to the respective repository server.
 * **Mirrors:** Repository `<mirrors>` configured in `settings.xml` (e.g. internal caching proxies) are respected automatically.
-* **HTTP/HTTPS Proxies:** MavenUp honors IDE-level proxy settings (`Settings > Appearance & Behavior > System Settings > HTTP Proxy`) and user-level Gradle proxy configurations.
+* **HTTP/HTTPS Proxies:** Maven Up honors IDE-level proxy settings (`Settings > Appearance & Behavior > System Settings > HTTP Proxy`) and user-level Gradle proxy configurations.
 
 ---
 
 ## 3. Frequently Asked Questions (FAQ)
 
-### How does MavenUp handle multi-module Maven projects?
-MavenUp inspects all active modules within your IntelliJ Maven project. Dependencies and plugins from each module's `pom.xml` are aggregated into the unified tool window table, displaying their respective origin modules. When you apply updates, changes are written precisely into the module POM that defines the dependency or property.
+### How does Maven Up handle multi-module Maven projects?
+Maven Up inspects all active modules within your IntelliJ Maven project. Dependencies and plugins from each module's `pom.xml` are aggregated into the unified tool window table, displaying their respective origin modules. When you apply updates, changes are written precisely into the module POM that defines the dependency or property.
 
 ### How are shared properties like `${spring.version}` handled?
-When multiple dependencies (e.g. `spring-core`, `spring-web`, `spring-context`) share the same property expression, selecting a new version for any of them automatically synchronizes the target version across all associated entries. Upon clicking **Update**, MavenUp updates the central `<properties>` block in `pom.xml` in a single atomic operation.
+When multiple dependencies (e.g. `spring-core`, `spring-web`, `spring-context`) share the same property expression, selecting a new version for any of them automatically synchronizes the target version across all associated entries. Upon clicking **Update**, Maven Up updates the central `<properties>` block in `pom.xml` in a single atomic operation.
 
 ### What happens with inherited dependencies from Parent POMs or BOMs?
-Inherited dependencies are clearly marked with italics and an *(inherited)* badge. If you choose to update an inherited dependency, MavenUp writes an explicit `<version>` tag into the local module's `pom.xml`, allowing you to override the inherited version without modifying parent POM files.
+Inherited dependencies are clearly marked with italics and an *(inherited)* badge. If you choose to update an inherited dependency, Maven Up writes an explicit `<version>` tag into the local module's `pom.xml`, allowing you to override the inherited version without modifying parent POM files.
 
 ### How do I inspect or clear cached results?
 Go to `Settings > Tools > Maven Up > Versions and Updates` (or `Vulnerability Check`) and click **Show Cache Contents...**. You will see an overview of cached artifacts, query timestamps, and remaining TTLs. Click **Invalidate** to clear the cache immediately.
 
 ### What happens if a repository or vulnerability service is unreachable?
-If Maven Central, a private repository, or OSV.dev experiences network issues or downtime, MavenUp displays a closable warning banner detailing the issue. It gracefully falls back to cached results where available, ensuring you can continue working without IDE freezes.
+If Maven Central, a private repository, or OSV.dev experiences network issues or downtime, Maven Up displays a closable warning banner detailing the issue. It gracefully falls back to cached results where available, ensuring you can continue working without IDE freezes.

@@ -1,12 +1,12 @@
 # Privacy, Security & Data Compliance
 
-MavenUp is built with a strict **Security-First** and **Data Minimization** philosophy. It is designed to meet the rigorous compliance and security standards required in enterprise, financial, and confidential corporate environments.
+Maven Up is built with a strict **Security-First** and **Data Minimization** philosophy. It is designed to meet the rigorous compliance and security standards required in enterprise, financial, and confidential corporate environments.
 
 ---
 
 ## 1. Core Privacy Guarantees
 
-* **Zero Source Code Transmission:** MavenUp **never** transmits source code, file contents, project file paths, passwords, environment variables, or local user information to any external service.
+* **Zero Source Code Transmission:** Maven Up **never** transmits source code, file contents, project file paths, passwords, environment variables, or local user information to any external service.
 * **Standard Maven Coordinates Only:** All network queries for version availability and vulnerability scans are strictly limited to standard Maven coordinates: `groupId`, `artifactId`, and `version`.
 * **Encrypted Communication:** All external requests are performed strictly over encrypted **HTTPS** connections.
 * **Local Processing:** Dependency hierarchy analysis, POM parsing, version resolution, and redundancy checks are executed 100% locally on your machine within IntelliJ IDEA.
@@ -15,11 +15,11 @@ MavenUp is built with a strict **Security-First** and **Data Minimization** phil
 
 ## 2. External Services and Network Communication
 
-MavenUp connects only to industry-standard repository endpoints and public vulnerability databases:
+Maven Up connects only to industry-standard repository endpoints and public vulnerability databases:
 
 ```text
  ┌────────────────────────────────────────────────────────────────────────┐
- │                          IntelliJ IDEA / MavenUp                       │
+ │                          IntelliJ IDEA / Maven Up                       │
  └───────┬──────────────────────┬───────────────────────┬─────────────────┘
          │                      │                       │
          │ GET maven-metadata   │ POST /v1/querybatch   │ POST /api/v3/authorized/biomed
@@ -45,7 +45,7 @@ MavenUp connects only to industry-standard repository endpoints and public vulne
 ### Private GroupId Prefixes (Prevent Data Leakage)
 In corporate environments, internal dependencies (e.g. `com.mycompany.internal:my-service:1.0.0`) must never leak to public external services.
 
-* MavenUp provides a dedicated **Private GroupId prefixes** configuration setting (under `Settings > Tools > Maven Up > Versions and Updates`).
+* Maven Up provides a dedicated **Private GroupId prefixes** configuration setting (under `Settings > Tools > Maven Up > Versions and Updates`).
 * Any dependency, plugin, parent POM, or managed entry whose GroupId matches one of your configured prefixes is **strictly excluded from queries to Maven Central (`repo1.maven.org`)**.
 * Queries for private artifacts are routed exclusively to your internally configured repository servers (e.g. Nexus or Artifactory).
 
@@ -60,4 +60,4 @@ To minimize network traffic, eliminate duplicate requests, and respect external 
 * **Cache Inspection & Invalidation:** You can inspect active cache entries and remaining TTLs via `Settings > Tools > Maven Up > Show Cache Contents...` and manually invalidate them at any time.
 
 ### Local Diagnostic Logs
-* When debug logging is enabled, MavenUp logs coordinate lookups and cache decisions to the IntelliJ IDEA log without including authentication headers, tokens, or private payload data.
+* When debug logging is enabled, Maven Up logs coordinate lookups and cache decisions to the IntelliJ IDEA log without including authentication headers, tokens, or private payload data.

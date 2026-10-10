@@ -1,6 +1,6 @@
-# Getting Started with MavenUp
+# Getting Started with Maven Up
 
-MavenUp is an intelligent dependency and vulnerability management plugin for Apache Maven projects in JetBrains IntelliJ IDEA. It displays dependencies, plugins, and parent entries directly from your `pom.xml` files, queries Maven Central and private repositories for available updates, identifies direct and transitive security vulnerabilities (CVEs), and applies planned updates cleanly and atomically back to your POM files.
+Maven Up is an intelligent dependency and vulnerability management plugin for Apache Maven projects in JetBrains IntelliJ IDEA. It displays dependencies, plugins, and parent entries directly from your `pom.xml` files, queries Maven Central and private repositories for available updates, identifies direct and transitive security vulnerabilities (CVEs), and applies planned updates cleanly and atomically back to your POM files.
 
 ---
 
@@ -16,13 +16,13 @@ Follow these five steps to inspect and update your project dependencies:
    left/bottom bar        manual refresh         sync properties        Minor / Fixes          pom.xml + sync
 ```
 
-### Step 1: Open the MavenUp Tool Window
+### Step 1: Open the Maven Up Tool Window
 * After installation, restart IntelliJ IDEA.
 * Click the **Maven Up** icon in the tool window bar (usually on the left or bottom edge of your IDE).
 * The tool window automatically inspects the active Maven modules and displays dependencies, plugins, `<parent>` POM declarations, `<dependencyManagement>`, and `<pluginManagement>` entries.
 
 ### Step 2: Automatic Background Check & Refresh
-* **Automatic search:** When enabled (default), MavenUp checks for newer versions in the background upon project loading and after every Maven project sync/import.
+* **Automatic search:** When enabled (default), Maven Up checks for newer versions in the background upon project loading and after every Maven project sync/import.
 * **Manual refresh:** Click **Refresh and Search for New Versions** in the top action toolbar at any time to reload the project state, discard current selections, and query repositories.
 * **Status indicators:**
   * `✓` (Green checkmark): Dependency is up to date.
@@ -31,7 +31,7 @@ Follow these five steps to inspect and update your project dependencies:
 
 ### Step 3: Choose Target Versions
 * In the **New Version** column, click the dropdown to select the version you want to apply.
-* **Property awareness:** If multiple dependencies share a Maven property (e.g. `${spring.version}` or `${jackson.version}`), MavenUp automatically synchronizes the selection across all associated entries.
+* **Property awareness:** If multiple dependencies share a Maven property (e.g. `${spring.version}` or `${jackson.version}`), Maven Up automatically synchronizes the selection across all associated entries.
 * **Selection markers:** In the dropdown list, your current version is marked with **(current)**, and recommended vulnerability fix versions are highlighted with **(recommended)**.
 
 ### Step 4: One-Click Bulk Selections
@@ -78,9 +78,9 @@ Right-click any row to access convenient context actions:
 
 ## 3. Detecting Redundant Managed Dependencies
 
-Maven projects frequently accumulate unnecessary `<dependencyManagement>` declarations over time. MavenUp provides an automated redundancy analyzer:
+Maven projects frequently accumulate unnecessary `<dependencyManagement>` declarations over time. Maven Up provides an automated redundancy analyzer:
 1. Click **Managed Entries > Check Managed Dependencies for Redundancy...** (or right-click a managed row).
-2. MavenUp analyzes your project against parent POM management, explicit direct declarations, transitive availability across all consumers, and unused entries.
+2. Maven Up analyzes your project against parent POM management, explicit direct declarations, transitive availability across all consumers, and unused entries.
 3. Review the redundancy explanation and exact consumer paths in the split-view dialog.
 4. Click **Mark Selected Entries for Removal** to stage removals safely, then review and apply them via **Update**.
 
@@ -88,6 +88,6 @@ Maven projects frequently accumulate unnecessary `<dependencyManagement>` declar
 
 ## 4. Next Steps
 
-* Visit the **Security & Privacy** tab to learn about MavenUp's zero-source-code data minimization and private GroupId protection.
+* Visit the **Security & Privacy** tab to learn about Maven Up's zero-source-code data minimization and private GroupId protection.
 * Visit the **Vulnerability Management** tab for details on direct and transitive CVE scanning and remediation.
 * Visit the **Configuration & FAQ** tab for enterprise repository configuration and troubleshooting tips.
