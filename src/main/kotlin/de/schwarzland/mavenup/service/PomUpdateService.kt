@@ -1,6 +1,7 @@
 package de.schwarzland.mavenup.service
 
 import de.schwarzland.mavenup.model.DependencyUpdate
+import de.schwarzland.mavenup.model.TargetPomMode
 import de.schwarzland.mavenup.ui.MANAGED_PLUGIN
 import de.schwarzland.mavenup.ui.MyMessageBundle
 import de.schwarzland.mavenup.ui.PARENT_TYPE
@@ -17,7 +18,9 @@ import com.intellij.psi.codeStyle.CodeStyleManager
 import com.intellij.psi.xml.XmlComment
 import com.intellij.psi.xml.XmlFile
 import com.intellij.psi.xml.XmlTag
+import org.jetbrains.idea.maven.model.MavenArtifactNode
 import org.jetbrains.idea.maven.project.MavenProject
+import org.jetbrains.idea.maven.project.MavenProjectsManager
 
 /** Erkennt zusammenhängende Whitespace-Folgen (inklusive Zeilenumbrüchen) in Kommentartexten. */
 private val WHITESPACE_REGEX = Regex("\\s+")
@@ -34,6 +37,83 @@ private val HYPHEN_SEQUENCE_REGEX = Regex("-{2,}")
  * @property project Das Projekt, dessen `pom.xml`-Dateien geändert werden.
  */
 internal class PomUpdateService(private val project: Project) {
+
+    /**
+     * Löst eine Liste von [DependencyUpdate]s unter Berücksichtigung des gewählten [TargetPomMode]
+     * auf die passenden Ziel-POM-Dateien auf.
+     *
+     * Transitive Pins ([DependencyUpdate.transitive] == true), für die kein festes [DependencyUpdate.pomFile]
+     * vorgegeben ist, werden je nach [targetPomMode] wie folgt zugeordnet:
+     * - [TargetPomMode.ROOT_POM]: Werden dem Root-POM des Projekts zugeordnet (oder der ersten Projekt-POM).
+     * - [TargetPomMode.AFFECTED_MODULES]: Werden denjenigen Maven-Modulen zugeordnet, deren Abhängigkeitsbaum
+     *   die Koordinate tatsächlich enthält (Fallback auf Root-POM).
+     * - [TargetPomMode.ALL_MODULES]: Behalten `pomFile = null`, sodass sie auf alle POMs angewendet werden.
+     *
+     * Nicht-transitive Updates sowie Updates mit bereits fest gesetztem [DependencyUpdate.pomFile] bleiben unverändert.
+     *
+     * @param updates Die anzuwendenden Updates.
+     * @param targetPomMode Der Modus für die Ziel-POM-Auswahl transitiver Pins (Standard: [TargetPomMode.ROOT_POM]).
+     * @return Die auf die Ziel-POMs aufgelösten Updates.
+     */
+    internal fun resolveUpdatesForTargetPomMode(
+        updates: List<DependencyUpdate>,
+        targetPomMode: TargetPomMode = TargetPomMode.ROOT_POM
+    ): List<DependencyUpdate> {
+        val mavenManager = MavenProjectsManager.getInstance(project)
+        val allProjects = mavenManager.projects.toList()
+        val rootProjects = mavenManager.rootProjects.toList()
+        val rootPomFile = rootProjects.firstOrNull()?.file ?: allProjects.firstOrNull()?.file
+
+        return updates.flatMap { update ->
+            if (!update.transitive || update.pomFile != null) {
+                listOf(update)
+            } else {
+                when (targetPomMode) {
+                    TargetPomMode.ROOT_POM -> {
+                        listOf(if (rootPomFile != null) update.copy(pomFile = rootPomFile) else update)
+                    }
+                    TargetPomMode.ALL_MODULES -> {
+                        listOf(update.copy(pomFile = null))
+                    }
+                    TargetPomMode.AFFECTED_MODULES -> {
+                        val affectedProjects = allProjects.filter {
+                            isDependencyInTree(it, update.groupId, update.artifactId)
+                        }
+                        if (affectedProjects.isNotEmpty()) {
+                            affectedProjects.map { update.copy(pomFile = it.file) }
+                        } else {
+                            listOf(if (rootPomFile != null) update.copy(pomFile = rootPomFile) else update)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Prüft, ob ein Maven-Projekt die gesuchte Koordinate in seinem aufgelösten Abhängigkeitsbaum enthält.
+     *
+     * @param mavenProject Das zu prüfende Maven-Projekt.
+     * @param groupId Die Group-ID des gesuchten Artefakts.
+     * @param artifactId Die Artefakt-ID des gesuchten Artefakts.
+     * @return `true`, wenn das Artefakt im Abhängigkeitsbaum gefunden wurde.
+     */
+    internal fun isDependencyInTree(
+        mavenProject: MavenProject,
+        groupId: String,
+        artifactId: String
+    ): Boolean {
+        val visited = mutableSetOf<MavenArtifactNode>()
+        fun matches(node: MavenArtifactNode): Boolean {
+            if (!visited.add(node)) return false
+            val art = node.artifact
+            if (art.groupId == groupId && art.artifactId == artifactId) {
+                return true
+            }
+            return node.dependencies.any { matches(it) }
+        }
+        return mavenProject.dependencyTree.any { matches(it) }
+    }
 
     /**
      * Wendet die ausgewählten Updates auf die `pom.xml` des angegebenen Maven-Projekts an.

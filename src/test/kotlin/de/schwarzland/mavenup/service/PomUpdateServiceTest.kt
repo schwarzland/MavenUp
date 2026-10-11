@@ -6,6 +6,7 @@ import com.intellij.psi.xml.XmlComment
 import com.intellij.psi.xml.XmlFile
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.schwarzland.mavenup.model.DependencyUpdate
+import de.schwarzland.mavenup.model.TargetPomMode
 
 /**
  * Testet das Anwenden von Versions-Updates auf `pom.xml`-Tags durch den [PomUpdateService],
@@ -679,5 +680,66 @@ class PomUpdateServiceTest : BasePlatformTestCase() {
 
         assertEquals("Managed dependency version must be updated", "3.14.0", dmVersion)
         assertEquals("Direct dependency version must NOT be modified", "3.12.0", directVersion)
+    }
+
+    fun testResolveUpdatesForTargetPomModeNonTransitiveAndExplicitPomsArePreserved() {
+        val psiFile = myFixture.configureByText("pom.xml", "<project/>")
+        val service = PomUpdateService(project)
+
+        val directUpdate = DependencyUpdate(
+            groupId = "org.example",
+            artifactId = "direct",
+            type = "dependency",
+            oldVersion = "1.0.0",
+            newVersion = "1.1.0",
+            pomFile = psiFile.virtualFile,
+            transitive = false
+        )
+        val explicitTransitiveUpdate = DependencyUpdate(
+            groupId = "org.example",
+            artifactId = "explicit-transitive",
+            type = "managed dependency",
+            oldVersion = "1.0.0",
+            newVersion = "1.1.0",
+            pomFile = psiFile.virtualFile,
+            transitive = true
+        )
+
+        val resolvedRoot = service.resolveUpdatesForTargetPomMode(
+            listOf(directUpdate, explicitTransitiveUpdate),
+            TargetPomMode.ROOT_POM
+        )
+        assertEquals(2, resolvedRoot.size)
+        assertEquals(psiFile.virtualFile, resolvedRoot[0].pomFile)
+        assertEquals(psiFile.virtualFile, resolvedRoot[1].pomFile)
+
+        val resolvedAll = service.resolveUpdatesForTargetPomMode(
+            listOf(directUpdate, explicitTransitiveUpdate),
+            TargetPomMode.ALL_MODULES
+        )
+        assertEquals(2, resolvedAll.size)
+        assertEquals(psiFile.virtualFile, resolvedAll[0].pomFile)
+        assertEquals(psiFile.virtualFile, resolvedAll[1].pomFile)
+    }
+
+    fun testResolveUpdatesForTargetPomModeAllModulesKeepsNullPomFile() {
+        val service = PomUpdateService(project)
+
+        val transitiveUpdate = DependencyUpdate(
+            groupId = "org.example",
+            artifactId = "transitive",
+            type = "managed dependency",
+            oldVersion = "1.0.0",
+            newVersion = "1.1.0",
+            pomFile = null,
+            transitive = true
+        )
+
+        val resolved = service.resolveUpdatesForTargetPomMode(
+            listOf(transitiveUpdate),
+            TargetPomMode.ALL_MODULES
+        )
+        assertEquals(1, resolved.size)
+        assertNull(resolved[0].pomFile)
     }
 }

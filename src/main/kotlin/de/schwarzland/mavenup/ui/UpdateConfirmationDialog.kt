@@ -1,17 +1,20 @@
 package de.schwarzland.mavenup.ui
 
-import de.schwarzland.mavenup.model.DependencyUpdate
-import de.schwarzland.mavenup.service.MavenUpSettings
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.ui.ComboBox
 import com.intellij.openapi.ui.DialogWrapper
-import com.intellij.ui.components.JBPanel
+import com.intellij.ui.SimpleListCellRenderer
 import com.intellij.ui.components.JBScrollPane
+import com.intellij.ui.dsl.builder.Align
+import com.intellij.ui.dsl.builder.panel
 import com.intellij.ui.table.JBTable
-import java.awt.BorderLayout
-import javax.swing.BorderFactory
+import de.schwarzland.mavenup.model.DependencyUpdate
+import de.schwarzland.mavenup.model.TargetPomMode
+import de.schwarzland.mavenup.service.MavenUpSettings
+import org.jetbrains.idea.maven.project.MavenProjectsManager
+import java.awt.Dimension
 import javax.swing.JCheckBox
 import javax.swing.JComponent
-import javax.swing.JLabel
 import javax.swing.ListSelectionModel
 import javax.swing.SortOrder
 import javax.swing.table.DefaultTableModel
@@ -19,7 +22,8 @@ import javax.swing.table.TableRowSorter
 
 /**
  * Dialog zur Bestätigung der ausgewählten Updates. Zeigt eine Tabelle mit den
- * durchzuführenden Änderungen (Gruppe, Artefakt, Version alt/neu).
+ * durchzuführenden Änderungen (Gruppe, Artefakt, Version alt/neu) sowie Optionen zur
+ * Maven-Synchronisation und zur Ziel-POM-Auswahl für transitive Pins.
  *
  * @param project Das aktuelle Projekt, an das der Dialog gebunden wird.
  * @property updates Die Liste der zu bestätigenden Abhängigkeits-Updates.
@@ -34,6 +38,21 @@ class UpdateConfirmationDialog(
         isSelected = MavenUpSettings.getInstance().state.syncMavenAfterUpdate
     }
 
+    private val isMultiModule = MavenProjectsManager.getInstance(project).projects.size > 1
+    private val hasTransitiveUpdates = updates.any { it.transitive }
+
+    internal val targetPomComboBox: ComboBox<TargetPomMode> = ComboBox(TargetPomMode.values()).apply {
+        selectedItem = TargetPomMode.ROOT_POM
+        renderer = SimpleListCellRenderer.create("") { mode ->
+            when (mode) {
+                TargetPomMode.ROOT_POM -> MyMessageBundle.message("toolwindow.MyToolWindow.update.confirm.targetPom.root")
+                TargetPomMode.AFFECTED_MODULES -> MyMessageBundle.message("toolwindow.MyToolWindow.update.confirm.targetPom.affected")
+                TargetPomMode.ALL_MODULES -> MyMessageBundle.message("toolwindow.MyToolWindow.update.confirm.targetPom.all")
+                null -> ""
+            }
+        }
+    }
+
     init {
         title = MyMessageBundle.message("toolwindow.MyToolWindow.update.confirm.title")
         init()
@@ -45,28 +64,43 @@ class UpdateConfirmationDialog(
     fun isSyncMavenSelected(): Boolean = syncMavenCheckbox.isSelected
 
     /**
-     * Erstellt den zentralen Bereich des Dialogs mit der Update-Übersichtstabelle und der Sync-Option.
+     * Liefert den ausgewählten Ziel-POM-Modus für transitive Pins (Standard: [TargetPomMode.ROOT_POM]).
+     */
+    fun getSelectedTargetPomMode(): TargetPomMode =
+        targetPomComboBox.selectedItem as? TargetPomMode ?: TargetPomMode.ROOT_POM
+
+    /**
+     * Setzt den ausgewählten Ziel-POM-Modus für transitive Pins.
+     *
+     * @param mode Der zu wählende Ziel-POM-Modus.
+     */
+    fun setSelectedTargetPomMode(mode: TargetPomMode) {
+        targetPomComboBox.selectedItem = mode
+    }
+
+    /**
+     * Erstellt den zentralen Bereich des Dialogs mit der Update-Übersichtstabelle, der Ziel-POM-Auswahl
+     * und der Sync-Option unter Verwendung der Kotlin UI DSL v2.
      */
     override fun createCenterPanel(): JComponent {
-        val panel = JBPanel<JBPanel<*>>(BorderLayout())
-        panel.preferredSize = java.awt.Dimension(900, 500)
-
-        val topPanel = JBPanel<JBPanel<*>>(BorderLayout())
-        topPanel.add(
-            JLabel(MyMessageBundle.message("toolwindow.MyToolWindow.update.confirm.message")),
-            BorderLayout.NORTH
-        )
-        topPanel.border = BorderFactory.createEmptyBorder(0, 0, 10, 0)
-        panel.add(topPanel, BorderLayout.NORTH)
-
-        panel.add(JBScrollPane(buildTable()), BorderLayout.CENTER)
-
-        val bottomPanel = JBPanel<JBPanel<*>>(BorderLayout())
-        bottomPanel.border = BorderFactory.createEmptyBorder(10, 0, 0, 0)
-        bottomPanel.add(syncMavenCheckbox, BorderLayout.WEST)
-        panel.add(bottomPanel, BorderLayout.SOUTH)
-
-        return panel
+        return panel {
+            row {
+                label(MyMessageBundle.message("toolwindow.MyToolWindow.update.confirm.message"))
+            }
+            row {
+                cell(JBScrollPane(buildTable())).align(Align.FILL).resizableColumn()
+            }.resizableRow()
+            if (hasTransitiveUpdates && isMultiModule) {
+                row(MyMessageBundle.message("toolwindow.MyToolWindow.update.confirm.targetPom.label")) {
+                    cell(targetPomComboBox)
+                }
+            }
+            row {
+                cell(syncMavenCheckbox)
+            }
+        }.also {
+            it.preferredSize = Dimension(900, 500)
+        }
     }
 
     /**

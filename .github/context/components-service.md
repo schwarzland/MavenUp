@@ -157,7 +157,10 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   (Version stammt aus Parent-POM oder importiertem BOM). Zustandslos, benötigt nur das Projekt.
 - **PomUpdateService**: wendet ausgewählte Updates über PSI/`WriteCommandAction` auf die
   `pom.xml` an (`applyUpdateToPom`, `updateXmlTagVersion`, Parent/Dependencies/Plugins) und
-  speichert die Dateien vor dem Maven-Sync (`persistPomChanges`). `removeManagedEntry` entfernt einen
+  speichert die Dateien vor dem Maven-Sync (`persistPomChanges`). `resolveUpdatesForTargetPomMode`
+  löst anstehende Updates anhand des gewählten `TargetPomMode` (`ROOT_POM`, `AFFECTED_MODULES`, `ALL_MODULES`)
+  auf die jeweiligen Ziel-POMs auf; `isDependencyInTree` prüft das Vorkommen einer Koordinate im
+  aufgelösten `MavenArtifactNode`-Baum eines Moduls. `removeManagedEntry` entfernt einen
   verwalteten Eintrag aus `<dependencyManagement>` bzw. `<pluginManagement>` und kommentiert diesen je nach
   Einstellung `commentOutManagedEntriesOnRemoval` als XML-Kommentar aus (Standard) oder löscht ihn vollständig.
   Für „managed dependency"-Updates

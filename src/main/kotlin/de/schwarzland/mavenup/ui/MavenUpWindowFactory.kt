@@ -985,6 +985,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         val dialog = UpdateConfirmationDialog(project, updates)
                         if (dialog.showAndGet()) {
                             val shouldSyncMaven = dialog.isSyncMavenSelected()
+                            val targetPomMode = dialog.getSelectedTargetPomMode()
                             MavenUpSettings.getInstance().state.syncMavenAfterUpdate = shouldSyncMaven
                             ProgressManager.getInstance().run(object : Task.Backgroundable(
                                 project,
@@ -993,9 +994,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
                             ) {
                                 override fun run(indicator: ProgressIndicator) {
                                     val mavenManager = MavenProjectsManager.getInstance(project)
+                                    val resolvedUpdates = pomUpdateService.resolveUpdatesForTargetPomMode(updates, targetPomMode)
                                     val pomFiles = mavenManager.projects.map { it.file }
                                     mavenManager.projects.forEach { mavenProject ->
-                                        pomUpdateService.applyUpdateToPom(mavenProject, updates)
+                                        pomUpdateService.applyUpdateToPom(mavenProject, resolvedUpdates)
                                     }
 
                                     if (shouldSyncMaven) {
