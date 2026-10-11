@@ -260,6 +260,7 @@ internal fun vulnerabilityFilterRenderer(): ListCellRenderer<in VulnerabilityFil
  * @property hasTransitiveVulnerabilities `true`, wenn mindestens eine transitive Abhängigkeit der Zeile betroffen ist.
  * @property versionInherited `true`, wenn die `pom.xml` für die Zeile kein eigenes `<version>`-Tag
  * deklariert und die Version daher vom Parent-POM oder einem importierten BOM stammt.
+ * @property module Der Modulname der Zeile oder ein leerer String.
  */
 internal data class FilterRow(
     val groupId: String,
@@ -271,7 +272,8 @@ internal data class FilterRow(
     val hasUpdate: Boolean = false,
     val hasDirectVulnerabilities: Boolean = false,
     val hasTransitiveVulnerabilities: Boolean = false,
-    val versionInherited: Boolean = false
+    val versionInherited: Boolean = false,
+    val module: String = ""
 ) {
     /** `true`, wenn für die Zeile eigene oder transitive Sicherheitslücken gemeldet sind. */
     val hasVulnerabilities: Boolean
@@ -305,7 +307,7 @@ internal data class FilterCriteria(
 /**
  * Prüft, ob eine Tabellenzeile den aktuellen Filterkriterien entspricht.
  *
- * Der Textfilter wird case-insensitiv gegen GroupId, ArtifactId und Property geprüft;
+ * Der Textfilter wird case-insensitiv gegen GroupId, ArtifactId, Property und Modul geprüft;
  * die Zeile passt, sobald einer dieser Werte den Suchtext enthält. Ein leerer Suchtext
  * lässt alle Zeilen zu. Der Typfilter passt bei leerem Wert auf jeden Typ, sonst nur bei
  * exakter Übereinstimmung des Typs. Der Pending-Filter unterscheidet zwischen Versionsänderungen,
@@ -325,7 +327,8 @@ internal fun rowMatchesFilter(row: FilterRow, criteria: FilterCriteria): Boolean
     val textMatches = needle.isEmpty() ||
         row.groupId.lowercase().contains(needle) ||
         row.artifactId.lowercase().contains(needle) ||
-        row.property.lowercase().contains(needle)
+        row.property.lowercase().contains(needle) ||
+        row.module.lowercase().contains(needle)
     val typeMatches = criteria.typeFilter.isEmpty() || row.type == criteria.typeFilter
     val changesMatches = when (criteria.changesFilter) {
         TriStateFilter.ALL -> true

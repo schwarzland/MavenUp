@@ -18,20 +18,23 @@ internal const val GROUP_ID_COLUMN = 0
 /** Spaltenindex der ArtifactId in der Abhängigkeitstabelle. */
 internal const val ARTIFACT_ID_COLUMN = 1
 
+/** Spaltenindex des Modulnamens in der Abhängigkeitstabelle. */
+internal const val MODULE_COLUMN = 2
+
 /** Spaltenindex des Property-Namens in der Abhängigkeitstabelle. */
-internal const val PROPERTY_COLUMN = 2
+internal const val PROPERTY_COLUMN = 3
 
 /** Spaltenindex des Typs in der Abhängigkeitstabelle. */
-internal const val TYPE_COLUMN = 3
+internal const val TYPE_COLUMN = 4
 
 /** Spaltenindex der Sicherheitslücken-Zelle in der Abhängigkeitstabelle. */
-internal const val VULNERABILITIES_COLUMN = 4
+internal const val VULNERABILITIES_COLUMN = 5
 
 /** Spaltenindex der aktuellen Version in der Abhängigkeitstabelle. */
-internal const val CURRENT_VERSION_COLUMN = 5
+internal const val CURRENT_VERSION_COLUMN = 6
 
 /** Spaltenindex der auszuwählenden neuen Version in der Abhängigkeitstabelle. */
-internal const val NEW_VERSION_COLUMN = 6
+internal const val NEW_VERSION_COLUMN = 7
 
 /** Message-Bundle-Schlüssel für den Titel des Sicherheitslücken-Detaildialogs. */
 internal const val VULNERABILITY_DETAILS_TITLE = "vulnerability.details.title"

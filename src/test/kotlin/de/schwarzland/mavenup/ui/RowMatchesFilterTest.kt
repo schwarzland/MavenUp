@@ -51,6 +51,16 @@ class RowMatchesFilterTest {
     }
 
     @Test
+    fun testSearchMatchesModuleCaseInsensitive() {
+        assertTrue(
+            rowMatchesFilter(
+                FilterRow("org.a", "lib", "p", "dependency", module = "Core-Module"),
+                FilterCriteria("core-module", "")
+            )
+        )
+    }
+
+    @Test
     fun testSearchIsTrimmedBeforeMatching() {
         assertTrue(
             rowMatchesFilter(

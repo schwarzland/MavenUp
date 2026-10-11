@@ -83,6 +83,7 @@ import javax.swing.*
 import javax.swing.event.DocumentEvent
 import javax.swing.table.DefaultTableModel
 import javax.swing.table.TableCellRenderer
+import javax.swing.table.TableColumn
 import javax.swing.table.TableRowSorter
 
 
@@ -113,8 +114,9 @@ private const val TOOLWINDOW_MY_TOOL_WINDOW_MANAGED_ENTRIES_GROUP_BUTTON = "tool
  * @property vulnerabilityCell Sicherheitslücken der Dependency, sofern vorhanden.
  * @property pomFile Die konkrete `pom.xml`-Datei (`VirtualFile`), aus der dieser Eintrag stammt, oder `null`.
  * @property refreshRow Die vollständige Zeilenrepräsentation des Refresh-Schnappschusses oder `null`.
+ * @property module Name des Maven-Moduls der Dependency oder ein leerer String.
  */
-internal data class DependencyContextMenuTarget(
+internal data class DependencyContextMenuTarget @JvmOverloads constructor(
     val column: Int,
     val groupId: String,
     val artifactId: String,
@@ -123,7 +125,8 @@ internal data class DependencyContextMenuTarget(
     val currentVersion: String,
     val vulnerabilityCell: VulnerabilityCell? = null,
     val pomFile: VirtualFile? = null,
-    val refreshRow: RefreshRow? = null
+    val refreshRow: RefreshRow? = null,
+    val module: String = ""
 ) {
     /** Maven-Koordinate ohne Version. */
     val dependencyKey: String = "$groupId:$artifactId"
@@ -392,6 +395,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /** Die Tabelle der Abhängigkeiten; wird im Property-Initializer von [content] zugewiesen. */
         private var table: JBTable
 
+        /** Die Tabellenspalte für das Maven-Modul; wird im Property-Initializer von [content] zugewiesen. */
+        private var moduleTableColumn: TableColumn? = null
+
         /** Die Aktionsleiste des Tabs **Dependencies**; wird in [installToolbars] gesetzt. */
         private var actionToolbar: ActionToolbar? = null
 
@@ -520,6 +526,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             }.apply {
                 addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.groupId"))
                 addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.artifactId"))
+                addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.module"))
                 addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.property"))
                 addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.type"))
                 addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.vulnerabilities"))
@@ -531,12 +538,13 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 override fun getToolTipText(e: MouseEvent): String? {
                     val row = rowAtPoint(e.point)
                     val column = columnAtPoint(e.point)
+                    val modelColumn = if (column in 0 until columnCount) convertColumnIndexToModel(column) else -1
                     return when {
-                        row < 0 || column == VULNERABILITIES_COLUMN -> super.getToolTipText(e)
-                        column == CURRENT_VERSION_COLUMN -> currentVersionTooltip(row)
-                            ?: navigationTooltip(row, column)
-                        column == NEW_VERSION_COLUMN -> newVersionTooltip(row)
-                        else -> navigationTooltip(row, column)
+                        row < 0 || modelColumn == VULNERABILITIES_COLUMN -> super.getToolTipText(e)
+                        modelColumn == CURRENT_VERSION_COLUMN -> currentVersionTooltip(row)
+                            ?: navigationTooltip(row, modelColumn)
+                        modelColumn == NEW_VERSION_COLUMN -> newVersionTooltip(row)
+                        else -> navigationTooltip(row, modelColumn)
                     }
                 }
             }
@@ -556,12 +564,14 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 override fun mouseClicked(e: MouseEvent) {
                     val row = table.rowAtPoint(e.point)
                     val column = table.columnAtPoint(e.point)
-                    if (row < 0) return
-                    if (column == VULNERABILITIES_COLUMN && e.clickCount == 1) {
-                        val cell = table.getValueAt(row, VULNERABILITIES_COLUMN) as? VulnerabilityCell
+                    if (row < 0 || column < 0) return
+                    val modelColumn = table.convertColumnIndexToModel(column)
+                    val modelRow = table.convertRowIndexToModel(row)
+                    if (modelColumn == VULNERABILITIES_COLUMN && e.clickCount == 1) {
+                        val cell = tableModel.getValueAt(modelRow, VULNERABILITIES_COLUMN) as? VulnerabilityCell
                         if (cell != null && cell.allAdvisories.isNotEmpty()) {
                             val coordinate = listOf(GROUP_ID_COLUMN, ARTIFACT_ID_COLUMN, CURRENT_VERSION_COLUMN)
-                                .joinToString(":") { table.getValueAt(row, it).toString() }
+                                .joinToString(":") { tableModel.getValueAt(modelRow, it).toString() }
                             VulnerabilityDetailDialog(
                                 project,
                                 cell.detailFindings(),
@@ -576,16 +586,14 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     val requiredClickCount = if (settings.state.jumpOnSingleClick) 1 else 2
 
                     if (e.clickCount == requiredClickCount) {
-                        val groupId = table.getValueAt(row, GROUP_ID_COLUMN) as? String ?: ""
-                        val artifactId = table.getValueAt(row, ARTIFACT_ID_COLUMN) as? String ?: ""
-                        val type = table.getValueAt(row, TYPE_COLUMN) as? String ?: "dependency"
-                        val property = table.getValueAt(row, PROPERTY_COLUMN) as? String ?: ""
-
-                        val modelRow = table.convertRowIndexToModel(row)
                         val refreshRow = if (modelRow in modelRows.indices) modelRows[modelRow] else null
+                        val groupId = refreshRow?.groupId ?: (tableModel.getValueAt(modelRow, GROUP_ID_COLUMN) as? String ?: "")
+                        val artifactId = refreshRow?.artifactId ?: (tableModel.getValueAt(modelRow, ARTIFACT_ID_COLUMN) as? String ?: "")
+                        val type = refreshRow?.type ?: (tableModel.getValueAt(modelRow, TYPE_COLUMN) as? String ?: "dependency")
+                        val property = refreshRow?.propertyName ?: (tableModel.getValueAt(modelRow, PROPERTY_COLUMN) as? String ?: "")
                         val targetPomFile = refreshRow?.pomFile
 
-                        if (column == PROPERTY_COLUMN && property.isNotBlank()) {
+                        if (modelColumn == PROPERTY_COLUMN && property.isNotBlank()) {
                             pomNavigationService.navigateToProperty(property, groupId, artifactId, type, targetPomFile)
                         } else {
                             pomNavigationService.navigateToDependency(groupId, artifactId, type, targetPomFile)
@@ -666,17 +674,20 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 createCurrentVersionRenderer(inheritedVersionDependencies) { modelRows }
             table.columnModel.getColumn(NEW_VERSION_COLUMN).cellRenderer =
                 TableCellRenderer { table, value, isSelected, _, row, _ ->
-                    val groupId = table?.getValueAt(row, GROUP_ID_COLUMN) as? String ?: ""
-                    val artifactId = table?.getValueAt(row, ARTIFACT_ID_COLUMN) as? String ?: ""
-                    val key = "$groupId:$artifactId"
-
                     val modelRow = if (table != null && row in 0 until table.rowCount) table.convertRowIndexToModel(row) else -1
                     val refreshRow = if (modelRow in modelRows.indices) modelRows[modelRow] else null
+
+                    val groupId = refreshRow?.groupId
+                        ?: (if (modelRow >= 0) tableModel.getValueAt(modelRow, GROUP_ID_COLUMN) as? String else null) ?: ""
+                    val artifactId = refreshRow?.artifactId
+                        ?: (if (modelRow >= 0) tableModel.getValueAt(modelRow, ARTIFACT_ID_COLUMN) as? String else null) ?: ""
+                    val key = "$groupId:$artifactId"
                     val entryKey = refreshRow?.entryKey ?: key
 
                     @Suppress("UNCHECKED_CAST")
                     val versions = value as? List<String> ?: emptyList()
-                    val type = table?.getValueAt(row, TYPE_COLUMN) as? String ?: ""
+                    val type = refreshRow?.type
+                        ?: (if (modelRow >= 0) tableModel.getValueAt(modelRow, TYPE_COLUMN) as? String else null) ?: ""
                     val isMarkedForRemoval = if (refreshRow != null) {
                         isManagedEntryMarkedForRemoval(refreshRow)
                     } else {
@@ -693,7 +704,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     if (versions.isEmpty()) return@TableCellRenderer JLabel("")
 
                     val selectedVersion = selectedVersions[entryKey] ?: if (entryKey == key) selectedVersions[key] else null
-                    val currentVersion = table?.getValueAt(row, CURRENT_VERSION_COLUMN) as? String ?: ""
+                    val currentVersion = refreshRow?.currentVersion
+                        ?: (if (modelRow >= 0) tableModel.getValueAt(modelRow, CURRENT_VERSION_COLUMN) as? String else null) ?: ""
                     val newestVersion = versions.firstOrNull() ?: ""
                     val effectiveVersion = selectedVersion ?: currentVersion
                     val upToDate = isVersionUpToDate(effectiveVersion, newestVersion)
@@ -732,9 +744,12 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     currentRefreshRow = refreshRow
                     val entryKey = refreshRow?.entryKey ?: key
 
+                    val modelRow = if (table != null && row in 0 until table.rowCount) table.convertRowIndexToModel(row) else -1
+
                     @Suppress("UNCHECKED_CAST")
                     val versions = value as? List<String> ?: emptyList()
-                    val currentVersion = table?.getValueAt(row, CURRENT_VERSION_COLUMN) as? String ?: ""
+                    val currentVersion = refreshRow?.currentVersion
+                        ?: (if (modelRow >= 0) tableModel.getValueAt(modelRow, CURRENT_VERSION_COLUMN) as? String else null) ?: ""
                     val newestVersion = versions.firstOrNull() ?: ""
 
                     val effectiveVersion = getSelectedVersion(entryKey, key) ?: currentVersion
@@ -824,6 +839,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
             table.columnModel.getColumn(VULNERABILITIES_COLUMN).cellRenderer = vulnerabilityCellRenderer()
 
+            moduleTableColumn = table.columnModel.getColumn(MODULE_COLUMN)
+
+            updateModuleColumnVisibility(isMultiModuleProject())
+
             /**
              * Verwirft je nach Flags die zwischengespeicherten Versions- und Vulnerability-Daten
              * und setzt die für einen Refresh stets zu leerenden Strukturen zurück.
@@ -903,6 +922,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     return
                 }
 
+                updateModuleColumnVisibility(isMultiModuleProject(snapshot.rows))
                 dropUnavailableVersionSelections()
                 updateUpdateButtonState()
                 updateTypeFilterOptions()
@@ -1464,12 +1484,14 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * Liefert den Hinweis zur Navigation für die angegebene Tabellenzelle.
          *
          * @param row Ansichtszelle der Tabelle.
-         * @param column Ansichtsspalte der Tabelle.
+         * @param column Ansichtsspalte der Tabelle oder Modellspalte bei negativem oder Modellindex.
          * @return Den zur eingestellten Klickart passenden Navigationshinweis.
          */
         private fun navigationTooltip(row: Int, column: Int): String {
-            val isProperty = column == PROPERTY_COLUMN &&
-                (table.getValueAt(row, PROPERTY_COLUMN) as? String).isNullOrBlank().not()
+            val modelColumn = if (column in 0 until table.columnCount) table.convertColumnIndexToModel(column) else column
+            val modelRow = if (row in 0 until table.rowCount) table.convertRowIndexToModel(row) else -1
+            val isProperty = modelColumn == PROPERTY_COLUMN && modelRow >= 0 &&
+                (table.model.getValueAt(modelRow, PROPERTY_COLUMN) as? String).isNullOrBlank().not()
             val clickType = if (MavenUpSettings.getInstance().state.jumpOnSingleClick) {
                 "singleClick"
             } else {
@@ -1493,16 +1515,20 @@ class MavenUpWindowFactory : ToolWindowFactory {
             val modelRow = table.convertRowIndexToModel(row)
             val refreshRow = if (modelRow in modelRows.indices) modelRows[modelRow] else null
 
+            fun modelString(col: Int, fallback: String = ""): String =
+                table.model.getValueAt(modelRow, col)?.toString() ?: fallback
+
             return DependencyContextMenuTarget(
                 column = table.columnAtPoint(event.point),
-                groupId = table.getValueAt(row, GROUP_ID_COLUMN) as? String ?: "",
-                artifactId = table.getValueAt(row, ARTIFACT_ID_COLUMN) as? String ?: "",
-                property = table.getValueAt(row, PROPERTY_COLUMN) as? String ?: "",
-                type = table.getValueAt(row, TYPE_COLUMN) as? String ?: "dependency",
-                currentVersion = table.getValueAt(row, CURRENT_VERSION_COLUMN) as? String ?: "",
-                vulnerabilityCell = table.getValueAt(row, VULNERABILITIES_COLUMN) as? VulnerabilityCell,
+                groupId = refreshRow?.groupId ?: modelString(GROUP_ID_COLUMN),
+                artifactId = refreshRow?.artifactId ?: modelString(ARTIFACT_ID_COLUMN),
+                property = refreshRow?.propertyName ?: modelString(PROPERTY_COLUMN),
+                type = refreshRow?.type ?: modelString(TYPE_COLUMN, "dependency"),
+                currentVersion = refreshRow?.currentVersion ?: modelString(CURRENT_VERSION_COLUMN),
+                vulnerabilityCell = table.model.getValueAt(modelRow, VULNERABILITIES_COLUMN) as? VulnerabilityCell,
                 pomFile = refreshRow?.pomFile,
-                refreshRow = refreshRow
+                refreshRow = refreshRow,
+                module = refreshRow?.moduleName ?: modelString(MODULE_COLUMN)
             )
         }
 
@@ -1528,9 +1554,13 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * @param target Daten der angeklickten Tabellenzeile.
          */
         private fun addContextFilterAction(group: DefaultActionGroup, target: DependencyContextMenuTarget) {
-            val filterValue = when (target.column) {
+            val modelColumn = if (target.column in 0 until table.columnCount) {
+                table.convertColumnIndexToModel(target.column)
+            } else target.column
+            val filterValue = when (modelColumn) {
                 GROUP_ID_COLUMN -> target.groupId
                 ARTIFACT_ID_COLUMN -> target.artifactId
+                MODULE_COLUMN -> target.module
                 PROPERTY_COLUMN -> target.property
                 else -> ""
             }
@@ -2192,6 +2222,45 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
+         * Prüft, ob das Projekt mehrere Maven-Module umfasst oder Module in den Daten vorhanden sind.
+         *
+         * @param rows Die zu prüfenden Zeilen des Refresh-Schnappschusses.
+         * @return `true`, wenn mehr als ein Maven-Modul im Projekt vorhanden ist.
+         */
+        internal fun isMultiModuleProject(rows: List<RefreshRow> = modelRows): Boolean {
+            val projectCount = MavenProjectsManager.getInstance(project).projects.size
+            if (projectCount > 1) return true
+            val distinctModules = rows.asSequence().map { it.moduleName }.filter { it.isNotBlank() }.distinct().count()
+            return distinctModules > 1
+        }
+
+        /**
+         * Passt die Sichtbarkeit der Modulspalte adaptiv an: In Multi-Modul-Projekten wird die Spalte
+         * angezeigt, in Single-Modul-Projekten ausgeblendet.
+         *
+         * @param isMultiModule `true`, wenn mehrere Module existieren und die Spalte sichtbar sein soll.
+         */
+        internal fun updateModuleColumnVisibility(isMultiModule: Boolean) {
+            val moduleCol = moduleTableColumn ?: return
+            val isCurrentlyVisible = (0 until table.columnModel.columnCount)
+                .any { table.columnModel.getColumn(it).modelIndex == MODULE_COLUMN }
+            if (isMultiModule && !isCurrentlyVisible) {
+                table.columnModel.addColumn(moduleCol)
+                val currentViewIndex = table.columnModel.columnCount - 1
+                val targetViewIndex = minOf(MODULE_COLUMN, table.columnModel.columnCount - 1)
+                if (currentViewIndex != targetViewIndex) {
+                    table.columnModel.moveColumn(currentViewIndex, targetViewIndex)
+                }
+            } else if (!isMultiModule && isCurrentlyVisible) {
+                val colIndex = (0 until table.columnModel.columnCount)
+                    .firstOrNull { table.columnModel.getColumn(it).modelIndex == MODULE_COLUMN }
+                if (colIndex != null) {
+                    table.columnModel.removeColumn(table.columnModel.getColumn(colIndex))
+                }
+            }
+        }
+
+        /**
          * Wendet die aktuellen Filter (Suchtext, Typ, Versionsherkunft, Änderungen, Updates, Sicherheitslücken)
          * auf die Tabelle an.
          *
@@ -2213,16 +2282,17 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
             tableRowSorter.rowFilter = object : RowFilter<DefaultTableModel, Int>() {
                 override fun include(entry: Entry<out DefaultTableModel, out Int>): Boolean {
-                    val groupId = entry.getValue(GROUP_ID_COLUMN)?.toString().orEmpty()
-                    val artifactId = entry.getValue(ARTIFACT_ID_COLUMN)?.toString().orEmpty()
-                    val property = entry.getValue(PROPERTY_COLUMN)?.toString().orEmpty()
-                    val type = entry.getValue(TYPE_COLUMN)?.toString().orEmpty()
-                    val currentVersion = entry.getValue(CURRENT_VERSION_COLUMN)?.toString().orEmpty()
+                    val modelIndex = entry.identifier
+                    val refreshRow = if (modelIndex in modelRows.indices) modelRows[modelIndex] else null
+                    val groupId = refreshRow?.groupId ?: entry.getValue(GROUP_ID_COLUMN)?.toString().orEmpty()
+                    val artifactId = refreshRow?.artifactId ?: entry.getValue(ARTIFACT_ID_COLUMN)?.toString().orEmpty()
+                    val module = refreshRow?.moduleName ?: entry.getValue(MODULE_COLUMN)?.toString().orEmpty()
+                    val property = refreshRow?.propertyName ?: entry.getValue(PROPERTY_COLUMN)?.toString().orEmpty()
+                    val type = refreshRow?.type ?: entry.getValue(TYPE_COLUMN)?.toString().orEmpty()
+                    val currentVersion = refreshRow?.currentVersion ?: entry.getValue(CURRENT_VERSION_COLUMN)?.toString().orEmpty()
                     val cell = entry.getValue(VULNERABILITIES_COLUMN) as? VulnerabilityCell
 
                     val key = "$groupId:$artifactId"
-                    val modelIndex = entry.identifier
-                    val refreshRow = if (modelIndex in modelRows.indices) modelRows[modelIndex] else null
                     val entryKey = refreshRow?.entryKey ?: key
                     val selectedVersion = selectedVersions[entryKey] ?: (if (entryKey == key) selectedVersions[key] else null)
                     val effectiveVersion = selectedVersion ?: currentVersion
@@ -2237,6 +2307,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                             artifactId = artifactId,
                             property = property,
                             type = type,
+                            module = module,
                             hasChange = hasChange,
                             hasRemoval = if (refreshRow != null) isManagedEntryMarkedForRemoval(refreshRow) else isManagedEntryMarkedForRemoval(key, type),
                             hasUpdate = hasUpdate,
@@ -2273,6 +2344,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 arrayOf(
                     row.groupId,
                     row.artifactId,
+                    row.moduleName,
                     row.propertyName,
                     row.type,
                     buildVulnerabilityCell(
@@ -2344,6 +2416,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 addDependencyRow(row, declaredCoordinates)
             }
 
+            updateModuleColumnVisibility(isMultiModuleProject(state.snapshot.rows))
             dropUnavailableVersionSelections()
             updateUpdateButtonState()
             updateTypeFilterOptions()
@@ -4163,7 +4236,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
             if (isUpdating) return false
             if (showingTransitiveView) return transitiveVulnerabilitiesView.selectedRowHasVulnerabilities()
             val row = table.selectedRow
-            val cell = if (row >= 0) table.getValueAt(row, VULNERABILITIES_COLUMN) as? VulnerabilityCell else null
+            val cell = if (row >= 0) {
+                val modelRow = table.convertRowIndexToModel(row)
+                table.model.getValueAt(modelRow, VULNERABILITIES_COLUMN) as? VulnerabilityCell
+            } else null
             return cell?.allAdvisories?.isNotEmpty() == true
         }
 
@@ -4192,9 +4268,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
             }
             val row = table.selectedRow
             if (row < 0) return
-            val groupId = table.getValueAt(row, GROUP_ID_COLUMN)?.toString().orEmpty()
-            val artifactId = table.getValueAt(row, ARTIFACT_ID_COLUMN)?.toString().orEmpty()
-            val currentVersion = table.getValueAt(row, CURRENT_VERSION_COLUMN)?.toString().orEmpty()
+            val modelRow = table.convertRowIndexToModel(row)
+            val groupId = table.model.getValueAt(modelRow, GROUP_ID_COLUMN)?.toString().orEmpty()
+            val artifactId = table.model.getValueAt(modelRow, ARTIFACT_ID_COLUMN)?.toString().orEmpty()
+            val currentVersion = table.model.getValueAt(modelRow, CURRENT_VERSION_COLUMN)?.toString().orEmpty()
             openInMavenRepository(groupId, artifactId, currentVersion)
         }
 
@@ -4210,10 +4287,11 @@ class MavenUpWindowFactory : ToolWindowFactory {
             }
             val row = table.selectedRow
             if (row < 0) return
-            val cell = table.getValueAt(row, VULNERABILITIES_COLUMN) as? VulnerabilityCell
+            val modelRow = table.convertRowIndexToModel(row)
+            val cell = table.model.getValueAt(modelRow, VULNERABILITIES_COLUMN) as? VulnerabilityCell
             val findings = cell?.detailFindings() ?: emptyMap()
-            val groupId = table.getValueAt(row, GROUP_ID_COLUMN)?.toString().orEmpty()
-            val artifactId = table.getValueAt(row, ARTIFACT_ID_COLUMN)?.toString().orEmpty()
+            val groupId = table.model.getValueAt(modelRow, GROUP_ID_COLUMN)?.toString().orEmpty()
+            val artifactId = table.model.getValueAt(modelRow, ARTIFACT_ID_COLUMN)?.toString().orEmpty()
             if (findings.isNotEmpty()) {
                 VulnerabilityDetailDialog(
                     project,

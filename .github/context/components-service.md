@@ -150,7 +150,8 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
 
 ## PSI- und Maven-Services
 - **RefreshSnapshotCollector**: liest über PSI die deklarierten Dependencies, Plugins und
-  Versions-Properties der `pom.xml`-Dateien und liefert einen `RefreshSnapshot`; löst
+  Versions-Properties der `pom.xml`-Dateien aller Maven-Projekte, erfasst den jeweiligen Modulnamen (`moduleName`)
+  und liefert einen `RefreshSnapshot`; löst
   Property-Platzhalter (auch die Version im `<parent>`-Tag) über `resolveVersionPlaceholder` auf. Setzt
   `RefreshRow.versionInherited`, wenn die `pom.xml` für den Eintrag kein eigenes `<version>`-Tag deklariert
   (Version stammt aus Parent-POM oder importiertem BOM). Zustandslos, benötigt nur das Projekt.

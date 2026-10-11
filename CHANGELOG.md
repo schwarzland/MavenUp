@@ -6,6 +6,7 @@
 
 ### Added
 
+- **Added an adaptive Module column** to the main dependencies table that displays the Maven module name in multi-module projects and automatically hides in single-module projects to save screen space, supporting sorting by module, double-click navigation to the module POM, module text search filtering, and context menu filtering by module.
 - **Added managed dependency redundancy analysis** for `<dependencyManagement>` entries that detects transitively satisfied managed dependencies without mutating project files, using in-memory dependency tree resolution with multi-consumer compatibility validation.
 - Added an interactive review dialog for redundant managed dependencies with a theme-aware split divider, remembered divider position, word-wrapping HTML details, and consumer paths displayed as a bulleted list.
 - Added an optional **Show all pending changes after staging** checkbox that clears all main-table filters and activates Pending: All Changes after staging the selection.

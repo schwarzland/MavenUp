@@ -118,7 +118,13 @@ class RefreshSnapshotCollectorTest : BasePlatformTestCase() {
 
         val properties = mutableMapOf<String, String>()
 
-        val parentRow = RefreshSnapshotCollector(project).collectParentDependency(rootTag, properties)
+        val parentRow = RefreshSnapshotCollector(project).collectParentDependency(
+            rootTag,
+            properties,
+            emptyMap(),
+            psiFile.virtualFile,
+            "core-module"
+        )
 
         assertNotNull("Parent-Dependency sollte gefunden werden", parentRow)
         assertEquals("org.springframework.boot", parentRow!!.groupId)
@@ -126,6 +132,8 @@ class RefreshSnapshotCollectorTest : BasePlatformTestCase() {
         assertEquals("3.1.0", parentRow.currentVersion)
         assertEquals("parent", parentRow.type)
         assertEquals("", parentRow.propertyName)
+        assertEquals("core-module", parentRow.moduleName)
+        assertEquals(psiFile.virtualFile, parentRow.pomFile)
         assertFalse("Deklarierte Parent-Version darf nicht als geerbt gelten", parentRow.versionInherited)
     }
 

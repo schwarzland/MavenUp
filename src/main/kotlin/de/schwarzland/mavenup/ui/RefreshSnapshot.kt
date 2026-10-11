@@ -14,15 +14,17 @@ import com.intellij.openapi.vfs.VirtualFile
  * `<version>`-Tag deklariert und die Version daher vom Parent-POM oder einem importierten
  * BOM geerbt wird.
  * @property pomFile Die konkrete `pom.xml`-Datei (`VirtualFile`), aus der dieser Eintrag stammt, oder `null`.
+ * @property moduleName Der Name des Maven-Moduls, aus dem dieser Eintrag stammt, oder ein leerer String.
  */
-internal data class RefreshRow(
+internal data class RefreshRow @JvmOverloads constructor(
     val groupId: String,
     val artifactId: String,
     val propertyName: String,
     val type: String,
     val currentVersion: String,
     val versionInherited: Boolean = false,
-    val pomFile: VirtualFile? = null
+    val pomFile: VirtualFile? = null,
+    val moduleName: String = ""
 ) {
     /** Eindeutiger Schlüssel der Zeile in der Form `groupId:artifactId`. */
     val key: String = "$groupId:$artifactId"

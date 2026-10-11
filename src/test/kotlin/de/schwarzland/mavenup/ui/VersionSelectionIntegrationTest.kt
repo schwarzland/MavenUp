@@ -47,12 +47,13 @@ class VersionSelectionIntegrationTest : BasePlatformTestCase() {
         val window = MavenUpWindowFactory().MyToolWindow(project)
         window.applyAutomaticVersionSearchState(state())
         val table = requireNotNull(findTable(window.getContent()))
-        val renderer = table.getCellRenderer(0, NEW_VERSION_COLUMN)
+        val newVersionCol = table.convertColumnIndexToView(NEW_VERSION_COLUMN)
+        val renderer = table.getCellRenderer(0, newVersionCol)
         val rendered = renderer.getTableCellRendererComponent(
-            table, table.getValueAt(0, NEW_VERSION_COLUMN), false, false, 0, NEW_VERSION_COLUMN
+            table, table.getValueAt(0, newVersionCol), false, false, 0, newVersionCol
         )
         assertEquals(current, combo(rendered).selectedItem)
-        assertTrue(table.editCellAt(0, NEW_VERSION_COLUMN))
+        assertTrue(table.editCellAt(0, newVersionCol))
         assertEquals(current, combo(table.editorComponent).selectedItem)
         assertTrue(table.cellEditor.stopCellEditing())
         assertTrue(window.selectedVersions.isEmpty())
@@ -65,7 +66,8 @@ class VersionSelectionIntegrationTest : BasePlatformTestCase() {
         val window = MavenUpWindowFactory().MyToolWindow(project)
         window.applyAutomaticVersionSearchState(state())
         val table = requireNotNull(findTable(window.getContent()))
-        assertTrue(table.editCellAt(0, NEW_VERSION_COLUMN))
+        val newVersionCol = table.convertColumnIndexToView(NEW_VERSION_COLUMN)
+        assertTrue(table.editCellAt(0, newVersionCol))
         combo(table.editorComponent).selectedItem = versions.first()
         assertTrue(table.cellEditor.stopCellEditing())
         assertEquals(versions.first(), window.selectedVersions[key])
@@ -110,7 +112,9 @@ class VersionSelectionIntegrationTest : BasePlatformTestCase() {
             window.applyVersionVisibilitySettings()
             assertTrue(window.selectedVersions.isEmpty())
             assertFalse(window.hasSelectedUpdates())
-            assertEquals(current, requireNotNull(findTable(window.getContent())).getValueAt(0, CURRENT_VERSION_COLUMN))
+            val table = requireNotNull(findTable(window.getContent()))
+            val currentVersionCol = table.convertColumnIndexToView(CURRENT_VERSION_COLUMN)
+            assertEquals(current, table.getValueAt(0, currentVersionCol))
         } finally {
             settings.state.hideUnstableVersions = originalHide
             settings.state.hiddenVersionQualifiers = originalQualifiers
@@ -190,9 +194,10 @@ class VersionSelectionIntegrationTest : BasePlatformTestCase() {
         )
         window.applyAutomaticVersionSearchState(state)
         val table = requireNotNull(findTable(window.getContent()))
+        val newVersionCol = table.convertColumnIndexToView(NEW_VERSION_COLUMN)
 
         // Lib1 auf 1.1.0 setzen
-        assertTrue(table.editCellAt(0, NEW_VERSION_COLUMN))
+        assertTrue(table.editCellAt(0, newVersionCol))
         combo(table.editorComponent).selectedItem = "1.1.0"
         assertTrue(table.cellEditor.stopCellEditing())
 
@@ -228,16 +233,18 @@ class VersionSelectionIntegrationTest : BasePlatformTestCase() {
         window.applyAutomaticVersionSearchState(state)
         val table = requireNotNull(findTable(window.getContent()))
 
+        val newVersionCol = table.convertColumnIndexToView(NEW_VERSION_COLUMN)
+
         // Zeile 0 (Parent managed) auf 3.14.0 setzen
-        assertTrue(table.editCellAt(0, NEW_VERSION_COLUMN))
+        assertTrue(table.editCellAt(0, newVersionCol))
         combo(table.editorComponent).selectedItem = "3.14.0"
         assertTrue(table.cellEditor.stopCellEditing())
 
         // Renderer von Zeile 1 und 2 prüfen
-        val r1 = table.getCellRenderer(1, NEW_VERSION_COLUMN)
-            .getTableCellRendererComponent(table, table.getValueAt(1, NEW_VERSION_COLUMN), false, false, 1, NEW_VERSION_COLUMN)
-        val r2 = table.getCellRenderer(2, NEW_VERSION_COLUMN)
-            .getTableCellRendererComponent(table, table.getValueAt(2, NEW_VERSION_COLUMN), false, false, 2, NEW_VERSION_COLUMN)
+        val r1 = table.getCellRenderer(1, newVersionCol)
+            .getTableCellRendererComponent(table, table.getValueAt(1, newVersionCol), false, false, 1, newVersionCol)
+        val r2 = table.getCellRenderer(2, newVersionCol)
+            .getTableCellRendererComponent(table, table.getValueAt(2, newVersionCol), false, false, 2, newVersionCol)
 
         assertEquals("3.12.0", combo(r1).selectedItem)
         assertEquals("3.12.0", combo(r2).selectedItem)
@@ -307,15 +314,16 @@ class VersionSelectionIntegrationTest : BasePlatformTestCase() {
         window.applyAutomaticVersionSearchState(state)
         val table = requireNotNull(findTable(window.getContent()))
 
-        val renderer = table.getCellRenderer(0, CURRENT_VERSION_COLUMN)
+        val currentVersionCol = table.convertColumnIndexToView(CURRENT_VERSION_COLUMN)
+        val renderer = table.getCellRenderer(0, currentVersionCol)
 
-        val c0 = renderer.getTableCellRendererComponent(table, "3.12.0", false, false, 0, CURRENT_VERSION_COLUMN) as javax.swing.JLabel
+        val c0 = renderer.getTableCellRendererComponent(table, "3.12.0", false, false, 0, currentVersionCol) as javax.swing.JLabel
         assertEquals("3.12.0", c0.text)
 
-        val c1 = renderer.getTableCellRendererComponent(table, "3.12.0", false, false, 1, CURRENT_VERSION_COLUMN) as javax.swing.JLabel
+        val c1 = renderer.getTableCellRendererComponent(table, "3.12.0", false, false, 1, currentVersionCol) as javax.swing.JLabel
         assertEquals("3.12.0", c1.text)
 
-        val c2 = renderer.getTableCellRendererComponent(table, "3.12.0", false, false, 2, CURRENT_VERSION_COLUMN) as javax.swing.JLabel
+        val c2 = renderer.getTableCellRendererComponent(table, "3.12.0", false, false, 2, currentVersionCol) as javax.swing.JLabel
         assertTrue("Child direct dependency must be marked as inherited", c2.text.contains("inherited") || c2.text.contains("Inherited"))
     }
 }
