@@ -594,7 +594,8 @@ class RedundantManagedDependencyService(
             return true
         }
         if (!visited.add(node)) return false
-        for (child in node.dependencies) {
+        val children = try { node.dependencies } catch (_: NullPointerException) { null } ?: emptyList()
+        for (child in children) {
             if (containsArtifact(child, targetGroupId, targetArtifactId, visited)) {
                 return true
             }

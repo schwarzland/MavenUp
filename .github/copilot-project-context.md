@@ -54,6 +54,7 @@ injizierte Seams/Interfaces netzwerkfrei getestet.
 `RedundantManagedDependencyDialogTest` prüft Auswahl, Übernahme, Split-Layout, Folgeansichten und
 inhaltsunabhängiges Verkleinern bei langen Detailtexten;
 `RedundantManagedDependencyServiceTest` prüft die Erkennung redundanter Einträge (Parent-Management, direkte Abhängigkeit, transitive Bereitstellung, ungenutzt) einschließlich des Falls, dass ohne lokalen Managed-Override ein niedrigeres Parent-/BOM-Fallback wirksam wäre;
+`RedundantManagedExamplesIntegrationTest` prüft alle 15 Referenz-Beispielprojekte unter `src/test/resources/redundant-managed-integrations-test/` (01–15) automatisiert und netzwerkfrei gegen `RedundantManagedDependencyService`;
 `VersionLookupLoggingTest` prüft DEBUG-Ausgaben und lokale HTTP-Versuche einschließlich Cache-Treffern,
 Redundanzprüfungen, POM-Antwortstatus und Ausschluss von Zugangsdaten aus POM-Abfrage-Logs.
 

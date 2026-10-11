@@ -8,7 +8,8 @@ The unit tests live under `src/test/kotlin` and mirror the package structure of 
 ```
 
 Notes:
-- Tests that require pure logic without the IntelliJ platform (e.g. `VulnerabilityApiServiceTest`, `VersionAutoSelectionTest`) use plain JUnit. Tests that require a project/PSI environment (e.g. `MavenUpWindowFactoryTest`, `RefreshSnapshotCollectorTest`, `PomNavigationServiceTest`, `PomUpdateServiceTest`, `VersionStatusUiTest`, `MavenUpConfigurableTest`) extend `BasePlatformTestCase`.
+- Tests that require pure logic without the IntelliJ platform (e.g. `VulnerabilityApiServiceTest`, `VersionAutoSelectionTest`) use plain JUnit. Tests that require a project/PSI environment (e.g. `MavenUpWindowFactoryTest`, `RefreshSnapshotCollectorTest`, `PomNavigationServiceTest`, `PomUpdateServiceTest`, `VersionStatusUiTest`, `MavenUpConfigurableTest`, `RedundantManagedExamplesIntegrationTest`) extend `BasePlatformTestCase`.
+- `RedundantManagedExamplesIntegrationTest` directly loads the 15 reference Maven example projects from `src/test/resources/redundant-managed-integrations-test/` and executes end-to-end redundancy detection rules against `RedundantManagedDependencyService` offline with stubbed POMs and BOM models.
 - In the test sandbox, the bundled Vue.js plugin (`org.jetbrains.plugins.vue`) is disabled via `tasks.named("prepareTestSandbox") { disabledPlugins.add(...) }` in `build.gradle.kts`. MavenUp has no dependency on Vue; its initialization caused sporadic `TestLoggerAssertionError` failures in some test sandbox setups, unrelated to the actual test code.
 
 ## Code quality
