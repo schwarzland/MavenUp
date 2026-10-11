@@ -41,6 +41,7 @@
 - **Fixed SNAPSHOT version handling** to prevent unintended SNAPSHOT version selections after startup and refresh, including misleading dropdown values, updates created by opening an unchanged editor, higher SNAPSHOT versions appearing below the latest release in dropdowns and version preselection, and timestamped Maven snapshot resolutions replacing declared `*-SNAPSHOT` versions.
 - **Fixed "Set Recommended Version"** in toolbar and context menus to only offer and select versions present in the available versions list, disabling the action when the recommended version is missing or hidden by "Hide unstable versions".
 - Fixed internal IntelliJ API usage in candidate POM local repository resolution by replacing the deprecated internal call with the public repository path API.
+- Fixed a Kotlin inspection warning by simplifying not-null display name blankness checks during snapshot collection.
 
 ## 3.4.0
 

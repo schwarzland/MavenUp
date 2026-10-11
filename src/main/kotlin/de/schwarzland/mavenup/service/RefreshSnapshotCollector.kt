@@ -173,7 +173,7 @@ internal class RefreshSnapshotCollector(private val project: Project) {
             val localPlugins = mutableMapOf<String, String>()
             val managedPlugins = mutableMapOf<String, String>()
 
-            val moduleName = mavenProject.displayName.takeIf { !it.isNullOrBlank() }
+            val moduleName = mavenProject.displayName.takeIf { it.isNotBlank() }
                 ?: mavenProject.mavenId.artifactId.orEmpty()
 
             val effectiveProperties =

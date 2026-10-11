@@ -1,7 +1,6 @@
 package de.schwarzland.mavenup.service
 
 import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiManager
 import com.intellij.psi.xml.XmlFile
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
