@@ -756,4 +756,88 @@ class RedundantManagedDependencyServiceTest : BasePlatformTestCase() {
         // PARENT_MANAGED hat Vorrang vor DIRECT_DEPENDENCY_MATCH
         assertEquals(RedundancyReason.PARENT_MANAGED, recommendations.first().reason)
     }
+
+    /**
+     * Prüft die Erkennung von PARENT_MANAGED, wenn das Parent-POM als Workspace-Datei vorliegt (Beispiel 01).
+     */
+    fun testWorkspaceParentPomIsResolvedWithoutFetcher() {
+        val parentPom = myFixture.configureByText(
+            "parent_pom.xml",
+            """
+                <project>
+                    <modelVersion>4.0.0</modelVersion>
+                    <groupId>de.schwarzland.mavenup.examples</groupId>
+                    <artifactId>parent-managed-same-version</artifactId>
+                    <version>1.0.0</version>
+                    <dependencyManagement>
+                        <dependencies>
+                            <dependency>
+                                <groupId>org.apache.commons</groupId>
+                                <artifactId>commons-lang3</artifactId>
+                                <version>3.12.0</version>
+                            </dependency>
+                        </dependencies>
+                    </dependencyManagement>
+                </project>
+            """.trimIndent()
+        )
+
+        val childPom = myFixture.configureByText(
+            "child_pom.xml",
+            """
+                <project>
+                    <modelVersion>4.0.0</modelVersion>
+                    <parent>
+                        <groupId>de.schwarzland.mavenup.examples</groupId>
+                        <artifactId>parent-managed-same-version</artifactId>
+                        <version>1.0.0</version>
+                    </parent>
+                    <groupId>de.schwarzland.mavenup.examples</groupId>
+                    <artifactId>child</artifactId>
+                    <version>1.0.0</version>
+                    <dependencyManagement>
+                        <dependencies>
+                            <dependency>
+                                <groupId>org.apache.commons</groupId>
+                                <artifactId>commons-lang3</artifactId>
+                                <version>3.12.0</version>
+                            </dependency>
+                        </dependencies>
+                    </dependencyManagement>
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.apache.commons</groupId>
+                            <artifactId>commons-lang3</artifactId>
+                        </dependency>
+                    </dependencies>
+                </project>
+            """.trimIndent()
+        )
+
+        val parentProject = MavenProject(parentPom.virtualFile)
+        val childProject = MavenProject(childPom.virtualFile)
+
+        val resolver = TemporaryDependencyTreeResolver(project) { g, a, v ->
+            if (g == "de.schwarzland.mavenup.examples" && a == "parent-managed-same-version" && v == "1.0.0") {
+                parentPom.text
+            } else {
+                null
+            }
+        }
+
+        val service = RedundantManagedDependencyService(project, treeResolver = resolver)
+        val recommendations = service.findRedundantForProject(
+            mavenProject = childProject,
+            allProjects = listOf(parentProject, childProject),
+            managedCoordinate = null,
+            indicator = null
+        )
+
+        assertEquals(1, recommendations.size)
+        val rec = recommendations.first()
+        assertEquals("org.apache.commons", rec.groupId)
+        assertEquals("commons-lang3", rec.artifactId)
+        assertEquals("3.12.0", rec.currentVersion)
+        assertEquals(RedundancyReason.PARENT_MANAGED, rec.reason)
+    }
 }

@@ -42,7 +42,8 @@ internal fun inheritedVersionTooltip(inherited: Boolean): String? =
 /**
  * Erstellt den Zellen-Renderer der Spalte **Current Version**, der geerbte Versionen kennzeichnet.
  *
- * Der Renderer schlägt den Zeilenschlüssel (`groupId:artifactId`) in [inheritedKeys] nach – die
+ * Der Renderer prüft primär die Eigenschaft `versionInherited` der konkreten Modellzeile über [modelRowsProvider]
+ * bzw. schlägt den Zeilenschlüssel (`entryKey` oder `groupId:artifactId`) in [inheritedKeys] nach – die
  * Menge wird als lebende Referenz gehalten, sodass ein Refresh ohne erneutes Setzen des Renderers
  * wirkt. Geerbte Versionen werden kursiv und in gedämpfter Farbe mit dem Marker „(inherited)"
  * dargestellt und erhalten einen erklärenden Tooltip. Der Modellwert der Zelle bleibt unverändert,
@@ -55,9 +56,14 @@ internal fun inheritedVersionTooltip(inherited: Boolean): String? =
  * geerbten Zeile alle folgenden Zeilen gedämpft dargestellt.
  *
  * @param inheritedKeys Die Schlüssel der Abhängigkeiten ohne eigenes `<version>`-Tag.
+ * @param modelRowsProvider Optionaler Provider für die aktuellen Modellzeilen der Tabelle.
  * @return Der konfigurierte [TableCellRenderer].
  */
-internal fun createCurrentVersionRenderer(inheritedKeys: Set<String>): TableCellRenderer =
+@JvmOverloads
+internal fun createCurrentVersionRenderer(
+    inheritedKeys: Set<String>,
+    modelRowsProvider: (() -> List<RefreshRow>)? = null
+): TableCellRenderer =
     object : DefaultTableCellRenderer() {
         override fun getTableCellRendererComponent(
             table: JTable?,
@@ -69,7 +75,7 @@ internal fun createCurrentVersionRenderer(inheritedKeys: Set<String>): TableCell
         ): Component {
             val component = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column)
             val label = component as? JLabel ?: return component
-            val inherited = table != null && isInheritedRow(table, row, inheritedKeys)
+            val inherited = table != null && isInheritedRow(table, row, inheritedKeys, modelRowsProvider?.invoke())
             label.text = inheritedVersionCellText(value?.toString().orEmpty(), inherited)
             label.font = label.font.deriveFont(if (inherited) Font.ITALIC else Font.PLAIN)
             label.foreground = when {
@@ -88,11 +94,24 @@ internal fun createCurrentVersionRenderer(inheritedKeys: Set<String>): TableCell
  * @param table Die Abhängigkeitstabelle.
  * @param row Der Zeilenindex in der Ansicht.
  * @param inheritedKeys Die Schlüssel der Abhängigkeiten ohne eigenes `<version>`-Tag.
- * @return `true`, wenn der Zeilenschlüssel in [inheritedKeys] enthalten ist.
+ * @param modelRows Die aktuellen Modellzeilen der Tabelle, falls verfügbar.
+ * @return `true`, wenn die Modellzeile als geerbt markiert ist oder der Zeilenschlüssel in [inheritedKeys] enthalten ist.
  */
-private fun isInheritedRow(table: JTable, row: Int, inheritedKeys: Set<String>): Boolean {
-    if (inheritedKeys.isEmpty() || row < 0 || row >= table.rowCount) return false
+private fun isInheritedRow(
+    table: JTable,
+    row: Int,
+    inheritedKeys: Set<String>,
+    modelRows: List<RefreshRow>? = null
+): Boolean {
+    if (row < 0 || row >= table.rowCount) return false
+    val modelRow = if (row in 0 until table.rowCount) table.convertRowIndexToModel(row) else -1
+    if (modelRows != null && modelRow in modelRows.indices) {
+        val refreshRow = modelRows[modelRow]
+        return refreshRow.versionInherited || inheritedKeys.contains(refreshRow.entryKey)
+    }
+    if (inheritedKeys.isEmpty()) return false
     val groupId = table.getValueAt(row, GROUP_ID_COLUMN)?.toString().orEmpty()
     val artifactId = table.getValueAt(row, ARTIFACT_ID_COLUMN)?.toString().orEmpty()
-    return inheritedKeys.contains("$groupId:$artifactId")
+    val key = "$groupId:$artifactId"
+    return inheritedKeys.contains(key)
 }

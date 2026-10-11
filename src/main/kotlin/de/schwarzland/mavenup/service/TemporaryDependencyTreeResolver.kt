@@ -1,9 +1,13 @@
 package de.schwarzland.mavenup.service
 
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
+import com.intellij.psi.PsiManager
+import com.intellij.psi.xml.XmlFile
 import de.schwarzland.mavenup.model.TemporaryArtifactCoordinate
 import de.schwarzland.mavenup.model.TemporaryDependencyNode
+import org.jetbrains.idea.maven.project.MavenProjectsManager
 import org.jetbrains.idea.maven.project.MavenSettingsCache
 import org.w3c.dom.Document
 import org.w3c.dom.Element
@@ -73,35 +77,89 @@ class TemporaryDependencyTreeResolver(
         }
         LOG.debug("POM cache miss for $key")
 
-        if (pomContentFetcher != null) {
-            val content = pomContentFetcher.invoke(groupId, artifactId, version)
-            if (content != null) {
-                pomCache[key] = content
-            } else {
-                mutableResolutionIssues.add("POM: $key")
-            }
-            LOG.debug("POM provider lookup for $key: found=${content != null}")
-            return content
+        val content = if (pomContentFetcher != null) {
+            val fetched = pomContentFetcher.invoke(groupId, artifactId, version)
+            LOG.debug("POM provider lookup for $key: found=${fetched != null}")
+            fetched
+        } else {
+            resolvePomXmlContent(groupId, artifactId, version, key)
         }
 
-        // 1. Lokales Maven-Repository prüfen
+        if (content != null) {
+            pomCache[key] = content
+        } else {
+            mutableResolutionIssues.add("POM: $key")
+        }
+        return content
+    }
+
+    /**
+     * Sucht den POM-XML-Inhalt nacheinander in Workspace-Modulen, im lokalen Cache und auf Remote-Repositories.
+     *
+     * @param groupId Die Group-ID.
+     * @param artifactId Die Artefakt-ID.
+     * @param version Die Version.
+     * @param key Der Cache-Schlüssel `groupId:artifactId:version`.
+     * @return Der XML-Inhalt oder `null`, wenn nirgends auffindbar.
+     */
+    private fun resolvePomXmlContent(groupId: String, artifactId: String, version: String, key: String): String? {
+        val workspaceContent = readFromWorkspaceProjects(groupId, artifactId, version)
+        if (workspaceContent != null) {
+            LOG.debug("Workspace Maven POM hit for $key")
+            return workspaceContent
+        }
+        LOG.debug("Workspace Maven POM miss for $key")
+
         val localContent = readFromLocalRepository(groupId, artifactId, version)
         if (localContent != null) {
             LOG.debug("Local Maven POM hit for $key")
-            pomCache[key] = localContent
             return localContent
         }
-
         LOG.debug("Local Maven POM miss for $key")
-        // 2. Remote-Repositories abfragen
+
         val remoteContent = fetchFromRemoteRepositories(groupId, artifactId, version)
         if (remoteContent != null) {
-            pomCache[key] = remoteContent
             return remoteContent
         }
-
         LOG.debug("POM not found for $key in configured repositories")
-        mutableResolutionIssues.add("POM: $key")
+        return null
+    }
+
+    /**
+     * Liest ein POM aus den im Workspace geladenen Maven-Projekten.
+     *
+     * @param groupId Die Group-ID.
+     * @param artifactId Die Artefakt-ID.
+     * @param version Die Version.
+     * @return Der Inhalt der POM-Datei oder `null`, falls nicht im Workspace vorhanden.
+     */
+    @Suppress("TooGenericExceptionCaught")
+    private fun readFromWorkspaceProjects(groupId: String, artifactId: String, version: String): String? {
+        val proj = project ?: return null
+        val mavenProjects = try {
+            MavenProjectsManager.getInstance(proj).projects
+        } catch (_: Exception) {
+            return null
+        }
+        for (mp in mavenProjects) {
+            val mid = try { mp.mavenId } catch (_: Exception) { null }
+            val match = if (mid != null) {
+                mid.groupId == groupId && mid.artifactId == artifactId && (version.isEmpty() || mid.version == version)
+            } else {
+                false
+            }
+            if (match) {
+                return try {
+                    ApplicationManager.getApplication().runReadAction<String?> {
+                        val psi = PsiManager.getInstance(proj).findFile(mp.file) as? XmlFile
+                        psi?.text ?: mp.file.inputStream.reader(Charsets.UTF_8).readText()
+                    }
+                } catch (e: Exception) {
+                    LOG.warn("Could not read workspace POM file: ${mp.file.path}", e)
+                    null
+                }
+            }
+        }
         return null
     }
 

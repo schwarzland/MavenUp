@@ -86,6 +86,8 @@ import javax.swing.table.TableCellRenderer
 import javax.swing.table.TableRowSorter
 
 
+import com.intellij.openapi.vfs.VirtualFile
+
 private val LOG = Logger.getInstance(MavenUpWindowFactory::class.java)
 private val MANAGED_ENTRIES_ICON = IconLoader.getIcon("/icons/managedEntries.svg", MavenUpWindowFactory::class.java)
 
@@ -109,6 +111,8 @@ private const val TOOLWINDOW_MY_TOOL_WINDOW_MANAGED_ENTRIES_GROUP_BUTTON = "tool
  * @property type Typ des Eintrags.
  * @property currentVersion Aktuelle Version des Eintrags.
  * @property vulnerabilityCell Sicherheitslücken der Dependency, sofern vorhanden.
+ * @property pomFile Die konkrete `pom.xml`-Datei (`VirtualFile`), aus der dieser Eintrag stammt, oder `null`.
+ * @property refreshRow Die vollständige Zeilenrepräsentation des Refresh-Schnappschusses oder `null`.
  */
 internal data class DependencyContextMenuTarget(
     val column: Int,
@@ -117,7 +121,9 @@ internal data class DependencyContextMenuTarget(
     val property: String,
     val type: String,
     val currentVersion: String,
-    val vulnerabilityCell: VulnerabilityCell? = null
+    val vulnerabilityCell: VulnerabilityCell? = null,
+    val pomFile: VirtualFile? = null,
+    val refreshRow: RefreshRow? = null
 ) {
     /** Maven-Koordinate ohne Version. */
     val dependencyKey: String = "$groupId:$artifactId"
@@ -236,6 +242,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private val pomUpdateService = PomUpdateService(project)
         private val pomNavigationService = PomNavigationService(project)
         private val toolWindowBadgeService = ToolWindowBadgeService.getInstance(project)
+        private val modelRows = mutableListOf<RefreshRow>()
         private val availableVersions = mutableMapOf<String, List<String>>()
         internal val selectedVersions = mutableMapOf<String, String>()
         internal val pendingManagedRemovalUpdates = mutableMapOf<String, DependencyUpdate>()
@@ -501,6 +508,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 override fun isCellEditable(row: Int, column: Int): Boolean {
                     if (column != NEW_VERSION_COLUMN) return false
                     if (row !in 0 until rowCount) return true
+                    val refreshRow = if (row in modelRows.indices) modelRows[row] else null
+                    if (refreshRow != null) {
+                        return !isManagedEntryMarkedForRemoval(refreshRow)
+                    }
                     val groupId = getValueAt(row, GROUP_ID_COLUMN)?.toString().orEmpty()
                     val artifactId = getValueAt(row, ARTIFACT_ID_COLUMN)?.toString().orEmpty()
                     val type = getValueAt(row, TYPE_COLUMN)?.toString().orEmpty()
@@ -570,10 +581,14 @@ class MavenUpWindowFactory : ToolWindowFactory {
                         val type = table.getValueAt(row, TYPE_COLUMN) as? String ?: "dependency"
                         val property = table.getValueAt(row, PROPERTY_COLUMN) as? String ?: ""
 
+                        val modelRow = table.convertRowIndexToModel(row)
+                        val refreshRow = if (modelRow in modelRows.indices) modelRows[modelRow] else null
+                        val targetPomFile = refreshRow?.pomFile
+
                         if (column == PROPERTY_COLUMN && property.isNotBlank()) {
-                            pomNavigationService.navigateToProperty(property, groupId, artifactId, type)
+                            pomNavigationService.navigateToProperty(property, groupId, artifactId, type, targetPomFile)
                         } else {
-                            pomNavigationService.navigateToDependency(groupId, artifactId, type)
+                            pomNavigationService.navigateToDependency(groupId, artifactId, type, targetPomFile)
                         }
                     }
                 }
@@ -648,17 +663,26 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
             // Custom Renderer and Editor for the "New Version" column
             table.columnModel.getColumn(CURRENT_VERSION_COLUMN).cellRenderer =
-                createCurrentVersionRenderer(inheritedVersionDependencies)
+                createCurrentVersionRenderer(inheritedVersionDependencies) { modelRows }
             table.columnModel.getColumn(NEW_VERSION_COLUMN).cellRenderer =
                 TableCellRenderer { table, value, isSelected, _, row, _ ->
                     val groupId = table?.getValueAt(row, GROUP_ID_COLUMN) as? String ?: ""
                     val artifactId = table?.getValueAt(row, ARTIFACT_ID_COLUMN) as? String ?: ""
                     val key = "$groupId:$artifactId"
 
+                    val modelRow = if (table != null && row in 0 until table.rowCount) table.convertRowIndexToModel(row) else -1
+                    val refreshRow = if (modelRow in modelRows.indices) modelRows[modelRow] else null
+                    val entryKey = refreshRow?.entryKey ?: key
+
                     @Suppress("UNCHECKED_CAST")
                     val versions = value as? List<String> ?: emptyList()
                     val type = table?.getValueAt(row, TYPE_COLUMN) as? String ?: ""
-                    if (isManagedEntryMarkedForRemoval(key, type)) {
+                    val isMarkedForRemoval = if (refreshRow != null) {
+                        isManagedEntryMarkedForRemoval(refreshRow)
+                    } else {
+                        isManagedEntryMarkedForRemoval(key, type)
+                    }
+                    if (isMarkedForRemoval) {
                         return@TableCellRenderer JLabel(
                             willRemoveOrCommentOutLabel()
                         ).apply {
@@ -668,7 +692,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     }
                     if (versions.isEmpty()) return@TableCellRenderer JLabel("")
 
-                    val selectedVersion = selectedVersions[key]
+                    val selectedVersion = selectedVersions[entryKey] ?: if (entryKey == key) selectedVersions[key] else null
                     val currentVersion = table?.getValueAt(row, CURRENT_VERSION_COLUMN) as? String ?: ""
                     val newestVersion = versions.firstOrNull() ?: ""
                     val effectiveVersion = selectedVersion ?: currentVersion
@@ -696,6 +720,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
             table.columnModel.getColumn(NEW_VERSION_COLUMN).cellEditor = object : AbstractTableCellEditor() {
                 private var currentKey: String? = null
+                private var currentRefreshRow: RefreshRow? = null
                 private var editorPanel: JPanel? = null
 
                 /** Erstellt den Editor mit expliziter Auswahl; nur Wertwechsel synchronisieren Maven-Properties. */
@@ -704,14 +729,20 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 ): Component {
                     val groupId = table?.getValueAt(row, GROUP_ID_COLUMN) as? String ?: ""
                     val artifactId = table?.getValueAt(row, ARTIFACT_ID_COLUMN) as? String ?: ""
-                    currentKey = "$groupId:$artifactId"
+                    val key = "$groupId:$artifactId"
+                    currentKey = key
+
+                    val modelRow = if (table != null && row in 0 until table.rowCount) table.convertRowIndexToModel(row) else -1
+                    val refreshRow = if (modelRow in modelRows.indices) modelRows[modelRow] else null
+                    currentRefreshRow = refreshRow
+                    val entryKey = refreshRow?.entryKey ?: key
 
                     @Suppress("UNCHECKED_CAST")
                     val versions = value as? List<String> ?: emptyList()
                     val currentVersion = table?.getValueAt(row, CURRENT_VERSION_COLUMN) as? String ?: ""
                     val newestVersion = versions.firstOrNull() ?: ""
 
-                    val selectedVersion = if (currentKey != null) selectedVersions[currentKey!!] else null
+                    val selectedVersion = selectedVersions[entryKey] ?: if (entryKey == key) selectedVersions[key] else null
                     val effectiveVersion = selectedVersion ?: currentVersion
                     val combo = createVersionComboBox(versions, effectiveVersion)
 
@@ -726,16 +757,18 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     applyVersionDropdownRenderer(
                         combo,
                         currentVersion,
-                        recommendedVersionForDependency(currentKey.orEmpty())
+                        recommendedVersionForDependency(key)
                     )
 
                     combo.addActionListener {
                         val selected = combo.selectedItem as? String
-                        val key = currentKey
-                        if (key != null && selected != null &&
-                            selected != (selectedVersions[key] ?: currentVersion)
-                        ) {
-                            synchronizePropertyVersions(key, selected)
+                        val prevSelected = selectedVersions[entryKey] ?: if (entryKey == key) selectedVersions[key] else null
+                        if (selected != null && selected != (prevSelected ?: currentVersion)) {
+                            if (refreshRow != null) {
+                                synchronizePropertyVersions(refreshRow, selected)
+                            } else {
+                                synchronizePropertyVersions(key, selected)
+                            }
                         }
                         updateUpdateButtonState()
                         updateEditorVisuals(combo, editorPanel, selected, currentVersion, newestVersion)
@@ -789,6 +822,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     transitiveVersionRepositoryError = null
                     refreshApiErrorBanner()
                 }
+                modelRows.clear()
                 dependencyToProperty.clear()
                 knownDependencies.clear()
                 knownTypes.clear()
@@ -820,7 +854,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     knownDependencies[row.key] = row.currentVersion
                     knownTypes[row.key] = row.type
                     if (row.versionInherited) {
-                        inheritedVersionDependencies.add(row.key)
+                        inheritedVersionDependencies.add(row.entryKey)
+                        if (row.entryKey == row.key) {
+                            inheritedVersionDependencies.add(row.key)
+                        }
                     }
                     if (!checkUpdates) {
                         addDependencyRow(row, declaredCoordinates)
@@ -1361,9 +1398,14 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * @return Den Hinweis zur geerbten Version oder `null` für eine lokal deklarierte Version.
          */
         private fun currentVersionTooltip(row: Int): String? {
-            val groupId = table.getValueAt(row, GROUP_ID_COLUMN) as? String ?: ""
-            val artifactId = table.getValueAt(row, ARTIFACT_ID_COLUMN) as? String ?: ""
-            return inheritedVersionTooltip(inheritedVersionDependencies.contains("$groupId:$artifactId"))
+            val modelRow = if (row in 0 until table.rowCount) table.convertRowIndexToModel(row) else -1
+            val refreshRow = if (modelRow in modelRows.indices) modelRows[modelRow] else null
+            val isInherited = refreshRow?.versionInherited ?: run {
+                val groupId = table.getValueAt(row, GROUP_ID_COLUMN) as? String ?: ""
+                val artifactId = table.getValueAt(row, ARTIFACT_ID_COLUMN) as? String ?: ""
+                inheritedVersionDependencies.contains("$groupId:$artifactId")
+            }
+            return inheritedVersionTooltip(isInherited)
         }
 
         /**
@@ -1421,6 +1463,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
             if (row < 0) return null
             if (!table.isRowSelected(row)) table.setRowSelectionInterval(row, row)
 
+            val modelRow = table.convertRowIndexToModel(row)
+            val refreshRow = if (modelRow in modelRows.indices) modelRows[modelRow] else null
+
             return DependencyContextMenuTarget(
                 column = table.columnAtPoint(event.point),
                 groupId = table.getValueAt(row, GROUP_ID_COLUMN) as? String ?: "",
@@ -1428,7 +1473,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 property = table.getValueAt(row, PROPERTY_COLUMN) as? String ?: "",
                 type = table.getValueAt(row, TYPE_COLUMN) as? String ?: "dependency",
                 currentVersion = table.getValueAt(row, CURRENT_VERSION_COLUMN) as? String ?: "",
-                vulnerabilityCell = table.getValueAt(row, VULNERABILITIES_COLUMN) as? VulnerabilityCell
+                vulnerabilityCell = table.getValueAt(row, VULNERABILITIES_COLUMN) as? VulnerabilityCell,
+                pomFile = refreshRow?.pomFile,
+                refreshRow = refreshRow
             )
         }
 
@@ -1477,7 +1524,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
          */
         private fun addContextNavigationActions(group: DefaultActionGroup, target: DependencyContextMenuTarget) {
             addContextMenuAction(group, MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_CONTEXT_MENU_NAVIGATE_TO_POM)) {
-                pomNavigationService.navigateToDependency(target.groupId, target.artifactId, target.type)
+                pomNavigationService.navigateToDependency(target.groupId, target.artifactId, target.type, target.pomFile)
             }
             addContextMenuAction(
                 group,
@@ -1488,7 +1535,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     target.property,
                     target.groupId,
                     target.artifactId,
-                    target.type
+                    target.type,
+                    target.pomFile
                 )
             }
             val browserName = MavenUpSettings.getInstance().state.repositoryBrowser.displayName
@@ -1509,33 +1557,47 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private fun addContextVersionActions(group: DefaultActionGroup, target: DependencyContextMenuTarget) {
             val dependencyKey = target.dependencyKey
             val versionsAvailable = hasSelectableVersionsForDependency(dependencyKey)
+            val refreshRow = target.refreshRow
             group.addSeparator()
             addContextMenuAction(
                 group,
                 MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.selectHighestMajor"),
                 versionsAvailable
-            ) { selectHighestMajorVersionForDependency(dependencyKey) }
+            ) {
+                if (refreshRow != null) selectHighestMajorVersionForDependency(refreshRow)
+                else selectHighestMajorVersionForDependency(dependencyKey)
+            }
             addContextMenuAction(
                 group,
                 MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.selectHighestMinor"),
                 versionsAvailable
-            ) { selectHighestMinorVersionForDependency(dependencyKey) }
+            ) {
+                if (refreshRow != null) selectHighestMinorVersionForDependency(refreshRow)
+                else selectHighestMinorVersionForDependency(dependencyKey)
+            }
             addContextMenuAction(
                 group,
                 MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.selectRecommended"),
                 hasRecommendedVersionForDependency(dependencyKey)
-            ) { selectRecommendedVersionForDependency(dependencyKey) }
+            ) {
+                if (refreshRow != null) selectRecommendedVersionForDependency(refreshRow)
+                else selectRecommendedVersionForDependency(dependencyKey)
+            }
             addContextMenuAction(
                 group,
                 MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.resetToCurrent"),
-                isVersionResetEnabledForDependency(dependencyKey, target.type)
-            ) { resetVersionForDependency(dependencyKey, target.type) }
+                if (refreshRow != null) isVersionResetEnabledForDependency(refreshRow) else isVersionResetEnabledForDependency(dependencyKey, target.type)
+            ) {
+                if (refreshRow != null) resetVersionForDependency(refreshRow)
+                else resetVersionForDependency(dependencyKey, target.type)
+            }
             addContextMenuAction(
                 group,
                 managedEntryContextMenuLabel(),
-                isManagedEntryRemovalEnabled(dependencyKey, target.type)
+                if (refreshRow != null) isManagedEntryRemovalEnabled(refreshRow) else isManagedEntryRemovalEnabled(dependencyKey, target.type)
             ) {
-                markManagedEntryForRemoval(dependencyKey, target.type, target.currentVersion)
+                if (refreshRow != null) markManagedEntryForRemoval(refreshRow)
+                else markManagedEntryForRemoval(dependencyKey, target.type, target.currentVersion)
             }
             val managedDependencyType = MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
             if (target.type == managedDependencyType) {
@@ -2132,11 +2194,15 @@ class MavenUpWindowFactory : ToolWindowFactory {
                     val cell = entry.getValue(VULNERABILITIES_COLUMN) as? VulnerabilityCell
 
                     val key = "$groupId:$artifactId"
-                    val selectedVersion = selectedVersions[key]
+                    val modelIndex = entry.identifier
+                    val refreshRow = if (modelIndex in modelRows.indices) modelRows[modelIndex] else null
+                    val entryKey = refreshRow?.entryKey ?: key
+                    val selectedVersion = selectedVersions[entryKey] ?: (if (entryKey == key) selectedVersions[key] else null)
                     val effectiveVersion = selectedVersion ?: currentVersion
                     val hasChange = effectiveVersion != currentVersion && effectiveVersion.isNotEmpty()
                     val newestVersion = availableVersions[key]?.firstOrNull().orEmpty()
                     val hasUpdate = hasNewerVersion(currentVersion, newestVersion)
+                    val isInherited = refreshRow?.versionInherited ?: inheritedVersionDependencies.contains(key)
 
                     return rowMatchesFilter(
                         FilterRow(
@@ -2145,11 +2211,11 @@ class MavenUpWindowFactory : ToolWindowFactory {
                             property = property,
                             type = type,
                             hasChange = hasChange,
-                            hasRemoval = isManagedEntryMarkedForRemoval(key, type),
+                            hasRemoval = if (refreshRow != null) isManagedEntryMarkedForRemoval(refreshRow) else isManagedEntryMarkedForRemoval(key, type),
                             hasUpdate = hasUpdate,
                             hasDirectVulnerabilities = cell?.hasDirectAdvisories == true,
                             hasTransitiveVulnerabilities = cell?.hasTransitiveAdvisories == true,
-                            versionInherited = inheritedVersionDependencies.contains(key)
+                            versionInherited = isInherited
                         ),
                         FilterCriteria(
                             searchText = searchText,
@@ -2174,6 +2240,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * anhand derer die Vulnerability-Zelle transitive von direkt deklarierten Befunden unterscheidet.
          */
         private fun addDependencyRow(row: RefreshRow, declaredCoordinates: Set<String>) {
+            modelRows.add(row)
             val coordinate = "${row.key}:${row.currentVersion}"
             (table.model as DefaultTableModel).addRow(
                 arrayOf(
@@ -2242,7 +2309,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 knownDependencies[row.key] = row.currentVersion
                 knownTypes[row.key] = row.type
                 if (row.versionInherited) {
-                    inheritedVersionDependencies.add(row.key)
+                    inheritedVersionDependencies.add(row.entryKey)
+                    if (row.entryKey == row.key) {
+                        inheritedVersionDependencies.add(row.key)
+                    }
                 }
                 addDependencyRow(row, declaredCoordinates)
             }
@@ -2640,6 +2710,15 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
+         * Wählt für eine einzelne [RefreshRow] die höchste verfügbare Version aus.
+         *
+         * @param row Die Zeile des Eintrags.
+         */
+        internal fun selectHighestMajorVersionForDependency(row: RefreshRow) {
+            applySingleVersionSelection(row) { _, versions -> versions.firstOrNull().orEmpty() }
+        }
+
+        /**
          * Wählt für eine einzelne Abhängigkeit die höchste verfügbare Version (über alle Major-Linien
          * hinweg) aus.
          *
@@ -2651,6 +2730,17 @@ class MavenUpWindowFactory : ToolWindowFactory {
          */
         internal fun selectHighestMajorVersionForDependency(key: String) {
             applySingleVersionSelection(key) { _, versions -> versions.firstOrNull().orEmpty() }
+        }
+
+        /**
+         * Wählt für eine einzelne [RefreshRow] die empfohlene Fix-Version aus.
+         *
+         * @param row Die Zeile des Eintrags.
+         */
+        internal fun selectRecommendedVersionForDependency(row: RefreshRow) {
+            val recommended = recommendedVersionForDependency(row.key)
+            if (recommended.isEmpty()) return
+            applySingleVersionSelection(row) { _, _ -> recommended }
         }
 
         /**
@@ -2711,6 +2801,17 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 knownDependencies.keys.any { recommendedVersionForDependency(it).isNotEmpty() }
 
         /**
+         * Wählt für eine einzelne [RefreshRow] die höchste Version innerhalb derselben Major-Linie aus.
+         *
+         * @param row Die Zeile des Eintrags.
+         */
+        internal fun selectHighestMinorVersionForDependency(row: RefreshRow) {
+            applySingleVersionSelection(row) { current, versions ->
+                latestVersionWithinSameMajor(current, versions) ?: current
+            }
+        }
+
+        /**
          * Wählt für eine einzelne Abhängigkeit die höchste Version innerhalb derselben Major-Linie wie
          * die aktuell verwendete Version aus.
          *
@@ -2739,6 +2840,22 @@ class MavenUpWindowFactory : ToolWindowFactory {
             !isUpdating && availableVersions[key]?.isNotEmpty() == true
 
         /**
+         * Setzt die per [row] identifizierte Zeile auf ihre aktuell verwendete Version zurück und
+         * verwirft damit eine zuvor getroffene Auswahl.
+         *
+         * @param row Die zurückzusetzende [RefreshRow].
+         */
+        internal fun resetVersionForDependency(row: RefreshRow) {
+            clearVersionSelection(row)
+            pendingManagedRemovalUpdates.remove(managedRemovalKey(row))
+            pendingManagedRemovalUpdates.remove(managedRemovalKey(row.key, row.type))
+            cancelActiveCellEditing()
+            table.repaint()
+            updateUpdateButtonState()
+            applyRowFilter()
+        }
+
+        /**
          * Setzt die per [key] identifizierte Abhängigkeit auf ihre aktuell verwendete Version zurück und
          * verwirft damit eine zuvor getroffene Auswahl.
          *
@@ -2750,11 +2867,30 @@ class MavenUpWindowFactory : ToolWindowFactory {
          */
         internal fun resetVersionForDependency(key: String, type: String) {
             clearVersionSelection(key)
+            val rows = modelRows.filter { it.key == key && it.type == type }
+            rows.forEach {
+                clearVersionSelection(it)
+                pendingManagedRemovalUpdates.remove(managedRemovalKey(it))
+            }
             pendingManagedRemovalUpdates.remove(managedRemovalKey(key, type))
             cancelActiveCellEditing()
             table.repaint()
             updateUpdateButtonState()
             applyRowFilter()
+        }
+
+        /**
+         * Prüft, ob für die per [row] identifizierte Zeile eine abweichende Version ausgewählt
+         * wurde, die zurückgesetzt werden kann.
+         *
+         * @param row Die zu prüfende [RefreshRow].
+         * @return `true`, wenn keine Aktualisierung läuft und die ausgewählte Version abweicht oder der Eintrag zur Entfernung vorgemerkt ist.
+         */
+        internal fun isVersionResetEnabledForDependency(row: RefreshRow): Boolean {
+            if (isUpdating) return false
+            if (isManagedEntryMarkedForRemoval(row)) return true
+            val selected = selectedVersions[row.entryKey] ?: (if (row.entryKey == row.key) selectedVersions[row.key] else null) ?: return false
+            return selected != row.currentVersion
         }
 
         /**
@@ -2774,6 +2910,30 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
+         * Markiert eine konkrete [RefreshRow] zur Entfernung beim nächsten Update.
+         *
+         * @param row Der zu entfernende Tabelleneintrag.
+         */
+        internal fun markManagedEntryForRemoval(row: RefreshRow) {
+            if (isUpdating || !isManagedEntryType(row.type)) return
+            clearVersionSelection(row)
+            val update = DependencyUpdate(
+                groupId = row.groupId,
+                artifactId = row.artifactId,
+                type = row.type,
+                oldVersion = row.currentVersion,
+                newVersion = row.currentVersion,
+                removeFromPom = true,
+                pomFile = row.pomFile
+            )
+            pendingManagedRemovalUpdates[managedRemovalKey(row)] = update
+            cancelActiveCellEditing()
+            table.repaint()
+            updateUpdateButtonState()
+            applyRowFilter()
+        }
+
+        /**
          * Markiert einen verwalteten Eintrag zur Entfernung beim nächsten Update.
          *
          * Eine Auswahl derselben Koordinate wird verworfen, damit der markierte Eintrag nicht zugleich
@@ -2787,6 +2947,11 @@ class MavenUpWindowFactory : ToolWindowFactory {
         internal fun markManagedEntryForRemoval(key: String, type: String, currentVersion: String) {
             if (isUpdating || !isManagedEntryType(type)) return
             selectedVersions.remove(key)
+            val row = modelRows.firstOrNull { it.key == key && it.type == type }
+            if (row != null) {
+                markManagedEntryForRemoval(row)
+                return
+            }
             val update = DependencyUpdate(
                 groupId = key.substringBefore(":"),
                 artifactId = key.substringAfter(":"),
@@ -2815,12 +2980,33 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /**
          * Prüft, ob ein verwalteter Eintrag zur Entfernung vorgemerkt wurde.
          *
+         * @param row Der zu prüfende Eintrag.
+         * @return `true`, wenn der Eintrag beim nächsten Update entfernt wird.
+         */
+        internal fun isManagedEntryMarkedForRemoval(row: RefreshRow): Boolean =
+            pendingManagedRemovalUpdates.containsKey(managedRemovalKey(row)) ||
+                pendingManagedRemovalUpdates.containsKey(managedRemovalKey(row.key, row.type))
+
+        /**
+         * Prüft, ob ein verwalteter Eintrag zur Entfernung vorgemerkt wurde.
+         *
          * @param key Der Schlüssel (`groupId:artifactId`) des verwalteten Eintrags.
          * @param type Der Typ des Eintrags.
          * @return `true`, wenn der Eintrag beim nächsten Update entfernt wird.
          */
         internal fun isManagedEntryMarkedForRemoval(key: String, type: String): Boolean =
-            pendingManagedRemovalUpdates.containsKey(managedRemovalKey(key, type))
+            pendingManagedRemovalUpdates.containsKey(managedRemovalKey(key, type)) ||
+                pendingManagedRemovalUpdates.keys.any { it.endsWith("|$type|$key") }
+
+        /**
+         * Prüft, ob ein Eintrag aus der pom.xml entfernt werden kann.
+         *
+         * @param row Der zu prüfende Eintrag.
+         * @return `true`, wenn keine Aktualisierung läuft, es sich um einen verwalteten Eintrag handelt
+         *   und dieser noch nicht zur Entfernung vorgemerkt ist.
+         */
+        internal fun isManagedEntryRemovalEnabled(row: RefreshRow): Boolean =
+            !isUpdating && isManagedEntryType(row.type) && !isManagedEntryMarkedForRemoval(row)
 
         /**
          * Prüft, ob ein Eintrag aus der pom.xml entfernt werden kann.
@@ -2836,6 +3022,15 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /**
          * Erzeugt einen eindeutigen Schlüssel für eine verwaltete Entfernungsmarkierung.
          *
+         * @param row Der Tabelleneintrag.
+         * @return Der interne Schlüssel der Entfernungsmarkierung.
+         */
+        private fun managedRemovalKey(row: RefreshRow): String =
+            "${row.pomFile?.path.orEmpty()}|${row.type}|${row.key}"
+
+        /**
+         * Erzeugt einen eindeutigen Schlüssel für eine verwaltete Entfernungsmarkierung.
+         *
          * Der Typ gehört zum Schlüssel, damit eine verwaltete Abhängigkeit und ein verwaltetes Plugin
          * mit derselben Maven-Koordinate unabhängig voneinander markiert werden können.
          *
@@ -2844,6 +3039,29 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * @return Der interne Schlüssel der Entfernungsmarkierung.
          */
         private fun managedRemovalKey(key: String, type: String): String = "$type|$key"
+
+        /**
+         * Wendet eine Auswahlstrategie auf eine einzelne [RefreshRow] an und aktualisiert die Tabelle.
+         *
+         * @param row Die Zeile des Eintrags.
+         * @param chooser Funktion, die aus der aktuellen Version und den verfügbaren Versionen die Zielversion ermittelt.
+         */
+        private fun applySingleVersionSelection(row: RefreshRow, chooser: (String, List<String>) -> String) {
+            val versions = availableVersions[row.key] ?: return
+            if (versions.isEmpty()) return
+            pendingManagedRemovalUpdates.remove(managedRemovalKey(row))
+            val currentVersion = row.currentVersion
+            val chosen = chooser(currentVersion, versions)
+            if (chosen.isNotEmpty() && chosen != currentVersion) {
+                synchronizePropertyVersions(row, chosen)
+            } else {
+                clearVersionSelection(row)
+            }
+            cancelActiveCellEditing()
+            table.repaint()
+            updateUpdateButtonState()
+            applyRowFilter()
+        }
 
         /**
          * Wendet eine Auswahlstrategie auf eine einzelne Abhängigkeit an und aktualisiert die Tabelle.
@@ -2874,6 +3092,31 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
+         * Entfernt die getroffene Versionsauswahl einer Zeile.
+         *
+         * @param row Die zurückzusetzende [RefreshRow].
+         */
+        private fun clearVersionSelection(row: RefreshRow) {
+            selectedVersions.remove(row.entryKey)
+            selectedVersions.remove(row.key)
+            val property = row.propertyName.takeIf { it.isNotBlank() }
+                ?: dependencyToProperty[row.key]?.takeIf { it.isNotBlank() }
+            if (property != null) {
+                modelRows.forEach { otherRow ->
+                    if (otherRow.propertyName == property) {
+                        selectedVersions.remove(otherRow.entryKey)
+                        selectedVersions.remove(otherRow.key)
+                    }
+                }
+                dependencyToProperty.forEach { (depKey, prop) ->
+                    if (prop == property) {
+                        selectedVersions.remove(depKey)
+                    }
+                }
+            }
+        }
+
+        /**
          * Entfernt die getroffene Versionsauswahl einer Abhängigkeit.
          *
          * Verwenden mehrere Einträge dieselbe Maven-Property, werden auch deren Auswahlen entfernt, damit
@@ -2883,8 +3126,15 @@ class MavenUpWindowFactory : ToolWindowFactory {
          */
         private fun clearVersionSelection(key: String) {
             selectedVersions.remove(key)
-            val property = dependencyToProperty[key]
+            modelRows.filter { it.key == key }.forEach { selectedVersions.remove(it.entryKey) }
+            val property = dependencyToProperty[key]?.takeIf { it.isNotBlank() }
             if (property != null) {
+                modelRows.forEach { otherRow ->
+                    if (otherRow.propertyName == property) {
+                        selectedVersions.remove(otherRow.entryKey)
+                        selectedVersions.remove(otherRow.key)
+                    }
+                }
                 dependencyToProperty.forEach { (depKey, prop) ->
                     if (prop == property) {
                         selectedVersions.remove(depKey)
@@ -2901,8 +3151,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * garantiert alle offenen Änderungen entfernt.
          */
         internal fun resetAllVersionsToCurrent() {
-            applyBulkVersionSelection(visibleOnly = false) { _, current, _ -> current }
+            selectedVersions.clear()
             pendingManagedRemovalUpdates.clear()
+            cancelActiveCellEditing()
             table.repaint()
             updateUpdateButtonState()
             applyRowFilter()
@@ -2916,11 +3167,27 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * aktiven Filter eingegrenzten Abhängigkeiten wirkt.
          */
         internal fun resetVisibleVersionsToCurrent() {
-            applyBulkVersionSelection(visibleOnly = true) { _, current, _ -> current }
+            if (modelRows.isNotEmpty()) {
+                val count = table.rowCount
+                for (viewRow in 0 until count) {
+                    val modelRow = table.convertRowIndexToModel(viewRow)
+                    if (modelRow in modelRows.indices) {
+                        val row = modelRows[modelRow]
+                        selectedVersions.remove(row.entryKey)
+                        selectedVersions.remove(row.key)
+                    }
+                }
+            } else {
+                val visibleKeys = collectVisibleDependencyKeys()
+                for (key in visibleKeys) {
+                    selectedVersions.remove(key)
+                }
+            }
             val visibleKeys = collectVisibleDependencyKeys()
             pendingManagedRemovalUpdates.keys.removeAll { removalKey ->
                 visibleKeys.any { key -> removalKey.endsWith("|$key") }
             }
+            cancelActiveCellEditing()
             table.repaint()
             updateUpdateButtonState()
             applyRowFilter()
@@ -3024,15 +3291,45 @@ class MavenUpWindowFactory : ToolWindowFactory {
         ) {
             if (availableVersions.isEmpty()) return
             val visibleKeys = if (visibleOnly) collectVisibleDependencyKeys() else null
-            for ((key, versions) in availableVersions) {
-                if (versions.isEmpty()) continue
-                if (visibleKeys != null && key !in visibleKeys) continue
-                val currentVersion = knownDependencies[key] ?: ""
-                val chosen = chooser(key, currentVersion, versions)
-                if (chosen.isNotEmpty() && chosen != currentVersion) {
-                    selectedVersions[key] = chosen
-                } else {
-                    selectedVersions.remove(key)
+            val visibleRows = if (visibleOnly && modelRows.isNotEmpty()) {
+                val count = table.rowCount
+                (0 until count).mapNotNull { viewRow ->
+                    val modelRow = table.convertRowIndexToModel(viewRow)
+                    if (modelRow in modelRows.indices) modelRows[modelRow] else null
+                }.toSet()
+            } else null
+
+            if (modelRows.isNotEmpty()) {
+                for (row in modelRows) {
+                    if (visibleRows != null && row !in visibleRows) continue
+                    if (visibleKeys != null && row.key !in visibleKeys) continue
+                    val versions = availableVersions[row.key] ?: continue
+                    if (versions.isEmpty()) continue
+                    val chosen = chooser(row.key, row.currentVersion, versions)
+                    if (chosen.isNotEmpty() && chosen != row.currentVersion) {
+                        selectedVersions[row.entryKey] = chosen
+                        if (row.entryKey == row.key) {
+                            selectedVersions[row.key] = chosen
+                        }
+                        if (row.propertyName.isNotEmpty()) {
+                            synchronizePropertyVersions(row, chosen)
+                        }
+                    } else {
+                        selectedVersions.remove(row.entryKey)
+                        selectedVersions.remove(row.key)
+                    }
+                }
+            } else {
+                for ((key, versions) in availableVersions) {
+                    if (versions.isEmpty()) continue
+                    if (visibleKeys != null && key !in visibleKeys) continue
+                    val currentVersion = knownDependencies[key] ?: ""
+                    val chosen = chooser(key, currentVersion, versions)
+                    if (chosen.isNotEmpty() && chosen != currentVersion) {
+                        selectedVersions[key] = chosen
+                    } else {
+                        selectedVersions.remove(key)
+                    }
                 }
             }
             cancelActiveCellEditing()
@@ -3350,13 +3647,51 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /**
          * Synchronisiert die Version-Auswahl über alle Einträge, die dieselbe Maven-Property verwenden.
          *
+         * @param row Die geänderte [RefreshRow].
+         * @param selected Die neu ausgewählte Version.
+         */
+        internal fun synchronizePropertyVersions(row: RefreshRow, selected: String) {
+            selectedVersions[row.entryKey] = selected
+            if (row.entryKey == row.key) {
+                selectedVersions[row.key] = selected
+            }
+            val property = row.propertyName.takeIf { it.isNotBlank() }
+                ?: dependencyToProperty[row.key]?.takeIf { it.isNotBlank() }
+            if (property != null) {
+                modelRows.forEach { otherRow ->
+                    if (otherRow.propertyName == property) {
+                        selectedVersions[otherRow.entryKey] = selected
+                        if (otherRow.entryKey == otherRow.key) {
+                            selectedVersions[otherRow.key] = selected
+                        }
+                    }
+                }
+                dependencyToProperty.forEach { (depKey, prop) ->
+                    if (prop == property) {
+                        selectedVersions[depKey] = selected
+                    }
+                }
+            }
+        }
+
+        /**
+         * Synchronisiert die Version-Auswahl über alle Einträge, die dieselbe Maven-Property verwenden.
+         *
          * @param key Der Schlüssel (`groupId:artifactId`) der geänderten Dependency.
          * @param selected Die neu ausgewählte Version.
          */
         internal fun synchronizePropertyVersions(key: String, selected: String) {
             selectedVersions[key] = selected
-            val property = dependencyToProperty[key]
+            val matchingRows = modelRows.filter { it.key == key }
+            matchingRows.forEach { selectedVersions[it.entryKey] = selected }
+            val property = dependencyToProperty[key]?.takeIf { it.isNotBlank() }
             if (property != null) {
+                modelRows.forEach { otherRow ->
+                    if (otherRow.propertyName == property) {
+                        selectedVersions[otherRow.entryKey] = selected
+                        selectedVersions[otherRow.key] = selected
+                    }
+                }
                 dependencyToProperty.forEach { (depKey, prop) ->
                     if (prop == property) {
                         selectedVersions[depKey] = selected
@@ -3410,9 +3745,16 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * @return `true`, wenn mindestens ein anwendbares Update ausgewählt ist.
          */
         internal fun hasSelectedUpdates(): Boolean {
-            return knownDependencies.any { (key, currentVersion) ->
-                val newVersion = selectedVersions[key]
-                newVersion != null && newVersion != currentVersion
+            return if (modelRows.isNotEmpty()) {
+                modelRows.any { row ->
+                    val newVersion = selectedVersions[row.entryKey] ?: if (row.entryKey == row.key) selectedVersions[row.key] else null
+                    newVersion != null && newVersion != row.currentVersion && !isManagedEntryMarkedForRemoval(row)
+                }
+            } else {
+                knownDependencies.any { (key, currentVersion) ->
+                    val newVersion = selectedVersions[key]
+                    newVersion != null && newVersion != currentVersion
+                }
             } || pendingManagedRemovalUpdates.isNotEmpty() || transitiveVulnerabilitiesView.hasPendingUpdates()
         }
 
@@ -3533,8 +3875,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
             val groupId = table.getValueAt(row, GROUP_ID_COLUMN)?.toString().orEmpty()
             val artifactId = table.getValueAt(row, ARTIFACT_ID_COLUMN)?.toString().orEmpty()
             val type = table.getValueAt(row, TYPE_COLUMN)?.toString().orEmpty()
+            val modelRow = table.convertRowIndexToModel(row)
+            val refreshRow = if (modelRow in modelRows.indices) modelRows[modelRow] else null
             if (groupId.isNotBlank() && artifactId.isNotBlank()) {
-                pomNavigationService.navigateToDependency(groupId, artifactId, type)
+                pomNavigationService.navigateToDependency(groupId, artifactId, type, refreshRow?.pomFile)
             }
         }
 
@@ -3687,19 +4031,38 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * wenn derselbe Eintrag zur Entfernung vorgemerkt ist.
          */
         internal fun collectSelectedUpdates(): List<DependencyUpdate> {
-            val mainUpdates = selectedVersions.mapNotNull { (key, newVersion) ->
-                val currentVersion = knownDependencies[key] ?: return@mapNotNull null
-                val type = knownTypes[key] ?: return@mapNotNull null
-                if (newVersion == currentVersion) return@mapNotNull null
-                if (isManagedEntryMarkedForRemoval(key, type)) return@mapNotNull null
+            val mainUpdates = if (modelRows.isNotEmpty()) {
+                modelRows.mapNotNull { row ->
+                    val newVersion = selectedVersions[row.entryKey]
+                        ?: (if (row.entryKey == row.key) selectedVersions[row.key] else null)
+                        ?: return@mapNotNull null
+                    if (newVersion == row.currentVersion) return@mapNotNull null
+                    if (isManagedEntryMarkedForRemoval(row)) return@mapNotNull null
 
-                DependencyUpdate(
-                    key.substringBefore(":"),
-                    key.substringAfter(":"),
-                    type,
-                    currentVersion,
-                    newVersion
-                )
+                    DependencyUpdate(
+                        groupId = row.groupId,
+                        artifactId = row.artifactId,
+                        type = row.type,
+                        oldVersion = row.currentVersion,
+                        newVersion = newVersion,
+                        pomFile = row.pomFile
+                    )
+                }
+            } else {
+                selectedVersions.mapNotNull { (key, newVersion) ->
+                    val currentVersion = knownDependencies[key] ?: return@mapNotNull null
+                    val type = knownTypes[key] ?: return@mapNotNull null
+                    if (newVersion == currentVersion) return@mapNotNull null
+                    if (isManagedEntryMarkedForRemoval(key, type)) return@mapNotNull null
+
+                    DependencyUpdate(
+                        key.substringBefore(":"),
+                        key.substringAfter(":"),
+                        type,
+                        currentVersion,
+                        newVersion
+                    )
+                }
             }
             return mainUpdates + pendingManagedRemovalUpdates.values + transitiveVulnerabilitiesView.collectPendingUpdates()
         }

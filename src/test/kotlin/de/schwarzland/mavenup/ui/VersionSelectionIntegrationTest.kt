@@ -171,4 +171,151 @@ class VersionSelectionIntegrationTest : BasePlatformTestCase() {
         assertTrue(view.selectedVersions.isEmpty())
         assertTrue(view.collectPendingUpdates().isEmpty())
     }
+
+    /** Eine Versionsauswahl für eine Abhängigkeit ohne Property ändert nicht die Auswahl anderer Abhängigkeiten. */
+    fun testVersionSelectionWithoutPropertyDoesNotAffectOtherDependencies() {
+        val window = MavenUpWindowFactory().MyToolWindow(project)
+        val rows = listOf(
+            RefreshRow("com.example", "lib1", "", "dependency", "1.0.0"),
+            RefreshRow("com.example", "lib2", "", "dependency", "1.0.0")
+        )
+        val candidates = mapOf(
+            "com.example:lib1" to listOf("1.1.0", "1.0.0"),
+            "com.example:lib2" to listOf("2.0.0", "1.0.0")
+        )
+        val state = AutomaticVersionSearchState(
+            RefreshSnapshot(rows, emptyMap()),
+            VersionSearchResult(candidates, candidates, emptyMap()),
+            null
+        )
+        window.applyAutomaticVersionSearchState(state)
+        val table = requireNotNull(findTable(window.getContent()))
+
+        // Lib1 auf 1.1.0 setzen
+        assertTrue(table.editCellAt(0, NEW_VERSION_COLUMN))
+        combo(table.editorComponent).selectedItem = "1.1.0"
+        assertTrue(table.cellEditor.stopCellEditing())
+
+        assertEquals("1.1.0", window.selectedVersions["com.example:lib1"])
+        assertNull(window.selectedVersions["com.example:lib2"])
+
+        val updates = window.collectSelectedUpdates()
+        assertEquals(1, updates.size)
+        assertEquals("com.example", updates.first().groupId)
+        assertEquals("lib1", updates.first().artifactId)
+        assertEquals("1.1.0", updates.first().newVersion)
+    }
+
+    /** Mehrere Zeilen desselben Artefakts in verschiedenen Modulen können unabhängig aktualisiert werden. */
+    fun testMultiModuleRowsCanBeSelectedIndependently() {
+        val file1 = myFixture.configureByText("pom.xml", "<project/>").virtualFile
+        val file2 = myFixture.configureByText("child_pom.xml", "<project/>").virtualFile
+
+        val window = MavenUpWindowFactory().MyToolWindow(project)
+        val rows = listOf(
+            RefreshRow("org.apache.commons", "commons-lang3", "", "managed dependency", "3.12.0", pomFile = file1),
+            RefreshRow("org.apache.commons", "commons-lang3", "", "managed dependency", "3.12.0", pomFile = file2),
+            RefreshRow("org.apache.commons", "commons-lang3", "", "dependency", "3.12.0", pomFile = file2)
+        )
+        val candidates = mapOf(
+            "org.apache.commons:commons-lang3" to listOf("3.14.0", "3.13.0", "3.12.0")
+        )
+        val state = AutomaticVersionSearchState(
+            RefreshSnapshot(rows, emptyMap()),
+            VersionSearchResult(candidates, candidates, emptyMap()),
+            null
+        )
+        window.applyAutomaticVersionSearchState(state)
+        val table = requireNotNull(findTable(window.getContent()))
+
+        // Zeile 0 (Parent managed) auf 3.14.0 setzen
+        assertTrue(table.editCellAt(0, NEW_VERSION_COLUMN))
+        combo(table.editorComponent).selectedItem = "3.14.0"
+        assertTrue(table.cellEditor.stopCellEditing())
+
+        // Renderer von Zeile 1 und 2 prüfen
+        val r1 = table.getCellRenderer(1, NEW_VERSION_COLUMN)
+            .getTableCellRendererComponent(table, table.getValueAt(1, NEW_VERSION_COLUMN), false, false, 1, NEW_VERSION_COLUMN)
+        val r2 = table.getCellRenderer(2, NEW_VERSION_COLUMN)
+            .getTableCellRendererComponent(table, table.getValueAt(2, NEW_VERSION_COLUMN), false, false, 2, NEW_VERSION_COLUMN)
+
+        assertEquals("3.12.0", combo(r1).selectedItem)
+        assertEquals("3.12.0", combo(r2).selectedItem)
+
+        val updates = window.collectSelectedUpdates()
+        assertEquals(1, updates.size)
+        assertEquals(file1, updates.first().pomFile)
+        assertEquals("3.14.0", updates.first().newVersion)
+    }
+
+    /** Toolbar-Funktionen Highest Major/Minor und Reset setzen und verwerfen Versionen auf Zeilenebene. */
+    fun testToolbarSelectHighestMajorAndMinorSetsSelectionsAndResetClearsAll() {
+        val file1 = myFixture.configureByText("pom.xml", "<project/>").virtualFile
+        val file2 = myFixture.configureByText("child_pom.xml", "<project/>").virtualFile
+
+        val window = MavenUpWindowFactory().MyToolWindow(project)
+        val rows = listOf(
+            RefreshRow("org.apache.commons", "commons-lang3", "", "managed dependency", "3.12.0", pomFile = file1),
+            RefreshRow("org.apache.commons", "commons-lang3", "", "dependency", "3.12.0", pomFile = file2)
+        )
+        val candidates = mapOf(
+            "org.apache.commons:commons-lang3" to listOf("4.0.0", "3.14.0", "3.13.0", "3.12.0")
+        )
+        val state = AutomaticVersionSearchState(
+            RefreshSnapshot(rows, emptyMap()),
+            VersionSearchResult(candidates, candidates, emptyMap()),
+            null
+        )
+        window.applyAutomaticVersionSearchState(state)
+        val table = requireNotNull(findTable(window.getContent()))
+
+        // 1. Highest Minor (gleiche Major-Linie)
+        window.selectHighestMinorVersionForAll(visibleOnly = false)
+        assertTrue(window.hasSelectedUpdates())
+        val minorUpdates = window.collectSelectedUpdates()
+        assertEquals(2, minorUpdates.size)
+        assertTrue(minorUpdates.all { it.newVersion == "3.14.0" })
+
+        // 2. Highest Major
+        window.selectHighestMajorVersionForAll(visibleOnly = false)
+        val majorUpdates = window.collectSelectedUpdates()
+        assertEquals(2, majorUpdates.size)
+        assertTrue(majorUpdates.all { it.newVersion == "4.0.0" })
+
+        // 3. Reset All
+        window.resetAllVersionsToCurrent()
+        assertFalse(window.hasSelectedUpdates())
+        assertTrue(window.collectSelectedUpdates().isEmpty())
+    }
+
+    /** Nur Zeilen mit tatsächlich geerbter Version werden als Inherited gerendert. */
+    fun testInheritedVersionRenderingOnlyMarksInheritedRowInMultiModule() {
+        val file1 = myFixture.configureByText("pom.xml", "<project/>").virtualFile
+        val file2 = myFixture.configureByText("child_pom.xml", "<project/>").virtualFile
+
+        val window = MavenUpWindowFactory().MyToolWindow(project)
+        val rows = listOf(
+            RefreshRow("org.apache.commons", "commons-lang3", "", "managed dependency", "3.12.0", pomFile = file1, versionInherited = false),
+            RefreshRow("org.apache.commons", "commons-lang3", "", "managed dependency", "3.12.0", pomFile = file2, versionInherited = false),
+            RefreshRow("org.apache.commons", "commons-lang3", "", "dependency", "3.12.0", pomFile = file2, versionInherited = true)
+        )
+        val state = AutomaticVersionSearchState(
+            RefreshSnapshot(rows, emptyMap()),
+            VersionSearchResult(emptyMap(), emptyMap(), emptyMap()),
+            null
+        )
+        window.applyAutomaticVersionSearchState(state)
+        val table = requireNotNull(findTable(window.getContent()))
+
+        val renderer = table.getCellRenderer(0, CURRENT_VERSION_COLUMN)
+
+        val c0 = renderer.getTableCellRendererComponent(table, "3.12.0", false, false, 0, CURRENT_VERSION_COLUMN) as javax.swing.JLabel
+        assertEquals("3.12.0", c0.text)
+
+        val c1 = renderer.getTableCellRendererComponent(table, "3.12.0", false, false, 1, CURRENT_VERSION_COLUMN) as javax.swing.JLabel
+        assertEquals("3.12.0", c1.text)
+
+        val c2 = renderer.getTableCellRendererComponent(table, "3.12.0", false, false, 2, CURRENT_VERSION_COLUMN) as javax.swing.JLabel
+        assertTrue("Child direct dependency must be marked as inherited", c2.text.contains("inherited") || c2.text.contains("Inherited"))
+    }
 }

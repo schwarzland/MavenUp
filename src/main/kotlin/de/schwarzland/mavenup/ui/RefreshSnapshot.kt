@@ -1,5 +1,7 @@
 package de.schwarzland.mavenup.ui
 
+import com.intellij.openapi.vfs.VirtualFile
+
 /**
  * Repräsentiert eine einzelne Zeile in der Abhängigkeitstabelle.
  *
@@ -11,6 +13,7 @@ package de.schwarzland.mavenup.ui
  * @property versionInherited `true`, wenn die `pom.xml` für diesen Eintrag kein eigenes
  * `<version>`-Tag deklariert und die Version daher vom Parent-POM oder einem importierten
  * BOM geerbt wird.
+ * @property pomFile Die konkrete `pom.xml`-Datei (`VirtualFile`), aus der dieser Eintrag stammt, oder `null`.
  */
 internal data class RefreshRow(
     val groupId: String,
@@ -18,10 +21,15 @@ internal data class RefreshRow(
     val propertyName: String,
     val type: String,
     val currentVersion: String,
-    val versionInherited: Boolean = false
+    val versionInherited: Boolean = false,
+    val pomFile: VirtualFile? = null
 ) {
     /** Eindeutiger Schlüssel der Zeile in der Form `groupId:artifactId`. */
     val key: String = "$groupId:$artifactId"
+
+    /** Eindeutiger zeilen- und modulspezifischer Schlüssel unter Berücksichtigung von POM-Pfad und Typ. */
+    val entryKey: String
+        get() = if (pomFile != null) "${pomFile.path}|$type|$key" else key
 }
 
 /**

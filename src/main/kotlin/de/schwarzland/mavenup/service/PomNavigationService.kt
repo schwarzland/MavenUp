@@ -141,15 +141,17 @@ internal class PomNavigationService(private val project: Project) {
      * @param groupId Die Group-ID der Abhängigkeit für den Fallback.
      * @param artifactId Die Artefakt-ID der Abhängigkeit für den Fallback.
      * @param type Der Typ der Abhängigkeit für den Fallback.
+     * @param targetPomFile Die bevorzugt zu durchsuchende `pom.xml`-Datei oder `null`.
      */
     internal fun navigateToProperty(
         propertyName: String,
         groupId: String,
         artifactId: String,
-        type: String = "dependency"
+        type: String = "dependency",
+        targetPomFile: VirtualFile? = null
     ) {
         if (propertyName.isBlank()) {
-            navigateToDependency(groupId, artifactId, type)
+            navigateToDependency(groupId, artifactId, type, targetPomFile)
             return
         }
 
@@ -159,7 +161,19 @@ internal class PomNavigationService(private val project: Project) {
             false
         ) {
             override fun run(indicator: ProgressIndicator) {
-                for (mavenProject in MavenProjectsManager.getInstance(project).projects) {
+                val allProjects = MavenProjectsManager.getInstance(project).projects
+                val candidateProjects = if (targetPomFile != null) {
+                    val targetProj = allProjects.find { it.file == targetPomFile }
+                    if (targetProj != null) {
+                        listOf(targetProj) + allProjects.filter { it.file != targetPomFile }
+                    } else {
+                        allProjects
+                    }
+                } else {
+                    allProjects
+                }
+
+                for (mavenProject in candidateProjects) {
                     val pomFile = mavenProject.file
                     val targetTag = ApplicationManager.getApplication().runReadAction<XmlTag?> {
                         val psiFile = PsiManager.getInstance(project).findFile(pomFile) as? XmlFile
@@ -169,7 +183,7 @@ internal class PomNavigationService(private val project: Project) {
                     openInEditor(pomFile, targetTag)
                     return
                 }
-                navigateToDependency(groupId, artifactId, type)
+                navigateToDependency(groupId, artifactId, type, targetPomFile)
             }
         })
     }
@@ -194,15 +208,33 @@ internal class PomNavigationService(private val project: Project) {
      * @param groupId Die Group-ID der Abhängigkeit.
      * @param artifactId Die Artefakt-ID der Abhängigkeit.
      * @param type Der Typ der Abhängigkeit (Dependency, Parent, Plugin, verwaltet).
+     * @param targetPomFile Die bevorzugt zu durchsuchende `pom.xml`-Datei oder `null`.
      */
-    internal fun navigateToDependency(groupId: String, artifactId: String, type: String = "dependency") {
+    internal fun navigateToDependency(
+        groupId: String,
+        artifactId: String,
+        type: String = "dependency",
+        targetPomFile: VirtualFile? = null
+    ) {
         ProgressManager.getInstance().run(object : Task.Backgroundable(
             project,
             MyMessageBundle.message("toolwindow.MyToolWindow.refresh.button"),
             false
         ) {
             override fun run(indicator: ProgressIndicator) {
-                for (mavenProject in MavenProjectsManager.getInstance(project).projects) {
+                val allProjects = MavenProjectsManager.getInstance(project).projects
+                val candidateProjects = if (targetPomFile != null) {
+                    val targetProj = allProjects.find { it.file == targetPomFile }
+                    if (targetProj != null) {
+                        listOf(targetProj) + allProjects.filter { it.file != targetPomFile }
+                    } else {
+                        allProjects
+                    }
+                } else {
+                    allProjects
+                }
+
+                for (mavenProject in candidateProjects) {
                     val pomFile = mavenProject.file
                     val psiFile = ApplicationManager.getApplication().runReadAction<XmlFile?> {
                         PsiManager.getInstance(project).findFile(pomFile) as? XmlFile

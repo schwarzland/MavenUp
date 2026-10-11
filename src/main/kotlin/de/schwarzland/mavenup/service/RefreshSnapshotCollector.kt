@@ -9,6 +9,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiManager
 import com.intellij.psi.xml.XmlFile
 import com.intellij.psi.xml.XmlTag
+import com.intellij.openapi.vfs.VirtualFile
 import org.jetbrains.idea.maven.project.MavenProjectsManager
 
 /**
@@ -113,12 +114,14 @@ internal class RefreshSnapshotCollector(private val project: Project) {
      * @param rootTag Das Root-Tag der `pom.xml`.
      * @param propertyTargetMap Ziel-Map für erkannte Maven-Property-Platzhalter.
      * @param effectiveProperties Die effektiven Maven-Properties zur Auflösung von Versions-Platzhaltern.
+     * @param pomFile Die zugehörige `pom.xml`-Datei (`VirtualFile`), oder `null`.
      * @return Eine [RefreshRow] mit Typ [PARENT_TYPE] oder `null`.
      */
     internal fun collectParentDependency(
         rootTag: XmlTag?,
         propertyTargetMap: MutableMap<String, String>,
-        effectiveProperties: Map<String, String> = emptyMap()
+        effectiveProperties: Map<String, String> = emptyMap(),
+        pomFile: VirtualFile? = null
     ): RefreshRow? {
         val parentTag = rootTag?.findFirstSubTag("parent") ?: return null
         val g = parentTag.findFirstSubTag("groupId")?.value?.text?.trim().orEmpty()
@@ -141,7 +144,8 @@ internal class RefreshSnapshotCollector(private val project: Project) {
             propertyName = propertyName,
             type = PARENT_TYPE,
             currentVersion = resolveVersionPlaceholder(v, effectiveProperties),
-            versionInherited = v.isBlank()
+            versionInherited = v.isBlank(),
+            pomFile = pomFile
         )
     }
 
@@ -173,7 +177,7 @@ internal class RefreshSnapshotCollector(private val project: Project) {
                 val documentElement = psiFile.document?.rootTag
 
                 // Parent-Dependency erfassen
-                collectParentDependency(documentElement, properties, effectiveProperties)?.let { parentRow ->
+                collectParentDependency(documentElement, properties, effectiveProperties, mavenProject.file)?.let { parentRow ->
                     rows.add(parentRow)
                 }
 
@@ -221,7 +225,8 @@ internal class RefreshSnapshotCollector(private val project: Project) {
                             resolvedDependencies[key]?.artifact?.version,
                             effectiveProperties
                         ),
-                        versionInherited = value.isBlank()
+                        versionInherited = value.isBlank(),
+                        pomFile = mavenProject.file
                     )
                 )
             }
@@ -238,7 +243,8 @@ internal class RefreshSnapshotCollector(private val project: Project) {
                             resolvedDependencies[key]?.artifact?.version,
                             effectiveProperties
                         ),
-                        versionInherited = value.isBlank()
+                        versionInherited = value.isBlank(),
+                        pomFile = mavenProject.file
                     )
                 )
             }
@@ -259,7 +265,8 @@ internal class RefreshSnapshotCollector(private val project: Project) {
                             resolvedPlugins[key]?.version,
                             effectiveProperties
                         ),
-                        versionInherited = value.isBlank()
+                        versionInherited = value.isBlank(),
+                        pomFile = mavenProject.file
                     )
                 )
             }
@@ -276,7 +283,8 @@ internal class RefreshSnapshotCollector(private val project: Project) {
                             resolvedPlugins[key]?.version,
                             effectiveProperties
                         ),
-                        versionInherited = value.isBlank()
+                        versionInherited = value.isBlank(),
+                        pomFile = mavenProject.file
                     )
                 )
             }

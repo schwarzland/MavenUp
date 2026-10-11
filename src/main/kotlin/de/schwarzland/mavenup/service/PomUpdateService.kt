@@ -55,6 +55,9 @@ internal class PomUpdateService(private val project: Project) {
             val propertiesTag = documentElement.findFirstSubTag("properties")
 
             updates.forEach { update ->
+                if (update.pomFile != null && update.pomFile != pomFile) {
+                    return@forEach
+                }
                 val managedDependencyType = MyMessageBundle.message(
                     TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY
                 )
@@ -67,17 +70,20 @@ internal class PomUpdateService(private val project: Project) {
                         updateParent(documentElement, update, propertiesTag)
                     }
                     "dependency" -> {
-                        updateDependencies(documentElement, update, propertiesTag)
+                        updateDependencies(documentElement, update, propertiesTag, managedOnly = false)
                     }
                     managedDependencyType -> {
-                        val updated = updateDependencies(documentElement, update, propertiesTag)
+                        val updated = updateDependencies(documentElement, update, propertiesTag, managedOnly = true)
                         if (!updated) {
                             addManagedDependency(documentElement, update)
                         }
                     }
 
-                    "plugin", MANAGED_PLUGIN -> {
-                        updatePlugins(documentElement, update, propertiesTag)
+                    "plugin" -> {
+                        updatePlugins(documentElement, update, propertiesTag, managedOnly = false)
+                    }
+                    MANAGED_PLUGIN -> {
+                        updatePlugins(documentElement, update, propertiesTag, managedOnly = true)
                     }
                 }
             }
@@ -166,31 +172,33 @@ internal class PomUpdateService(private val project: Project) {
     }
 
     /**
-     * Aktualisiert Abhängigkeitsversionen in `<dependencies>` und `<dependencyManagement>`
+     * Aktualisiert Abhängigkeitsversionen in `<dependencies>` oder `<dependencyManagement>`
      * des angegebenen POM-Root-Tags für ein einzelnes Update.
      *
      * @param documentElement Das Root-Tag der `pom.xml`.
      * @param update Das anzuwendende Update.
      * @param propertiesTag Das `<properties>`-Tag für Property-basierte Versionsupdates.
+     * @param managedOnly `true`, wenn nur `<dependencyManagement>` durchsucht werden soll, sonst nur `<dependencies>`.
      * @return `true`, wenn mindestens ein passender Eintrag gefunden und aktualisiert wurde.
      */
     private fun updateDependencies(
         documentElement: XmlTag,
         update: DependencyUpdate,
-        propertiesTag: XmlTag?
+        propertiesTag: XmlTag?,
+        managedOnly: Boolean
     ): Boolean {
-        val dependenciesTag = documentElement.findFirstSubTag("dependencies")
-        val dependencyManagementTag = documentElement.findFirstSubTag("dependencyManagement")
-        val dmDependenciesTag = dependencyManagementTag?.findFirstSubTag("dependencies")
-
         var updated = false
-        // Search in <dependencies>
-        dependenciesTag?.findSubTags("dependency")?.forEach { depTag ->
-            updated = updateIfMatch(depTag, update, propertiesTag) || updated
-        }
-        // Search in <dependencyManagement><dependencies>
-        dmDependenciesTag?.findSubTags("dependency")?.forEach { depTag ->
-            updated = updateIfMatch(depTag, update, propertiesTag) || updated
+        if (managedOnly) {
+            val dependencyManagementTag = documentElement.findFirstSubTag("dependencyManagement")
+            val dmDependenciesTag = dependencyManagementTag?.findFirstSubTag("dependencies")
+            dmDependenciesTag?.findSubTags("dependency")?.forEach { depTag ->
+                updated = updateIfMatch(depTag, update, propertiesTag) || updated
+            }
+        } else {
+            val dependenciesTag = documentElement.findFirstSubTag("dependencies")
+            dependenciesTag?.findSubTags("dependency")?.forEach { depTag ->
+                updated = updateIfMatch(depTag, update, propertiesTag) || updated
+            }
         }
         return updated
     }
@@ -335,30 +343,32 @@ internal class PomUpdateService(private val project: Project) {
     }
 
     /**
-     * Aktualisiert Plugin-Versionen in `<build><plugins>` und `<build><pluginManagement>`
+     * Aktualisiert Plugin-Versionen in `<build><plugins>` oder `<build><pluginManagement>`
      * des angegebenen POM-Root-Tags für ein einzelnes Update.
      *
      * @param documentElement Das Root-Tag der `pom.xml`.
      * @param update Das anzuwendende Update.
      * @param propertiesTag Das `<properties>`-Tag für Property-basierte Versionsupdates.
+     * @param managedOnly `true`, wenn nur `<pluginManagement>` durchsucht werden soll, sonst nur `<plugins>`.
      */
     private fun updatePlugins(
         documentElement: XmlTag,
         update: DependencyUpdate,
-        propertiesTag: XmlTag?
+        propertiesTag: XmlTag?,
+        managedOnly: Boolean
     ) {
         val buildTag = documentElement.findFirstSubTag("build")
-        val pluginsTag = buildTag?.findFirstSubTag("plugins")
-        val pluginManagementTag = buildTag?.findFirstSubTag("pluginManagement")
-        val pmPluginsTag = pluginManagementTag?.findFirstSubTag("plugins")
-
-        // Search in <build><plugins>
-        pluginsTag?.findSubTags("plugin")?.forEach { pluginTag ->
-            updateIfMatch(pluginTag, update, propertiesTag)
-        }
-        // Search in <build><pluginManagement><plugins>
-        pmPluginsTag?.findSubTags("plugin")?.forEach { pluginTag ->
-            updateIfMatch(pluginTag, update, propertiesTag)
+        if (managedOnly) {
+            val pluginManagementTag = buildTag?.findFirstSubTag("pluginManagement")
+            val pmPluginsTag = pluginManagementTag?.findFirstSubTag("plugins")
+            pmPluginsTag?.findSubTags("plugin")?.forEach { pluginTag ->
+                updateIfMatch(pluginTag, update, propertiesTag)
+            }
+        } else {
+            val pluginsTag = buildTag?.findFirstSubTag("plugins")
+            pluginsTag?.findSubTags("plugin")?.forEach { pluginTag ->
+                updateIfMatch(pluginTag, update, propertiesTag)
+            }
         }
     }
 

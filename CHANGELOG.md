@@ -27,6 +27,9 @@
 
 ### Fixed
 
+- **Fixed multi-module POM navigation** by associating each table row with its originating `pom.xml` file (`VirtualFile`), ensuring "Navigate to POM" opens the correct file instead of always the first module matching coordinates.
+- **Fixed workspace parent POM resolution in redundancy checks** by resolving in-workspace Maven projects in `TemporaryDependencyTreeResolver`, allowing "Check Managed Dependencies for Redundancy..." to find redundant managed dependencies inherited from workspace parent POMs.
+- **Fixed table version selection across multi-module entries** by isolating row selections with file- and type-specific keys and avoiding synchronization across entries without explicit, non-blank Maven properties.
 - **Fixed false-positive "Version Provided Transitively" recommendations** by evaluating the effective fallback version from parent/imported BOM dependency management when the local `<dependencyManagement>` entry is removed, and reporting candidate removals only when parent, direct, and every known transitive source supplies at least the currently managed version.
 - **Fixed the redundancy dialog introduction** so `<dependencyManagement>` renders as text instead of disappearing as an HTML tag.
 - **Fixed the initial Redundancy Details panel** to show the currently selected table row, including after the table's default sort.

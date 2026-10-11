@@ -261,6 +261,12 @@ internal class DependencyVersionService(
     /**
      * Berechnet für alle Abhängigkeiten, die dieselbe Maven-Property verwenden,
      * die Schnittmenge der verfügbaren Versionen, damit die Property konsistent aktualisiert wird.
+     *
+     * @param dependencyToProperty Zuordnung von Abhängigkeitsschlüssel zum Namen der genutzten Version-Property.
+     * @param currentVersions Zuordnung von Abhängigkeitsschlüssel zur aktuell verwendeten Version.
+     * @param availableVersions Zuordnung von Abhängigkeitsschlüssel zu den gefilterten Versionen.
+     * @param rawVersions Zuordnung von Abhängigkeitsschlüssel zu den ungefilterten Versionen.
+     * @param selectedVersions Zuordnung von Abhängigkeitsschlüssel zur vorausgewählten Zielversion.
      */
     internal fun postProcessPropertyUpdates(
         dependencyToProperty: Map<String, String>,
@@ -271,6 +277,7 @@ internal class DependencyVersionService(
     ) {
         val propertyToDependencies: Map<String, List<String>> = dependencyToProperty
             .entries
+            .filter { it.value.isNotBlank() }
             .groupBy({ it.value }, { it.key })
 
         propertyToDependencies.forEach { (_, depKeys) ->
