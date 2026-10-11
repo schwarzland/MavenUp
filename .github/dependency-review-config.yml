@@ -1,0 +1,27 @@
+# Configuration for GitHub Dependency Review (actions/dependency-review-action)
+#
+# Configures vulnerability and license exceptions for dependency reviews on Pull Requests.
+# Used to exempt dependencies or security advisories present in test resources/fixtures
+# (e.g. under src/test/resources/redundant-managed-integrations-test) from failing the Dependency Review check.
+
+fail-on-severity: moderate
+
+# Allowed dependencies by Package URL (PURL) or coordinate
+# Add packages here to allow specific dependencies regardless of detected vulnerabilities.
+allow-dependencies:
+  - "pkg:maven/org.apache.commons/commons-lang3@3.10"
+  - "pkg:maven/org.apache.commons/commons-lang3@3.12.0"
+  - "pkg:maven/org.apache.commons/commons-lang3@3.14.0"
+  - "pkg:maven/org.apache.commons/commons-collections4@4.4"
+  - "pkg:maven/org.slf4j/slf4j-api@2.0.7"
+  - "pkg:maven/org.slf4j/slf4j-api@2.0.9"
+  - "pkg:maven/com.fasterxml.jackson.core/jackson-core@2.15.0"
+  - "pkg:maven/com.fasterxml.jackson.core/jackson-core@2.15.2"
+  - "pkg:maven/com.fasterxml.jackson.core/jackson-databind@2.15.2"
+  - "pkg:maven/org.apache.logging.log4j/log4j-core@2.20.0"
+  - "pkg:maven/org.springframework.boot/spring-boot-dependencies@3.2.0"
+
+# Allowed GitHub Advisory IDs (GHSAs)
+# Specific vulnerability advisories can be exempted here:
+# allow-ghsas:
+#   - "GHSA-xxxx-xxxx-xxxx"

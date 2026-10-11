@@ -20,6 +20,7 @@
 - **Added structured Markdown source templates for JetBrains Marketplace Custom Pages** under `docs/assets/marketplace/custom/` covering Getting Started, Privacy & Security, Vulnerability Management, and Configuration & FAQ.
 - Expanded redundancy DEBUG logs with analysis scope, results, POM cache and local-repository hits, and individual HTTP GET attempts and response statuses without exposing credentials.
 - Added a regression test for the `tools.jackson.core:jackson-core` fallback scenario and expanded the unit test suite with comprehensive coverage for negative cases, helper methods, property placeholder handling, multi-module scenarios, and criterion prioritization.
+- Added `.github/dependency-review-config.yml` with dependency allowlist exceptions and configured `actions/dependency-review-action` to prevent CI review failures caused by test fixture POMs.
 
 ### Changed
 
