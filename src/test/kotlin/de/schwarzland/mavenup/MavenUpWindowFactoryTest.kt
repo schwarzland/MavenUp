@@ -17,8 +17,6 @@ import de.schwarzland.mavenup.ui.buildMavenRepositoryUrl
 import de.schwarzland.mavenup.ui.GROUP_ID_COLUMN
 import de.schwarzland.mavenup.ui.ARTIFACT_ID_COLUMN
 import de.schwarzland.mavenup.ui.MODULE_COLUMN
-import de.schwarzland.mavenup.ui.PROPERTY_COLUMN
-import de.schwarzland.mavenup.ui.TYPE_COLUMN
 import de.schwarzland.mavenup.ui.VULNERABILITIES_COLUMN
 import de.schwarzland.mavenup.ui.CURRENT_VERSION_COLUMN
 import de.schwarzland.mavenup.ui.NEW_VERSION_COLUMN
