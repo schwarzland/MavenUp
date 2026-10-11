@@ -3192,22 +3192,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
             }
 
         /**
-         * Prüft, ob eine redundante verwaltete Abhängigkeitsempfehlung zur Entfernung vorgemerkt wurde.
-         *
-         * @param rec Die Empfehlung zur Entfernung der redundanten verwalteten Abhängigkeit.
-         * @param type Der Typ des Eintrags (Standard: Managed Dependency).
-         * @return `true`, wenn der Eintrag beim nächsten Update entfernt wird.
-         */
-        internal fun isManagedEntryMarkedForRemoval(
-            rec: RedundantManagedDependencyRecommendation,
-            type: String = MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
-        ): Boolean = isManagedEntryMarkedForRemoval(
-            key = "${rec.groupId}:${rec.artifactId}",
-            type = type,
-            pomPath = rec.sourcePomPath.takeIf { it.isNotBlank() }
-        )
-
-        /**
          * Prüft, ob ein Eintrag aus der pom.xml entfernt werden kann.
          *
          * @param row Der zu prüfende Eintrag.

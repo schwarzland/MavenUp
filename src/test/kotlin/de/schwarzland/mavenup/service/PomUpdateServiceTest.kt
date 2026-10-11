@@ -588,9 +588,6 @@ class PomUpdateServiceTest : BasePlatformTestCase() {
         )
 
         WriteCommandAction.runWriteCommandAction(project) {
-            val managedDependencyType = de.schwarzland.mavenup.ui.MyMessageBundle.message(
-                de.schwarzland.mavenup.ui.TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY
-            )
             val updateDependenciesMethod = PomUpdateService::class.java.getDeclaredMethod(
                 "updateDependencies",
                 com.intellij.psi.xml.XmlTag::class.java,

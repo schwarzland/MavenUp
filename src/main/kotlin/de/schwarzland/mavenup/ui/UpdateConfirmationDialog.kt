@@ -41,7 +41,7 @@ class UpdateConfirmationDialog(
     private val isMultiModule = MavenProjectsManager.getInstance(project).projects.size > 1
     private val hasTransitiveUpdates = updates.any { it.transitive }
 
-    internal val targetPomComboBox: ComboBox<TargetPomMode> = ComboBox(TargetPomMode.values()).apply {
+    internal val targetPomComboBox: ComboBox<TargetPomMode> = ComboBox(TargetPomMode.entries.toTypedArray()).apply {
         selectedItem = TargetPomMode.ROOT_POM
         renderer = SimpleListCellRenderer.create("") { mode ->
             when (mode) {

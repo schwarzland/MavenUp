@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>de.schwarzland.mavenup.examples</groupId>
+    <artifactId>property-managed-redundancy</artifactId>
+    <version>1.0.0</version>
+
+    <name>MavenUp Example – Property-Based Dependency Management Redundancy</name>
+    <description>
+        Single-module project where dependency version is controlled via a Maven property (${commons-lang3.version}).
+        The artifact is declared both in dependencyManagement and as a direct dependency using the property.
+        The dependencyManagement entry is redundant – reason: DIRECT_DEPENDENCY_MATCH.
+    </description>
+
+    <properties>
+        <commons-lang3.version>3.12.0</commons-lang3.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- REDUNDANT: Version resolved via property matches direct dependency -->
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-lang3</artifactId>
+                <version>${commons-lang3.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <!-- Direct dependency with version specified via property -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>${commons-lang3.version}</version>
+        </dependency>
+    </dependencies>
+
+</project>

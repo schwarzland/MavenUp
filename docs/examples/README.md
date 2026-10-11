@@ -11,10 +11,18 @@ Each example can be imported into IntelliJ IDEA as a standalone Maven project to
 | 1 | [Parent Managed – Same Version](01-parent-managed-same-version/) | `PARENT_MANAGED` | Child POM declares `dependencyManagement` with the same version as the parent already manages |
 | 2 | [Parent Managed – Higher Version](02-parent-managed-higher-version/) | `PARENT_MANAGED` | Child POM declares `dependencyManagement` with a lower version than the parent manages |
 | 3 | [Direct Dependency Match](03-direct-dependency-match/) | `DIRECT_DEPENDENCY_MATCH` | A managed dependency has an explicit direct dependency with the same version |
-| 4 | [Transitive Match](04-transitive-match/) | `TRANSITIVE_MATCH` | A managed dependency is provided transitively by another dependency at an equal or higher version |
+| 4 | [Transitive Match (Higher Version)](04-transitive-match/) | `TRANSITIVE_MATCH` | A managed dependency is provided transitively by another dependency at a higher version |
 | 5 | [Unused Managed](05-unused-managed/) | `UNUSED` | A managed dependency is not used directly or transitively in any module |
 | 6 | [Multi-Module Mixed](06-multi-module-mixed/) | Multiple | A multi-module project demonstrating mixed redundancy scenarios across modules |
 | 7 | [Multi-Module BOM Import](07-multi-module-bom-import/) | `TRANSITIVE_MATCH` | A multi-module project with BOM import where a module redundantly re-declares a BOM-managed dependency |
+| 8 | [Direct Dependency Higher Version](08-direct-dependency-higher-version/) | `DIRECT_DEPENDENCY_MATCH` | A managed dependency where the explicit direct dependency specifies a higher version |
+| 9 | [Transitive Match (Same Version)](09-transitive-match-same-version/) | `TRANSITIVE_MATCH` | A managed dependency is transitively provided at the exact same version |
+| 10 | [Multi-Tier Grandparent Inheritance](10-multi-tier-grandparent-inheritance/) | `PARENT_MANAGED` | Multi-level hierarchy (Grandparent → Parent → Child) where child redundantly manages grandparent version |
+| 11 | [Property-Based Redundancy](11-property-managed-redundancy/) | `DIRECT_DEPENDENCY_MATCH` | Managed and direct dependency versions defined via Maven properties |
+| 12 | [Rule Precedence Overlap](12-rule-precedence-overlap/) | `PARENT_MANAGED` | Both `PARENT_MANAGED` and `DIRECT_DEPENDENCY_MATCH` conditions met; parent rule takes precedence |
+| 13 | [Parent Unused in Multi-Module](13-parent-unused-multi-module/) | `UNUSED` | Root/Parent POM declares a managed dependency that is not used in any sub-module |
+| 14 | [Version Pinning Override (Boundary)](14-version-pinning-override/) | _None (Not Redundant)_ | Child POM overrides parent with a higher version; removing it would cause a downgrade |
+| 15 | [Transitive Exclusion (Boundary)](15-transitive-exclusion-non-redundant/) | _None (Not Redundant)_ | Transitive artifact is excluded in direct dependency, making the managed entry essential |
 
 ## How to Use
 
@@ -45,7 +53,9 @@ A `dependencyManagement` entry is redundant because the artifact is not used in 
 These examples use real, stable Maven artifacts:
 
 - `org.apache.commons:commons-lang3`
+- `org.apache.commons:commons-collections4`
 - `org.slf4j:slf4j-api`
+- `ch.qos.logback:logback-classic`
 - `com.fasterxml.jackson.core:jackson-core`
 - `com.fasterxml.jackson.core:jackson-databind`
 - `org.apache.logging.log4j:log4j-core`

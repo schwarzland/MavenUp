@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>de.schwarzland.mavenup.examples</groupId>
+        <artifactId>rule-precedence-overlap</artifactId>
+        <version>1.0.0</version>
+    </parent>
+
+    <artifactId>child</artifactId>
+
+    <name>MavenUp Example – Rule Precedence Overlap (Child)</name>
+    <description>
+        Child POM that redundantly declares slf4j-api:2.0.9 in dependencyManagement AND also declares
+        slf4j-api:2.0.9 as a direct dependency with explicit version.
+        Because PARENT_MANAGED has higher evaluation priority than DIRECT_DEPENDENCY_MATCH,
+        MavenUp identifies PARENT_MANAGED as the primary redundancy reason.
+    </description>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- 
+                REDUNDANT: Matches PARENT_MANAGED (parent manages 2.0.9)
+                AND DIRECT_DEPENDENCY_MATCH (direct dependency has explicit version 2.0.9).
+                Reason assigned: PARENT_MANAGED (priority rule).
+            -->
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-api</artifactId>
+                <version>2.0.9</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <!-- Direct dependency with explicit version matching managed version -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>2.0.9</version>
+        </dependency>
+    </dependencies>
+
+</project>

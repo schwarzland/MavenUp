@@ -274,7 +274,7 @@ class VersionSelectionIntegrationTest : BasePlatformTestCase() {
             null
         )
         window.applyAutomaticVersionSearchState(state)
-        val table = requireNotNull(findTable(window.getContent()))
+        requireNotNull(findTable(window.getContent()))
 
         // 1. Highest Minor (gleiche Major-Linie)
         window.selectHighestMinorVersionForAll(visibleOnly = false)
