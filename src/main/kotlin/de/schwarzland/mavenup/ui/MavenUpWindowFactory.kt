@@ -2945,12 +2945,40 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * @param currentVersion Die aktuell in der Tabelle angezeigte Version.
          */
         internal fun markManagedEntryForRemoval(key: String, type: String, currentVersion: String) {
+            markManagedEntryForRemoval(key, type, currentVersion, null)
+        }
+
+        /**
+         * Markiert einen verwalteten Eintrag zur Entfernung beim nächsten Update unter Angabe des Quell-POM-Pfads.
+         *
+         * @param key Der Schlüssel (`groupId:artifactId`) des verwalteten Eintrags.
+         * @param type Der Typ des Eintrags.
+         * @param currentVersion Die aktuell in der Tabelle angezeigte Version.
+         * @param pomPath Der absolute Pfad zur `pom.xml`, aus der der Eintrag stammt, oder `null`.
+         */
+        internal fun markManagedEntryForRemoval(
+            key: String,
+            type: String,
+            currentVersion: String,
+            pomPath: String?
+        ) {
             if (isUpdating || !isManagedEntryType(type)) return
             selectedVersions.remove(key)
-            val row = modelRows.firstOrNull { it.key == key && it.type == type }
+            val row = if (!pomPath.isNullOrBlank()) {
+                modelRows.firstOrNull { it.key == key && it.type == type && it.pomFile?.path == pomPath }
+                    ?: modelRows.firstOrNull { it.key == key && it.type == type }
+            } else {
+                modelRows.firstOrNull { it.key == key && it.type == type }
+            }
             if (row != null) {
                 markManagedEntryForRemoval(row)
                 return
+            }
+            val pomFile = if (!pomPath.isNullOrBlank()) {
+                val ioFile = java.io.File(pomPath)
+                com.intellij.openapi.vfs.LocalFileSystem.getInstance().findFileByIoFile(ioFile)
+            } else {
+                null
             }
             val update = DependencyUpdate(
                 groupId = key.substringBefore(":"),
@@ -2958,13 +2986,40 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 type = type,
                 oldVersion = currentVersion,
                 newVersion = currentVersion,
-                removeFromPom = true
+                removeFromPom = true,
+                pomFile = pomFile
             )
-            pendingManagedRemovalUpdates[managedRemovalKey(key, type)] = update
+            val removalKey = if (pomFile != null) {
+                "${pomFile.path}|$type|$key"
+            } else if (!pomPath.isNullOrBlank()) {
+                "$pomPath|$type|$key"
+            } else {
+                managedRemovalKey(key, type)
+            }
+            pendingManagedRemovalUpdates[removalKey] = update
             cancelActiveCellEditing()
             table.repaint()
             updateUpdateButtonState()
             applyRowFilter()
+        }
+
+        /**
+         * Markiert eine redundante verwaltete Abhängigkeitsempfehlung zur Entfernung beim nächsten Update.
+         *
+         * @param rec Die Empfehlung zur Entfernung der redundanten verwalteten Abhängigkeit.
+         * @param type Der Typ des Eintrags (Standard: Managed Dependency).
+         */
+        internal fun markManagedEntryForRemoval(
+            rec: RedundantManagedDependencyRecommendation,
+            type: String = MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
+        ) {
+            val managedKey = "${rec.groupId}:${rec.artifactId}"
+            markManagedEntryForRemoval(
+                key = managedKey,
+                type = type,
+                currentVersion = rec.currentVersion,
+                pomPath = rec.sourcePomPath.takeIf { it.isNotBlank() }
+            )
         }
 
         /**
@@ -2995,8 +3050,40 @@ class MavenUpWindowFactory : ToolWindowFactory {
          * @return `true`, wenn der Eintrag beim nächsten Update entfernt wird.
          */
         internal fun isManagedEntryMarkedForRemoval(key: String, type: String): Boolean =
-            pendingManagedRemovalUpdates.containsKey(managedRemovalKey(key, type)) ||
-                pendingManagedRemovalUpdates.keys.any { it.endsWith("|$type|$key") }
+            isManagedEntryMarkedForRemoval(key, type, null)
+
+        /**
+         * Prüft, ob ein verwalteter Eintrag zur Entfernung vorgemerkt wurde unter Angabe des Quell-POM-Pfads.
+         *
+         * @param key Der Schlüssel (`groupId:artifactId`) des verwalteten Eintrags.
+         * @param type Der Typ des Eintrags.
+         * @param pomPath Der absolute Pfad zur `pom.xml`, aus der der Eintrag stammt, oder `null`.
+         * @return `true`, wenn der Eintrag beim nächsten Update entfernt wird.
+         */
+        internal fun isManagedEntryMarkedForRemoval(key: String, type: String, pomPath: String?): Boolean =
+            if (!pomPath.isNullOrBlank()) {
+                pendingManagedRemovalUpdates.containsKey("$pomPath|$type|$key") ||
+                    pendingManagedRemovalUpdates.containsKey(managedRemovalKey(key, type))
+            } else {
+                pendingManagedRemovalUpdates.containsKey(managedRemovalKey(key, type)) ||
+                    pendingManagedRemovalUpdates.keys.any { it.endsWith("|$type|$key") }
+            }
+
+        /**
+         * Prüft, ob eine redundante verwaltete Abhängigkeitsempfehlung zur Entfernung vorgemerkt wurde.
+         *
+         * @param rec Die Empfehlung zur Entfernung der redundanten verwalteten Abhängigkeit.
+         * @param type Der Typ des Eintrags (Standard: Managed Dependency).
+         * @return `true`, wenn der Eintrag beim nächsten Update entfernt wird.
+         */
+        internal fun isManagedEntryMarkedForRemoval(
+            rec: RedundantManagedDependencyRecommendation,
+            type: String = MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
+        ): Boolean = isManagedEntryMarkedForRemoval(
+            key = "${rec.groupId}:${rec.artifactId}",
+            type = type,
+            pomPath = rec.sourcePomPath.takeIf { it.isNotBlank() }
+        )
 
         /**
          * Prüft, ob ein Eintrag aus der pom.xml entfernt werden kann.
@@ -3830,8 +3917,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             if (recs.isEmpty()) return
             val managedType = MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
             for (rec in recs) {
-                val managedKey = "${rec.groupId}:${rec.artifactId}"
-                markManagedEntryForRemoval(managedKey, managedType, rec.currentVersion)
+                markManagedEntryForRemoval(rec, managedType)
             }
 
             cancelActiveCellEditing()
