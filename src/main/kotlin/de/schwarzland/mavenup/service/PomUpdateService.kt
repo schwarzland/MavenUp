@@ -65,30 +65,68 @@ internal class PomUpdateService(private val project: Project) {
         val rootPomFile = rootProjects.firstOrNull()?.file ?: allProjects.firstOrNull()?.file
 
         return updates.flatMap { update ->
-            if (!update.transitive || update.pomFile != null) {
-                listOf(update)
-            } else {
-                when (targetPomMode) {
-                    TargetPomMode.ROOT_POM -> {
-                        listOf(if (rootPomFile != null) update.copy(pomFile = rootPomFile) else update)
-                    }
-                    TargetPomMode.ALL_MODULES -> {
-                        listOf(update.copy(pomFile = null))
-                    }
-                    TargetPomMode.AFFECTED_MODULES -> {
-                        val affectedProjects = allProjects.filter {
-                            isDependencyInTree(it, update.groupId, update.artifactId)
-                        }
-                        if (affectedProjects.isNotEmpty()) {
-                            affectedProjects.map { update.copy(pomFile = it.file) }
-                        } else {
-                            listOf(if (rootPomFile != null) update.copy(pomFile = rootPomFile) else update)
-                        }
-                    }
-                }
-            }
+            resolveSingleUpdate(update, targetPomMode, rootPomFile, allProjects)
         }
     }
+
+    /**
+     * Löst ein einzelnes Update auf die passende Ziel-POM auf.
+     *
+     * Nicht-transitive Updates oder Updates mit bereits explizit gesetzter [DependencyUpdate.pomFile]
+     * werden unverändert zurückgegeben; transitive Pins werden über [resolveTransitiveUpdate] aufgelöst.
+     */
+    private fun resolveSingleUpdate(
+        update: DependencyUpdate,
+        targetPomMode: TargetPomMode,
+        rootPomFile: VirtualFile?,
+        allProjects: List<MavenProject>
+    ): List<DependencyUpdate> {
+        if (!update.transitive || update.pomFile != null) {
+            return listOf(update)
+        }
+        return resolveTransitiveUpdate(update, targetPomMode, rootPomFile, allProjects)
+    }
+
+    /**
+     * Löst einen transitiven Pin ohne festgelegte POM-Datei anhand des [targetPomMode] auf.
+     */
+    private fun resolveTransitiveUpdate(
+        update: DependencyUpdate,
+        targetPomMode: TargetPomMode,
+        rootPomFile: VirtualFile?,
+        allProjects: List<MavenProject>
+    ): List<DependencyUpdate> = when (targetPomMode) {
+        TargetPomMode.ROOT_POM -> listOf(updateWithRootPomFallback(update, rootPomFile))
+        TargetPomMode.ALL_MODULES -> listOf(update.copy(pomFile = null))
+        TargetPomMode.AFFECTED_MODULES -> resolveAffectedModules(update, allProjects, rootPomFile)
+    }
+
+    /**
+     * Löst einen transitiven Pin für [TargetPomMode.AFFECTED_MODULES] auf die Module auf, deren
+     * Abhängigkeitsbaum die Koordinate enthält, oder fällt auf die Root-POM zurück.
+     */
+    private fun resolveAffectedModules(
+        update: DependencyUpdate,
+        allProjects: List<MavenProject>,
+        rootPomFile: VirtualFile?
+    ): List<DependencyUpdate> {
+        val affectedProjects = allProjects.filter {
+            isDependencyInTree(it, update.groupId, update.artifactId)
+        }
+        return if (affectedProjects.isNotEmpty()) {
+            affectedProjects.map { update.copy(pomFile = it.file) }
+        } else {
+            listOf(updateWithRootPomFallback(update, rootPomFile))
+        }
+    }
+
+    /**
+     * Gibt das Update mit [rootPomFile] als Ziel-POM zurück, falls vorhanden, sonst das unveränderte Update.
+     */
+    private fun updateWithRootPomFallback(
+        update: DependencyUpdate,
+        rootPomFile: VirtualFile?
+    ): DependencyUpdate = if (rootPomFile != null) update.copy(pomFile = rootPomFile) else update
 
     /**
      * Prüft, ob ein Maven-Projekt die gesuchte Koordinate in seinem aufgelösten Abhängigkeitsbaum enthält.
