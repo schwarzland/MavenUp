@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>de.schwarzland.mavenup.examples</groupId>
+        <artifactId>multi-module-bom-import</artifactId>
+        <version>1.0.0</version>
+    </parent>
+
+    <artifactId>module-a</artifactId>
+
+    <name>MavenUp Example – Multi-Module BOM Import (Module A)</name>
+    <description>
+        Module A uses spring-web, which is managed by the Spring Boot BOM imported by the parent.
+        No version is specified here – the BOM provides it.
+    </description>
+
+    <dependencies>
+        <!-- spring-web version comes from the Spring Boot BOM imported by the parent -->
+        <dependency>
+            <groupId>org.springframework</groupId>
+            <artifactId>spring-web</artifactId>
+        </dependency>
+    </dependencies>
+
+</project>
