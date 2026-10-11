@@ -27,6 +27,7 @@
 
 ### Fixed
 
+- **Fixed toolbar managed entries bulk comment-out/removal in multi-module projects** by processing all matching rows across all modules instead of deduplicating by coordinate and only updating the first matching row.
 - **Fixed multi-module POM navigation** by associating each table row with its originating `pom.xml` file (`VirtualFile`), ensuring "Navigate to POM" opens the correct file instead of always the first module matching coordinates.
 - **Fixed workspace parent POM resolution in redundancy checks** by resolving in-workspace Maven projects in `TemporaryDependencyTreeResolver`, allowing "Check Managed Dependencies for Redundancy..." to find redundant managed dependencies inherited from workspace parent POMs.
 - **Fixed table version selection across multi-module entries** by isolating row selections with file- and type-specific keys and avoiding synchronization across entries without explicit, non-blank Maven properties.

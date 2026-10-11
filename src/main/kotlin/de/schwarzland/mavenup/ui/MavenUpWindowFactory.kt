@@ -3472,24 +3472,51 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 baseLabel
             }
 
-        private fun hasManagedEntriesToRemoveForType(type: String): Boolean =
-           !isUpdating && knownTypes.values.any { it == type }
+        internal fun hasManagedEntriesToRemoveForType(type: String): Boolean =
+            !isUpdating && (
+                if (modelRows.isNotEmpty()) {
+                    modelRows.any { it.type == type }
+                } else {
+                    knownTypes.values.any { it == type }
+                }
+            )
 
         private fun collectManagedEntryKeysForType(type: String, visibleOnly: Boolean): Set<String> {
-           val allKeys = if (visibleOnly) collectVisibleDependencyKeys() else knownTypes.keys
-           return allKeys.filterTo(mutableSetOf()) { key -> knownTypes[key] == type }
+            val allKeys = if (visibleOnly) collectVisibleDependencyKeys() else knownTypes.keys
+            return allKeys.filterTo(mutableSetOf()) { key -> knownTypes[key] == type }
         }
 
-        private fun removeManagedEntriesOfType(type: String, visibleOnly: Boolean) {
-           val keys = collectManagedEntryKeysForType(type, visibleOnly)
-           if (keys.isEmpty()) return
-           for (key in keys) {
-               val currentVersion = knownDependencies[key] ?: ""
-               markManagedEntryForRemoval(key, type, currentVersion)
-           }
-           table.repaint()
-           updateUpdateButtonState()
-           applyRowFilter()
+        internal fun removeManagedEntriesOfType(type: String, visibleOnly: Boolean) {
+            if (modelRows.isNotEmpty()) {
+                val targetRows = if (visibleOnly) {
+                    val count = table.rowCount
+                    (0 until count).mapNotNull { viewRow ->
+                        val modelRow = table.convertRowIndexToModel(viewRow)
+                        if (modelRow in modelRows.indices) modelRows[modelRow] else null
+                    }
+                } else {
+                    modelRows
+                }
+                val matchingRows = targetRows.filter { it.type == type }
+                if (matchingRows.isEmpty()) return
+                for (row in matchingRows) {
+                    markManagedEntryForRemoval(row)
+                }
+                table.repaint()
+                updateUpdateButtonState()
+                applyRowFilter()
+                return
+            }
+
+            val keys = collectManagedEntryKeysForType(type, visibleOnly)
+            if (keys.isEmpty()) return
+            for (key in keys) {
+                val currentVersion = knownDependencies[key] ?: ""
+                markManagedEntryForRemoval(key, type, currentVersion)
+            }
+            table.repaint()
+            updateUpdateButtonState()
+            applyRowFilter()
         }
 
         private fun confirmAndRemoveManagedEntries(type: String) {

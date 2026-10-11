@@ -4064,6 +4064,101 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         )
     }
 
+    fun testRemoveManagedEntriesOfTypeMarksAllMatchingRowsAcrossModules() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+        val managedDependency = MyMessageBundle.message("toolwindow.MyToolWindow.type.managedDependency")
+
+        val parentPomFile = myFixture.tempDirFixture.createFile("pom.xml")
+        val childPomFile = myFixture.tempDirFixture.createFile("child/pom.xml")
+
+        val parentRow = RefreshRow(
+            groupId = "org.apache.commons",
+            artifactId = "commons-lang3",
+            propertyName = "",
+            type = managedDependency,
+            currentVersion = "3.12.0",
+            pomFile = parentPomFile
+        )
+        val childRow = RefreshRow(
+            groupId = "org.apache.commons",
+            artifactId = "commons-lang3",
+            propertyName = "",
+            type = managedDependency,
+            currentVersion = "3.12.0",
+            pomFile = childPomFile
+        )
+
+        toolWindow.applyAutomaticVersionSearchState(
+            AutomaticVersionSearchState(
+                snapshot = RefreshSnapshot(listOf(parentRow, childRow), emptyMap()),
+                versionSearchResult = null,
+                repositoryError = null
+            )
+        )
+
+        assertTrue(toolWindow.hasManagedEntriesToRemoveForType(managedDependency))
+
+        toolWindow.removeManagedEntriesOfType(managedDependency, visibleOnly = false)
+
+        assertTrue(toolWindow.isManagedEntryMarkedForRemoval(parentRow))
+        assertTrue(toolWindow.isManagedEntryMarkedForRemoval(childRow))
+
+        val updates = toolWindow.collectSelectedUpdates()
+        assertEquals(2, updates.size)
+        assertTrue(updates.all { it.removeFromPom && it.groupId == "org.apache.commons" && it.artifactId == "commons-lang3" })
+        assertEquals(
+            setOf(parentPomFile.path, childPomFile.path),
+            updates.mapNotNull { it.pomFile?.path }.toSet()
+        )
+    }
+
+    fun testRemoveManagedEntriesOfTypeRespectsVisibleOnlyFilter() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val content = toolWindow.getContent()
+        val table = findTable(content)!!
+        val managedDependency = MyMessageBundle.message("toolwindow.MyToolWindow.type.managedDependency")
+
+        val pom1 = myFixture.tempDirFixture.createFile("mod1/pom.xml")
+        val pom2 = myFixture.tempDirFixture.createFile("mod2/pom.xml")
+
+        val row1 = RefreshRow(
+            groupId = "org.apache.commons",
+            artifactId = "commons-lang3",
+            propertyName = "",
+            type = managedDependency,
+            currentVersion = "3.12.0",
+            pomFile = pom1
+        )
+        val row2 = RefreshRow(
+            groupId = "com.google.guava",
+            artifactId = "guava",
+            propertyName = "",
+            type = managedDependency,
+            currentVersion = "31.1-jre",
+            pomFile = pom2
+        )
+
+        toolWindow.applyAutomaticVersionSearchState(
+            AutomaticVersionSearchState(
+                snapshot = RefreshSnapshot(listOf(row1, row2), emptyMap()),
+                versionSearchResult = null,
+                repositoryError = null
+            )
+        )
+
+        // Filter auf "commons-lang3" über Suchfeld setzen
+        toolWindow.searchTextField.text = "commons-lang3"
+        toolWindow.applyRowFilter()
+
+        assertEquals(1, table.rowCount)
+
+        toolWindow.removeManagedEntriesOfType(managedDependency, visibleOnly = true)
+
+        assertTrue(toolWindow.isManagedEntryMarkedForRemoval(row1))
+        assertFalse(toolWindow.isManagedEntryMarkedForRemoval(row2))
+    }
+
     /**
      * Ermittelt den Splitter zwischen der Haupttabelle und dem Hierarchiepanel.
      *
