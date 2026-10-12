@@ -85,16 +85,23 @@ Marketplace graphics are structured under `docs/assets/marketplace/`:
 
 ```text
 docs/assets/marketplace/
-├── custom/               # JetBrains Marketplace Custom Pages (.md)
-├── raw/                  # Unprocessed raw UI screenshots (HiDPI / 2x resolution)
-│   ├── dependencies_raw.png
-│   └── vulnerabilities_raw.png
+├── README.md             # Asset workflow and visual guidelines
+├── custom/
+│   ├── README.md
+│   ├── getting-started.md
+│   ├── privacy-and-security.md
+│   ├── vulnerability-management.md
+│   └── configuration-and-faq.md
+├── raw/                  # Unprocessed raw UI screenshots
+│   ├── configuration.png
+│   └── confirmChanges.png
 ├── src/                  # Editable source diagrams (.drawio.svg)
-│   ├── screenshot_01_main_view.drawio.svg
-│   └── screenshot_02_cve_details.drawio.svg
-└── dist/                 # Rendered distribution images for Marketplace & README (.png)
-    ├── 01_dependency_management.png
-    └── 02_vulnerability_scanner.png
+│   ├── _template.drawio.svg
+│   ├── configuration.drawio.svg
+│   └── confirmChanges_and_pom.xml.drawio.svg
+└── dist/                 # Rendered distribution images (.png)
+    ├── configuration.png
+    └── confirmChanges_and_pom.xml.png
 ```
 
 ### Visual guidelines and JetBrains look & feel

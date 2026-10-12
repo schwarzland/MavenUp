@@ -5,8 +5,9 @@ IntelliJ-Plugin (Kotlin/Gradle, IntelliJ Platform Plugin) für **Maven-Projekte*
 Zeigt alle Dependencies/Plugins aus `pom.xml`-Dateien (inkl. `<parent>`, `dependencyManagement`/
 `pluginManagement`) in einer Tabelle im MavenUp-Tool-Window, prüft verfügbare neue
 Versionen gegen Maven Central + private Repositories (aus `settings.xml`,
-inkl. Credential-Placeholder-Auflösung), und schreibt gewählte Versions-Updates
-nach Bestätigung zurück in die `pom.xml` (Property-aware).
+inkl. Credential-Placeholder-Auflösung), und übernimmt nach Bestätigung gewählte
+Versionsänderungen sowie zur Entfernung vorgemerkte verwaltete Einträge in die betroffenen
+`pom.xml`-Dateien; ein Maven-Reimport kann optional folgen (Property-aware).
 
 - Group: `de.schwarzland`, aktuelle Version: siehe `gradle.properties` (`version=...`)
 - Sprache Code: Kotlin; Build: Gradle (`build.gradle.kts`, `settings.gradle.kts`)
@@ -27,7 +28,7 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
 ## Kernkomponenten (`src/main/kotlin/de/schwarzland/mavenup/`)
 
 ### Paketstruktur
-- **`model`**: `DependencyUpdate`, `VulnerabilityAdvisory`, `VulnerabilitySeverity`, `AffectedVersionRange`, `DependencyHierarchyNode`, `DependencyHierarchyNodeType`, `RedundantManagedDependencyRecommendation`, `ConsumerDependencyInfo`, `TemporaryArtifactCoordinate`, `TemporaryDependencyNode` – reine Daten-DTOs ohne Logik.
+- **`model`**: `ApiError`, `ApiErrorCause`, `ApiErrorSource`, `AffectedVersionRange`, `ConsumerDependencyInfo`, `DependencyHierarchyNode`, `DependencyHierarchyNodeType`, `DependencyUpdate`, `MavenUpBadgeState`, `RedundancyReason`, `RedundantManagedDependencyRecommendation`, `TargetPomMode`, `TemporaryArtifactCoordinate`, `TemporaryDependencyNode`, `VulnerabilityAdvisory`, `VulnerabilitySeverity` – Datenmodelle und zugehörige Modelllogik.
 - **`service`**: Alle externen API-Zugriffe, Settings, Startup-Logik, Abhängigkeitshierarchie-Analyse, temporäre POM-Auflösung, Redundanzprüfungen und Hilfsfunktionen.
 - **`ui`**: Tool-Window, Dialoge, Settings-UI, I18n-Bundle sowie ausgelagerte, zustandslose UI-Hilfsdateien.
 
@@ -38,7 +39,7 @@ Die ausführliche Beschreibung aller Klassen ist nach Package aufgeteilt:
 - [`context/components-ui-dialogs.md`](context/components-ui-dialogs.md): Dialoge, transitive Sicherheitslücken-Ansicht und Settings-UI.
 - [`context/components-service.md`](context/components-service.md): Startup/Tool-Window-Aktivierung, Einstellungen und Message-Bus, API- und Sicherheitsservices, Sicherheitsdatenmodell, PSI- und Maven-Services.
 
-Wird eine Klasse hinzugefügt, umbenannt oder entfernt, ist sie in der thematisch passenden dieser beiden Dateien zu pflegen – nicht in dieser Übersicht.
+Wird eine Klasse hinzugefügt, umbenannt oder entfernt, ist sie in der thematisch passenden dieser Dateien zu pflegen – nicht in dieser Übersicht.
 
 ## Tests
 `src/test/kotlin/de/schwarzland/mavenup/` spiegelt die Paketstruktur (`model`, `service`, `ui`).

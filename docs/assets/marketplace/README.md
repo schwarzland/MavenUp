@@ -10,24 +10,23 @@ The visual assets use a **vector overlay approach** based on Draw.io / Diagrams.
 
 ```text
 docs/assets/marketplace/
-├── README.md             # This guide
-├── custom/               # JetBrains Marketplace Custom Pages (Markdown tabs)
+├── README.md
+├── custom/
 │   ├── README.md
 │   ├── getting-started.md
 │   ├── privacy-and-security.md
 │   ├── vulnerability-management.md
 │   └── configuration-and-faq.md
-├── raw/                  # Unprocessed raw UI screenshots (HiDPI / 2x resolution)
-│   ├── main_withoutVulnerabilities.png
-│   ├── main_selectNewVersion.png
-│   └── ...
+├── raw/                  # Unprocessed raw UI screenshots
+│   ├── configuration.png
+│   └── confirmChanges.png
 ├── src/                  # Editable vector source diagrams (.drawio.svg)
-│   ├── template.drawio.svg              # Master template & component palette
-│   ├── 01_dependency_management.drawio.svg
-│   └── ...
-└── dist/                 # Exported production images for Marketplace & README (.png)
-    ├── 01_dependency_management.png
-    └── ...
+│   ├── _template.drawio.svg
+│   ├── configuration.drawio.svg
+│   └── confirmChanges_and_pom.xml.drawio.svg
+└── dist/                 # Rendered distribution images (.png)
+    ├── configuration.png
+    └── confirmChanges_and_pom.xml.png
 ```
 
 ---
@@ -45,11 +44,11 @@ docs/assets/marketplace/
 
 ### Step 1: Copy the Master Template
 
-Do **not** modify `template.drawio.svg` directly. Instead, create a copy for each new screenshot:
+Do **not** modify `docs/assets/marketplace/src/_template.drawio.svg` directly. Instead, create a copy for each new screenshot:
 
-1. Copy `docs/assets/marketplace/src/template.drawio.svg`.
-2. Rename the copy to match the intended screenshot name, for example:  
-   `docs/assets/marketplace/src/01_dependency_management.drawio.svg`.
+1. Copy `docs/assets/marketplace/src/_template.drawio.svg`.
+2. Rename the copy to match the intended screenshot name, for example:
+   `docs/assets/marketplace/src/configuration.drawio.svg`.
 
 ### Step 2: Open the File in IntelliJ IDEA
 

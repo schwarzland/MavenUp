@@ -28,6 +28,8 @@
 - **Renamed row context menu actions** to "Select Highest Major Version", "Select Highest Minor Version", and "Select Recommended Version" to align with the toolbar selection menu.
 - Moved the **Hierarchy** toolbar action to the right of **Vulnerability Details** so selection-dependent actions are grouped in a clearer left-to-right flow.
 - Refactored tool window version selection, table cell editing, and update collection routines to reduce method cognitive complexity and improve maintainability.
+- Aligned the Copilot project context with the current model inventory, update workflow, and component-reference structure.
+- Corrected the documented vulnerability cache duration, Marketplace asset paths, and privacy claims to match repository evidence.
 
 ### Fixed
 
