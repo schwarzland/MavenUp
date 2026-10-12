@@ -146,7 +146,7 @@ class DependencyHierarchyService(private val project: Project) {
     ) {
         if (rootTag == null) return
 
-        collectParentPomNode(rootTag, pomFile, effectiveProperties, projectNode)
+        collectParentPomNode(rootTag, pomFile, targetGroupId, targetArtifactId, effectiveProperties, projectNode)
         collectDependencyManagementNodes(rootTag, pomFile, targetGroupId, targetArtifactId, effectiveProperties, projectNode)
         collectDirectDependencyNodes(rootTag, pomFile, targetGroupId, targetArtifactId, effectiveProperties, projectNode)
     }
@@ -154,12 +154,16 @@ class DependencyHierarchyService(private val project: Project) {
     private fun collectParentPomNode(
         rootTag: XmlTag,
         pomFile: VirtualFile,
+        targetGroupId: String,
+        targetArtifactId: String,
         effectiveProperties: Map<String, String>,
         projectNode: DependencyHierarchyNode
     ) {
         val parentTag = rootTag.findFirstSubTag("parent") ?: return
         val g = parentTag.findFirstSubTag("groupId")?.value?.text?.trim().orEmpty()
         val a = parentTag.findFirstSubTag("artifactId")?.value?.text?.trim().orEmpty()
+        if (g != targetGroupId || a != targetArtifactId) return
+
         val v = parentTag.findFirstSubTag("version")?.value?.text?.trim().orEmpty()
         val rawVersion = parentTag.findFirstSubTag("version")?.value?.trimmedText
         val propName = extractPropertyName(rawVersion)
@@ -200,20 +204,22 @@ class DependencyHierarchyService(private val project: Project) {
             val resolvedVersion = resolvePropertyPlaceholder(v, effectiveProperties)
 
             if (type.equals("pom", ignoreCase = true) && scope.equals("import", ignoreCase = true)) {
-                projectNode.children.add(
-                    DependencyHierarchyNode(
-                        type = DependencyHierarchyNodeType.BOM_IMPORT,
-                        groupId = g,
-                        artifactId = a,
-                        version = resolvedVersion.ifBlank { null },
-                        rawVersion = rawVersion,
-                        propertyName = propName,
-                        scope = scope,
-                        isManaged = true,
-                        pomFile = pomFile,
-                        xmlTag = depTag
+                if (g == targetGroupId && a == targetArtifactId) {
+                    projectNode.children.add(
+                        DependencyHierarchyNode(
+                            type = DependencyHierarchyNodeType.BOM_IMPORT,
+                            groupId = g,
+                            artifactId = a,
+                            version = resolvedVersion.ifBlank { null },
+                            rawVersion = rawVersion,
+                            propertyName = propName,
+                            scope = scope,
+                            isManaged = true,
+                            pomFile = pomFile,
+                            xmlTag = depTag
+                        )
                     )
-                )
+                }
             } else if (g == targetGroupId && a == targetArtifactId) {
                 projectNode.children.add(
                     DependencyHierarchyNode(
@@ -294,23 +300,25 @@ class DependencyHierarchyService(private val project: Project) {
         if (parentTag != null) {
             val g = parentTag.findFirstSubTag("groupId")?.value?.text?.trim().orEmpty()
             val a = parentTag.findFirstSubTag("artifactId")?.value?.text?.trim().orEmpty()
-            val v = parentTag.findFirstSubTag("version")?.value?.text?.trim().orEmpty()
-            val rawVersion = parentTag.findFirstSubTag("version")?.value?.trimmedText
-            val propName = extractPropertyName(rawVersion)
-            val resolvedVersion = resolvePropertyPlaceholder(v, effectiveProperties)
+            if (g == targetGroupId && a == targetArtifactId) {
+                val v = parentTag.findFirstSubTag("version")?.value?.text?.trim().orEmpty()
+                val rawVersion = parentTag.findFirstSubTag("version")?.value?.trimmedText
+                val propName = extractPropertyName(rawVersion)
+                val resolvedVersion = resolvePropertyPlaceholder(v, effectiveProperties)
 
-            projectNode.children.add(
-                DependencyHierarchyNode(
-                    type = DependencyHierarchyNodeType.PARENT_POM,
-                    groupId = g,
-                    artifactId = a,
-                    version = resolvedVersion.ifBlank { null },
-                    rawVersion = rawVersion,
-                    propertyName = propName,
-                    pomFile = pomFile,
-                    xmlTag = parentTag
+                projectNode.children.add(
+                    DependencyHierarchyNode(
+                        type = DependencyHierarchyNodeType.PARENT_POM,
+                        groupId = g,
+                        artifactId = a,
+                        version = resolvedVersion.ifBlank { null },
+                        rawVersion = rawVersion,
+                        propertyName = propName,
+                        pomFile = pomFile,
+                        xmlTag = parentTag
+                    )
                 )
-            )
+            }
         }
 
         val buildTag = rootTag.findFirstSubTag("build")

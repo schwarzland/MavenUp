@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>de.schwarzland.mavenup.examples</groupId>
+    <artifactId>unused-managed</artifactId>
+    <version>1.0.0</version>
+
+    <name>MavenUp Example – Unused Managed Dependency</name>
+    <description>
+        Single-module project where log4j-core:2.20.0 is declared in dependencyManagement,
+        but no dependency in the project uses log4j-core directly or transitively.
+        The dependencyManagement entry is redundant – reason: UNUSED.
+    </description>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- 
+                REDUNDANT: log4j-core is not used anywhere in this project.
+                No direct or transitive dependency references this artifact.
+            -->
+            <dependency>
+                <groupId>org.apache.logging.log4j</groupId>
+                <artifactId>log4j-core</artifactId>
+                <version>2.20.0</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <!-- 
+            This project uses slf4j, not log4j.
+            log4j-core in dependencyManagement is completely unused.
+        -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>2.0.9</version>
+        </dependency>
+    </dependencies>
+
+</project>

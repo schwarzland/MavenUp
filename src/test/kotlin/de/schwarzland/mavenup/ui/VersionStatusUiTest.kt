@@ -9,6 +9,25 @@ import com.intellij.testFramework.fixtures.BasePlatformTestCase
  */
 class VersionStatusUiTest : BasePlatformTestCase() {
 
+    /** Die aktuelle Version bleibt sichtbar, ohne die Repository-Kandidaten zu veraendern. */
+    fun testCreateVersionComboBoxDisplaysMissingCurrentVersionWithoutAddingCandidate() {
+        val versions = listOf("5.1.0-SNAPSHOT", "5.0.0")
+        val combo = createVersionComboBox(versions, "5.0.0-SNAPSHOT")
+        assertEquals("5.0.0-SNAPSHOT", combo.selectedItem)
+        assertEquals(versions, (0 until combo.itemCount).map { combo.getItemAt(it) })
+        assertFalse(combo.isEditable)
+        combo.selectedItem = "5.1.0-SNAPSHOT"
+        assertEquals("5.1.0-SNAPSHOT", combo.selectedItem)
+    }
+
+    /** Leere und regulaere Auswahlen fallen nicht implizit auf den ersten Kandidaten zurueck. */
+    fun testCreateVersionComboBoxHandlesEmptyAndAvailableSelections() {
+        assertNull(createVersionComboBox(listOf("2.0.0"), "").selectedItem)
+        assertNull(createVersionComboBox(emptyList(), "").selectedItem)
+        assertEquals("1.0.0", createVersionComboBox(emptyList(), "1.0.0").selectedItem)
+        assertEquals("1.0.0", createVersionComboBox(listOf("2.0.0", "1.0.0"), "1.0.0").selectedItem)
+    }
+
     fun testIsVersionUpToDateReturnsTrueWhenCurrentEqualsNewest() {
         assertTrue(isVersionUpToDate("1.0.0", "1.0.0"))
     }

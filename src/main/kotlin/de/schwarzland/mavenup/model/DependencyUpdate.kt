@@ -1,5 +1,7 @@
 package de.schwarzland.mavenup.model
 
+import com.intellij.openapi.vfs.VirtualFile
+
 /**
  * Repräsentiert ein Update für eine Maven-Abhängigkeit.
  *
@@ -19,6 +21,8 @@ package de.schwarzland.mavenup.model
  * deren primäre ID.
  * @property removeFromPom `true`, wenn der verwaltete Eintrag beim Anwenden aus der `pom.xml` entfernt
  * werden soll, statt seine Version zu aktualisieren.
+ * @property pomFile Die konkrete `pom.xml`-Datei, auf die das Update angewendet werden soll, oder `null`
+ * für alle passenden Dateien im Projekt.
  */
 data class DependencyUpdate(
     val groupId: String,
@@ -29,5 +33,6 @@ data class DependencyUpdate(
     val fixedVulnerabilities: List<String> = emptyList(),
     val transitive: Boolean = false,
     val fixedVulnerabilityAliases: List<String> = emptyList(),
-    val removeFromPom: Boolean = false
+    val removeFromPom: Boolean = false,
+    val pomFile: VirtualFile? = null
 )

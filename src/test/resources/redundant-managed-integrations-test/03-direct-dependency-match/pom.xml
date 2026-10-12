@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>de.schwarzland.mavenup.examples</groupId>
+    <artifactId>direct-dependency-match</artifactId>
+    <version>1.0.0</version>
+
+    <name>MavenUp Example – Direct Dependency Match</name>
+    <description>
+        Single-module project where slf4j-api:2.0.9 is declared in both dependencyManagement
+        and as a direct dependency with an explicit version.
+        The dependencyManagement entry is redundant – reason: DIRECT_DEPENDENCY_MATCH.
+    </description>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- REDUNDANT: slf4j-api is also declared as a direct dependency with version 2.0.9 -->
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-api</artifactId>
+                <version>2.0.9</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <!-- Direct dependency with explicit version matches the managed version -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>2.0.9</version>
+        </dependency>
+    </dependencies>
+
+</project>

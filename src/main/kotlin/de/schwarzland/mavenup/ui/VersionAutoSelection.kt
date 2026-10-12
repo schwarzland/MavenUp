@@ -32,28 +32,21 @@ internal fun latestVersionWithinSameMajor(currentVersion: String, versions: List
 }
 
 /**
- * Bildet eine empfohlene Fix-Version auf die tatsächlich auswählbaren Versionen ab.
+ * Prüft, ob eine empfohlene Fix-Version in den tatsächlich auswählbaren Versionen enthalten ist.
  *
- * Die Haupttabelle kann ausschließlich Versionen übernehmen, die im Dropdown der Spalte
- * „New Version" enthalten sind. Ist [recommendedVersion] selbst enthalten, wird sie übernommen;
- * andernfalls wird die niedrigste verfügbare Version gewählt, die mindestens so hoch ist wie die
- * Empfehlung. Existiert keine solche Version oder sind noch keine Versionen abgerufen, wird ein
- * leerer String geliefert, sodass die Aktion deaktiviert bleibt.
+ * Die Tabelle kann ausschließlich Versionen übernehmen, die im Dropdown der Spalte
+ * „New Version" enthalten sind. Ist [recommendedVersion] selbst in [versions] enthalten,
+ * wird sie übernommen. Existiert die empfohlene Version nicht in den verfügbaren Versionen
+ * (oder ist die Liste leer bzw. die Empfehlung leer), wird ein leerer String geliefert,
+ * sodass die Aktion deaktiviert bleibt.
  *
  * @param recommendedVersion Die empfohlene Fix-Version (kann leer sein).
  * @param versions Die verfügbaren, auswählbaren Versionen.
- * @return Die auswählbare Empfehlung oder ein leerer String, wenn keine geeignete Version existiert.
+ * @return Die empfohlene Version, wenn sie in [versions] existiert, sonst ein leerer String.
  */
 internal fun selectableRecommendedVersion(recommendedVersion: String, versions: List<String>): String {
     if (recommendedVersion.isEmpty() || versions.isEmpty()) return ""
-    if (versions.contains(recommendedVersion)) return recommendedVersion
-    val target = ComparableVersion(recommendedVersion)
-    return versions.asSequence()
-        .map { it to ComparableVersion(it) }
-        .filter { (_, parsed) -> parsed >= target }
-        .minByOrNull { it.second }
-        ?.first
-        .orEmpty()
+    return if (versions.contains(recommendedVersion)) recommendedVersion else ""
 }
 
 /**

@@ -6,6 +6,7 @@ import com.intellij.psi.xml.XmlComment
 import com.intellij.psi.xml.XmlFile
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 import de.schwarzland.mavenup.model.DependencyUpdate
+import de.schwarzland.mavenup.model.TargetPomMode
 
 /**
  * Testet das Anwenden von Versions-Updates auf `pom.xml`-Tags durch den [PomUpdateService],
@@ -552,5 +553,190 @@ class PomUpdateServiceTest : BasePlatformTestCase() {
 
         val pluginComments = PsiTreeUtil.findChildrenOfType(pluginsTag, XmlComment::class.java)
         assertTrue("No comments should be created when commenting out is disabled", pluginComments.isEmpty())
+    }
+
+    fun testUpdateChildDependencyDoesNotModifyChildManagedDependency() {
+        val pomContent = """
+            <project>
+                <dependencyManagement>
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.apache.commons</groupId>
+                            <artifactId>commons-lang3</artifactId>
+                            <version>3.12.0</version>
+                        </dependency>
+                    </dependencies>
+                </dependencyManagement>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.apache.commons</groupId>
+                        <artifactId>commons-lang3</artifactId>
+                        <version>3.12.0</version>
+                    </dependency>
+                </dependencies>
+            </project>
+        """.trimIndent()
+        val rootTag = (myFixture.configureByText("pom.xml", pomContent) as XmlFile).document!!.rootTag!!
+        val service = PomUpdateService(project)
+
+        val directUpdate = DependencyUpdate(
+            groupId = "org.apache.commons",
+            artifactId = "commons-lang3",
+            type = "dependency",
+            oldVersion = "3.12.0",
+            newVersion = "3.14.0"
+        )
+
+        WriteCommandAction.runWriteCommandAction(project) {
+            val updateDependenciesMethod = PomUpdateService::class.java.getDeclaredMethod(
+                "updateDependencies",
+                com.intellij.psi.xml.XmlTag::class.java,
+                DependencyUpdate::class.java,
+                com.intellij.psi.xml.XmlTag::class.java,
+                Boolean::class.javaPrimitiveType
+            ).apply { isAccessible = true }
+
+            updateDependenciesMethod.invoke(service, rootTag, directUpdate, null, false)
+        }
+
+        val dmVersion = rootTag.findFirstSubTag("dependencyManagement")
+            ?.findFirstSubTag("dependencies")
+            ?.findSubTags("dependency")
+            ?.firstOrNull()
+            ?.findFirstSubTag("version")
+            ?.value?.text
+
+        val directVersion = rootTag.findFirstSubTag("dependencies")
+            ?.findSubTags("dependency")
+            ?.firstOrNull()
+            ?.findFirstSubTag("version")
+            ?.value?.text
+
+        assertEquals("Managed dependency version must NOT be modified", "3.12.0", dmVersion)
+        assertEquals("Direct dependency version must be updated", "3.14.0", directVersion)
+    }
+
+    fun testUpdateChildManagedDependencyDoesNotModifyChildDirectDependency() {
+        val pomContent = """
+            <project>
+                <dependencyManagement>
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.apache.commons</groupId>
+                            <artifactId>commons-lang3</artifactId>
+                            <version>3.12.0</version>
+                        </dependency>
+                    </dependencies>
+                </dependencyManagement>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.apache.commons</groupId>
+                        <artifactId>commons-lang3</artifactId>
+                        <version>3.12.0</version>
+                    </dependency>
+                </dependencies>
+            </project>
+        """.trimIndent()
+        val rootTag = (myFixture.configureByText("pom.xml", pomContent) as XmlFile).document!!.rootTag!!
+        val service = PomUpdateService(project)
+
+        val managedUpdate = DependencyUpdate(
+            groupId = "org.apache.commons",
+            artifactId = "commons-lang3",
+            type = de.schwarzland.mavenup.ui.MyMessageBundle.message(
+                de.schwarzland.mavenup.ui.TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY
+            ),
+            oldVersion = "3.12.0",
+            newVersion = "3.14.0"
+        )
+
+        WriteCommandAction.runWriteCommandAction(project) {
+            val updateDependenciesMethod = PomUpdateService::class.java.getDeclaredMethod(
+                "updateDependencies",
+                com.intellij.psi.xml.XmlTag::class.java,
+                DependencyUpdate::class.java,
+                com.intellij.psi.xml.XmlTag::class.java,
+                Boolean::class.javaPrimitiveType
+            ).apply { isAccessible = true }
+
+            updateDependenciesMethod.invoke(service, rootTag, managedUpdate, null, true)
+        }
+
+        val dmVersion = rootTag.findFirstSubTag("dependencyManagement")
+            ?.findFirstSubTag("dependencies")
+            ?.findSubTags("dependency")
+            ?.firstOrNull()
+            ?.findFirstSubTag("version")
+            ?.value?.text
+
+        val directVersion = rootTag.findFirstSubTag("dependencies")
+            ?.findSubTags("dependency")
+            ?.firstOrNull()
+            ?.findFirstSubTag("version")
+            ?.value?.text
+
+        assertEquals("Managed dependency version must be updated", "3.14.0", dmVersion)
+        assertEquals("Direct dependency version must NOT be modified", "3.12.0", directVersion)
+    }
+
+    fun testResolveUpdatesForTargetPomModeNonTransitiveAndExplicitPomsArePreserved() {
+        val psiFile = myFixture.configureByText("pom.xml", "<project/>")
+        val service = PomUpdateService(project)
+
+        val directUpdate = DependencyUpdate(
+            groupId = "org.example",
+            artifactId = "direct",
+            type = "dependency",
+            oldVersion = "1.0.0",
+            newVersion = "1.1.0",
+            pomFile = psiFile.virtualFile,
+            transitive = false
+        )
+        val explicitTransitiveUpdate = DependencyUpdate(
+            groupId = "org.example",
+            artifactId = "explicit-transitive",
+            type = "managed dependency",
+            oldVersion = "1.0.0",
+            newVersion = "1.1.0",
+            pomFile = psiFile.virtualFile,
+            transitive = true
+        )
+
+        val resolvedRoot = service.resolveUpdatesForTargetPomMode(
+            listOf(directUpdate, explicitTransitiveUpdate),
+            TargetPomMode.ROOT_POM
+        )
+        assertEquals(2, resolvedRoot.size)
+        assertEquals(psiFile.virtualFile, resolvedRoot[0].pomFile)
+        assertEquals(psiFile.virtualFile, resolvedRoot[1].pomFile)
+
+        val resolvedAll = service.resolveUpdatesForTargetPomMode(
+            listOf(directUpdate, explicitTransitiveUpdate),
+            TargetPomMode.ALL_MODULES
+        )
+        assertEquals(2, resolvedAll.size)
+        assertEquals(psiFile.virtualFile, resolvedAll[0].pomFile)
+        assertEquals(psiFile.virtualFile, resolvedAll[1].pomFile)
+    }
+
+    fun testResolveUpdatesForTargetPomModeAllModulesKeepsNullPomFile() {
+        val service = PomUpdateService(project)
+
+        val transitiveUpdate = DependencyUpdate(
+            groupId = "org.example",
+            artifactId = "transitive",
+            type = "managed dependency",
+            oldVersion = "1.0.0",
+            newVersion = "1.1.0",
+            pomFile = null,
+            transitive = true
+        )
+
+        val resolved = service.resolveUpdatesForTargetPomMode(
+            listOf(transitiveUpdate),
+            TargetPomMode.ALL_MODULES
+        )
+        assertEquals(1, resolved.size)
+        assertNull(resolved[0].pomFile)
     }
 }

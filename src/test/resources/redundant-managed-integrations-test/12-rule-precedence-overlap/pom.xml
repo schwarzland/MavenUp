@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>de.schwarzland.mavenup.examples</groupId>
+    <artifactId>rule-precedence-overlap</artifactId>
+    <version>1.0.0</version>
+    <packaging>pom</packaging>
+
+    <name>MavenUp Example – Rule Precedence Overlap (Parent)</name>
+    <description>
+        Parent POM that manages slf4j-api:2.0.9.
+        The child module has a managed entry that matches both PARENT_MANAGED and DIRECT_DEPENDENCY_MATCH.
+        Demonstrates priority ordering: PARENT_MANAGED takes precedence.
+    </description>
+
+    <modules>
+        <module>child</module>
+    </modules>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- Parent manages slf4j-api at 2.0.9 -->
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-api</artifactId>
+                <version>2.0.9</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+</project>

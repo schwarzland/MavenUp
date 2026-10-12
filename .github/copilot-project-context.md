@@ -5,8 +5,9 @@ IntelliJ-Plugin (Kotlin/Gradle, IntelliJ Platform Plugin) für **Maven-Projekte*
 Zeigt alle Dependencies/Plugins aus `pom.xml`-Dateien (inkl. `<parent>`, `dependencyManagement`/
 `pluginManagement`) in einer Tabelle im MavenUp-Tool-Window, prüft verfügbare neue
 Versionen gegen Maven Central + private Repositories (aus `settings.xml`,
-inkl. Credential-Placeholder-Auflösung), und schreibt gewählte Versions-Updates
-nach Bestätigung zurück in die `pom.xml` (Property-aware).
+inkl. Credential-Placeholder-Auflösung), und übernimmt nach Bestätigung gewählte
+Versionsänderungen sowie zur Entfernung vorgemerkte verwaltete Einträge in die betroffenen
+`pom.xml`-Dateien; ein Maven-Reimport kann optional folgen (Property-aware).
 
 - Group: `de.schwarzland`, aktuelle Version: siehe `gradle.properties` (`version=...`)
 - Sprache Code: Kotlin; Build: Gradle (`build.gradle.kts`, `settings.gradle.kts`)
@@ -27,8 +28,8 @@ nach Bestätigung zurück in die `pom.xml` (Property-aware).
 ## Kernkomponenten (`src/main/kotlin/de/schwarzland/mavenup/`)
 
 ### Paketstruktur
-- **`model`**: `DependencyUpdate`, `VulnerabilityAdvisory`, `VulnerabilitySeverity`, `AffectedVersionRange`, `DependencyHierarchyNode`, `DependencyHierarchyNodeType` – reine Daten-DTOs ohne Logik.
-- **`service`**: Alle externen API-Zugriffe, Settings, Startup-Logik, Abhängigkeitshierarchie-Analyse und Hilfsfunktionen.
+- **`model`**: `ApiError`, `ApiErrorCause`, `ApiErrorSource`, `AffectedVersionRange`, `ConsumerDependencyInfo`, `DependencyHierarchyNode`, `DependencyHierarchyNodeType`, `DependencyUpdate`, `MavenUpBadgeState`, `RedundancyReason`, `RedundantManagedDependencyRecommendation`, `TargetPomMode`, `TemporaryArtifactCoordinate`, `TemporaryDependencyNode`, `VulnerabilityAdvisory`, `VulnerabilitySeverity` – Datenmodelle und zugehörige Modelllogik.
+- **`service`**: Alle externen API-Zugriffe, Settings, Startup-Logik, Abhängigkeitshierarchie-Analyse, temporäre POM-Auflösung, Redundanzprüfungen und Hilfsfunktionen.
 - **`ui`**: Tool-Window, Dialoge, Settings-UI, I18n-Bundle sowie ausgelagerte, zustandslose UI-Hilfsdateien.
 
 ### Komponentenreferenz
@@ -38,7 +39,7 @@ Die ausführliche Beschreibung aller Klassen ist nach Package aufgeteilt:
 - [`context/components-ui-dialogs.md`](context/components-ui-dialogs.md): Dialoge, transitive Sicherheitslücken-Ansicht und Settings-UI.
 - [`context/components-service.md`](context/components-service.md): Startup/Tool-Window-Aktivierung, Einstellungen und Message-Bus, API- und Sicherheitsservices, Sicherheitsdatenmodell, PSI- und Maven-Services.
 
-Wird eine Klasse hinzugefügt, umbenannt oder entfernt, ist sie in der thematisch passenden dieser beiden Dateien zu pflegen – nicht in dieser Übersicht.
+Wird eine Klasse hinzugefügt, umbenannt oder entfernt, ist sie in der thematisch passenden dieser Dateien zu pflegen – nicht in dieser Übersicht.
 
 ## Tests
 `src/test/kotlin/de/schwarzland/mavenup/` spiegelt die Paketstruktur (`model`, `service`, `ui`).
@@ -46,10 +47,18 @@ Reine Logik nutzt JUnit (z. B. `VulnerabilityApiServiceTest`, `VersionAutoSelect
 Projekt-/PSI-Umgebung erben von `BasePlatformTestCase` (z. B. `MavenUpWindowFactoryTest`,
 `RefreshSnapshotCollectorTest`, `PomNavigationServiceTest`, `PomUpdateServiceTest`, `VersionStatusUiTest`,
 `InheritedVersionUiTest`,
-`DependencyVersionServiceTest`, `VulnerabilityScanServiceTest`). Netzwerklastige Services werden über
+`DependencyVersionServiceTest` (Refresh-Snapshot-Abgleich und Fallback für unbekannte Koordinaten),
+`VersionSelectionIntegrationTest` (Dropdown-Anzeige, Editor-Abschluss, Property-Synchronisation und Filter),
+`DependencyTableTooltipTest` (echte Maus-Tooltips bei sichtbarer/ausgeblendeter Modulspalte, Sortierung, Filterung und Ereignissen ausserhalb der Tabelle),
+`VulnerabilityScanServiceTest`). Netzwerklastige Services werden über
 injizierte Seams/Interfaces netzwerkfrei getestet.
 `CacheContentsDialogTest` deckt TTL-Anzeige und Invalidierung ab;
-`VersionLookupLoggingTest` prüft DEBUG-Ausgaben und lokale HTTP-Versuche einschließlich Cache-Treffern.
+`RedundantManagedDependencyDialogTest` prüft Auswahl, Übernahme, Split-Layout, Folgeansichten und
+inhaltsunabhängiges Verkleinern bei langen Detailtexten;
+`RedundantManagedDependencyServiceTest` prüft die Erkennung redundanter Einträge (Parent-Management, direkte Abhängigkeit, transitive Bereitstellung, ungenutzt) einschließlich des Falls, dass ohne lokalen Managed-Override ein niedrigeres Parent-/BOM-Fallback wirksam wäre;
+`RedundantManagedExamplesIntegrationTest` prüft alle 15 Referenz-Beispielprojekte unter `src/test/resources/redundant-managed-integrations-test/` (01–15) automatisiert und netzwerkfrei gegen `RedundantManagedDependencyService`;
+`VersionLookupLoggingTest` prüft DEBUG-Ausgaben und lokale HTTP-Versuche einschließlich Cache-Treffern,
+Redundanzprüfungen, POM-Antwortstatus und Ausschluss von Zugangsdaten aus POM-Abfrage-Logs.
 
 ## KI-Agenten (Copilot / Junie)
 - Für KI-Agenten gelten die verbindlichen Arbeitsanweisungen in `.github/copilot-instructions.md`.
@@ -59,13 +68,14 @@ injizierte Seams/Interfaces netzwerkfrei getestet.
 
 ## Doku- und Prozesspflichten
 Siehe `.github/copilot-instructions.md` für die verbindliche Arbeitsanweisung
-(README/CHANGELOG/FEATURES/plugin.xml-Description/Unittests pflegen, kein `git commit`).
+(README/CHANGELOG/FEATURES/plugin.xml-Description/Unittests/getting_started.html/Marketplace-Custom-Pages pflegen, kein `git commit`).
 Die README ist eine schlanke, englische Landing Page; die ausführliche Dokumentation liegt (Englisch) unter
 `docs/` (`usage.md`, `configuration.md`, `privacy-and-security.md`, `architecture.md`, `development.md`,
-`release-and-ci.md`, `licenses.md`).
+`release-and-ci.md`, `licenses.md`, `assets/marketplace/`).
 
 ## Sonstiges
 - Proxy-Einstellungen gehören NICHT in die projektweite `gradle.properties`, sondern
   in die user-lokale `~/.gradle/gradle.properties`.
 - `checkliste-publication.md` enthält Checkliste für Plugin-Veröffentlichung.
 - `getting_started.html` ist die *Getting Started*-Seite im JetBrains Marketplace / Plugin Manager. Sie erklärt neuen Nutzern in einem kompakten HTML-Kurzleitfaden die ersten Schritte: Tool-Window öffnen, Refresh, Update-Check, Version auswählen, Update anwenden. Muss bei jeder Bedienungsänderung (neue Aktionen, umbenannte Buttons, neue Dialoge) aktuell gehalten werden.
+- `docs/assets/marketplace/custom/` enthält die Markdown-Quelldateien für die benutzerdefinierten Reiter (*Custom Pages*) auf der JetBrains-Marketplace-Detailseite (`getting-started.md`, `privacy-and-security.md`, `vulnerability-management.md`, `configuration-and-faq.md`). Sie müssen bei jeder Änderung an Workflows, Security, CVE-Remediation oder Konfiguration verbindlich gepflegt werden.

@@ -525,8 +525,7 @@ internal class TransitiveVulnerabilitiesView(
         val newestVersion = versions.firstOrNull() ?: ""
         val upToDate = isVersionUpToDate(effectiveVersion, newestVersion)
         val hasChange = effectiveVersion != currentVersion && effectiveVersion.isNotEmpty()
-        val combo = ComboBox(versions.toTypedArray())
-        if (effectiveVersion.isNotEmpty()) combo.selectedItem = effectiveVersion
+        val combo = createVersionComboBox(versions, effectiveVersion)
         if (hasChange) combo.foreground = versionStatusColor(upToDate)
         configureCombo(combo)
         return createVersionPanel(
@@ -925,7 +924,7 @@ internal class TransitiveVulnerabilitiesView(
      * Angelehnt an das Kontextmenü der Haupttabelle bietet es **Filter by "…"** (übernimmt den Wert der
      * angeklickten GroupId- oder ArtifactId-Zelle als Textfilter), **Open on `<Browser>`** (öffnet die
      * angeklickte Koordinate im konfigurierten Maven-Repository-Browser), die Versionsauswahl-Aktionen
-     * **Set Highest Major Version**, **Set Highest Minor Version** und **Set Recommended Version**, ein
+     * **Select Highest Major Version**, **Select Highest Minor Version** und **Select Recommended Version**, ein
      * **Reset to Current Version** (nur aktiv, wenn eine abweichende Version gewählt wurde) sowie **Show
      * Vulnerability Details** (öffnet den Detaildialog; nur aktiv, wenn Sicherheitswarnungen vorliegen).
      * Das Menü wird über IntelliJs `ActionSystem` erzeugt, damit Theme, Abstände und Auswahlfarben der IDE
@@ -1129,8 +1128,15 @@ internal class TransitiveVulnerabilitiesView(
             .map { "${it.groupId}:${it.artifactId}" }
             .toSet()
         recommendedByKey = rows
-            .filter { it.recommendedVersion.isNotEmpty() }
-            .associate { "${it.groupId}:${it.artifactId}" to it.recommendedVersion }
+            .mapNotNull { row ->
+                val key = "${row.groupId}:${row.artifactId}"
+                val selectable = selectableRecommendedVersion(
+                    row.recommendedVersion,
+                    availableVersions[key].orEmpty()
+                )
+                if (selectable.isNotEmpty()) key to selectable else null
+            }
+            .toMap()
         advisoriesByKey = rows.associate { row ->
             "${row.groupId}:${row.artifactId}" to row.cell.allAdvisories
         }
@@ -1170,7 +1176,7 @@ internal class TransitiveVulnerabilitiesView(
     internal fun dropUnavailableSelections() {
         selectedVersions.entries.removeAll { (key, version) ->
             val versions = availableVersions[key].orEmpty()
-            versions.isNotEmpty() && version !in versions
+            version !in versions
         }
     }
 

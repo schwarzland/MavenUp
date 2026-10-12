@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>de.schwarzland.mavenup.examples</groupId>
+        <artifactId>version-pinning-override</artifactId>
+        <version>1.0.0</version>
+    </parent>
+
+    <artifactId>child</artifactId>
+
+    <name>MavenUp Example – Version Pinning Override (Child)</name>
+    <description>
+        Child POM overrides commons-lang3 with version 3.12.0 in its own dependencyManagement.
+        Because 3.12.0 is higher than the parent version (3.10), removing this declaration
+        would cause a version downgrade to 3.10.
+        Therefore, this entry is NOT REDUNDANT.
+    </description>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- 
+                NOT REDUNDANT: Overrides parent's version 3.10 with higher version 3.12.0.
+                Removing this entry would cause a downgrade to 3.10.
+            -->
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-lang3</artifactId>
+                <version>3.12.0</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <!-- Uses the pinned version 3.12.0 -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+        </dependency>
+    </dependencies>
+
+</project>

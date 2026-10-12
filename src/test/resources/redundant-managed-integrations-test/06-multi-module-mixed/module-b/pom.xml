@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>de.schwarzland.mavenup.examples</groupId>
+        <artifactId>multi-module-mixed</artifactId>
+        <version>1.0.0</version>
+    </parent>
+
+    <artifactId>module-b</artifactId>
+
+    <name>MavenUp Example – Multi-Module Mixed (Module B)</name>
+    <description>
+        Module B declares jackson-core:2.15.0 in its own dependencyManagement,
+        but no dependency in this module uses jackson-core directly or transitively.
+        Redundancy reason: UNUSED.
+    </description>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- REDUNDANT: jackson-core is not used anywhere in this module -->
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-core</artifactId>
+                <version>2.15.0</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <!-- This module uses slf4j, not Jackson -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+    </dependencies>
+
+</project>

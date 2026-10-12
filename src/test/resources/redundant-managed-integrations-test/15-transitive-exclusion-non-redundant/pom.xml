@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>de.schwarzland.mavenup.examples</groupId>
+    <artifactId>transitive-exclusion-non-redundant</artifactId>
+    <version>1.0.0</version>
+
+    <name>MavenUp Example – Transitive Exclusion (Not Redundant)</name>
+    <description>
+        Single-module project where jackson-databind excludes jackson-core.
+        jackson-core:2.15.2 is managed and consumed directly (without explicit version).
+        Because the transitive path is excluded, the dependencyManagement entry is NOT redundant.
+    </description>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- 
+                NOT REDUNDANT: The transitive path from jackson-databind is explicitly excluded.
+                The direct dependency on jackson-core relies on this managed version.
+            -->
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-core</artifactId>
+                <version>2.15.2</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <!-- jackson-databind with explicit exclusion of jackson-core -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.15.2</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.fasterxml.jackson.core</groupId>
+                    <artifactId>jackson-core</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <!-- Direct dependency relying on dependencyManagement for version -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+        </dependency>
+    </dependencies>
+
+</project>

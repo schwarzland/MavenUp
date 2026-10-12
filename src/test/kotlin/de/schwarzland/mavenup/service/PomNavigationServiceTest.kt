@@ -168,4 +168,12 @@ class PomNavigationServiceTest : BasePlatformTestCase() {
         assertNull("Ohne <properties> und <profiles> sollte null zurückgegeben werden",
             pomNavigationService.findProperty(rootTag, "example.version"))
     }
+
+    fun testNavigateToDependencyWithTargetPomFileDoesNotFail() {
+        val pomFile = myFixture.configureByText("pom.xml", "<project><dependencies/></project>").virtualFile
+        val pomNavigationService = PomNavigationService(project)
+        // Sollte ohne Fehler aufgerufen werden können
+        pomNavigationService.navigateToDependency("com.example", "missing", "dependency", pomFile)
+        pomNavigationService.navigateToProperty("some.prop", "com.example", "missing", "dependency", pomFile)
+    }
 }

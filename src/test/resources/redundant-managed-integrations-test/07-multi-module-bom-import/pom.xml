@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>de.schwarzland.mavenup.examples</groupId>
+    <artifactId>multi-module-bom-import</artifactId>
+    <version>1.0.0</version>
+    <packaging>pom</packaging>
+
+    <name>MavenUp Example – Multi-Module BOM Import (Parent)</name>
+    <description>
+        Parent POM that imports the Spring Boot BOM (spring-boot-dependencies).
+        module-a uses spring-web from the BOM.
+        module-b redundantly re-declares spring-web in its own dependencyManagement.
+        Redundancy reason: TRANSITIVE_MATCH (via BOM).
+    </description>
+
+    <modules>
+        <module>module-a</module>
+        <module>module-b</module>
+    </modules>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- Import Spring Boot BOM – manages spring-web and many other artifacts -->
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-dependencies</artifactId>
+                <version>3.2.0</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+</project>

@@ -14,6 +14,7 @@ Bei **jeder** Änderung im Repository sind diese Punkte immer zu berücksichtige
      - `docs/development.md`: Tests, Codequalität, Gradle-Proxy-Konfiguration, Troubleshooting.
      - `docs/release-and-ci.md`: Branching, GitHub-Actions-Workflows, Dependabot, Publishing.
      - `docs/licenses.md`: eingebettete Drittanbieter-Bibliotheken und deren Lizenzen (siehe auch Punkt 9).
+     - `docs/assets/marketplace/custom/`: JetBrains Marketplace Custom Pages (Markdown-Vorlagen für die benutzerdefinierten Tabs auf der Marketplace-Detailseite, siehe Punkt 11).
      - `docs/features/`: die thematisch aufgeteilten Feature-Beschreibungen (siehe Punkt 3).
    - **AGENTS.md** ist der herstellerübergreifende Agenten-Einstiegspunkt und verweist auf `.github/copilot-instructions.md` und `.github/copilot-project-context.md`; ändert sich der Speicherort oder die Rolle dieser verbindlichen Instruktionsdateien, ist AGENTS.md entsprechend anzugleichen.
    - **`.junie/`** ist der herstellerspezifische Spiegel dieser Instruktionen für Junie: `.junie/guidelines.md` fasst die verbindlichen Regeln zusammen und verweist auf die Originaldateien, `.junie/agents/` spiegelt die Agentendefinitionen unter `.github/agents/`. Ändern sich Instruktions-, Kontext- oder Agentendateien – oder kommen Regeln hinzu bzw. entfallen –, sind die Dateien unter `.junie/` entsprechend anzugleichen; sie enthalten keine eigenständigen Regeln, sondern nur Zusammenfassungen und Verweise.
@@ -94,12 +95,21 @@ Bei **jeder** Änderung im Repository sind diese Punkte immer zu berücksichtige
     - Veraltete oder entfernte Aktionen sind zu löschen.
     - Nach jeder Änderung die gesamte `getting_started.html` mit der tatsächlichen Bedienung abgleichen und sicherstellen, dass alle wesentlichen Schritte für einen Einsteiger abgedeckt sind.
     - Die Inhalte müssen mit den Feature-Dateien unter `docs/features/` und `src/main/resources/META-INF/plugin.xml` abgestimmt sein; veraltete oder fehlende Einsteiger-Schritte sind zu korrigieren.
-11. **Dateigröße und Refactoring** – wenn eine Klasse, ein `object` oder allgemein eine `.kt`-Datei mehr als 800 bis 1000 Zeilen Code enthält, muss sie im Sinne eines Refactorings restrukturiert werden. Es ist zu prüfen, welches Risiko dabei besteht. Der Anwender muss gefragt werden, ob das Refactoring erfolgen soll. Dabei gelten folgende Regeln:
+11. **Marketplace Custom Pages unter `docs/assets/marketplace/custom/`** verbindlich ergänzen/aktualisieren, wenn neue Funktionen hinzugefügt, bestehende geändert oder entfernt werden, oder wenn sich Einstellungen, Workflows, Sicherheits-/Datenschutz-Eigenschaften oder Behebungsmechanismen ändern. Dabei gelten folgende Regeln:
+    - **Sprache: Englisch.** Die Dateien dienen als Markdown-Vorlagen für die benutzerdefinierten Reiter (Custom Pages) auf der JetBrains-Marketplace-Detailseite des Plugins.
+    - **Thematische Zuordnung und Aktualisierungspflicht**:
+      - `docs/assets/marketplace/custom/getting-started.md`: Bei Änderungen am Standard-Workflow (5-Schritte-Ablauf: Tool-Window, Status, Version auswählen, Bulk-Aktionen, atomares Update), der Tabellen-Navigation, den Filtern, der Quellcode-Navigation, den geerbten/BOM-Versionen oder der Redundanzanalyse für verwaltete Abhängigkeiten (`dependencyManagement`).
+      - `docs/assets/marketplace/custom/privacy-and-security.md`: Bei Änderungen an externen Endpunkten, Netzwerkabfragen, Datenminimierungs-Garantien (ausschließlich Maven-Koordinaten, keine Quellcode-Übertragung), Private-GroupId-Präfixen oder Credential-Speicherung (IntelliJ Password Safe, `settings.xml`).
+      - `docs/assets/marketplace/custom/vulnerability-management.md`: Bei Änderungen an der Schwachstellen-Erkennung (OSV.dev, Sonatype OSS Index), der Unterscheidung direkter vs. transitiver CVEs, den CVSS-/CWE-Details oder dem automatisierten Transitive-Remediation-Workflow (`<dependencyManagement>`-Pinning mit XML-Kommentaren).
+      - `docs/assets/marketplace/custom/configuration-and-faq.md`: Bei neuen oder geänderten Einstellungen, Nexus-/Artifactory-Anbindungen, Proxy-Unterstützung oder häufig gestellten Fragen (FAQ).
+      - `docs/assets/marketplace/custom/README.md`: Pflegt die Übersicht aller Custom Pages sowie die empfohlene Tab-Konfiguration im Marketplace-Portal.
+    - **Konsistenz & Synchronität**: Die Inhalte müssen mit `docs/`, `getting_started.html`, `src/main/resources/META-INF/plugin.xml` und den Feature-Dateien unter `docs/features/` synchron gehalten werden; veraltete Formulierungen oder entfernte Funktionen sind unverzüglich zu bereinigen.
+12. **Dateigröße und Refactoring** – wenn eine Klasse, ein `object` oder allgemein eine `.kt`-Datei mehr als 800 bis 1000 Zeilen Code enthält, muss sie im Sinne eines Refactorings restrukturiert werden. Es ist zu prüfen, welches Risiko dabei besteht. Der Anwender muss gefragt werden, ob das Refactoring erfolgen soll. Dabei gelten folgende Regeln:
     - Die Datei ist in kleinere, thematisch klar abgegrenzte Einheiten aufzuteilen (z. B. Extraktion von Services, Helfern, UI-Komponenten oder Datenmodellen in eigene Dateien).
     - Die Aufteilung muss die bestehende Paketstruktur (`model`, `service`, `ui`) respektieren und Verantwortlichkeiten sauber trennen (Single Responsibility).
     - Öffentliches Verhalten und bestehende Tests dürfen durch das Refactoring nicht brechen; Tests sind bei Bedarf an die neue Struktur anzupassen.
     - Nach dem Refactoring sind die betroffenen Dokumentations- und Kontextdateien (insbesondere `.github/copilot-project-context.md`) an die neue Struktur anzugleichen.
-12. **IntelliJ-Styleguide für Dialoge und UI** – jede Änderung oder Ergänzung an einem Dialog, an der Settings-UI oder an sonstigen UI-Komponenten muss den [IntelliJ Platform UI Guidelines](https://plugins.jetbrains.com/docs/intellij/ui-guidelines-welcome.html) entsprechen. Dabei gelten folgende Regeln:
+13. **IntelliJ-Styleguide für Dialoge und UI** – jede Änderung oder Ergänzung an einem Dialog, an der Settings-UI oder an sonstigen UI-Komponenten muss den [IntelliJ Platform UI Guidelines](https://plugins.jetbrains.com/docs/intellij/ui-guidelines-welcome.html) entsprechen. Dabei gelten folgende Regeln:
     - **Kotlin UI DSL v2** (`panel { row { … } }`) ist für neue und geänderte Oberflächen zu verwenden; kein manueller Swing-Layout-Code, wo die DSL ausreicht.
     - **Einstellungen an den Zustand binden** über `bindSelected`/`bindText`/`bindItem`/`bindIntValue` statt über manuelle `isModified`/`apply`/`reset`-Implementierungen; abhängige Bedienelemente werden über `enabledIf`/`visibleIf` gesteuert, nicht über eigene Listener.
     - **Seitenlänge begrenzen**: Eine Einstellungsseite soll ohne Scrollen lesbar bleiben. Wächst sie darüber hinaus, ist sie in Unterseiten (`projectConfigurable` mit `parentId`) aufzuteilen; die Wurzelseite verlinkt ihre Unterseiten per Quick-Link und navigiert über `Settings.select` statt über einen neuen Dialog.
@@ -108,11 +118,11 @@ Bei **jeder** Änderung im Repository sind diese Punkte immer zu berücksichtige
     - **Gruppierung**: Zusammengehörige Optionen werden über `group(...)` gebündelt; eine einzelne Gruppe auf einer Seite ist zu vermeiden, abhängige Unteroptionen werden per `indent` eingerückt.
     - **Read-only-Dialoge** erhalten nur einen **Close**-Button, keine OK/Cancel-Kombination.
     - Nach jeder UI-Änderung ist zu prüfen, ob Beschriftungen, Reihenfolge und Gruppierung noch zur tatsächlichen Bedienung passen, und die betroffene Dokumentation (`docs/usage.md`, `docs/configuration.md`, `getting_started.html`) anzugleichen.
-13. **Agentendefinitionen unter `.github/agents/`** – diese Dateien beschreiben spezialisierte Agenten (z. B. `release-doc-check.md` für die Release-Dokumentationsprüfung) und sind bei **strukturellen** Änderungen anzugleichen. Dabei gelten folgende Regeln:
+14. **Agentendefinitionen unter `.github/agents/`** – diese Dateien beschreiben spezialisierte Agenten (z. B. `release-doc-check.md` für die Release-Dokumentationsprüfung) und sind bei **strukturellen** Änderungen anzugleichen. Dabei gelten folgende Regeln:
     - Ein Abgleich ist erforderlich, wenn eine Datei unter `docs/`, `docs/features/` oder `.github/context/` hinzukommt, entfernt oder umbenannt wird, wenn ein neues release-relevantes Artefakt entsteht oder wenn sich die Branching-, Versionierungs- oder CHANGELOG-Konvention ändert.
     - Bei rein inhaltlichen Feature- oder Code-Änderungen ohne strukturelle Auswirkung ist **keine** Anpassung nötig.
     - Agentendefinitionen dürfen die inhaltlichen Regeln dieser Datei **nicht duplizieren**, sondern verweisen darauf; sie beschreiben ausschließlich ihr eigenes Vorgehen (Vorbedingungen, Prüfumfang, Grenzen, Reporting).
     - Nach jeder Änderung ist zu prüfen, ob alle in der Agentendefinition genannten Dateien und Verzeichnisse tatsächlich existieren – tote Verweise sind zu entfernen.
-14. **kein git commit** ausführen.
+15. **kein git commit** ausführen.
 
 Diese Vorgaben gelten standardmäßig für alle KI-Änderungen (GitHub Copilot, Junie, etc.) in diesem Projekt.

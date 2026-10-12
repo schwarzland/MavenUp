@@ -11,7 +11,7 @@ Development happens on `feature/*` branches. Changes are merged into `main` via 
 - **Create Draft Release** (`.github/workflows/create-draft-release.yml`): Runs when a tag is pushed to GitHub, for example `2.3.0`. The current state of the tag is built, checked with `verifyPlugin` and the IntelliJ Plugin Verifier, and then created as a GitHub draft release with a ZIP file and release notes. Only pushing the tag to GitHub starts the workflow. The job is limited to 30 minutes.
 - **Dependency Graph** (`.github/workflows/dependency-graph.yml`): Resolves all Gradle configurations and produces the full dependency graph — including transitive dependencies. On a push to `main` that touches the build or dependency configuration, and on a manual run via the **Actions** tab, the graph is submitted directly to GitHub via the Dependency Submission API (`contents: write`). This is what enables Dependabot to report security alerts for transitive dependencies of this Gradle project. On a pull request against `main`, the graph is only generated and stored as a workflow artifact with `contents: read`, because pull requests from forks receive a read-only `GITHUB_TOKEN`. Each job is limited to 30 minutes.
 - **Dependency Graph Submit** (`.github/workflows/dependency-graph-submit.yml`): Triggered by `workflow_run` once a successful pull request run of **Dependency Graph** has stored its artifact. It downloads that artifact and submits it with `contents: write`. Running outside the pull request context is what allows fork pull requests to be covered without granting write access to untrusted code. The job is limited to 10 minutes.
-- **Dependency Review** (`.github/workflows/dependency-review.yml`): Runs on pull requests against `main` that touch the build or dependency configuration and compares the submitted graph of the pull request against `main` with `actions/dependency-review-action`. It needs neither a checkout nor a Gradle run, because the graph comes from **Dependency Graph**; it waits for that submission for up to ten minutes. The job fails as soon as the pull request introduces a dependency with a known vulnerability of severity `moderate` or higher and posts a summary as a pull request comment in that case. For fork pull requests the comment is disabled — the result is available in the job summary. The job is limited to 30 minutes.
+- **Dependency Review** (`.github/workflows/dependency-review.yml`): Runs on pull requests against `main` that touch the build or dependency configuration and compares the submitted graph of the pull request against `main` with `actions/dependency-review-action`. It checks out the repository to load the exception configuration (`.github/dependency-review-config.yml`), but requires no JDK or Gradle run because the graph comes from **Dependency Graph**; it waits for that submission for up to ten minutes. The job fails as soon as the pull request introduces a dependency with a known vulnerability of severity `moderate` or higher (unless explicitly allowed in the configuration) and posts a summary as a pull request comment in that case. For fork pull requests the comment is disabled — the result is available in the job summary. The job is limited to 30 minutes.
 
 The path filters of **Dependency Graph** and **Dependency Review** must stay identical, otherwise the review waits for a graph that is never submitted. Because of the path filters, neither workflow should be configured as a required status check.
 - **Publish Release to Marketplace** (`.github/workflows/publish-release.yml`): Runs as soon as a draft release is published manually in the GitHub UI (`release: published`). Before the upload, `verifyPlugin` checks the plugin with the IntelliJ Plugin Verifier; on a verifier failure the report is stored as the `plugin-verifier-report` artifact (7 days). Afterwards the plugin is uploaded to the JetBrains Marketplace with `publishPlugin`. For this, the repository secret `JB_MARKETPLACE_TOKEN` must be set. The job is limited to 30 minutes and uses one concurrency group per release ref, which does not abort running publish runs.
@@ -85,15 +85,23 @@ Marketplace graphics are structured under `docs/assets/marketplace/`:
 
 ```text
 docs/assets/marketplace/
-├── raw/                  # Unprocessed raw UI screenshots (HiDPI / 2x resolution)
-│   ├── dependencies_raw.png
-│   └── vulnerabilities_raw.png
+├── README.md             # Asset workflow and visual guidelines
+├── custom/
+│   ├── README.md
+│   ├── getting-started.md
+│   ├── privacy-and-security.md
+│   ├── vulnerability-management.md
+│   └── configuration-and-faq.md
+├── raw/                  # Unprocessed raw UI screenshots
+│   ├── configuration.png
+│   └── confirmChanges.png
 ├── src/                  # Editable source diagrams (.drawio.svg)
-│   ├── screenshot_01_main_view.drawio.svg
-│   └── screenshot_02_cve_details.drawio.svg
-└── dist/                 # Rendered distribution images for Marketplace & README (.png)
-    ├── 01_dependency_management.png
-    └── 02_vulnerability_scanner.png
+│   ├── _template.drawio.svg
+│   ├── configuration.drawio.svg
+│   └── confirmChanges_and_pom.xml.drawio.svg
+└── dist/                 # Rendered distribution images (.png)
+    ├── configuration.png
+    └── confirmChanges_and_pom.xml.png
 ```
 
 ### Visual guidelines and JetBrains look & feel

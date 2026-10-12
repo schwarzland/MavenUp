@@ -1,6 +1,7 @@
 package de.schwarzland.mavenup.service
 
 import de.schwarzland.mavenup.model.DependencyUpdate
+import de.schwarzland.mavenup.model.TargetPomMode
 import de.schwarzland.mavenup.ui.MANAGED_PLUGIN
 import de.schwarzland.mavenup.ui.MyMessageBundle
 import de.schwarzland.mavenup.ui.PARENT_TYPE
@@ -17,7 +18,9 @@ import com.intellij.psi.codeStyle.CodeStyleManager
 import com.intellij.psi.xml.XmlComment
 import com.intellij.psi.xml.XmlFile
 import com.intellij.psi.xml.XmlTag
+import org.jetbrains.idea.maven.model.MavenArtifactNode
 import org.jetbrains.idea.maven.project.MavenProject
+import org.jetbrains.idea.maven.project.MavenProjectsManager
 
 /** Erkennt zusammenhängende Whitespace-Folgen (inklusive Zeilenumbrüchen) in Kommentartexten. */
 private val WHITESPACE_REGEX = Regex("\\s+")
@@ -34,6 +37,121 @@ private val HYPHEN_SEQUENCE_REGEX = Regex("-{2,}")
  * @property project Das Projekt, dessen `pom.xml`-Dateien geändert werden.
  */
 internal class PomUpdateService(private val project: Project) {
+
+    /**
+     * Löst eine Liste von [DependencyUpdate]s unter Berücksichtigung des gewählten [TargetPomMode]
+     * auf die passenden Ziel-POM-Dateien auf.
+     *
+     * Transitive Pins ([DependencyUpdate.transitive] == true), für die kein festes [DependencyUpdate.pomFile]
+     * vorgegeben ist, werden je nach [targetPomMode] wie folgt zugeordnet:
+     * - [TargetPomMode.ROOT_POM]: Werden dem Root-POM des Projekts zugeordnet (oder der ersten Projekt-POM).
+     * - [TargetPomMode.AFFECTED_MODULES]: Werden denjenigen Maven-Modulen zugeordnet, deren Abhängigkeitsbaum
+     *   die Koordinate tatsächlich enthält (Fallback auf Root-POM).
+     * - [TargetPomMode.ALL_MODULES]: Behalten `pomFile = null`, sodass sie auf alle POMs angewendet werden.
+     *
+     * Nicht-transitive Updates sowie Updates mit bereits fest gesetztem [DependencyUpdate.pomFile] bleiben unverändert.
+     *
+     * @param updates Die anzuwendenden Updates.
+     * @param targetPomMode Der Modus für die Ziel-POM-Auswahl transitiver Pins (Standard: [TargetPomMode.ROOT_POM]).
+     * @return Die auf die Ziel-POMs aufgelösten Updates.
+     */
+    internal fun resolveUpdatesForTargetPomMode(
+        updates: List<DependencyUpdate>,
+        targetPomMode: TargetPomMode = TargetPomMode.ROOT_POM
+    ): List<DependencyUpdate> {
+        val mavenManager = MavenProjectsManager.getInstance(project)
+        val allProjects = mavenManager.projects.toList()
+        val rootProjects = mavenManager.rootProjects.toList()
+        val rootPomFile = rootProjects.firstOrNull()?.file ?: allProjects.firstOrNull()?.file
+
+        return updates.flatMap { update ->
+            resolveSingleUpdate(update, targetPomMode, rootPomFile, allProjects)
+        }
+    }
+
+    /**
+     * Löst ein einzelnes Update auf die passende Ziel-POM auf.
+     *
+     * Nicht-transitive Updates oder Updates mit bereits explizit gesetzter [DependencyUpdate.pomFile]
+     * werden unverändert zurückgegeben; transitive Pins werden über [resolveTransitiveUpdate] aufgelöst.
+     */
+    private fun resolveSingleUpdate(
+        update: DependencyUpdate,
+        targetPomMode: TargetPomMode,
+        rootPomFile: VirtualFile?,
+        allProjects: List<MavenProject>
+    ): List<DependencyUpdate> {
+        if (!update.transitive || update.pomFile != null) {
+            return listOf(update)
+        }
+        return resolveTransitiveUpdate(update, targetPomMode, rootPomFile, allProjects)
+    }
+
+    /**
+     * Löst einen transitiven Pin ohne festgelegte POM-Datei anhand des [targetPomMode] auf.
+     */
+    private fun resolveTransitiveUpdate(
+        update: DependencyUpdate,
+        targetPomMode: TargetPomMode,
+        rootPomFile: VirtualFile?,
+        allProjects: List<MavenProject>
+    ): List<DependencyUpdate> = when (targetPomMode) {
+        TargetPomMode.ROOT_POM -> listOf(updateWithRootPomFallback(update, rootPomFile))
+        TargetPomMode.ALL_MODULES -> listOf(update.copy(pomFile = null))
+        TargetPomMode.AFFECTED_MODULES -> resolveAffectedModules(update, allProjects, rootPomFile)
+    }
+
+    /**
+     * Löst einen transitiven Pin für [TargetPomMode.AFFECTED_MODULES] auf die Module auf, deren
+     * Abhängigkeitsbaum die Koordinate enthält, oder fällt auf die Root-POM zurück.
+     */
+    private fun resolveAffectedModules(
+        update: DependencyUpdate,
+        allProjects: List<MavenProject>,
+        rootPomFile: VirtualFile?
+    ): List<DependencyUpdate> {
+        val affectedProjects = allProjects.filter {
+            isDependencyInTree(it, update.groupId, update.artifactId)
+        }
+        return if (affectedProjects.isNotEmpty()) {
+            affectedProjects.map { update.copy(pomFile = it.file) }
+        } else {
+            listOf(updateWithRootPomFallback(update, rootPomFile))
+        }
+    }
+
+    /**
+     * Gibt das Update mit [rootPomFile] als Ziel-POM zurück, falls vorhanden, sonst das unveränderte Update.
+     */
+    private fun updateWithRootPomFallback(
+        update: DependencyUpdate,
+        rootPomFile: VirtualFile?
+    ): DependencyUpdate = if (rootPomFile != null) update.copy(pomFile = rootPomFile) else update
+
+    /**
+     * Prüft, ob ein Maven-Projekt die gesuchte Koordinate in seinem aufgelösten Abhängigkeitsbaum enthält.
+     *
+     * @param mavenProject Das zu prüfende Maven-Projekt.
+     * @param groupId Die Group-ID des gesuchten Artefakts.
+     * @param artifactId Die Artefakt-ID des gesuchten Artefakts.
+     * @return `true`, wenn das Artefakt im Abhängigkeitsbaum gefunden wurde.
+     */
+    internal fun isDependencyInTree(
+        mavenProject: MavenProject,
+        groupId: String,
+        artifactId: String
+    ): Boolean {
+        val visited = mutableSetOf<MavenArtifactNode>()
+        fun matches(node: MavenArtifactNode): Boolean {
+            if (!visited.add(node)) return false
+            val art = node.artifact
+            if (art.groupId == groupId && art.artifactId == artifactId) {
+                return true
+            }
+            return node.dependencies.any { matches(it) }
+        }
+        return mavenProject.dependencyTree.any { matches(it) }
+    }
 
     /**
      * Wendet die ausgewählten Updates auf die `pom.xml` des angegebenen Maven-Projekts an.
@@ -55,6 +173,9 @@ internal class PomUpdateService(private val project: Project) {
             val propertiesTag = documentElement.findFirstSubTag("properties")
 
             updates.forEach { update ->
+                if (update.pomFile != null && update.pomFile != pomFile) {
+                    return@forEach
+                }
                 val managedDependencyType = MyMessageBundle.message(
                     TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY
                 )
@@ -67,17 +188,20 @@ internal class PomUpdateService(private val project: Project) {
                         updateParent(documentElement, update, propertiesTag)
                     }
                     "dependency" -> {
-                        updateDependencies(documentElement, update, propertiesTag)
+                        updateDependencies(documentElement, update, propertiesTag, managedOnly = false)
                     }
                     managedDependencyType -> {
-                        val updated = updateDependencies(documentElement, update, propertiesTag)
+                        val updated = updateDependencies(documentElement, update, propertiesTag, managedOnly = true)
                         if (!updated) {
                             addManagedDependency(documentElement, update)
                         }
                     }
 
-                    "plugin", MANAGED_PLUGIN -> {
-                        updatePlugins(documentElement, update, propertiesTag)
+                    "plugin" -> {
+                        updatePlugins(documentElement, update, propertiesTag, managedOnly = false)
+                    }
+                    MANAGED_PLUGIN -> {
+                        updatePlugins(documentElement, update, propertiesTag, managedOnly = true)
                     }
                 }
             }
@@ -166,31 +290,33 @@ internal class PomUpdateService(private val project: Project) {
     }
 
     /**
-     * Aktualisiert Abhängigkeitsversionen in `<dependencies>` und `<dependencyManagement>`
+     * Aktualisiert Abhängigkeitsversionen in `<dependencies>` oder `<dependencyManagement>`
      * des angegebenen POM-Root-Tags für ein einzelnes Update.
      *
      * @param documentElement Das Root-Tag der `pom.xml`.
      * @param update Das anzuwendende Update.
      * @param propertiesTag Das `<properties>`-Tag für Property-basierte Versionsupdates.
+     * @param managedOnly `true`, wenn nur `<dependencyManagement>` durchsucht werden soll, sonst nur `<dependencies>`.
      * @return `true`, wenn mindestens ein passender Eintrag gefunden und aktualisiert wurde.
      */
     private fun updateDependencies(
         documentElement: XmlTag,
         update: DependencyUpdate,
-        propertiesTag: XmlTag?
+        propertiesTag: XmlTag?,
+        managedOnly: Boolean
     ): Boolean {
-        val dependenciesTag = documentElement.findFirstSubTag("dependencies")
-        val dependencyManagementTag = documentElement.findFirstSubTag("dependencyManagement")
-        val dmDependenciesTag = dependencyManagementTag?.findFirstSubTag("dependencies")
-
         var updated = false
-        // Search in <dependencies>
-        dependenciesTag?.findSubTags("dependency")?.forEach { depTag ->
-            updated = updateIfMatch(depTag, update, propertiesTag) || updated
-        }
-        // Search in <dependencyManagement><dependencies>
-        dmDependenciesTag?.findSubTags("dependency")?.forEach { depTag ->
-            updated = updateIfMatch(depTag, update, propertiesTag) || updated
+        if (managedOnly) {
+            val dependencyManagementTag = documentElement.findFirstSubTag("dependencyManagement")
+            val dmDependenciesTag = dependencyManagementTag?.findFirstSubTag("dependencies")
+            dmDependenciesTag?.findSubTags("dependency")?.forEach { depTag ->
+                updated = updateIfMatch(depTag, update, propertiesTag) || updated
+            }
+        } else {
+            val dependenciesTag = documentElement.findFirstSubTag("dependencies")
+            dependenciesTag?.findSubTags("dependency")?.forEach { depTag ->
+                updated = updateIfMatch(depTag, update, propertiesTag) || updated
+            }
         }
         return updated
     }
@@ -335,30 +461,32 @@ internal class PomUpdateService(private val project: Project) {
     }
 
     /**
-     * Aktualisiert Plugin-Versionen in `<build><plugins>` und `<build><pluginManagement>`
+     * Aktualisiert Plugin-Versionen in `<build><plugins>` oder `<build><pluginManagement>`
      * des angegebenen POM-Root-Tags für ein einzelnes Update.
      *
      * @param documentElement Das Root-Tag der `pom.xml`.
      * @param update Das anzuwendende Update.
      * @param propertiesTag Das `<properties>`-Tag für Property-basierte Versionsupdates.
+     * @param managedOnly `true`, wenn nur `<pluginManagement>` durchsucht werden soll, sonst nur `<plugins>`.
      */
     private fun updatePlugins(
         documentElement: XmlTag,
         update: DependencyUpdate,
-        propertiesTag: XmlTag?
+        propertiesTag: XmlTag?,
+        managedOnly: Boolean
     ) {
         val buildTag = documentElement.findFirstSubTag("build")
-        val pluginsTag = buildTag?.findFirstSubTag("plugins")
-        val pluginManagementTag = buildTag?.findFirstSubTag("pluginManagement")
-        val pmPluginsTag = pluginManagementTag?.findFirstSubTag("plugins")
-
-        // Search in <build><plugins>
-        pluginsTag?.findSubTags("plugin")?.forEach { pluginTag ->
-            updateIfMatch(pluginTag, update, propertiesTag)
-        }
-        // Search in <build><pluginManagement><plugins>
-        pmPluginsTag?.findSubTags("plugin")?.forEach { pluginTag ->
-            updateIfMatch(pluginTag, update, propertiesTag)
+        if (managedOnly) {
+            val pluginManagementTag = buildTag?.findFirstSubTag("pluginManagement")
+            val pmPluginsTag = pluginManagementTag?.findFirstSubTag("plugins")
+            pmPluginsTag?.findSubTags("plugin")?.forEach { pluginTag ->
+                updateIfMatch(pluginTag, update, propertiesTag)
+            }
+        } else {
+            val pluginsTag = buildTag?.findFirstSubTag("plugins")
+            pluginsTag?.findSubTags("plugin")?.forEach { pluginTag ->
+                updateIfMatch(pluginTag, update, propertiesTag)
+            }
         }
     }
 

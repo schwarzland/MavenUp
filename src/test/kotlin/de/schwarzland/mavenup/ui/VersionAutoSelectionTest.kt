@@ -86,7 +86,7 @@ class VersionAutoSelectionTest {
     }
 
     @Test
-    fun testSelectableRecommendedVersionPrefersExactMatch() {
+    fun testSelectableRecommendedVersionReturnsVersionWhenContained() {
         assertEquals(
             "1.2.0",
             selectableRecommendedVersion("1.2.0", listOf("2.0.0", "1.2.0", "1.0.0"))
@@ -94,10 +94,14 @@ class VersionAutoSelectionTest {
     }
 
     @Test
-    fun testSelectableRecommendedVersionFallsBackToLowestHigherVersion() {
+    fun testSelectableRecommendedVersionReturnsEmptyWhenNotContainedInVersions() {
         assertEquals(
-            "1.3.0",
+            "",
             selectableRecommendedVersion("1.2.0", listOf("2.0.0", "1.3.0", "1.1.0"))
+        )
+        assertEquals(
+            "",
+            selectableRecommendedVersion("10.1.58", listOf("10.1.59", "10.1.57", "10.0.0"))
         )
     }
 

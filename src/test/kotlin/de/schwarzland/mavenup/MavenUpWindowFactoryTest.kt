@@ -8,11 +8,18 @@ import de.schwarzland.mavenup.model.DependencyUpdate
 import de.schwarzland.mavenup.service.MavenUpSettings
 import de.schwarzland.mavenup.service.MavenRepositoryBrowser
 import de.schwarzland.mavenup.service.VersionAutoSelectionMode
+import de.schwarzland.mavenup.service.AutomaticVersionSearchState
+import de.schwarzland.mavenup.service.VersionSearchResult
+import de.schwarzland.mavenup.ui.RefreshRow
 import de.schwarzland.mavenup.ui.DEPENDENCY_HIERARCHY_PANEL_INITIAL_WIDTH_PROPORTION
 import de.schwarzland.mavenup.ui.DependencyContextMenuTarget
 import de.schwarzland.mavenup.ui.buildMavenRepositoryUrl
 import de.schwarzland.mavenup.ui.GROUP_ID_COLUMN
 import de.schwarzland.mavenup.ui.ARTIFACT_ID_COLUMN
+import de.schwarzland.mavenup.ui.MODULE_COLUMN
+import de.schwarzland.mavenup.ui.VULNERABILITIES_COLUMN
+import de.schwarzland.mavenup.ui.CURRENT_VERSION_COLUMN
+import de.schwarzland.mavenup.ui.NEW_VERSION_COLUMN
 import de.schwarzland.mavenup.ui.MavenUpWindowFactory
 import de.schwarzland.mavenup.ui.MANAGED_DEPENDENCY
 import de.schwarzland.mavenup.ui.MANAGED_PLUGIN
@@ -132,11 +139,11 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val table = findTable(MavenUpWindowFactory().MyToolWindow(project).getContent())
 
         assertNotNull(table)
-        assertEquals("Vulnerabilities", table!!.model.getColumnName(4))
-        assertEquals("Current Version", table.model.getColumnName(5))
-        assertEquals("New Version", table.model.getColumnName(6))
-        assertFalse(table.model.isCellEditable(0, 4))
-        assertTrue(table.model.isCellEditable(0, 6))
+        assertEquals("Vulnerabilities", table!!.model.getColumnName(VULNERABILITIES_COLUMN))
+        assertEquals("Current Version", table.model.getColumnName(CURRENT_VERSION_COLUMN))
+        assertEquals("New Version", table.model.getColumnName(NEW_VERSION_COLUMN))
+        assertFalse(table.model.isCellEditable(0, VULNERABILITIES_COLUMN))
+        assertTrue(table.model.isCellEditable(0, NEW_VERSION_COLUMN))
     }
 
     fun testColumnHeaderSortingCyclesAscendingDescendingPomOrder() {
@@ -144,30 +151,30 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertNotNull(table)
 
         val model = table!!.model as DefaultTableModel
-        model.addRow(arrayOf<Any?>("org.b", "b-lib", null, "dependency", null, "1.0.0", emptyList<String>()))
-        model.addRow(arrayOf<Any?>("org.a", "a-lib", null, "dependency", null, "2.0.0", emptyList<String>()))
+        model.addRow(arrayOf<Any?>("org.b", "b-lib", "", null, "dependency", null, "1.0.0", emptyList<String>()))
+        model.addRow(arrayOf<Any?>("org.a", "a-lib", "", null, "dependency", null, "2.0.0", emptyList<String>()))
 
         @Suppress("UNCHECKED_CAST")
         val sorter = table.rowSorter as TableRowSorter<DefaultTableModel>
 
         // Current-Version- und New-Version-Spalte sind nicht sortierbar; die Vulnerabilities-Spalte ist sortierbar.
-        assertTrue(sorter.isSortable(4))
-        assertFalse(sorter.isSortable(5))
-        assertFalse(sorter.isSortable(6))
-        assertTrue(sorter.isSortable(0))
+        assertTrue(sorter.isSortable(VULNERABILITIES_COLUMN))
+        assertFalse(sorter.isSortable(CURRENT_VERSION_COLUMN))
+        assertFalse(sorter.isSortable(NEW_VERSION_COLUMN))
+        assertTrue(sorter.isSortable(GROUP_ID_COLUMN))
 
         // Erster Klick: aufsteigend -> org.a vor org.b.
-        sorter.toggleSortOrder(0)
+        sorter.toggleSortOrder(GROUP_ID_COLUMN)
         assertEquals(javax.swing.SortOrder.ASCENDING, sorter.sortKeys.first().sortOrder)
         assertEquals("org.a", table.getValueAt(0, 0))
 
         // Zweiter Klick: absteigend -> org.b vor org.a.
-        sorter.toggleSortOrder(0)
+        sorter.toggleSortOrder(GROUP_ID_COLUMN)
         assertEquals(javax.swing.SortOrder.DESCENDING, sorter.sortKeys.first().sortOrder)
         assertEquals("org.b", table.getValueAt(0, 0))
 
         // Dritter Klick: unsortiert -> ursprüngliche pom.xml-Reihenfolge.
-        sorter.toggleSortOrder(0)
+        sorter.toggleSortOrder(GROUP_ID_COLUMN)
         assertTrue(sorter.sortKeys.isEmpty())
         assertEquals("org.b", table.getValueAt(0, 0))
     }
@@ -210,18 +217,18 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertNotNull(table)
 
         val model = table!!.model as DefaultTableModel
-        model.addRow(arrayOf<Any?>("org.x", "x-lib", null, "dependency", null, "1.9.0", emptyList<String>()))
-        model.addRow(arrayOf<Any?>("org.y", "y-lib", null, "dependency", null, "1.10.0", emptyList<String>()))
+        model.addRow(arrayOf<Any?>("org.x", "x-lib", "", null, "dependency", null, "1.9.0", emptyList<String>()))
+        model.addRow(arrayOf<Any?>("org.y", "y-lib", "", null, "dependency", null, "1.10.0", emptyList<String>()))
 
         @Suppress("UNCHECKED_CAST")
         val sorter = table.rowSorter as TableRowSorter<DefaultTableModel>
-        assertFalse(sorter.isSortable(5))
+        assertFalse(sorter.isSortable(CURRENT_VERSION_COLUMN))
 
         // Ein Klick auf die Kopfzeile ändert die Reihenfolge nicht.
-        sorter.toggleSortOrder(5)
+        sorter.toggleSortOrder(CURRENT_VERSION_COLUMN)
         assertTrue(sorter.sortKeys.isEmpty())
-        assertEquals("1.9.0", table.getValueAt(0, 5))
-        assertEquals("1.10.0", table.getValueAt(1, 5))
+        assertEquals("1.9.0", model.getValueAt(0, CURRENT_VERSION_COLUMN))
+        assertEquals("1.10.0", model.getValueAt(1, CURRENT_VERSION_COLUMN))
     }
 
     fun testToolWindowIconResourceIsAvailable() {
@@ -366,6 +373,9 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         }
     }
 
+    /**
+     * Prüft, dass das Managed-Entries-Untermenü seine Bulk-Aktionen und die Redundanzprüfung enthält.
+     */
     fun testManagedEntriesBulkMenuIsPresentInToolbar() {
         val toolWindowInstance = MavenUpWindowFactory().MyToolWindow(project)
         val managedEntriesGroup = toolWindowInstance.topToolbarActions()
@@ -374,16 +384,54 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         assertNotNull("Das \"Managed Entries\"-Untermenü sollte vorhanden sein", managedEntriesGroup)
         assertTrue(
-            "Das Untermenü sollte die beiden Managed-Entries-Aktionen enthalten",
+            "Das Untermenü sollte die Managed-Entries-Aktionen und die Redundanzprüfung enthalten",
             managedEntriesGroup!!.childActionsOrStubs
                 .map { it.templatePresentation.text }
                 .containsAll(
                     listOf(
                         toolWindowInstance.managedDependenciesActionLabel(),
-                        toolWindowInstance.managedPluginsActionLabel()
+                        toolWindowInstance.managedPluginsActionLabel(),
+                        MyMessageBundle.message("toolwindow.MyToolWindow.checkRedundantManaged.menuItem")
                     )
                 )
         )
+        assertFalse(
+            "Die Redundanzprüfung sollte nicht als eigener oberster Toolbar-Button erscheinen",
+            toolWindowInstance.topToolbarActions().any {
+                it.templatePresentation.text == MyMessageBundle.message("toolwindow.MyToolWindow.checkRedundantManaged.menuItem")
+            }
+        )
+    }
+
+    fun testRedundantManagedActionsAreDisabledWhileCheckIsRunning() {
+        val toolWindowInstance = MavenUpWindowFactory().MyToolWindow(project)
+        val toolbarGroup = toolWindowInstance.topToolbarActions()
+            .filterIsInstance<DefaultActionGroup>()
+            .first {
+                it.templatePresentation.text ==
+                    MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.group.button")
+            }
+        val toolbarAction = toolbarGroup.childActionsOrStubs
+            .first { it.templatePresentation.text == MyMessageBundle.message("toolwindow.MyToolWindow.checkRedundantManaged.menuItem") }
+        val managedDependencyType = MyMessageBundle.message("toolwindow.MyToolWindow.type.managedDependency")
+        val contextAction = toolWindowInstance.buildContextMenuGroup(
+            DependencyContextMenuTarget(0, "com.example", "library", "", managedDependencyType, "1.0.0")
+        ).getChildren(null).filterIsInstance<com.intellij.openapi.actionSystem.AnAction>()
+            .first {
+                it.templatePresentation.text ==
+                    MyMessageBundle.message("toolwindow.MyToolWindow.checkRedundantManaged.contextMenu")
+            }
+
+        fun isEnabled(action: com.intellij.openapi.actionSystem.AnAction): Boolean {
+            val event = com.intellij.testFramework.TestActionEvent.createTestEvent(action)
+            ActionUtil.updateAction(action, event)
+            return event.presentation.isEnabled
+        }
+
+        toolWindowInstance.isCheckingRedundantManaged = true
+
+        assertFalse(isEnabled(toolbarAction))
+        assertFalse(isEnabled(contextAction))
     }
 
     fun testRefreshSnapshotCollectionRunsOutsideEdt() {
@@ -427,51 +475,37 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertEquals("2.0.0", updates.single().newVersion)
     }
 
+    /** Prueft die echte Vorauswahl und das Verwerfen von Updates beim Ausschalten. */
     fun testVersionAutoSelectionModeSetting() {
         val factory = MavenUpWindowFactory()
         val toolWindowInstance = factory.MyToolWindow(project)
         val settings = MavenUpSettings.getInstance()
-
-        // Mock data
         val key = "com.example:test-artifact"
         val versions = listOf("1.1.0", "1.0.0")
         val currentVersion = "1.0.0"
-
-        settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.LATEST
-        
-        // Use reflection to access internal maps for verification
-        val availableVersionsField = toolWindowInstance.javaClass.getDeclaredField("availableVersions").apply { isAccessible = true }
-        val selectedVersionsField = toolWindowInstance.javaClass.getDeclaredField("selectedVersions").apply { isAccessible = true }
-        val knownDependenciesField = toolWindowInstance.javaClass.getDeclaredField("knownDependencies").apply { isAccessible = true }
-
-        val availableVersions = availableVersionsField.get(toolWindowInstance) as MutableMap<String, List<String>>
-        val selectedVersions = selectedVersionsField.get(toolWindowInstance) as MutableMap<String, String>
-        val knownDependencies = knownDependenciesField.get(toolWindowInstance) as MutableMap<String, String>
-
-        knownDependencies[key] = currentVersion
-        
-        // Simulate checkArtifactUpdate logic manually for testing the selection logic
-        fun simulateCheck(v: String) {
-            availableVersions[key] = versions
-            if (versions.first() != v &&
-                settings.state.versionAutoSelectionMode != VersionAutoSelectionMode.DISABLED
-            ) {
-                selectedVersions[key] = versions.first()
-            } else if (settings.state.versionAutoSelectionMode == VersionAutoSelectionMode.DISABLED) {
-                selectedVersions[key] = v
-            }
+        val original = settings.state.versionAutoSelectionMode
+        try {
+            val candidates = mapOf(key to versions)
+            toolWindowInstance.applyAutomaticVersionSearchState(
+                AutomaticVersionSearchState(
+                    RefreshSnapshot(
+                        listOf(RefreshRow("com.example", "test-artifact", "", "dependency", currentVersion)),
+                        emptyMap()
+                    ),
+                    VersionSearchResult(candidates, candidates, emptyMap()),
+                    null
+                )
+            )
+            settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.LATEST
+            toolWindowInstance.applySelectLatestVersionSetting()
+            assertEquals("1.1.0", toolWindowInstance.selectedVersions[key])
+            settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.DISABLED
+            toolWindowInstance.applySelectLatestVersionSetting()
+            assertNull(toolWindowInstance.selectedVersions[key])
+            assertFalse(toolWindowInstance.hasSelectedUpdates())
+        } finally {
+            settings.state.versionAutoSelectionMode = original
         }
-
-        simulateCheck(currentVersion)
-        assertEquals("1.1.0", selectedVersions[key])
-
-        // Test with VersionAutoSelectionMode.DISABLED
-        settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.DISABLED
-        selectedVersions.clear()
-        simulateCheck(currentVersion)
-        assertEquals("1.0.0", selectedVersions[key])
-        
-        settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.LATEST
     }
 
     fun testUpdatesFilterIsDisabledUntilSuccessfulVersionScan() {
@@ -728,11 +762,12 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         // wodurch datumsbasierte Versionen (Major 2023/2025) vor der aktuellen 24.0 stehen.
         val versions = listOf("2025-1234", "2023-1234", "24.0")
         model.addRow(
-            arrayOf("com.example", "jump-lib", "", "dependency", null, "24.0", versions)
+            arrayOf("com.example", "jump-lib", "", "", "dependency", null, "24.0", versions)
         )
 
-        val renderer = table.columnModel.getColumn(6).cellRenderer
-        val component = renderer.getTableCellRendererComponent(table, versions, false, false, 0, 6) as Container
+        val newVersionViewCol = table.convertColumnIndexToView(NEW_VERSION_COLUMN)
+        val renderer = table.columnModel.getColumn(newVersionViewCol).cellRenderer
+        val component = renderer.getTableCellRendererComponent(table, versions, false, false, 0, newVersionViewCol) as Container
         val combo = findComboBox(component)
 
         assertNotNull("Die New-Version-Zelle sollte eine ComboBox rendern", combo)
@@ -767,13 +802,14 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         val model = table!!.model as DefaultTableModel
         model.addRow(
-            arrayOf("com.example", "my-lib", "", "dependency", null, "1.0.0", listOf("1.1.0", "1.0.0"))
+            arrayOf("com.example", "my-lib", "", "", "dependency", null, "1.0.0", listOf("1.1.0", "1.0.0"))
         )
 
+        val newVersionViewCol = table.convertColumnIndexToView(NEW_VERSION_COLUMN)
         // Bearbeitung der Spalte "New Version" starten
         assertTrue(
             "Die New-Version-Zelle sollte in den Bearbeitungsmodus wechseln",
-            table.editCellAt(0, 6)
+            table.editCellAt(0, newVersionViewCol)
         )
         assertTrue("Die Tabelle sollte sich im Bearbeitungsmodus befinden", table.isEditing)
 
@@ -1062,17 +1098,17 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertTrue("Hierarchy-Aktion sollte in der Toolbar vorhanden sein", hierarchyIndex > 0)
         assertTrue("Details-Aktion sollte in der Toolbar vorhanden sein", detailsIndex > 0)
         assertEquals(
-            "Details-Aktion muss direkt nach Hierarchy stehen",
-            hierarchyIndex + 1,
-            detailsIndex
+            "Hierarchy-Aktion muss direkt nach Details stehen",
+            detailsIndex + 1,
+            hierarchyIndex
         )
 
-        val navigatePomIndex = hierarchyIndex - 1
+        val navigatePomIndex = detailsIndex - 1
         val navigatePomAction = allActions[navigatePomIndex]
         val navigatePomEvent = com.intellij.testFramework.TestActionEvent.createTestEvent(navigatePomAction)
         ActionUtil.updateAction(navigatePomAction, navigatePomEvent)
         assertEquals(
-            "Die Aktion direkt vor Hierarchy muss die pom.xml-Navigation sein",
+            "Die Aktion direkt vor Details muss die pom.xml-Navigation sein",
             MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.navigateToPom.short"),
             navigatePomEvent.presentation.text
         )
@@ -1156,10 +1192,10 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
             toolWindow.isDependencyHierarchyEnabled(isSearchingVersions = true)
         )
 
-        model.addRow(arrayOf("com.example", "direct-lib", "", "dependency", null, "1.0.0", emptyList<String>()))
-        model.addRow(arrayOf("com.example", "direct-plugin", "", "plugin", null, "1.0.0", emptyList<String>()))
-        model.addRow(arrayOf("com.example", "managed-lib", "", "managed dependency", null, "1.0.0", emptyList<String>()))
-        model.addRow(arrayOf("com.example", "managed-plugin", "", "managed plugin", null, "1.0.0", emptyList<String>()))
+        model.addRow(arrayOf("com.example", "direct-lib", "", "", "dependency", null, "1.0.0", emptyList<String>()))
+        model.addRow(arrayOf("com.example", "direct-plugin", "", "", "plugin", null, "1.0.0", emptyList<String>()))
+        model.addRow(arrayOf("com.example", "managed-lib", "", "", "managed dependency", null, "1.0.0", emptyList<String>()))
+        model.addRow(arrayOf("com.example", "managed-plugin", "", "", "managed plugin", null, "1.0.0", emptyList<String>()))
 
         // Context-Menu Aktionen prüfen
         val directTarget = DependencyContextMenuTarget(0, "com.example", "direct-lib", "", "dependency", "1.0.0")
@@ -1198,12 +1234,35 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertFalse(toolWindow.isDependencyHierarchyVisible())
     }
 
+    /**
+     * Prüft, dass die Aktion "Check for Redundancy" nur für verwaltete Abhängigkeiten erscheint.
+     */
+    fun testRedundantManagedContextActionIsLimitedToManagedDependencies() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val redundantLabel = MyMessageBundle.message("toolwindow.MyToolWindow.checkRedundantManaged.contextMenu")
+        assertEquals("Check for Redundancy", redundantLabel)
+        val managedDependencyType = MyMessageBundle.message("toolwindow.MyToolWindow.type.managedDependency")
+
+        /** Prüft, ob der Kontextmenü-Aufbau die Redundanzprüfung für den angegebenen Typ enthält. */
+        fun hasRedundantAction(type: String): Boolean =
+            toolWindow.buildContextMenuGroup(
+                DependencyContextMenuTarget(0, "com.example", "library", "", type, "1.0.0")
+            ).getChildren(null).filterIsInstance<com.intellij.openapi.actionSystem.AnAction>()
+                .any { it.templatePresentation.text == redundantLabel }
+
+        assertTrue(hasRedundantAction(managedDependencyType))
+        assertFalse(hasRedundantAction("dependency"))
+        assertFalse(hasRedundantAction(PARENT_TYPE))
+        assertFalse(hasRedundantAction("plugin"))
+        assertFalse(hasRedundantAction(MANAGED_PLUGIN))
+    }
+
     fun testDependencyHierarchyClosableAfterVulnerabilityScanClearsTable() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         val content = toolWindow.getContent()
         val table = findTable(content)!!
         val model = table.model as DefaultTableModel
-        model.addRow(arrayOf("com.example", "lib", "", "dependency", null, "1.0.0", emptyList<String>()))
+        model.addRow(arrayOf("com.example", "lib", "", "", "dependency", null, "1.0.0", emptyList<String>()))
         table.setRowSelectionInterval(0, 0)
 
         val hierarchyAction = toolWindow.topToolbarActions()
@@ -1235,8 +1294,8 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val content = toolWindow.getContent()
         val table = findTable(content)!!
         val model = table.model as DefaultTableModel
-        model.addRow(arrayOf("com.example", "lib", "", "dependency", null, "1.0.0", emptyList<String>()))
-        model.addRow(arrayOf("com.example", "other", "", "dependency", null, "2.0.0", emptyList<String>()))
+        model.addRow(arrayOf("com.example", "lib", "", "", "dependency", null, "1.0.0", emptyList<String>()))
+        model.addRow(arrayOf("com.example", "other", "", "", "dependency", null, "2.0.0", emptyList<String>()))
         table.setRowSelectionInterval(1, 1)
         toolWindow.showDependencyHierarchy("com.example", "other", false)
         assertTrue(toolWindow.isDependencyHierarchyVisible())
@@ -1246,8 +1305,8 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         model.setRowCount(0)
         assertEquals(-1, table.selectedRow)
 
-        model.addRow(arrayOf("com.example", "lib", "", "dependency", null, "1.0.0", emptyList<String>()))
-        model.addRow(arrayOf("com.example", "other", "", "dependency", null, "2.0.0", emptyList<String>()))
+        model.addRow(arrayOf("com.example", "lib", "", "", "dependency", null, "1.0.0", emptyList<String>()))
+        model.addRow(arrayOf("com.example", "other", "", "", "dependency", null, "2.0.0", emptyList<String>()))
         toolWindow.restoreSelectionAfterRefresh()
 
         assertEquals(
@@ -1264,14 +1323,14 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val content = toolWindow.getContent()
         val table = findTable(content)!!
         val model = table.model as DefaultTableModel
-        model.addRow(arrayOf("com.example", "lib", "", "dependency", null, "1.0.0", emptyList<String>()))
+        model.addRow(arrayOf("com.example", "lib", "", "", "dependency", null, "1.0.0", emptyList<String>()))
         table.setRowSelectionInterval(0, 0)
 
         toolWindow.captureSelectionBeforeRefresh()
         model.setRowCount(0)
 
         // Die zuvor selektierte Komponente ist nach dem Refresh nicht mehr vorhanden (z. B. entfernt).
-        model.addRow(arrayOf("com.example", "different", "", "dependency", null, "1.0.0", emptyList<String>()))
+        model.addRow(arrayOf("com.example", "different", "", "", "dependency", null, "1.0.0", emptyList<String>()))
         toolWindow.restoreSelectionAfterRefresh()
 
         assertEquals(-1, table.selectedRow)
@@ -1282,8 +1341,8 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val content = toolWindow.getContent()
         val table = findTable(content)!!
         val model = table.model as DefaultTableModel
-        model.addRow(arrayOf("com.example", "lib", "", "dependency", null, "1.0.0", emptyList<String>()))
-        model.addRow(arrayOf("com.example", "other", "", "dependency", null, "2.0.0", emptyList<String>()))
+        model.addRow(arrayOf("com.example", "lib", "", "", "dependency", null, "1.0.0", emptyList<String>()))
+        model.addRow(arrayOf("com.example", "other", "", "", "dependency", null, "2.0.0", emptyList<String>()))
         table.setRowSelectionInterval(0, 0)
         toolWindow.captureSelectionBeforeRefresh()
 
@@ -1292,8 +1351,8 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         model.setRowCount(0)
         toolWindow.captureSelectionBeforeRefresh()
 
-        model.addRow(arrayOf("com.example", "lib", "", "dependency", null, "1.0.0", emptyList<String>()))
-        model.addRow(arrayOf("com.example", "other", "", "dependency", null, "2.0.0", emptyList<String>()))
+        model.addRow(arrayOf("com.example", "lib", "", "", "dependency", null, "1.0.0", emptyList<String>()))
+        model.addRow(arrayOf("com.example", "other", "", "", "dependency", null, "2.0.0", emptyList<String>()))
         toolWindow.restoreSelectionAfterRefresh()
 
         assertEquals(
@@ -1332,7 +1391,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         val table = findTable(content)!!
         val model = table.model as DefaultTableModel
-        model.addRow(arrayOf("org.springframework.boot", "spring-boot-starter-web", "", "dependency", null, "1.0.0", emptyList<String>()))
+        model.addRow(arrayOf("org.springframework.boot", "spring-boot-starter-web", "", "", "dependency", null, "1.0.0", emptyList<String>()))
         table.setRowSelectionInterval(0, 0)
         toolWindow.syncDependencyHierarchySelection()
         assertEquals(
@@ -1619,7 +1678,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
             emptySet()
         )
         (table!!.model as? DefaultTableModel)?.addRow(
-            arrayOf("com.example", "my-lib", "", "dependency", cell, "1.0.0", emptyList<String>())
+            arrayOf("com.example", "my-lib", "", "", "dependency", cell, "1.0.0", emptyList<String>())
         )
         table.setRowSelectionInterval(0, 0)
 
@@ -1832,7 +1891,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         assertEquals(
             "Ein Scan ohne jeden Befund muss dies im Empty State melden",
-            "No vulnerabilities found in the last scan.",
+            "No vulnerabilities were found in the last scan.",
             view.table.emptyText.text
         )
     }
@@ -1853,7 +1912,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         assertEquals(
             "Nur direkte Befunde müssen im Empty State erklärt werden",
-            "No transitive vulnerabilities found. All findings affect directly declared dependencies.",
+            "No transitive vulnerabilities were found. All findings affect directly declared dependencies.",
             view.table.emptyText.text
         )
     }
@@ -2155,6 +2214,97 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertFalse(toolWindow.hasRecommendedVersionForDependency(key))
     }
 
+    /**
+     * Stellt sicher, dass eine berechnete empfohlene Version nicht angeboten oder gesetzt werden kann,
+     * wenn sie nicht exakt in der Liste der verfügbaren Versionen enthalten ist.
+     */
+    fun testRecommendedVersionMustBeContainedInAvailableVersions() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+
+        val key = "com.example:direct"
+        val knownDependencies = toolWindow.javaClass.getDeclaredField("knownDependencies")
+            .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, String>
+        val availableVersions = toolWindow.javaClass.getDeclaredField("availableVersions")
+            .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, List<String>>
+        val selectedVersions = toolWindow.javaClass.getDeclaredField("selectedVersions")
+            .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, String>
+        val advisories = toolWindow.javaClass.getDeclaredField("vulnerabilityAdvisories")
+            .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, List<VulnerabilityAdvisory>>
+
+        knownDependencies[key] = "10.1.50"
+        availableVersions[key] = listOf("10.1.59", "10.1.57", "10.1.50")
+        advisories["$key:10.1.50"] = listOf(
+            VulnerabilityAdvisory(
+                id = "CVE-5",
+                severity = VulnerabilitySeverity.HIGH,
+                sources = setOf("OSV"),
+                fixedVersions = setOf("10.1.58")
+            )
+        )
+
+        assertEquals("", toolWindow.recommendedVersionForDependency(key))
+        assertFalse(toolWindow.hasRecommendedVersionForDependency(key))
+        assertFalse(toolWindow.hasRecommendedVersions())
+        assertFalse(toolWindow.isRecommendedSelectionEnabledForCurrentView())
+
+        toolWindow.selectRecommendedVersionForDependency(key)
+        assertNull(selectedVersions[key])
+    }
+
+    /**
+     * Stellt sicher, dass eine empfohlene Version nicht gesetzt werden kann, wenn "Hide unstable versions"
+     * aktiv ist und die empfohlene Version eine instabile Version ist, die aus den verfügbaren Versionen
+     * ausgefiltert wird.
+     */
+    fun testRecommendedVersionDisabledWhenUnstableAndHideUnstableVersionsActive() {
+        val settings = MavenUpSettings.getInstance()
+        val originalHide = settings.state.hideUnstableVersions
+        val originalQualifiers = settings.state.hiddenVersionQualifiers
+        try {
+            val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+            toolWindow.getContent()
+
+            val key = "com.example:direct"
+            val knownDependencies = toolWindow.javaClass.getDeclaredField("knownDependencies")
+                .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, String>
+            val rawAvailableVersions = toolWindow.javaClass.getDeclaredField("rawAvailableVersions")
+                .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, List<String>>
+            val advisories = toolWindow.javaClass.getDeclaredField("vulnerabilityAdvisories")
+                .apply { isAccessible = true }.get(toolWindow) as MutableMap<String, List<VulnerabilityAdvisory>>
+
+            knownDependencies[key] = "1.0.0"
+            rawAvailableVersions[key] = listOf("1.2.0-beta-1", "1.0.0")
+            advisories["$key:1.0.0"] = listOf(
+                VulnerabilityAdvisory(
+                    id = "CVE-6",
+                    severity = VulnerabilitySeverity.HIGH,
+                    sources = setOf("OSV"),
+                    fixedVersions = setOf("1.2.0-beta-1")
+                )
+            )
+
+            settings.state.hideUnstableVersions = false
+            toolWindow.applyVersionVisibilitySettings()
+
+            assertEquals("1.2.0-beta-1", toolWindow.recommendedVersionForDependency(key))
+            assertTrue(toolWindow.hasRecommendedVersionForDependency(key))
+            assertTrue(toolWindow.hasRecommendedVersions())
+
+            settings.state.hideUnstableVersions = true
+            settings.state.hiddenVersionQualifiers = "beta,alpha,rc"
+            toolWindow.applyVersionVisibilitySettings()
+
+            assertEquals("", toolWindow.recommendedVersionForDependency(key))
+            assertFalse(toolWindow.hasRecommendedVersionForDependency(key))
+            assertFalse(toolWindow.hasRecommendedVersions())
+            assertFalse(toolWindow.isRecommendedSelectionEnabledForCurrentView())
+        } finally {
+            settings.state.hideUnstableVersions = originalHide
+            settings.state.hiddenVersionQualifiers = originalQualifiers
+        }
+    }
+
     fun testTransitiveTabTitleDropsCountWhenFindingsCleared() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         toolWindow.getContent()
@@ -2207,10 +2357,10 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         toolWindow.applySelectLatestVersionSetting()
         assertEquals("2.0.0", selectedVersions[key])
 
-        // With DISABLED mode, the current version should be selected
+        // With DISABLED mode, no update should be selected.
         settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.DISABLED
         toolWindow.applySelectLatestVersionSetting()
-        assertEquals("1.0.0", selectedVersions[key])
+        assertNull(selectedVersions[key])
 
         // Reset
         settings.state.versionAutoSelectionMode = VersionAutoSelectionMode.LATEST
@@ -2492,9 +2642,9 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val cleanCell = buildVulnerabilityCell("com.example:clean-lib:1.0.0", emptyMap(), emptySet())
 
         // Row 0: has changes, has vulnerabilities
-        model.addRow(arrayOf("com.example", "vuln-lib", "", "dependency", vulnCell, "1.0.0", listOf("2.0.0", "1.0.0")))
+        model.addRow(arrayOf("com.example", "vuln-lib", "", "", "dependency", vulnCell, "1.0.0", listOf("2.0.0", "1.0.0")))
         // Row 1: no changes, no vulnerabilities
-        model.addRow(arrayOf("com.example", "clean-lib", "", "dependency", cleanCell, "1.0.0", listOf("1.0.0")))
+        model.addRow(arrayOf("com.example", "clean-lib", "", "", "dependency", cleanCell, "1.0.0", listOf("1.0.0")))
 
         val fields = toolWindow.javaClass
         @Suppress("UNCHECKED_CAST")
@@ -2566,12 +2716,12 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         )
         val cleanCell = buildVulnerabilityCell("com.example:clean-lib:1.0.0", emptyMap(), emptySet())
 
-        model.addRow(arrayOf("com.example", "self-lib", "", "dependency", selfCell, "1.0.0", listOf("1.0.0")))
+        model.addRow(arrayOf("com.example", "self-lib", "", "", "dependency", selfCell, "1.0.0", listOf("1.0.0")))
         model.addRow(
-            arrayOf("com.example", "transitive-lib", "", "dependency", transitiveCell, "1.0.0", listOf("1.0.0"))
+            arrayOf("com.example", "transitive-lib", "", "", "dependency", transitiveCell, "1.0.0", listOf("1.0.0"))
         )
-        model.addRow(arrayOf("com.example", "both-lib", "", "dependency", bothCell, "1.0.0", listOf("1.0.0")))
-        model.addRow(arrayOf("com.example", "clean-lib", "", "dependency", cleanCell, "1.0.0", listOf("1.0.0")))
+        model.addRow(arrayOf("com.example", "both-lib", "", "", "dependency", bothCell, "1.0.0", listOf("1.0.0")))
+        model.addRow(arrayOf("com.example", "clean-lib", "", "", "dependency", cleanCell, "1.0.0", listOf("1.0.0")))
 
         toolWindow.vulnerabilitiesFilterComboBox.selectedItem = VulnerabilityFilter.VULNERABLE
         toolWindow.applyRowFilter()
@@ -2679,8 +2829,8 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val table = findTable(content)!!
         val model = table.model as DefaultTableModel
 
-        model.addRow(arrayOf("com.example", "inherited", "", "dependency", null, "1.0.0", listOf("1.0.0")))
-        model.addRow(arrayOf("com.example", "declared", "", "dependency", null, "2.0.0", listOf("2.0.0")))
+        model.addRow(arrayOf("com.example", "inherited", "", "", "dependency", null, "1.0.0", listOf("1.0.0")))
+        model.addRow(arrayOf("com.example", "declared", "", "", "dependency", null, "2.0.0", listOf("2.0.0")))
         toolWindow.inheritedVersionDependencies.add("com.example:inherited")
         toolWindow.updateVersionSourceFilterState()
 
@@ -2705,8 +2855,8 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val table = findTable(content)!!
         val model = table.model as DefaultTableModel
 
-        model.addRow(arrayOf("com.example", "lib-a", "", "dependency", null, "1.0.0", listOf("1.0.0")))
-        model.addRow(arrayOf("org.other", "lib-b", "", "dependency", null, "1.0.0", listOf("1.0.0")))
+        model.addRow(arrayOf("com.example", "lib-a", "", "", "dependency", null, "1.0.0", listOf("1.0.0")))
+        model.addRow(arrayOf("org.other", "lib-b", "", "", "dependency", null, "1.0.0", listOf("1.0.0")))
 
         toolWindow.searchTextField.text = "org.other"
         toolWindow.applyRowFilter()
@@ -2726,8 +2876,8 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val table = findTable(content)!!
         val model = table.model as DefaultTableModel
 
-        model.addRow(arrayOf("com.example", "lib-a", "", "dependency", null, "1.0.0", listOf("1.0.0")))
-        model.addRow(arrayOf("com.example", "lib-b", "", "plugin", null, "1.0.0", listOf("1.0.0")))
+        model.addRow(arrayOf("com.example", "lib-a", "", "", "dependency", null, "1.0.0", listOf("1.0.0")))
+        model.addRow(arrayOf("com.example", "lib-b", "", "", "plugin", null, "1.0.0", listOf("1.0.0")))
 
         toolWindow.updateTypeFilterOptions()
         toolWindow.inheritedVersionDependencies.add("com.example:lib-a")
@@ -2779,7 +2929,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val key = "com.example:major-all"
         availableVersions[key] = listOf("3.1.0", "3.0.0", "2.9.9", "2.5.0")
         knownDependencies[key] = "2.5.0"
-        model.addRow(arrayOf("com.example", "major-all", "", "dependency", null, "2.5.0", availableVersions[key]))
+        model.addRow(arrayOf("com.example", "major-all", "", "", "dependency", null, "2.5.0", availableVersions[key]))
         toolWindow.applyRowFilter()
 
         toolWindow.selectHighestMajorVersionForAll(visibleOnly = true)
@@ -2796,7 +2946,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val key = "com.example:minor-all"
         availableVersions[key] = listOf("3.1.0", "3.0.0", "2.9.9", "2.5.0")
         knownDependencies[key] = "2.5.0"
-        model.addRow(arrayOf("com.example", "minor-all", "", "dependency", null, "2.5.0", availableVersions[key]))
+        model.addRow(arrayOf("com.example", "minor-all", "", "", "dependency", null, "2.5.0", availableVersions[key]))
         toolWindow.applyRowFilter()
 
         toolWindow.selectHighestMinorVersionForAll(visibleOnly = true)
@@ -2813,7 +2963,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val key = "com.example:minor-none"
         availableVersions[key] = listOf("3.2.0", "3.1.0")
         knownDependencies[key] = "2.8.0"
-        model.addRow(arrayOf("com.example", "minor-none", "", "dependency", null, "2.8.0", availableVersions[key]))
+        model.addRow(arrayOf("com.example", "minor-none", "", "", "dependency", null, "2.8.0", availableVersions[key]))
         toolWindow.applyRowFilter()
 
         toolWindow.selectHighestMinorVersionForAll(visibleOnly = true)
@@ -2836,8 +2986,8 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         availableVersions[other] = listOf("9.0.0", "8.0.0")
         knownDependencies[key] = "2.5.0"
         knownDependencies[other] = "8.0.0"
-        model.addRow(arrayOf("com.example", "major-row", "", "dependency", null, "2.5.0", availableVersions[key]))
-        model.addRow(arrayOf("com.example", "other-row", "", "dependency", null, "8.0.0", availableVersions[other]))
+        model.addRow(arrayOf("com.example", "major-row", "", "", "dependency", null, "2.5.0", availableVersions[key]))
+        model.addRow(arrayOf("com.example", "other-row", "", "", "dependency", null, "8.0.0", availableVersions[other]))
         toolWindow.applyRowFilter()
 
         toolWindow.selectHighestMajorVersionForDependency(key)
@@ -2858,7 +3008,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val key = "com.example:minor-row"
         availableVersions[key] = listOf("3.1.0", "3.0.0", "2.9.9", "2.5.0")
         knownDependencies[key] = "2.5.0"
-        model.addRow(arrayOf("com.example", "minor-row", "", "dependency", null, "2.5.0", availableVersions[key]))
+        model.addRow(arrayOf("com.example", "minor-row", "", "", "dependency", null, "2.5.0", availableVersions[key]))
         toolWindow.applyRowFilter()
 
         toolWindow.selectHighestMinorVersionForDependency(key)
@@ -2875,7 +3025,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val key = "com.example:minor-row-none"
         availableVersions[key] = listOf("3.2.0", "3.1.0")
         knownDependencies[key] = "2.8.0"
-        model.addRow(arrayOf("com.example", "minor-row-none", "", "dependency", null, "2.8.0", availableVersions[key]))
+        model.addRow(arrayOf("com.example", "minor-row-none", "", "", "dependency", null, "2.8.0", availableVersions[key]))
         toolWindow.applyRowFilter()
 
         toolWindow.selectHighestMinorVersionForDependency(key)
@@ -2894,7 +3044,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
 
         val key = "com.example:no-versions"
         knownDependencies[key] = "1.0.0"
-        model.addRow(arrayOf("com.example", "no-versions", "", "dependency", null, "1.0.0", emptyList<String>()))
+        model.addRow(arrayOf("com.example", "no-versions", "", "", "dependency", null, "1.0.0", emptyList<String>()))
         toolWindow.applyRowFilter()
 
         assertFalse(
@@ -2937,8 +3087,8 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         knownDependencies[other] = "8.0.0"
         selectedVersions[key] = "3.1.0"
         selectedVersions[other] = "9.0.0"
-        model.addRow(arrayOf("com.example", "reset-row", "", "dependency", null, "2.5.0", availableVersions[key]))
-        model.addRow(arrayOf("com.example", "reset-other", "", "dependency", null, "8.0.0", availableVersions[other]))
+        model.addRow(arrayOf("com.example", "reset-row", "", "", "dependency", null, "2.5.0", availableVersions[key]))
+        model.addRow(arrayOf("com.example", "reset-other", "", "", "dependency", null, "8.0.0", availableVersions[other]))
         toolWindow.applyRowFilter()
 
         assertTrue(toolWindow.isVersionResetEnabledForDependency(key, "dependency"))
@@ -3013,8 +3163,8 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         availableVersions[hiddenKey] = listOf("2.0.0", "1.0.0")
         knownDependencies[visibleKey] = "1.0.0"
         knownDependencies[hiddenKey] = "1.0.0"
-        model.addRow(arrayOf("com.example", "visible-lib", "", "dependency", null, "1.0.0", availableVersions[visibleKey]))
-        model.addRow(arrayOf("com.example", "hidden-lib", "", "plugin", null, "1.0.0", availableVersions[hiddenKey]))
+        model.addRow(arrayOf("com.example", "visible-lib", "", "", "dependency", null, "1.0.0", availableVersions[visibleKey]))
+        model.addRow(arrayOf("com.example", "hidden-lib", "", "", "plugin", null, "1.0.0", availableVersions[hiddenKey]))
 
         // Nur Zeilen vom Typ "dependency" sichtbar lassen.
         toolWindow.updateTypeFilterOptions()
@@ -3045,8 +3195,8 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         knownDependencies[hiddenKey] = "1.0.0"
         selectedVersions[visibleKey] = "2.0.0"
         selectedVersions[hiddenKey] = "2.0.0"
-        model.addRow(arrayOf("com.example", "reset-visible", "", "dependency", null, "1.0.0", availableVersions[visibleKey]))
-        model.addRow(arrayOf("com.example", "reset-hidden", "", "plugin", null, "1.0.0", availableVersions[hiddenKey]))
+        model.addRow(arrayOf("com.example", "reset-visible", "", "", "dependency", null, "1.0.0", availableVersions[visibleKey]))
+        model.addRow(arrayOf("com.example", "reset-hidden", "", "", "plugin", null, "1.0.0", availableVersions[hiddenKey]))
 
         toolWindow.updateTypeFilterOptions()
         toolWindow.typeFilterComboBox.selectedItem = "dependency"
@@ -3075,8 +3225,8 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         knownDependencies[hiddenKey] = "1.0.0"
         selectedVersions[visibleKey] = "2.0.0"
         selectedVersions[hiddenKey] = "2.0.0"
-        model.addRow(arrayOf("com.example", "reset-visible", "", "dependency", null, "1.0.0", availableVersions[visibleKey]))
-        model.addRow(arrayOf("com.example", "reset-hidden", "", "plugin", null, "1.0.0", availableVersions[hiddenKey]))
+        model.addRow(arrayOf("com.example", "reset-visible", "", "", "dependency", null, "1.0.0", availableVersions[visibleKey]))
+        model.addRow(arrayOf("com.example", "reset-hidden", "", "", "plugin", null, "1.0.0", availableVersions[hiddenKey]))
 
         toolWindow.updateTypeFilterOptions()
         toolWindow.typeFilterComboBox.selectedItem = "dependency"
@@ -3100,8 +3250,8 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val content = toolWindow.getContent()
         val model = findTable(content)!!.model as DefaultTableModel
 
-        model.addRow(arrayOf("com.example", "lib-a", "", "dependency", null, "1.0.0", listOf("1.0.0")))
-        model.addRow(arrayOf("com.example", "lib-b", "", "plugin", null, "1.0.0", listOf("1.0.0")))
+        model.addRow(arrayOf("com.example", "lib-a", "", "", "dependency", null, "1.0.0", listOf("1.0.0")))
+        model.addRow(arrayOf("com.example", "lib-b", "", "", "plugin", null, "1.0.0", listOf("1.0.0")))
 
         toolWindow.applyRowFilter()
         assertFalse(toolWindow.isRowFilterHidingEntries())
@@ -3324,21 +3474,22 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
             val managedDependency = MyMessageBundle.message("toolwindow.MyToolWindow.type.managedDependency")
             model.addRow(
                 arrayOf(
-                    "com.example", "managed-library", "", managedDependency, null, "1.0.0", listOf("1.0.0")
+                    "com.example", "managed-library", "", "", managedDependency, null, "1.0.0", listOf("1.0.0")
                 )
             )
 
             toolWindow.markManagedEntryForRemoval(key, managedDependency, "1.0.0")
 
-            val renderer = table.columnModel.getColumn(6).cellRenderer
+            val newVersionViewCol = table.convertColumnIndexToView(NEW_VERSION_COLUMN)
+            val renderer = table.columnModel.getColumn(newVersionViewCol).cellRenderer
             val component = renderer.getTableCellRendererComponent(
-                table, model.getValueAt(0, 6), false, false, 0, 6
+                table, model.getValueAt(0, NEW_VERSION_COLUMN), false, false, 0, newVersionViewCol
             ) as JLabel
             assertEquals(MyMessageBundle.message("toolwindow.MyToolWindow.version.willRemove"), component.text)
 
             settings.state.commentOutManagedEntriesOnRemoval = true
             val componentCommentOut = renderer.getTableCellRendererComponent(
-                table, model.getValueAt(0, 6), false, false, 0, 6
+                table, model.getValueAt(0, NEW_VERSION_COLUMN), false, false, 0, newVersionViewCol
             ) as JLabel
             assertEquals(MyMessageBundle.message("toolwindow.MyToolWindow.version.willCommentOut"), componentCommentOut.text)
         } finally {
@@ -3365,6 +3516,11 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
             )
             assertEquals(
                 MyMessageBundle.message("toolwindow.MyToolWindow.managedEntries.group.tooltip.commentOut"),
+                toolWindow.managedEntriesGroupTooltip()
+            )
+            assertEquals(
+                "Comment out managed dependencies or managed plugins in pom.xml, or check managed dependencies for redundancy. " +
+                    "With an active filter, you can choose whether comment-out actions apply to all matching entries or only the currently visible ones.",
                 toolWindow.managedEntriesGroupTooltip()
             )
             assertEquals(
@@ -3399,6 +3555,11 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
                 toolWindow.managedEntriesGroupTooltip()
             )
             assertEquals(
+                "Remove managed dependencies or managed plugins from pom.xml, or check managed dependencies for redundancy. " +
+                    "With an active filter, you can choose whether removal actions apply to all matching entries or only the currently visible ones.",
+                toolWindow.managedEntriesGroupTooltip()
+            )
+            assertEquals(
                 MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.removeFromPom"),
                 toolWindow.managedEntryContextMenuLabel()
             )
@@ -3426,8 +3587,8 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val managedDependency = MyMessageBundle.message("toolwindow.MyToolWindow.type.managedDependency")
         val removalKey = "com.example:managed-library"
         val updateKey = "com.example:regular-library"
-        model.addRow(arrayOf("com.example", "managed-library", "", managedDependency, null, "1.0.0", listOf("1.0.0")))
-        model.addRow(arrayOf("com.example", "regular-library", "", "dependency", null, "1.0.0", listOf("2.0.0", "1.0.0")))
+        model.addRow(arrayOf("com.example", "managed-library", "", "", managedDependency, null, "1.0.0", listOf("1.0.0")))
+        model.addRow(arrayOf("com.example", "regular-library", "", "", "dependency", null, "1.0.0", listOf("2.0.0", "1.0.0")))
         val (_, selectedVersions, knownDependencies) = versionMaps(toolWindow)
         knownDependencies[removalKey] = "1.0.0"
         knownDependencies[updateKey] = "1.0.0"
@@ -3579,14 +3740,14 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         knownDependencies[key] = "1.0.0"
         raw[key] = listOf("2.0.0", "2.0.0-RC1", "1.0.0")
         availableVersions[key] = raw[key]!!
-        model.addRow(arrayOf("com.example", "unstable-lib", "", "dependency", null, "1.0.0", raw[key]))
+        model.addRow(arrayOf("com.example", "unstable-lib", "", "", "dependency", null, "1.0.0", raw[key]))
 
         withVersionVisibilitySettings(hideUnstable = true, offerAll = false) {
             toolWindow.applyVersionVisibilitySettings()
         }
 
         assertEquals(listOf("2.0.0", "1.0.0"), availableVersions[key])
-        assertEquals(listOf("2.0.0", "1.0.0"), model.getValueAt(0, 6))
+        assertEquals(listOf("2.0.0", "1.0.0"), model.getValueAt(0, NEW_VERSION_COLUMN))
     }
 
     /**
@@ -3601,7 +3762,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val key = "com.example:downgrade-lib"
         knownDependencies[key] = "1.5.0"
         raw[key] = listOf("2.0.0", "1.5.0", "1.0.0")
-        model.addRow(arrayOf("com.example", "downgrade-lib", "", "dependency", null, "1.5.0", emptyList<String>()))
+        model.addRow(arrayOf("com.example", "downgrade-lib", "", "", "dependency", null, "1.5.0", emptyList<String>()))
 
         withVersionVisibilitySettings(hideUnstable = false, offerAll = true) {
             toolWindow.applyVersionVisibilitySettings()
@@ -3612,7 +3773,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
             toolWindow.applyVersionVisibilitySettings()
         }
         assertEquals(listOf("2.0.0", "1.5.0"), availableVersions[key])
-        assertEquals(listOf("2.0.0", "1.5.0"), model.getValueAt(0, 6))
+        assertEquals(listOf("2.0.0", "1.5.0"), model.getValueAt(0, NEW_VERSION_COLUMN))
     }
 
     /**
@@ -3630,7 +3791,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         raw[key] = listOf("2.0.0-RC1", "1.0.0")
         availableVersions[key] = raw[key]!!
         selectedVersions[key] = "2.0.0-RC1"
-        model.addRow(arrayOf("com.example", "selection-lib", "", "dependency", null, "1.0.0", raw[key]))
+        model.addRow(arrayOf("com.example", "selection-lib", "", "", "dependency", null, "1.0.0", raw[key]))
 
         withVersionVisibilitySettings(hideUnstable = true, offerAll = false) {
             toolWindow.applyVersionVisibilitySettings()
@@ -3798,9 +3959,9 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val table = tableField.get(toolWindow) as javax.swing.JTable
         val tableModel = table.model as DefaultTableModel
 
-        tableModel.addRow(arrayOf("com.example", "alpha", "", "dependency", "", "1.0.0", emptyList<String>()))
-        tableModel.addRow(arrayOf("org.springframework.boot", "spring-boot-starter-web", "", "dependency", "", "3.2.0", emptyList<String>()))
-        tableModel.addRow(arrayOf("com.example", "beta", "", "dependency", "", "2.0.0", emptyList<String>()))
+        tableModel.addRow(arrayOf("com.example", "alpha", "", "", "dependency", "", "1.0.0", emptyList<String>()))
+        tableModel.addRow(arrayOf("org.springframework.boot", "spring-boot-starter-web", "", "", "dependency", "", "3.2.0", emptyList<String>()))
+        tableModel.addRow(arrayOf("com.example", "beta", "", "", "dependency", "", "2.0.0", emptyList<String>()))
 
         // Filter setzen, so dass nur "alpha" sichtbar wäre
         toolWindow.searchTextField.text = "alpha"
@@ -3863,7 +4024,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         val table = tableField.get(toolWindow) as javax.swing.JTable
         val tableModel = table.model as DefaultTableModel
         tableModel.addRow(
-            arrayOf("org.transitive", "vulnerable-library", "", "dependency", "", "1.0.0", emptyList<String>())
+            arrayOf("org.transitive", "vulnerable-library", "", "", "dependency", "", "1.0.0", emptyList<String>())
         )
         addTransitiveFinding(toolWindow, "org.transitive:vulnerable-library:1.0.0")
         toolWindow.updateTransitiveVulnerabilitiesView()
@@ -3889,6 +4050,246 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertTrue(selectedRow >= 0)
         assertEquals("org.transitive", table.getValueAt(selectedRow, GROUP_ID_COLUMN))
         assertEquals("vulnerable-library", table.getValueAt(selectedRow, ARTIFACT_ID_COLUMN))
+    }
+
+    /**
+     * Stellt sicher, dass die Bezeichnungen der Kontextmenüeinträge zur Versionsauswahl
+     * einheitlich "Select..." verwenden.
+     */
+    fun testContextMenuSelectionActionLabels() {
+        assertEquals(
+            "Select Highest Major Version",
+            MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.selectHighestMajor")
+        )
+        assertEquals(
+            "Select Highest Minor Version",
+            MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.selectHighestMinor")
+        )
+        assertEquals(
+            "Select Recommended Version",
+            MyMessageBundle.message("toolwindow.MyToolWindow.contextMenu.selectRecommended")
+        )
+    }
+
+    fun testRemoveManagedEntriesOfTypeMarksAllMatchingRowsAcrossModules() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+        val managedDependency = MyMessageBundle.message("toolwindow.MyToolWindow.type.managedDependency")
+
+        val parentPomFile = myFixture.tempDirFixture.createFile("pom.xml")
+        val childPomFile = myFixture.tempDirFixture.createFile("child/pom.xml")
+
+        val parentRow = RefreshRow(
+            groupId = "org.apache.commons",
+            artifactId = "commons-lang3",
+            propertyName = "",
+            type = managedDependency,
+            currentVersion = "3.12.0",
+            pomFile = parentPomFile
+        )
+        val childRow = RefreshRow(
+            groupId = "org.apache.commons",
+            artifactId = "commons-lang3",
+            propertyName = "",
+            type = managedDependency,
+            currentVersion = "3.12.0",
+            pomFile = childPomFile
+        )
+
+        toolWindow.applyAutomaticVersionSearchState(
+            AutomaticVersionSearchState(
+                snapshot = RefreshSnapshot(listOf(parentRow, childRow), emptyMap()),
+                versionSearchResult = null,
+                repositoryError = null
+            )
+        )
+
+        assertTrue(toolWindow.hasManagedEntriesToRemoveForType(managedDependency))
+
+        toolWindow.removeManagedEntriesOfType(managedDependency, visibleOnly = false)
+
+        assertTrue(toolWindow.isManagedEntryMarkedForRemoval(parentRow))
+        assertTrue(toolWindow.isManagedEntryMarkedForRemoval(childRow))
+
+        val updates = toolWindow.collectSelectedUpdates()
+        assertEquals(2, updates.size)
+        assertTrue(updates.all { it.removeFromPom && it.groupId == "org.apache.commons" && it.artifactId == "commons-lang3" })
+        assertEquals(
+            setOf(parentPomFile.path, childPomFile.path),
+            updates.mapNotNull { it.pomFile?.path }.toSet()
+        )
+    }
+
+    fun testRemoveManagedEntriesOfTypeRespectsVisibleOnlyFilter() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val content = toolWindow.getContent()
+        val table = findTable(content)!!
+        val managedDependency = MyMessageBundle.message("toolwindow.MyToolWindow.type.managedDependency")
+
+        val pom1 = myFixture.tempDirFixture.createFile("mod1/pom.xml")
+        val pom2 = myFixture.tempDirFixture.createFile("mod2/pom.xml")
+
+        val row1 = RefreshRow(
+            groupId = "org.apache.commons",
+            artifactId = "commons-lang3",
+            propertyName = "",
+            type = managedDependency,
+            currentVersion = "3.12.0",
+            pomFile = pom1
+        )
+        val row2 = RefreshRow(
+            groupId = "com.google.guava",
+            artifactId = "guava",
+            propertyName = "",
+            type = managedDependency,
+            currentVersion = "31.1-jre",
+            pomFile = pom2
+        )
+
+        toolWindow.applyAutomaticVersionSearchState(
+            AutomaticVersionSearchState(
+                snapshot = RefreshSnapshot(listOf(row1, row2), emptyMap()),
+                versionSearchResult = null,
+                repositoryError = null
+            )
+        )
+
+        // Filter auf "commons-lang3" über Suchfeld setzen
+        toolWindow.searchTextField.text = "commons-lang3"
+        toolWindow.applyRowFilter()
+
+        assertEquals(1, table.rowCount)
+
+        toolWindow.removeManagedEntriesOfType(managedDependency, visibleOnly = true)
+
+        assertTrue(toolWindow.isManagedEntryMarkedForRemoval(row1))
+        assertFalse(toolWindow.isManagedEntryMarkedForRemoval(row2))
+    }
+
+    /**
+     * Stellt sicher, dass die Modulspalte in Single-Modul-Projekten ausgeblendet wird
+     * und in Multi-Modul-Projekten an Spaltenposition 2 eingeblendet wird.
+     */
+    fun testAdaptiveModuleColumnVisibilityForSingleAndMultiModule() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val content = toolWindow.getContent()
+        val table = findTable(content)!!
+
+        val pom1 = myFixture.tempDirFixture.createFile("mod1/pom.xml")
+        val pom2 = myFixture.tempDirFixture.createFile("mod2/pom.xml")
+
+        // Single-Module Snapshot: nur ein Modul "module-a"
+        val singleModuleRow = RefreshRow(
+            groupId = "com.example",
+            artifactId = "lib-a",
+            propertyName = "",
+            type = "dependency",
+            currentVersion = "1.0.0",
+            pomFile = pom1,
+            moduleName = "module-a"
+        )
+        toolWindow.applyAutomaticVersionSearchState(
+            AutomaticVersionSearchState(
+                snapshot = RefreshSnapshot(listOf(singleModuleRow), emptyMap()),
+                versionSearchResult = null,
+                repositoryError = null
+            )
+        )
+
+        val hasModuleColumnSingle = (0 until table.columnModel.columnCount)
+            .any { table.columnModel.getColumn(it).modelIndex == MODULE_COLUMN }
+        assertFalse(
+            "In Single-Modul-Projekten muss die Modulspalte ausgeblendet sein",
+            hasModuleColumnSingle
+        )
+
+        // Multi-Module Snapshot: zwei unterschiedliche Module "module-a" und "module-b"
+        val multiModuleRow2 = RefreshRow(
+            groupId = "com.example",
+            artifactId = "lib-b",
+            propertyName = "",
+            type = "dependency",
+            currentVersion = "2.0.0",
+            pomFile = pom2,
+            moduleName = "module-b"
+        )
+        toolWindow.applyAutomaticVersionSearchState(
+            AutomaticVersionSearchState(
+                snapshot = RefreshSnapshot(listOf(singleModuleRow, multiModuleRow2), emptyMap()),
+                versionSearchResult = null,
+                repositoryError = null
+            )
+        )
+
+        val hasModuleColumnMulti = (0 until table.columnModel.columnCount)
+            .any { table.columnModel.getColumn(it).modelIndex == MODULE_COLUMN }
+        assertTrue(
+            "In Multi-Modul-Projekten muss die Modulspalte eingeblendet sein",
+            hasModuleColumnMulti
+        )
+        assertEquals(
+            "Die Modulspalte muss an Index 2 positioniert sein",
+            MODULE_COLUMN,
+            table.columnModel.getColumn(MODULE_COLUMN).modelIndex
+        )
+    }
+
+    /**
+     * Stellt sicher, dass das Kontextmenü auf der Modulspalte eine Filter-Aktion anbietet
+     * und das Suchfeld nach dem Modulnamen filtert.
+     */
+    fun testModuleColumnFilterAndContextMenu() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val content = toolWindow.getContent()
+        val table = findTable(content)!!
+
+        val row1 = RefreshRow(
+            groupId = "com.example",
+            artifactId = "lib-a",
+            propertyName = "",
+            type = "dependency",
+            currentVersion = "1.0.0",
+            moduleName = "core-module"
+        )
+        val row2 = RefreshRow(
+            groupId = "org.other",
+            artifactId = "lib-b",
+            propertyName = "",
+            type = "dependency",
+            currentVersion = "1.0.0",
+            moduleName = "web-module"
+        )
+
+        toolWindow.applyAutomaticVersionSearchState(
+            AutomaticVersionSearchState(
+                snapshot = RefreshSnapshot(listOf(row1, row2), emptyMap()),
+                versionSearchResult = null,
+                repositoryError = null
+            )
+        )
+
+        // Filter per Suchtext auf Modulname
+        toolWindow.searchTextField.text = "core-module"
+        toolWindow.applyRowFilter()
+        assertEquals(1, table.rowCount)
+        assertEquals("lib-a", table.getValueAt(0, ARTIFACT_ID_COLUMN))
+
+        // Kontextmenü-Ziel auf Modulspalte (Modellindex 2)
+        val target = DependencyContextMenuTarget(
+            column = 2,
+            groupId = "com.example",
+            artifactId = "lib-a",
+            property = "",
+            type = "dependency",
+            currentVersion = "1.0.0",
+            module = "core-module",
+            refreshRow = row1
+        )
+        val group = toolWindow.buildContextMenuGroup(target)
+        val actions = group.getChildren(null)
+        val filterAction = actions.filterIsInstance<com.intellij.openapi.actionSystem.AnAction>()
+            .firstOrNull { it.templatePresentation.text?.contains("core-module") == true }
+        assertNotNull("Kontextmenü muss FilterBy-Aktion für das Modul enthalten", filterAction)
     }
 
     /**

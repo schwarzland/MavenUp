@@ -41,7 +41,7 @@ class DependencyHierarchyServiceTest : BasePlatformTestCase() {
         val rootTag = psiFile.document?.rootTag
         val service = DependencyHierarchyService(project)
 
-        val projectNode = DependencyHierarchyNode(
+        val projectNodeParent = DependencyHierarchyNode(
             type = DependencyHierarchyNodeType.PROJECT,
             groupId = "com.example",
             artifactId = "test-app",
@@ -51,20 +51,36 @@ class DependencyHierarchyServiceTest : BasePlatformTestCase() {
         service.collectDependencyManagementAndDirect(
             rootTag,
             psiFile.virtualFile,
-            "com.fasterxml.jackson.core",
-            "jackson-databind",
+            "org.springframework.boot",
+            "spring-boot-starter-parent",
             mapOf("spring-boot.version" to "3.2.0"),
-            projectNode
+            projectNodeParent
         )
 
-        val parentNode = projectNode.children.find { it.type == DependencyHierarchyNodeType.PARENT_POM }
+        val parentNode = projectNodeParent.children.find { it.type == DependencyHierarchyNodeType.PARENT_POM }
         assertNotNull(parentNode)
         assertEquals("org.springframework.boot", parentNode!!.groupId)
         assertEquals("spring-boot-starter-parent", parentNode.artifactId)
         assertEquals("3.2.0", parentNode.version)
         assertEquals("spring-boot.version", parentNode.propertyName)
 
-        val bomNode = projectNode.children.find { it.type == DependencyHierarchyNodeType.BOM_IMPORT }
+        val projectNodeBom = DependencyHierarchyNode(
+            type = DependencyHierarchyNodeType.PROJECT,
+            groupId = "com.example",
+            artifactId = "test-app",
+            pomFile = psiFile.virtualFile
+        )
+
+        service.collectDependencyManagementAndDirect(
+            rootTag,
+            psiFile.virtualFile,
+            "org.springframework.boot",
+            "spring-boot-dependencies",
+            mapOf("spring-boot.version" to "3.2.0"),
+            projectNodeBom
+        )
+
+        val bomNode = projectNodeBom.children.find { it.type == DependencyHierarchyNodeType.BOM_IMPORT }
         assertNotNull(bomNode)
         assertEquals("org.springframework.boot", bomNode!!.groupId)
         assertEquals("spring-boot-dependencies", bomNode.artifactId)
@@ -299,6 +315,66 @@ class DependencyHierarchyServiceTest : BasePlatformTestCase() {
 
         // Durch Zyklusvermeidung darf rootNode nicht erneut unter child2 angehängt werden
         assertEquals(0, child2.children.size)
+    }
+
+    fun testChildProjectDoesNotAddParentPomAsChildWhenInspectingDependency() {
+        val pomContent = """
+            <project>
+                <parent>
+                    <groupId>de.schwarzland.mavenup.examples</groupId>
+                    <artifactId>parent-managed-same-version</artifactId>
+                    <version>1.0.0</version>
+                </parent>
+                <artifactId>child</artifactId>
+                <dependencyManagement>
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.apache.commons</groupId>
+                            <artifactId>commons-lang3</artifactId>
+                            <version>3.12.0</version>
+                        </dependency>
+                    </dependencies>
+                </dependencyManagement>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.apache.commons</groupId>
+                        <artifactId>commons-lang3</artifactId>
+                    </dependency>
+                </dependencies>
+            </project>
+        """.trimIndent()
+
+        val psiFile = myFixture.configureByText("pom.xml", pomContent) as XmlFile
+        val rootTag = psiFile.document?.rootTag
+        val service = DependencyHierarchyService(project)
+
+        val projectNode = DependencyHierarchyNode(
+            type = DependencyHierarchyNodeType.PROJECT,
+            groupId = "de.schwarzland.mavenup.examples",
+            artifactId = "child",
+            pomFile = psiFile.virtualFile
+        )
+
+        service.collectDependencyManagementAndDirect(
+            rootTag,
+            psiFile.virtualFile,
+            "org.apache.commons",
+            "commons-lang3",
+            emptyMap(),
+            projectNode
+        )
+
+        // Es dürfen nur DependencyManagement und DirectDependency für commons-lang3 enthalten sein, KEIN Parent-POM
+        val parentNodes = projectNode.children.filter { it.type == DependencyHierarchyNodeType.PARENT_POM }
+        assertTrue("Parent POM darf nicht als Kindknoten unter child für commons-lang3 auftauchen", parentNodes.isEmpty())
+
+        val dmNodes = projectNode.children.filter { it.type == DependencyHierarchyNodeType.DEPENDENCY_MANAGEMENT }
+        assertEquals(1, dmNodes.size)
+        assertEquals("commons-lang3", dmNodes[0].artifactId)
+
+        val directNodes = projectNode.children.filter { it.type == DependencyHierarchyNodeType.DIRECT_DEPENDENCY }
+        assertEquals(1, directNodes.size)
+        assertEquals("commons-lang3", directNodes[0].artifactId)
     }
 
     private fun createArtifact(groupId: String, artifactId: String, version: String): MavenArtifact {

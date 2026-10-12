@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>de.schwarzland.mavenup.examples</groupId>
+    <artifactId>transitive-match-same-version</artifactId>
+    <version>1.0.0</version>
+
+    <name>MavenUp Example – Transitive Match (Same Version)</name>
+    <description>
+        Single-module project where jackson-core:2.15.2 is declared in dependencyManagement,
+        and jackson-databind:2.15.2 brings in jackson-core:2.15.2 transitively at the exact same version.
+        The dependencyManagement entry is redundant – reason: TRANSITIVE_MATCH.
+    </description>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- 
+                REDUNDANT: jackson-core is provided transitively by jackson-databind at 2.15.2,
+                which is identical to the managed version 2.15.2.
+            -->
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-core</artifactId>
+                <version>2.15.2</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <!-- jackson-databind depends transitively on jackson-core:2.15.2 -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.15.2</version>
+        </dependency>
+    </dependencies>
+
+</project>

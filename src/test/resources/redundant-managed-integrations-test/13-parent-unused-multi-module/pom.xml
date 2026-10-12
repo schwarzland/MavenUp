@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>de.schwarzland.mavenup.examples</groupId>
+    <artifactId>parent-unused-multi-module</artifactId>
+    <version>1.0.0</version>
+    <packaging>pom</packaging>
+
+    <name>MavenUp Example – Parent Unused in Multi-Module (Parent)</name>
+    <description>
+        Parent POM that manages commons-lang3:3.12.0, slf4j-api:2.0.9, and commons-collections4:4.4.
+        module-a uses commons-lang3 and module-b uses slf4j-api.
+        commons-collections4 is unused by any module in the project and thus redundant in parent – reason: UNUSED.
+    </description>
+
+    <modules>
+        <module>module-a</module>
+        <module>module-b</module>
+    </modules>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- Used by module-a -->
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-lang3</artifactId>
+                <version>3.12.0</version>
+            </dependency>
+            <!-- Used by module-b -->
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-api</artifactId>
+                <version>2.0.9</version>
+            </dependency>
+            <!-- REDUNDANT: Never used directly or transitively in any module -->
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-collections4</artifactId>
+                <version>4.4</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+</project>

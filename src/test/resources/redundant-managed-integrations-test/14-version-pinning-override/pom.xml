@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>de.schwarzland.mavenup.examples</groupId>
+    <artifactId>version-pinning-override</artifactId>
+    <version>1.0.0</version>
+    <packaging>pom</packaging>
+
+    <name>MavenUp Example – Version Pinning Override (Parent)</name>
+    <description>
+        Parent POM that manages commons-lang3:3.10.
+        The child module overrides this with a higher version (3.12.0) in its dependencyManagement.
+        Boundary example: The child entry is NOT redundant.
+    </description>
+
+    <modules>
+        <module>child</module>
+    </modules>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- Parent manages an older version (3.10) -->
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-lang3</artifactId>
+                <version>3.10</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+</project>
