@@ -106,7 +106,7 @@ class UpdateConfirmationDialog(
     /**
      * Erstellt die schreibgeschützte Update-Übersichtstabelle mit Einzelselektion.
      * Die Spalten "Group Id", "Artifact Id" und "Type" sind wie in den übrigen Plugin-Tabellen
-     * sortierbar; die beiden Versionsspalten bleiben in der Reihenfolge der Auswahl.
+     * sortierbar; die Versionsspalten und die Ziel-POM-Spalte bleiben in der Reihenfolge der Auswahl.
      *
      * @return Die konfigurierte, nicht editierbare Tabelle mit allen anstehenden Updates.
      */
@@ -119,6 +119,7 @@ class UpdateConfirmationDialog(
             addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.type"))
             addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.currentVersion"))
             addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.newVersion"))
+            addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.targetPom"))
         }
 
         updates.forEach { update ->
@@ -136,7 +137,8 @@ class UpdateConfirmationDialog(
                         }
                     } else {
                         update.newVersion
-                    }
+                    },
+                    update.pomFile?.path ?: ""
                 )
             )
         }
