@@ -48,6 +48,7 @@ Projekt-/PSI-Umgebung erben von `BasePlatformTestCase` (z. B. `MavenUpWindowFact
 `InheritedVersionUiTest`,
 `DependencyVersionServiceTest` (Refresh-Snapshot-Abgleich und Fallback für unbekannte Koordinaten),
 `VersionSelectionIntegrationTest` (Dropdown-Anzeige, Editor-Abschluss, Property-Synchronisation und Filter),
+`DependencyTableTooltipTest` (echte Maus-Tooltips bei sichtbarer/ausgeblendeter Modulspalte, Sortierung, Filterung und Ereignissen ausserhalb der Tabelle),
 `VulnerabilityScanServiceTest`). Netzwerklastige Services werden über
 injizierte Seams/Interfaces netzwerkfrei getestet.
 `CacheContentsDialogTest` deckt TTL-Anzeige und Invalidierung ab;

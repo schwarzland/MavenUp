@@ -535,12 +535,14 @@ class MavenUpWindowFactory : ToolWindowFactory {
             }
 
             table = object : JBTable(tableModel) {
+                /** Liefert den Zell-Tooltip mit einmalig umgerechneten Ansichtsspalten. */
                 override fun getToolTipText(e: MouseEvent): String? {
                     val row = rowAtPoint(e.point)
                     val column = columnAtPoint(e.point)
-                    val modelColumn = if (column in 0 until columnCount) convertColumnIndexToModel(column) else -1
+                    if (row !in 0 until rowCount || column !in 0 until columnCount) return null
+                    val modelColumn = convertColumnIndexToModel(column)
                     return when {
-                        row < 0 || modelColumn == VULNERABILITIES_COLUMN -> super.getToolTipText(e)
+                        modelColumn == VULNERABILITIES_COLUMN -> super.getToolTipText(e)
                         modelColumn == CURRENT_VERSION_COLUMN -> currentVersionTooltip(row)
                             ?: navigationTooltip(row, modelColumn)
                         modelColumn == NEW_VERSION_COLUMN -> newVersionTooltip(row)
@@ -1443,15 +1445,15 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /**
          * Liefert den Tooltip für eine Zelle der Spalte **Current Version**, wenn die Version geerbt ist.
          *
-         * @param row Ansichtszelle der Tabelle.
+         * @param row Gueltige Ansichtszeile der Tabelle.
          * @return Den Hinweis zur geerbten Version oder `null` für eine lokal deklarierte Version.
          */
         private fun currentVersionTooltip(row: Int): String? {
-            val modelRow = if (row in 0 until table.rowCount) table.convertRowIndexToModel(row) else -1
+            val modelRow = table.convertRowIndexToModel(row)
             val refreshRow = if (modelRow in modelRows.indices) modelRows[modelRow] else null
             val isInherited = refreshRow?.versionInherited ?: run {
-                val groupId = table.getValueAt(row, GROUP_ID_COLUMN) as? String ?: ""
-                val artifactId = table.getValueAt(row, ARTIFACT_ID_COLUMN) as? String ?: ""
+                val groupId = table.model.getValueAt(modelRow, GROUP_ID_COLUMN) as? String ?: ""
+                val artifactId = table.model.getValueAt(modelRow, ARTIFACT_ID_COLUMN) as? String ?: ""
                 inheritedVersionDependencies.contains("$groupId:$artifactId")
             }
             return inheritedVersionTooltip(isInherited)
@@ -1460,18 +1462,19 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /**
          * Liefert den Tooltip für eine Zelle der Spalte **New Version**.
          *
-         * @param row Ansichtszelle der Tabelle.
+         * @param row Gueltige Ansichtszeile der Tabelle.
          * @return Den Statushinweis zur auswählbaren Version oder `null`, wenn keine Version verfügbar ist.
          */
         private fun newVersionTooltip(row: Int): String? {
+            val modelRow = table.convertRowIndexToModel(row)
             @Suppress("UNCHECKED_CAST")
-            val versions = table.getValueAt(row, NEW_VERSION_COLUMN) as? List<String> ?: emptyList()
+            val versions = table.model.getValueAt(modelRow, NEW_VERSION_COLUMN) as? List<String> ?: emptyList()
             if (versions.isEmpty()) return null
 
-            val groupId = table.getValueAt(row, GROUP_ID_COLUMN) as? String ?: ""
-            val artifactId = table.getValueAt(row, ARTIFACT_ID_COLUMN) as? String ?: ""
-            val currentVersion = table.getValueAt(row, CURRENT_VERSION_COLUMN) as? String ?: ""
-            val type = table.getValueAt(row, TYPE_COLUMN) as? String ?: ""
+            val groupId = table.model.getValueAt(modelRow, GROUP_ID_COLUMN) as? String ?: ""
+            val artifactId = table.model.getValueAt(modelRow, ARTIFACT_ID_COLUMN) as? String ?: ""
+            val currentVersion = table.model.getValueAt(modelRow, CURRENT_VERSION_COLUMN) as? String ?: ""
+            val type = table.model.getValueAt(modelRow, TYPE_COLUMN) as? String ?: ""
             val dependencyKey = "$groupId:$artifactId"
             if (isManagedEntryMarkedForRemoval(dependencyKey, type)) {
                 return willRemoveOrCommentOutTooltip()
@@ -1485,14 +1488,13 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /**
          * Liefert den Hinweis zur Navigation für die angegebene Tabellenzelle.
          *
-         * @param row Ansichtszelle der Tabelle.
-         * @param column Ansichtsspalte der Tabelle oder Modellspalte bei negativem oder Modellindex.
+         * @param row Gueltige Ansichtszeile der Tabelle.
+         * @param modelColumn Bereits umgerechnete Modellspalte der Tabelle.
          * @return Den zur eingestellten Klickart passenden Navigationshinweis.
          */
-        private fun navigationTooltip(row: Int, column: Int): String {
-            val modelColumn = if (column in 0 until table.columnCount) table.convertColumnIndexToModel(column) else column
-            val modelRow = if (row in 0 until table.rowCount) table.convertRowIndexToModel(row) else -1
-            val isProperty = modelColumn == PROPERTY_COLUMN && modelRow >= 0 &&
+        private fun navigationTooltip(row: Int, modelColumn: Int): String {
+            val modelRow = table.convertRowIndexToModel(row)
+            val isProperty = modelColumn == PROPERTY_COLUMN &&
                 (table.model.getValueAt(modelRow, PROPERTY_COLUMN) as? String).isNullOrBlank().not()
             val clickType = if (MavenUpSettings.getInstance().state.jumpOnSingleClick) {
                 "singleClick"
