@@ -32,13 +32,15 @@ class UpdateConfirmationDialog(
     project: Project,
     private val updates: List<DependencyUpdate>
 ) : DialogWrapper(project) {
+    private val mavenProjectsManager = MavenProjectsManager.getInstance(project)
+
     private val syncMavenCheckbox: JCheckBox = JCheckBox(
         MyMessageBundle.message("toolwindow.MyToolWindow.update.confirm.syncMaven")
     ).apply {
         isSelected = MavenUpSettings.getInstance().state.syncMavenAfterUpdate
     }
 
-    private val isMultiModule = MavenProjectsManager.getInstance(project).projects.size > 1
+    private val isMultiModule = mavenProjectsManager.projects.size > 1
     private val hasTransitiveUpdates = updates.any { it.transitive }
 
     internal val targetPomComboBox: ComboBox<TargetPomMode> = ComboBox(TargetPomMode.entries.toTypedArray()).apply {
@@ -106,7 +108,7 @@ class UpdateConfirmationDialog(
     /**
      * Erstellt die schreibgeschützte Update-Übersichtstabelle mit Einzelselektion.
      * Die Spalten "Group Id", "Artifact Id" und "Type" sind wie in den übrigen Plugin-Tabellen
-     * sortierbar; die Versionsspalten und die Ziel-POM-Spalte bleiben in der Reihenfolge der Auswahl.
+     * sortierbar; die Versionsspalten und die Zielmodul-Spalte bleiben in der Reihenfolge der Auswahl.
      *
      * @return Die konfigurierte, nicht editierbare Tabelle mit allen anstehenden Updates.
      */
@@ -119,7 +121,7 @@ class UpdateConfirmationDialog(
             addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.type"))
             addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.currentVersion"))
             addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.newVersion"))
-            addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.targetPom"))
+            addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.module"))
         }
 
         updates.forEach { update ->
@@ -138,7 +140,7 @@ class UpdateConfirmationDialog(
                     } else {
                         update.newVersion
                     },
-                    update.pomFile?.path ?: ""
+                    targetModuleLabel(update)
                 )
             )
         }
@@ -171,6 +173,24 @@ class UpdateConfirmationDialog(
         } else {
             update.type
         }
+
+    /**
+     * Liefert den Namen des Zielmoduls für die Bestätigungstabelle.
+     *
+     * Entspricht für bekannte Maven-Module der Logik der Haupttabelle
+     * (`displayName`, alternativ Maven-`artifactId`) und fällt bei unbekannten Zuordnungen
+     * auf die Artefakt-ID des Updates zurück.
+     *
+     * @param update Das anzuzeigende Update.
+     * @return Anzeigename des Zielmoduls oder als Fallback die Artefakt-ID.
+     */
+    internal fun targetModuleLabel(update: DependencyUpdate): String {
+        val pomPath = update.pomFile?.path ?: return update.artifactId
+        val mavenProject = mavenProjectsManager.projects.firstOrNull { it.file.path == pomPath }
+        return mavenProject?.displayName?.takeIf { it.isNotBlank() }
+            ?: mavenProject?.mavenId?.artifactId?.takeIf { it.isNotBlank() }
+            ?: update.artifactId
+    }
 
     /**
      * Erstellt den [TableRowSorter] für die Bestätigungstabelle. Die Textspalten "Group Id",

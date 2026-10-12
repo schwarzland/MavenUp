@@ -104,7 +104,7 @@ class UpdateConfirmationDialogTest : BasePlatformTestCase() {
         }
     }
 
-    fun testBuildTableShowsTargetPomPathWhenAvailable() {
+    fun testBuildTableShowsTargetModuleWithArtifactFallback() {
         val pomFile = myFixture.tempDirFixture.createFile("module-a/pom.xml")
         val updates = listOf(
             DependencyUpdate(
@@ -119,7 +119,7 @@ class UpdateConfirmationDialogTest : BasePlatformTestCase() {
         val dialog = UpdateConfirmationDialog(project, updates)
         val table = dialog.buildTable()
 
-        assertEquals(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.targetPom"), table.getColumnName(5))
-        assertEquals(pomFile.path, table.getValueAt(0, 5))
+        assertEquals(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.module"), table.getColumnName(5))
+        assertEquals("managed-dep", table.getValueAt(0, 5))
     }
 }

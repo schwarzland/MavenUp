@@ -31,6 +31,7 @@
 
 ### Fixed
 
+- **Fixed the Confirm Changes dialog in multi-module projects** so the target column now shows the affected module (with artifactId fallback) instead of a raw `pom.xml` path, making same-coordinate updates across modules easier to distinguish.
 - **Fixed dependency-table tooltips in single-module projects** so hovering over New Version no longer throws an exception and version and property-navigation hints remain correct with hidden columns, sorting, and filtering.
 - **Fixed toolbar managed entries bulk comment-out/removal in multi-module projects** by processing all matching rows across all modules instead of deduplicating by coordinate and only updating the first matching row.
 - **Fixed multi-module POM navigation** by associating each table row with its originating `pom.xml` file (`VirtualFile`), ensuring "Navigate to POM" opens the correct file instead of always the first module matching coordinates.
