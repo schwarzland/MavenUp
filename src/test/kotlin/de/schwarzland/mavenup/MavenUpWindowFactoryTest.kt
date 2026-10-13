@@ -567,8 +567,8 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
             listOf(
                 MyMessageBundle.message("toolwindow.MyToolWindow.filter.type.all"),
                 PARENT_TYPE,
-                "dependency",
                 "plugin",
+                "dependency",
                 MANAGED_PLUGIN,
                 MANAGED_DEPENDENCY
             ),

@@ -445,9 +445,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /** Feste, immer verfügbare Liste der von MavenUp unterstützten Typfilter-Werte. */
         private val typeFilterOptions = listOf(
             PARENT_TYPE,
-            "dependency",
             "plugin",
-
+            "dependency",
             MANAGED_PLUGIN,
             MANAGED_DEPENDENCY
         )
