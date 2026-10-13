@@ -46,6 +46,12 @@ Die horizontale Ausrichtung ist eine bewusste Entscheidung und nicht zu einer ve
 - Eine vertikale Toolbar neben der horizontalen Filterzeile ergäbe die vom Styleguide abgeratene Doppel-Toolbar-Optik.
 
 ### Kontextmenü der Tabellenzeile
+Die Hierarchiepanels beider Tabs uebergeben den vollstaendigen Knoten an die Tabellennavigation.
+`findDependencyModelRow` gleicht fuer Deklarationsknoten Koordinate, Quell-POM aus `modelRows` und
+Deklarationstyp ab; fehlende Deklarationen fallen nicht auf ein anderes Modul zurueck.
+Root- und transitive Knoten behalten die koordinatenbasierte Suche; wenn kein Haupttabellenziel
+existiert, werden bekannte Scan-Funde in der nach Koordinate aggregierten CVE-Tabelle selektiert.
+
 Per Rechtsklick auf eine Zeile öffnet sich ein Kontextmenü. Anwendbare Aktionen bleiben sichtbar und ändern nur ihren Aktivierungszustand; Filteraktionen und typgebundene Aktionen erscheinen nur, wenn sie zur angeklickten Zeile passen:
 - **Filter by "..."**: beim Rechtsklick auf die Spalten GroupId, ArtifactId, Module oder Property mit nicht-leerem Wert; setzt den angeklickten Wert als alleinigen Textfilter, ersetzt vorhandenen Text und wendet ihn sofort an (`filterBy`).
 - **Navigate to pom.xml**: springt zur Definition der Zeile in der `pom.xml`.

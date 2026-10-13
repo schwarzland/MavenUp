@@ -57,7 +57,7 @@ import javax.swing.tree.DefaultTreeModel
  * zusätzlich kann per `Enter` oder `F4` direkt zur Deklaration in der `pom.xml` gesprungen werden.
  *
  * @property project Das zugehörige IntelliJ-Projekt.
- * @property isDependencyInTable Optionales Prädikat zur Prüfung, ob eine Koordinate in einer Tabellenansicht existiert.
+ * @property isDependencyInTable Optionales Prädikat zur Prüfung, ob ein Knoten in einer Tabellenansicht existiert.
  * @property tableNavigationLabelProvider Optionaler Provider für die Beschriftung der Zieltabellenaktion.
  * @property onNavigateToTable Optionaler Callback zur Navigation in die passende Tabellenansicht.
  * @property onClose Optionaler Callback beim Schließen des Seitenpanels.
@@ -66,16 +66,18 @@ import javax.swing.tree.DefaultTreeModel
  */
 class DependencyHierarchyPanel(
     private val project: Project,
-    private val isDependencyInTable: ((groupId: String, artifactId: String) -> Boolean)? = null,
-    private val tableNavigationLabelProvider: ((groupId: String, artifactId: String) -> String)? = null,
-    private val onNavigateToTable: ((groupId: String, artifactId: String) -> Boolean)? = null,
+    private val isDependencyInTable: ((DependencyHierarchyNode) -> Boolean)? = null,
+    private val tableNavigationLabelProvider: ((DependencyHierarchyNode) -> String)? = null,
+    private val onNavigateToTable: ((DependencyHierarchyNode) -> Boolean)? = null,
     private val onClose: (() -> Unit)? = null,
     private val vulnerabilityAdvisoriesProvider: (() -> Map<String, List<VulnerabilityAdvisory>>)? = null
 ) : JBPanel<JBPanel<*>>(BorderLayout()) {
 
     private val hierarchyNavigation = DependencyHierarchyNavigation(project)
     private val expansionPolicy = DependencyHierarchyExpansionPolicy { groupId, artifactId ->
-        isDependencyInTable?.invoke(groupId, artifactId) ?: false
+        isDependencyInTable?.invoke(
+            DependencyHierarchyNode(DependencyHierarchyNodeType.ROOT, groupId, artifactId)
+        ) ?: false
     }
 
     init {
@@ -198,7 +200,11 @@ class DependencyHierarchyPanel(
                 groupId,
                 artifactId,
                 vulnerabilityAdvisories,
-                isDependencyInTable,
+                isDependencyInTable?.let { predicate ->
+                    { group, artifact ->
+                        predicate(DependencyHierarchyNode(DependencyHierarchyNodeType.ROOT, group, artifact))
+                    }
+                },
                 groupIdsVisible
             )
             toolTipText = MyMessageBundle.message("dependency.hierarchy.dialog.tree.tooltip")
@@ -314,7 +320,7 @@ class DependencyHierarchyPanel(
         if (node.type == DependencyHierarchyNodeType.PROJECT || node.groupId.isBlank() || node.artifactId.isBlank()) {
             return false
         }
-        return isDependencyInTable?.invoke(node.groupId, node.artifactId) ?: (onNavigateToTable != null)
+        return isDependencyInTable?.invoke(node) ?: (onNavigateToTable != null)
     }
 
     /**
@@ -513,11 +519,11 @@ class DependencyHierarchyPanel(
          val node = treeNode.userObject as? DependencyHierarchyNode ?: return defaultLabel
          if (node.groupId.isBlank() || node.artifactId.isBlank()) return defaultLabel
 
-         return tableNavigationLabelProvider?.invoke(node.groupId, node.artifactId) ?: defaultLabel
+         return tableNavigationLabelProvider?.invoke(node) ?: defaultLabel
      }
 
     /**
-     * Springt in der passenden Tabellenansicht zur ausgewählten Komponente.
+     * Springt zur ausgewählten Komponente und übergibt dabei Quell-POM und Deklarationstyp.
      *
      * @param targetTree Der Baum mit der aktuellen Selektion.
      * @return `true`, wenn die Navigation ausgeführt wurde, sonst `false`.
@@ -528,7 +534,7 @@ class DependencyHierarchyPanel(
         val node = treeNode.userObject as? DependencyHierarchyNode ?: return false
         if (node.groupId.isBlank() || node.artifactId.isBlank()) return false
 
-        return onNavigateToTable?.invoke(node.groupId, node.artifactId) ?: true
+        return onNavigateToTable?.invoke(node) ?: true
     }
 
     /**

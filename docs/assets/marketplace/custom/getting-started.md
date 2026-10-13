@@ -73,7 +73,7 @@ Filter the table with zero friction using the filter row above the table:
 Right-click any row to access convenient context actions:
 * **Filter by "..."**: Instantly filter by the clicked GroupId, ArtifactId, or Property.
 * **Open on [Browser]**: Jump directly to the artifact's release and documentation page on **MVN Repository** or **Sonatype Central**.
-* **Show Dependency Hierarchy**: Open the side panel visualizing BOM imports, parent chains, and transitive trees.
+* **Show Dependency Hierarchy**: Open the side panel visualizing BOM imports, parent chains, and transitive trees. From either tab's panel, **Select in Dependencies** selects the declaration with the matching source POM and type; **Select in Transitive CVEs** selects the aggregated scanned coordinate when no matching declaration is available.
 * **Remove / Comment out in pom.xml**: Mark unused or redundant managed entries for clean removal or XML commenting.
 
 ---

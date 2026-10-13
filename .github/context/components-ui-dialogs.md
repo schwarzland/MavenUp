@@ -6,6 +6,7 @@ UI-Komponenten: [`components-ui.md`](components-ui.md) und
 [`components-ui-toolwindow.md`](components-ui-toolwindow.md).
 
 ## Hierarchy Helpers
+- **DependencyHierarchyPanel**: Die Callbacks fuer Zieltabellen-Pruefung, Aktionsbeschriftung und Navigation erhalten den vollstaendigen `DependencyHierarchyNode` mit Quell-POM und Typ. Beide Tabs verwenden denselben Navigationspfad; Expansion und Kontextdarstellung pruefen weiterhin abstrakte Koordinaten.
 - **DependencyHierarchyExpansionPolicy**: bestimmt den initialen Aufklappzustand der Split-View. Sie klappt den Baum zuerst ein und öffnet anschließend nur Pfade zu Einträgen der Haupttabelle oder zu transitiven CVE-Funden; Teilbäume mit ausschließlich unreferenziertem transitivem Kontext bleiben bis zu einer manuellen Expansion zugeklappt.
 - **DependencyHierarchyNavigation**: kapselt die Prüfung, ob ein Hierarchieknoten in einer Projekt-POM deklariert ist, und die Navigation zum zugehörigen XML-Tag oder zur passenden Maven-Deklaration.
 - **DependencyHierarchyTreeModelBuilder**: überträgt die fachlichen `DependencyHierarchyNode`-Daten rekursiv in ein Swing-`DefaultTreeModel`.

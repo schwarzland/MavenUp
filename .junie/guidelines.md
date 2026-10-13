@@ -25,6 +25,7 @@ Maßgeblich ist immer der Volltext in `.github/copilot-instructions.md`; diese L
 9. **KDoc**: Alle berührten Klassen/Methoden müssen korrektes KDoc auf Deutsch haben.
 10. **Projektkontext** (`.github/copilot-project-context.md` und `.github/context/`) bei neuen, umbenannten oder entfernten Klassen und bei jeder neuen Einstellung mitpflegen.
     Der Tool-Window-Kontext beschreibt auch die Trennung von Ansichts- und Modellindizes bei Zell-Tooltips; die Testreferenz umfasst `DependencyTableTooltipTest`.
+    Die Komponentenreferenzen beschreiben die Quell-POM- und typbezogene Hierarchie-Navigation beider Tabs; `HierarchyTableNavigationIntegrationTest` deckt deren Zielauswahl ab.
 11. **Lizenzen**: Neue oder aktualisierte Abhängigkeiten im `implementation`-Scope in `docs/licenses.md` dokumentieren.
 12. **Refactoring**: Dateien über 800–1000 Zeilen aufteilen – vorher das Risiko benennen und den Anwender fragen.
 13. **UI**: Dialoge und Einstellungen folgen den IntelliJ Platform UI Guidelines (Kotlin UI DSL v2, Bindings, Unterseiten statt Scrollen, Read-only-Dialoge nur mit *Close*).

@@ -15,6 +15,7 @@ import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.table.JBTable
 import com.intellij.util.ui.AbstractTableCellEditor
 import de.schwarzland.mavenup.model.DependencyUpdate
+import de.schwarzland.mavenup.model.DependencyHierarchyNode
 import de.schwarzland.mavenup.model.VulnerabilityAdvisory
 import de.schwarzland.mavenup.model.isFixedIn
 import de.schwarzland.mavenup.service.MavenUpSettings
@@ -213,8 +214,8 @@ internal fun advisoriesBySeverity(advisories: List<VulnerabilityAdvisory>): List
  * (z. B. um die Aktionsleiste zu aktualisieren).
  * @param onShowDirectVulnerabilities Callback des Links im Empty State, der zu den ausschließlich
  * direkt deklarierten Befunden im Tab **Dependencies** wechselt.
- * @param onNavigateToTable Optionaler Callback zur Navigation zu einer Koordinate in der passenden Tabellenansicht.
- * @param isDependencyInTable Optionales Prädikat zur Prüfung, ob eine Koordinate in einer Tabellenansicht existiert.
+ * @param onNavigateToTable Optionaler Callback zur Navigation eines Knotens mit Quell-POM und Typ.
+ * @param isDependencyInTable Optionales Prädikat zur Prüfung, ob ein Knoten in einer Tabellenansicht existiert.
  * @param tableNavigationLabelProvider Optionaler Provider für die Beschriftung der Zieltabellenaktion.
  */
 @Suppress("TooManyFunctions")
@@ -222,9 +223,9 @@ internal class TransitiveVulnerabilitiesView(
     private val project: Project,
     private val onSelectionChanged: () -> Unit,
     private val onShowDirectVulnerabilities: () -> Unit,
-    private val onNavigateToTable: ((String, String) -> Boolean)?,
-    private val isDependencyInTable: ((String, String) -> Boolean)? = null,
-    private val tableNavigationLabelProvider: ((String, String) -> String)? = null
+    private val onNavigateToTable: ((DependencyHierarchyNode) -> Boolean)?,
+    private val isDependencyInTable: ((DependencyHierarchyNode) -> Boolean)? = null,
+    private val tableNavigationLabelProvider: ((DependencyHierarchyNode) -> String)? = null
 ) : JBPanel<JBPanel<*>>(BorderLayout()) {
 
     constructor(

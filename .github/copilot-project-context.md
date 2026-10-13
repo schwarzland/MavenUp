@@ -47,6 +47,7 @@ Reine Logik nutzt JUnit (z. B. `VulnerabilityApiServiceTest`, `VersionAutoSelect
 Projekt-/PSI-Umgebung erben von `BasePlatformTestCase` (z. B. `MavenUpWindowFactoryTest`,
 `RefreshSnapshotCollectorTest`, `PomNavigationServiceTest`, `PomUpdateServiceTest`, `VersionStatusUiTest`,
 `InheritedVersionUiTest`,
+`HierarchyTableNavigationIntegrationTest` (modul- und typspezifische Hierarchie-Navigation aus beiden Tabs, Sortierung, Filter, fehlende Deklarationen und aggregierte transitive CVE-Ziele),
 `DependencyVersionServiceTest` (Refresh-Snapshot-Abgleich und Fallback für unbekannte Koordinaten),
 `VersionSelectionIntegrationTest` (Dropdown-Anzeige, Editor-Abschluss, Property-Synchronisation und Filter),
 `DependencyTableTooltipTest` (echte Maus-Tooltips bei sichtbarer/ausgeblendeter Modulspalte, Sortierung, Filterung und Ereignissen ausserhalb der Tabelle),
