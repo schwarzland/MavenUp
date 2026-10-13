@@ -23,7 +23,8 @@ import javax.swing.table.TableRowSorter
 /**
  * Dialog zur Bestätigung der ausgewählten Updates. Zeigt eine Tabelle mit den
  * durchzuführenden Änderungen (Gruppe, Artefakt, Version alt/neu) sowie Optionen zur
- * Maven-Synchronisation und zur Ziel-POM-Auswahl für transitive Pins.
+ * Maven-Synchronisation und zur Ziel-POM-Auswahl für transitive Pins ohne bereits festgelegte POM-Datei.
+ * Die Auswahl bleibt sichtbar und ist nur bei transitiven Updates in Multi-Modul-Projekten aktiviert.
  *
  * @param project Das aktuelle Projekt, an das der Dialog gebunden wird.
  * @property updates Die Liste der zu bestätigenden Abhängigkeits-Updates.
@@ -42,9 +43,11 @@ class UpdateConfirmationDialog(
 
     private val isMultiModule = mavenProjectsManager.projects.size > 1
     private val hasTransitiveUpdates = updates.any { it.transitive }
+    private val targetPomAffectedCount = updates.count { it.transitive && it.pomFile == null }
 
     internal val targetPomComboBox: ComboBox<TargetPomMode> = ComboBox(TargetPomMode.entries.toTypedArray()).apply {
         selectedItem = TargetPomMode.ROOT_POM
+        isEnabled = hasTransitiveUpdates && isMultiModule
         renderer = SimpleListCellRenderer.create("") { mode ->
             when (mode) {
                 TargetPomMode.ROOT_POM -> MyMessageBundle.message("toolwindow.MyToolWindow.update.confirm.targetPom.root")
@@ -81,10 +84,17 @@ class UpdateConfirmationDialog(
     }
 
     /**
-     * Erstellt den zentralen Bereich des Dialogs mit der Update-Übersichtstabelle, der Ziel-POM-Auswahl
-     * und der Sync-Option unter Verwendung der Kotlin UI DSL v2.
+     * Erstellt den zentralen Dialogbereich.
      */
-    override fun createCenterPanel(): JComponent {
+    override fun createCenterPanel(): JComponent = buildCenterPanel()
+
+    /**
+     * Erstellt den zentralen Bereich mit Übersichtstabelle, stets sichtbarer (gegebenenfalls deaktivierter)
+     * Ziel-POM-Auswahl samt Anzahl betroffener transitiver Pins und Sync-Option unter Verwendung der Kotlin UI DSL v2.
+     *
+     * @return Der konfigurierte zentrale Dialogbereich.
+     */
+    internal fun buildCenterPanel(): JComponent {
         return panel {
             row {
                 label(MyMessageBundle.message("toolwindow.MyToolWindow.update.confirm.message"))
@@ -92,10 +102,16 @@ class UpdateConfirmationDialog(
             row {
                 cell(JBScrollPane(buildTable())).align(Align.FILL).resizableColumn()
             }.resizableRow()
-            if (hasTransitiveUpdates && isMultiModule) {
-                row(MyMessageBundle.message("toolwindow.MyToolWindow.update.confirm.targetPom.label")) {
-                    cell(targetPomComboBox)
-                }
+            row(MyMessageBundle.message("toolwindow.MyToolWindow.update.confirm.targetPom.label")) {
+                cell(targetPomComboBox)
+            }
+            row {
+                comment(
+                    MyMessageBundle.message(
+                        "toolwindow.MyToolWindow.update.confirm.targetPom.affectedCount",
+                        targetPomAffectedCount
+                    )
+                )
             }
             row {
                 cell(syncMavenCheckbox)

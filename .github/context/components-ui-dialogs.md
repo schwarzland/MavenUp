@@ -14,8 +14,11 @@ UI-Komponenten: [`components-ui.md`](components-ui.md) und
 - **UpdateConfirmationDialog**: eigenständiger `DialogWrapper` (Top-Level in `ui`), der vor
   dem Anwenden die anstehenden Updates in einer schreibgeschützten Tabelle bestätigen lässt und
   die Option **Sync Maven Changes** (vorbelegt aus `MavenUpSettings.syncMavenAfterUpdate`) anbietet.
-  In Multi-Modul-Projekten wird bei Vorhandensein transitiver Pins zusätzlich eine Combobox zur Auswahl des
-  Ziel-POMs angeboten (`targetPomComboBox`, Standard: `TargetPomMode.ROOT_POM`, Alternativen: `AFFECTED_MODULES`, `ALL_MODULES`).
+  Eine Combobox zur Auswahl des Ziel-POMs für transitive Pins ohne bereits festgelegte POM-Datei wird immer angezeigt
+  (`targetPomComboBox`, Standard: `TargetPomMode.ROOT_POM`, Alternativen: `AFFECTED_MODULES`, `ALL_MODULES`); die Auswahl
+  ist ausschließlich bei transitiven Updates in Multi-Modul-Projekten aktiviert. Darunter zeigt eine UI-DSL-Kommentarzeile
+  die Anzahl der transitiven Pins ohne zugewiesene POM-Datei (`targetPomAffectedCount`) an, auf die der Modus wirkt;
+  reguläre Updates und transitive Pins mit bereits gesetzter `pomFile` bleiben davon unberührt.
   `typeLabel()` erzeugt den Text der **Type**-Spalte und kennzeichnet Updates mit
   `DependencyUpdate.transitive = true` über `toolwindow.MyToolWindow.update.confirm.type.transitive`
   als „transitive -> managed dependency".
