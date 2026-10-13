@@ -152,7 +152,7 @@ class UpdateConfirmationDialogTest : BasePlatformTestCase() {
         }
     }
 
-    fun testBuildTableShowsTargetModuleWithArtifactFallback() {
+    fun testBuildTableShowsPomPathWhenTargetModuleCannotBeResolved() {
         val pomFile = myFixture.tempDirFixture.createFile("module-a/pom.xml")
         val updates = listOf(
             DependencyUpdate(
@@ -178,11 +178,28 @@ class UpdateConfirmationDialogTest : BasePlatformTestCase() {
             ).map(MyMessageBundle::message),
             (0 until table.columnCount).map(table::getColumnName)
         )
-        assertEquals("managed-dep", table.getValueAt(0, 2))
+        assertEquals(pomFile.path, table.getValueAt(0, 2))
         assertEquals("managed dependency", table.getValueAt(0, 3))
 
         val sorter = table.rowSorter as TableRowSorter<*>
         (0..3).forEach { assertTrue("Column $it should be sortable", sorter.isSortable(it)) }
         (4..5).forEach { assertFalse("Column $it should not be sortable", sorter.isSortable(it)) }
+    }
+
+    fun testTargetPomModeChangeRefreshesModuleColumnWithArtifactFallbackWhenNoTargetPomExists() {
+        val update = DependencyUpdate(
+            groupId = "org.example",
+            artifactId = "spring-core",
+            type = "managed dependency",
+            oldVersion = "1.0.0",
+            newVersion = "1.1.0",
+            transitive = true
+        )
+        val dialog = UpdateConfirmationDialog(project, listOf(update))
+        val table = dialog.buildTable()
+
+        assertEquals("spring-core", table.getValueAt(0, 2))
+        dialog.setSelectedTargetPomMode(TargetPomMode.ALL_MODULES)
+        assertEquals("spring-core", table.getValueAt(0, 2))
     }
 }

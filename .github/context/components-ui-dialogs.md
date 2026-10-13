@@ -16,6 +16,9 @@ UI-Komponenten: [`components-ui.md`](components-ui.md) und
   die Option **Sync Maven Changes** (vorbelegt aus `MavenUpSettings.syncMavenAfterUpdate`) anbietet.
   Die Tabelle zeigt **Module** immer an dritter Stelle, wie die Haupttabelle, auch in Einzelmodulprojekten;
   Group Id, Artifact Id, Module und Type sind sortierbar, die Versionsspalten nicht.
+  Für transitive Pins zeigt die Modulspalte abhängig von `targetPomComboBox` die Root-, betroffenen oder
+  alle Zielmodule an; dieselbe `PomUpdateService.resolveUpdatesForTargetPomMode()`-Auflösung wie beim Anwenden
+  wird verwendet. Fehlt eine passende Maven-Projektbezeichnung, erscheint der POM-Pfad; ohne Ziel-POM die Artefakt-ID.
   Eine Combobox zur Auswahl des Ziel-POMs für transitive Pins ohne bereits festgelegte POM-Datei wird immer angezeigt
   (`targetPomComboBox`, Standard: `TargetPomMode.ROOT_POM`, Alternativen: `AFFECTED_MODULES`, `ALL_MODULES`); die Auswahl
   ist ausschließlich bei transitiven Updates in Multi-Modul-Projekten aktiviert. Darunter zeigt eine UI-DSL-Kommentarzeile

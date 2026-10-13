@@ -26,6 +26,7 @@
 
 - **Moved the always-visible Module column to the third position in the Confirm Changes dialog**, matching the main table.
 - **Clarified that the Target POM selector applies only to transitive fixes and shows how many unassigned transitive pins it affects.**
+- The confirmation table's **Module** column previews the root, affected, or all modules as the transitive Target POM selection changes, with POM path and artifactId fallbacks when needed.
 - The main table's **Type** filter keeps only the five supported categories in a fixed order, rather than sorting or dynamically adding discovered types.
 - **Updated the Managed Entries tooltip** to describe the redundancy check alongside removal or comment-out actions and clarify that filter scope applies only to those bulk actions.
 - **Renamed row context menu actions** to "Select Highest Major Version", "Select Highest Minor Version", and "Select Recommended Version" to align with the toolbar selection menu.

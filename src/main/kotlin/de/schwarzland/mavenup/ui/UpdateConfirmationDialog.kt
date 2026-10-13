@@ -3,6 +3,7 @@ package de.schwarzland.mavenup.ui
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.ComboBox
 import com.intellij.openapi.ui.DialogWrapper
+import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.ui.SimpleListCellRenderer
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.dsl.builder.Align
@@ -11,6 +12,7 @@ import com.intellij.ui.table.JBTable
 import de.schwarzland.mavenup.model.DependencyUpdate
 import de.schwarzland.mavenup.model.TargetPomMode
 import de.schwarzland.mavenup.service.MavenUpSettings
+import de.schwarzland.mavenup.service.PomUpdateService
 import org.jetbrains.idea.maven.project.MavenProjectsManager
 import java.awt.Dimension
 import javax.swing.JCheckBox
@@ -34,6 +36,7 @@ class UpdateConfirmationDialog(
     private val updates: List<DependencyUpdate>
 ) : DialogWrapper(project) {
     private val mavenProjectsManager = MavenProjectsManager.getInstance(project)
+    private val pomUpdateService = PomUpdateService(project)
 
     private val syncMavenCheckbox: JCheckBox = JCheckBox(
         MyMessageBundle.message("toolwindow.MyToolWindow.update.confirm.syncMaven")
@@ -44,6 +47,7 @@ class UpdateConfirmationDialog(
     private val isMultiModule = mavenProjectsManager.projects.size > 1
     private val hasTransitiveUpdates = updates.any { it.transitive }
     private val targetPomAffectedCount = updates.count { it.transitive && it.pomFile == null }
+    private var confirmationTable: JBTable? = null
 
     internal val targetPomComboBox: ComboBox<TargetPomMode> = ComboBox(TargetPomMode.entries.toTypedArray()).apply {
         selectedItem = TargetPomMode.ROOT_POM
@@ -56,6 +60,7 @@ class UpdateConfirmationDialog(
                 null -> ""
             }
         }
+        addActionListener { updateTargetModuleColumn() }
     }
 
     init {
@@ -145,7 +150,7 @@ class UpdateConfirmationDialog(
                 arrayOf(
                     update.groupId,
                     update.artifactId,
-                    targetModuleLabel(update),
+                    targetModuleLabel(update, getSelectedTargetPomMode()),
                     typeLabel(update),
                     update.oldVersion,
                     if (update.removeFromPom) {
@@ -170,6 +175,7 @@ class UpdateConfirmationDialog(
             trimColumnWidthsToContent(this)
             applyRecommendedRowHeight(this)
         }
+        confirmationTable = table
         return table
     }
 
@@ -194,18 +200,64 @@ class UpdateConfirmationDialog(
      * Liefert den Namen des Zielmoduls für die Bestätigungstabelle.
      *
      * Entspricht für bekannte Maven-Module der Logik der Haupttabelle
-     * (`displayName`, alternativ Maven-`artifactId`) und fällt bei unbekannten Zuordnungen
-     * auf die Artefakt-ID des Updates zurück.
+     * (`displayName`, alternativ Maven-`artifactId`). Ist eine POM-Datei vorhanden, aber keinem
+     * Maven-Projekt zugeordnet, wird ihr Pfad anstelle der Artefakt-ID angezeigt.
      *
      * @param update Das anzuzeigende Update.
-     * @return Anzeigename des Zielmoduls oder als Fallback die Artefakt-ID.
+     * @return Anzeigename des Zielmoduls oder als Fallback POM-Pfad beziehungsweise Artefakt-ID.
      */
     internal fun targetModuleLabel(update: DependencyUpdate): String {
-        val pomPath = update.pomFile?.path ?: return update.artifactId
+        return targetModuleLabel(update.pomFile, update.artifactId)
+    }
+
+    /**
+     * Liefert die Modulnamen der POM-Dateien, auf die ein Update gemäß dem gewählten Modus angewendet wird.
+     *
+     * Für transitive Pins wird dieselbe Auflösung wie beim anschließenden Update verwendet. Im Modus
+     * „All modules“ werden alle Maven-Projekte angezeigt; bekannte Projektbezeichnungen werden genutzt,
+     * sonst der POM-Pfad. Ohne auflösbare POM bleibt die Artefakt-ID der Rückfallwert.
+     *
+     * @param update Das anzuzeigende Update.
+     * @param mode Der ausgewählte Ziel-POM-Modus.
+     * @return Anzeigename oder kommagetrennte Liste der Zielmodule.
+     */
+    private fun targetModuleLabel(update: DependencyUpdate, mode: TargetPomMode): String {
+        if (!update.transitive || update.pomFile != null) return targetModuleLabel(update)
+
+        val targetPomFiles = when (mode) {
+            TargetPomMode.ALL_MODULES -> mavenProjectsManager.projects.map { it.file }
+            TargetPomMode.ROOT_POM, TargetPomMode.AFFECTED_MODULES ->
+                pomUpdateService.resolveUpdatesForTargetPomMode(listOf(update), mode)
+                    .mapNotNull { it.pomFile }
+        }
+        val labels = targetPomFiles.distinctBy { it.path }
+            .map { targetModuleLabel(it, update.artifactId) }
+        return labels.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: update.artifactId
+    }
+
+    /**
+     * Ermittelt den Namen eines Maven-Moduls anhand seiner POM-Datei.
+     *
+     * @param pomFile Die POM-Datei des Moduls oder `null`, wenn kein Ziel zugeordnet wurde.
+     * @param fallback Der Rückgabewert, falls keine POM-Datei angegeben ist.
+     * @return Anzeigename, Maven-Artifact-ID oder POM-Pfad als Rückfallwert.
+     */
+    private fun targetModuleLabel(pomFile: VirtualFile?, fallback: String): String {
+        val pomPath = pomFile?.path ?: return fallback
         val mavenProject = mavenProjectsManager.projects.firstOrNull { it.file.path == pomPath }
         return mavenProject?.displayName?.takeIf { it.isNotBlank() }
             ?: mavenProject?.mavenId?.artifactId?.takeIf { it.isNotBlank() }
-            ?: update.artifactId
+            ?: pomPath
+    }
+
+    /**
+     * Aktualisiert die Modulspalte entsprechend dem aktuell ausgewählten Ziel-POM-Modus.
+     */
+    private fun updateTargetModuleColumn() {
+        val model = confirmationTable?.model as? DefaultTableModel ?: return
+        updates.forEachIndexed { rowIndex, update ->
+            model.setValueAt(targetModuleLabel(update, getSelectedTargetPomMode()), rowIndex, MODULE_COLUMN)
+        }
     }
 
     /**
@@ -241,6 +293,9 @@ class UpdateConfirmationDialog(
     }
 
     companion object {
+        /** Index der Modulspalte in der Übersichtstabelle. */
+        private const val MODULE_COLUMN = 2
+
         /** Spaltenindex der Spalte mit der aktuellen Version; ab hier wird nicht mehr sortiert. */
         internal const val CONFIRM_CURRENT_VERSION_COLUMN = 4
     }
