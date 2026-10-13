@@ -34,6 +34,7 @@
 
 ### Fixed
 
+- **Fixed the Type filter and New Version status after an automatic refresh replaces the dependency rows.**
 - **Fixed the Confirm Changes dialog in multi-module projects** so the target column now shows the affected module (with artifactId fallback) instead of a raw `pom.xml` path, making same-coordinate updates across modules easier to distinguish.
 - **Fixed dependency-table tooltips in single-module projects** so hovering over New Version no longer throws an exception and version and property-navigation hints remain correct with hidden columns, sorting, and filtering.
 - **Fixed toolbar managed entries bulk comment-out/removal in multi-module projects** by processing all matching rows across all modules instead of deduplicating by coordinate and only updating the first matching row.

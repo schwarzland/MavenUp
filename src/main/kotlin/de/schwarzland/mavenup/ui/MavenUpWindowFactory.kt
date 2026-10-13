@@ -444,9 +444,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
         /** Feste, immer verfügbare Liste der von MavenUp unterstützten Typfilter-Werte. */
         private val typeFilterOptions = listOf(
-            PARENT_TYPE,
-            "plugin",
             "dependency",
+            "plugin",
+            PARENT_TYPE,
             MANAGED_PLUGIN,
             MANAGED_DEPENDENCY
         )
@@ -2362,7 +2362,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
-         * Übernimmt einen vom projektweiten Hintergrundkoordinator veröffentlichten Zustand in die UI.
+         * Übernimmt einen vom projektweiten Hintergrundkoordinator veröffentlichten Zustand in die UI und ersetzt
+         * dabei die zuvor angezeigten Zeilen samt zugehörigem Refresh-Kontext.
          *
          * Ein laufender manueller Update- oder Vulnerability-Vorgang behält Vorrang, damit dessen
          * Ergebnis nicht durch einen gleichzeitig fertig werdenden Maven-Import überschrieben wird.
@@ -2376,6 +2377,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             isRefreshing = false
             isSearchingVersions = false
             (table.model as DefaultTableModel).setRowCount(0)
+            modelRows.clear()
             availableVersions.clear()
             rawAvailableVersions.clear()
             selectedVersions.clear()
