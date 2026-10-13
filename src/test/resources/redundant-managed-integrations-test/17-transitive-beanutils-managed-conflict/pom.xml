@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>de.schwarzland.mavenup.examples</groupId>
+    <artifactId>transitive-beanutils-managed-conflict</artifactId>
+    <version>1.0.0</version>
+    <name>MavenUp Example - Managed BeanUtils Transitive Conflict</name>
+    <description>
+        MockServer brings in BeanUtils 1.9.4 through Velocity Tools and BeanUtils 1.8.3
+        through Commons Digester at a greater depth. This POM pins BeanUtils;
+        unmanaged/pom.xml reveals the original conflicting version requests.
+        This fixture deliberately uses historical dependencies and is not a production template.
+    </description>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.mock-server</groupId>
+            <artifactId>mockserver-netty</artifactId>
+            <version>5.15.0</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>commons-beanutils</groupId>
+                <artifactId>commons-beanutils</artifactId>
+                <version>1.9.4</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+</project>

@@ -2,7 +2,7 @@
 
 This directory contains real Maven example projects that demonstrate the scenarios detected by the MavenUp plugin's **"Check Managed Dependencies for Redundancy"** and **"Check for Redundancy"** (context menu) features, plus a dependency-hierarchy version-conflict reproducer.
 
-Each example can be imported into IntelliJ IDEA as a standalone Maven project. Use scenarios 01–15 to verify redundancy detection and scenario 16 to reproduce a dependency-hierarchy version conflict.
+Each example can be imported into IntelliJ IDEA as a standalone Maven project. Use scenarios 01–15 to verify redundancy detection, scenario 16 for a same-depth version conflict, and scenario 17 for the multi-level BeanUtils conflict with and without a management pin.
 
 ## Scenarios Overview
 
@@ -24,6 +24,7 @@ Each example can be imported into IntelliJ IDEA as a standalone Maven project. U
 | 14 | [Version Pinning Override (Boundary)](14-version-pinning-override/) | _None (Not Redundant)_ | Child POM overrides parent with a higher version; removing it would cause a downgrade |
 | 15 | [Transitive Exclusion (Boundary)](15-transitive-exclusion-non-redundant/) | _None (Not Redundant)_ | Transitive artifact is excluded in direct dependency, making the managed entry essential |
 | 16 | [Transitive Version Conflict in Dependency Hierarchy](16-transitive-version-conflict/) | _Not applicable_ | Two direct dependencies request different versions of `jackson-core` at the same depth; Maven resolves one version and omits the losing path from the resolved dependency hierarchy |
+| 17 | [Managed BeanUtils Transitive Conflict](17-transitive-beanutils-managed-conflict/) | _None (Conservative Conflict Handling)_ | MockServer requests BeanUtils 1.9.4 via Velocity Tools and 1.8.3 via Commons Digester; the management pin must not receive a transitive removal recommendation based on an ambiguous fallback |
 
 ## How to Use
 
@@ -32,6 +33,46 @@ Each example can be imported into IntelliJ IDEA as a standalone Maven project. U
 3. Navigate to the scenario folder of interest (e.g., `01-parent-managed-same-version/`)
 4. Select the root `pom.xml` and import as a Maven project
 5. Use the MavenUp plugin to check for redundant managed dependencies
+
+## Inspect scenario 17
+
+Open `17-transitive-beanutils-managed-conflict/pom.xml` to test the explicit
+`commons-beanutils:commons-beanutils:1.9.4` management pin. Run **Check Managed Dependencies
+for Redundancy...**: BeanUtils must not be suggested for transitive removal when its
+fallback contains conflicting versions and there is no authoritative parent/BOM fallback.
+
+Open `17-transitive-beanutils-managed-conflict/unmanaged/pom.xml` separately to inspect
+the original version requests. It is a standalone project, not a child module, and does
+not inherit the pin. The relevant paths beneath `mockserver-netty:5.15.0` are:
+
+```text
+mockserver-core:5.15.0
+└─ velocity-tools-generic:3.1
+   ├─ commons-beanutils:1.9.4
+   └─ commons-digester3:3.2
+      └─ commons-beanutils:1.8.3
+```
+
+Maven selects the nearer request for 1.9.4; 1.8.3 is a conflicting request, not a second
+effective classpath version. With the pin enabled, verbose output can show
+`version managed from 1.8.3` rather than `omitted for conflict with 1.9.4`.
+IntelliJ's imported tree and CVE rows may retain or omit losing occurrences depending on
+the Maven model; use verbose Maven output to distinguish requested and selected versions.
+
+From the scenario directory, compare:
+
+```powershell
+mvn -f pom.xml dependency:tree -Dverbose "-Dincludes=commons-beanutils:commons-beanutils"
+mvn -f unmanaged\pom.xml dependency:tree -Dverbose "-Dincludes=commons-beanutils:commons-beanutils"
+```
+
+Historical, potentially vulnerable artifacts are intentional test inputs, not recommended
+production dependencies. Dependency-tree resolution requires access to the configured
+Maven repositories. `RedundantManagedExamplesIntegrationTest` also loads both scenario
+17 POMs offline, alongside scenarios 01–15, using simplified external POMs for the paths
+shown above. It verifies both BeanUtils versions, the absence of an unambiguous fallback,
+and that the management pin receives no removal recommendation. This does not validate
+full Maven mediation or fetch the real external dependency graph.
 
 ## Redundancy Reasons
 
