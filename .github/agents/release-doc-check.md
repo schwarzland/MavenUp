@@ -56,8 +56,13 @@ direkt vor.
 ### 1. CHANGELOG.md – Vollständigkeit gegen das letzte Release
 - Ein noch vorhandener `## [Unreleased]`-Block wird auf dem Release-Branch in die
   Release-Version umbenannt (`## x.y.z`, ohne eckige Klammern, passend zum Branchnamen).
-- Jede seit dem letzten Release umgesetzte Änderung im Code (`src/main/kotlin/`) und in den
-  Einstellungen muss im obersten Versionsblock aufgeführt sein.
+- Jede seit dem letzten Release umgesetzte, produktrelevante Änderung im Code
+  (`src/main/kotlin/`) und in den Einstellungen muss im obersten Versionsblock aufgeführt sein.
+- Reine Dokumentationskorrekturen oder das Angleichen von Dokumenten an bereits implementiertes
+  Verhalten erhalten keinen eigenen `Added`-, `Changed`- oder `Fixed`-Eintrag. Sie ändern die
+  Produktfunktionalität nicht und gehören daher nicht in die Release Notes. Ein vorhandener
+  `## [Unreleased]`-Block wird unabhängig davon in die Release-Version umbenannt; bereits
+  vorhandene Produktänderungen im Block bleiben erhalten.
 - Die Einträge unter `### Added`, `### Changed` und `### Fixed` (kurz Änderungen) müssen aus
   Sicht des Anwenders formuliert sein.
 - Änderungen, die für einen Anwender sichtbar sind, müssen immer am Anfang der jeweiligen
