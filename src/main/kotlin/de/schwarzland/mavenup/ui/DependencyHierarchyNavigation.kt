@@ -129,8 +129,12 @@ internal class DependencyHierarchyNavigation(
         val offset = ApplicationManager.getApplication().runReadAction<Int> {
             xmlTag.textOffset
         }
-        OpenFileDescriptor(project, pomFile, offset).navigate(true)
-        FileEditorManager.getInstance(project).openFile(pomFile, true)
+        ApplicationManager.getApplication().invokeLater {
+            FileEditorManager.getInstance(project).openEditor(
+                OpenFileDescriptor(project, pomFile, offset),
+                true
+            )
+        }
     }
 
     /**
