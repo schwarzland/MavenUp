@@ -17,10 +17,7 @@
 - Highlighted affected candidate and parent dependencies with theme-aware colors and bolded version numbers in the details panel.
 - Enlarged the redundancy dialog into a dedicated resizable information dialog when no redundancy is found.
 - Clarified source POM details and consumer paths, and show the Maven Project column only for multi-project results.
-- **Added structured Markdown source templates for JetBrains Marketplace Custom Pages** under `docs/assets/marketplace/custom/` covering Getting Started, Privacy & Security, Vulnerability Management, and Configuration & FAQ.
 - Expanded redundancy DEBUG logs with analysis scope, results, POM cache and local-repository hits, and individual HTTP GET attempts and response statuses without exposing credentials.
-- Added a regression test for the `tools.jackson.core:jackson-core` fallback scenario and expanded the unit test suite with comprehensive coverage for negative cases, helper methods, property placeholder handling, multi-module scenarios, and criterion prioritization.
-- Added `.github/dependency-review-config.yml` with dependency allowlist exceptions and configured `actions/dependency-review-action` to prevent CI review failures caused by test fixture POMs.
 
 ### Changed
 
@@ -32,8 +29,6 @@
 - **Renamed row context menu actions** to "Select Highest Major Version", "Select Highest Minor Version", and "Select Recommended Version" to align with the toolbar selection menu.
 - Moved the **Hierarchy** toolbar action to the right of **Vulnerability Details** so selection-dependent actions are grouped in a clearer left-to-right flow.
 - Refactored tool window version selection, table cell editing, and update collection routines to reduce method cognitive complexity and improve maintainability.
-- Aligned the Copilot project context with the current model inventory, update workflow, and component-reference structure.
-- Corrected the documented vulnerability cache duration, Marketplace asset paths, and privacy claims to match repository evidence.
 
 ### Fixed
 
