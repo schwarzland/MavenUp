@@ -224,6 +224,7 @@ class TemporaryDependencyTreeResolverTest {
         val transitives = resolver.resolveTransitiveDependencies("com.example", "direct-lib", "1.0.0")
         assertEquals(1, transitives.size)
         assertEquals("3.5.0", transitives["com.example:transitive-lib"])
+        assertTrue(resolver.transitiveResolutionIssues.isEmpty())
     }
 
     @Test
@@ -274,5 +275,24 @@ class TemporaryDependencyTreeResolverTest {
         assertEquals("lib-a", tree.dependencies[0].dependencies[0].coordinate.artifactId)
         // Lib-a within lib-b should stop recursion because of cycle detection
         assertTrue(tree.dependencies[0].dependencies[0].dependencies.isEmpty())
+        assertTrue(resolver.resolutionIssues.contains("Truncated dependency tree: com.example:lib-a:1.0.0"))
+    }
+
+    /** Prüft Diagnosen je transitiver Abfrage, ohne die gesammelten Analysediagnosen zu verlieren. */
+    @Test
+    fun testTransitiveIssuesAreScopedAndResettable() {
+        val resolver = TemporaryDependencyTreeResolver { _, artifactId, _ ->
+            if (artifactId == "valid") "<project><artifactId>valid</artifactId></project>" else null
+        }
+        resolver.resolveTransitiveDependencies("g", "missing", "1")
+        assertEquals(setOf("POM: g:missing:1"), resolver.transitiveResolutionIssues)
+        resolver.resolveTransitiveDependencies("g", "valid", "1")
+        assertTrue(resolver.transitiveResolutionIssues.isEmpty())
+        assertEquals(setOf("POM: g:missing:1"), resolver.resolutionIssues)
+        resolver.resolveTransitiveDependencies("g", "missing", "1")
+        assertEquals(setOf("POM: g:missing:1"), resolver.transitiveResolutionIssues)
+        resolver.resetResolutionIssues()
+        assertTrue(resolver.transitiveResolutionIssues.isEmpty())
+        assertTrue(resolver.resolutionIssues.isEmpty())
     }
 }

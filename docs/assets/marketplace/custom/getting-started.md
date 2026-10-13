@@ -82,7 +82,7 @@ Right-click any row to access convenient context actions:
 
 Maven projects frequently accumulate unnecessary `<dependencyManagement>` declarations over time. Maven Up provides an automated redundancy analyzer:
 1. Click **Managed Entries > Check Managed Dependencies for Redundancy...** (or right-click a managed row).
-2. Maven Up analyzes your project against parent POM management, explicit direct declarations, transitive availability across all consumers, and unused entries.
+2. Maven Up analyzes your project against parent POM management, explicit direct declarations, transitive availability across all consumers, and unused entries; it preserves repeated consumer paths and does not suggest transitive removals when conflicting versions cannot be reliably resolved without the local management entry.
 3. Review the redundancy explanation and exact consumer paths in the split-view dialog.
 4. Click **Mark Selected Entries for Removal** to stage removals safely, then review and apply them via **Update**.
 

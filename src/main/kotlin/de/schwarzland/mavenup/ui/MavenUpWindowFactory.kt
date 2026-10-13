@@ -4733,16 +4733,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
             }
 
         /**
-         * Prüft, ob eine Abhängigkeit mit den angegebenen Koordinaten in der Haupttabelle enthalten ist.
-         *
-         * @param groupId Group-ID der Komponente.
-         * @param artifactId Artefakt-ID der Komponente.
-         * @return `true`, wenn die Komponente in der Haupttabelle existiert, sonst `false`.
-         */
-        internal fun isDependencyInTable(groupId: String, artifactId: String): Boolean =
-            findDependencyModelRow(groupId, artifactId) != null
-
-        /**
          * Prüft, ob eine Koordinate entweder in der Haupttabelle oder unter den transitiven
          * Sicherheitslücken des letzten Scans enthalten ist.
          *

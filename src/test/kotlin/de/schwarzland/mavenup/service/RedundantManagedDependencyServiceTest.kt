@@ -287,6 +287,8 @@ class RedundantManagedDependencyServiceTest : BasePlatformTestCase() {
         val resolver = TemporaryDependencyTreeResolver { groupId, artifactId, _ ->
             if (groupId == "org.springframework.boot" && artifactId == "spring-boot-starter-test") {
                 starterPom
+            } else if (groupId == "org.xmlunit" && artifactId == "xmlunit-core") {
+                "<project><groupId>org.xmlunit</groupId><artifactId>xmlunit-core</artifactId><version>2.9.1</version></project>"
             } else {
                 null
             }
@@ -323,6 +325,8 @@ class RedundantManagedDependencyServiceTest : BasePlatformTestCase() {
         val higherVersionResolver = TemporaryDependencyTreeResolver { groupId, artifactId, _ ->
             if (groupId == "org.springframework.boot" && artifactId == "spring-boot-starter-test") {
                 starterPom.replace("2.9.1", "2.9.2")
+            } else if (groupId == "org.xmlunit" && artifactId == "xmlunit-core") {
+                "<project><groupId>org.xmlunit</groupId><artifactId>xmlunit-core</artifactId><version>2.9.2</version></project>"
             } else {
                 null
             }

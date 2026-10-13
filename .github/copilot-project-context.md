@@ -58,12 +58,16 @@ injizierte Seams/Interfaces netzwerkfrei getestet.
 damit der Dialog trotz breiter Standardgröße verkleinert werden kann;
 `RedundantManagedDependencyDialogTest` prüft Auswahl, Übernahme, Split-Layout, Folgeansichten und
 inhaltsunabhängiges Verkleinern bei langen Detailtexten;
-`RedundantManagedDependencyServiceTest` prüft die Erkennung redundanter Einträge (Parent-Management, direkte Abhängigkeit, transitive Bereitstellung, ungenutzt) einschließlich des Falls, dass ohne lokalen Managed-Override ein niedrigeres Parent-/BOM-Fallback wirksam wäre;
+`RedundantManagedDependencyServiceTest` prüft die Erkennung redundanter Einträge (Parent-Management, direkte Abhängigkeit, transitive Bereitstellung, ungenutzt) einschließlich des Falls, dass ohne lokalen Managed-Override ein niedrigeres Parent-/BOM-Fallback wirksam wäre; bei nicht zuverlässig auflösbaren transitiven Versionskonflikten darf keine Entfernungsempfehlung entstehen.
 `RedundantManagedExamplesIntegrationTest` prüft die 15 Referenz-Beispielprojekte unter `src/test/resources/redundant-managed-integrations-test/` (01–15) automatisiert und netzwerkfrei gegen `RedundantManagedDependencyService`; `16-transitive-version-conflict` ist ein eigenständiger Maven-Reproducer für einen gleich tiefen transitiven Versionskonflikt in der Abhängigkeitshierarchie;
 `VersionLookupLoggingTest` prüft DEBUG-Ausgaben und lokale HTTP-Versuche einschließlich Cache-Treffern,
 Redundanzprüfungen, POM-Antwortstatus und Ausschluss von Zugangsdaten aus POM-Abfrage-Logs.
 `DependencyHierarchyPathTest` prüft wiederholte Maven-Knoten mit unterschiedlichem Kindbestand,
 beide mehrstufigen BeanUtils-Versionspfade, gemeinsam genutzte Teilbäume und echte Zyklen.
+`MavenArtifactTraversalTest`, `TemporaryTransitiveArtifactsTest`,
+`TemporaryDependencyTreeBuilderTest` und `RedundantManagedTraversalRegressionTest` prüfen
+gemeinsame Pfadsuche, Konfliktunterdrückung, unvollständige Auflösung und den Schutz vor
+falschen Unused- bzw. transitiven Entfernungsempfehlungen.
 
 ## KI-Agenten (Copilot / Junie)
 - Für KI-Agenten gelten die verbindlichen Arbeitsanweisungen in `.github/copilot-instructions.md`.

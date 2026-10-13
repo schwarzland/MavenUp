@@ -367,11 +367,13 @@ class RedundantManagedDependencyService(
     }
 
     /**
-     * Ermittelt je Verbraucherwurzel die wirksame Version der verwalteten Koordinate.
+     * Ermittelt je Verbraucherwurzel eine ausreichend abgesicherte Version der verwalteten Koordinate.
      *
      * Berücksichtigt zuerst den Fallback aus effektivem Dependency-Management ohne lokalen Override.
      * Falls kein solcher Fallback ermittelbar ist, wird die Version aus der transitiven Auflösung der
-     * jeweiligen Verbraucherwurzel abgeleitet.
+     * jeweiligen Verbraucherwurzel abgeleitet. Unvollständige Bäume, Versionskonflikte innerhalb
+     * einer Wurzel und unterschiedliche Versionen zwischen Wurzeln begründen keine Entfernung;
+     * die temporäre Auflösung ersetzt keine Maven-Versionsvermittlung.
      *
      * @return Map `groupId:artifactId:version` der Wurzel auf wirksame Version oder `null`, wenn
      *         mindestens eine Wurzel eine zu niedrige/fehlende Version liefert.
@@ -407,10 +409,20 @@ class RedundantManagedDependencyService(
             }
 
             val transVersion = transitives[managedCoordinate]
-            if (transVersion == null || ComparableVersion(transVersion).compareTo(managedComp) < 0) {
+            if (treeResolver.transitiveResolutionIssues.isNotEmpty() ||
+                transVersion == null || ComparableVersion(transVersion).compareTo(managedComp) < 0
+            ) {
+                LOG.debug(
+                    "Transitive redundancy not established for $managedCoordinate " +
+                        "from ${root.groupId}:${root.artifactId}:${root.version}"
+                )
                 return null
             }
             versionsByRoot["${root.groupId}:${root.artifactId}:${root.version}"] = transVersion
+        }
+        if (versionsByRoot.values.distinct().size > 1) {
+            LOG.debug("Conflicting transitive versions across consumer roots for $managedCoordinate; no removal")
+            return null
         }
         return versionsByRoot
     }
@@ -572,32 +584,9 @@ class RedundantManagedDependencyService(
             }
             val tree = try { p.dependencyTree } catch (_: NullPointerException) { null }
             for (rootNode in tree.orEmpty()) {
-                if (containsArtifact(rootNode, groupId, artifactId, mutableSetOf())) {
+                if (MavenArtifactTraversal.containsArtifact(rootNode, groupId, artifactId, { indicator?.checkCanceled() })) {
                     return true
                 }
-            }
-        }
-        return false
-    }
-
-    /**
-     * Durchsucht einen Teilbaum rekursiv nach einer Maven-Koordinate.
-     */
-    private fun containsArtifact(
-        node: MavenArtifactNode,
-        targetGroupId: String,
-        targetArtifactId: String,
-        visited: MutableSet<MavenArtifactNode>
-    ): Boolean {
-        val art = node.artifact
-        if (art.groupId == targetGroupId && art.artifactId == targetArtifactId) {
-            return true
-        }
-        if (!visited.add(node)) return false
-        val children = try { node.dependencies } catch (_: NullPointerException) { null } ?: emptyList()
-        for (child in children) {
-            if (containsArtifact(child, targetGroupId, targetArtifactId, visited)) {
-                return true
             }
         }
         return false
@@ -647,45 +636,16 @@ class RedundantManagedDependencyService(
         val tree = try { mavenProject.dependencyTree } catch (_: NullPointerException) { null }
         for (rootNode in tree.orEmpty()) {
             indicator?.checkCanceled()
-            findPathsToTarget(
+            MavenArtifactTraversal.findPathsToTarget(
                 currentNode = rootNode,
                 targetGroupId = managedGroupId,
                 targetArtifactId = managedArtifactId,
                 currentPath = emptyList(),
-                visited = mutableSetOf(),
                 result = results,
-                indicator = indicator
+                checkCanceled = { indicator?.checkCanceled() }
             )
         }
         return results
-    }
-
-    /**
-     * Rekursive Tiefensuche für Abhängigkeitspfade.
-     */
-    private fun findPathsToTarget(
-        currentNode: MavenArtifactNode,
-        targetGroupId: String,
-        targetArtifactId: String,
-        currentPath: List<MavenArtifactNode>,
-        visited: MutableSet<MavenArtifactNode>,
-        result: MutableList<List<MavenArtifactNode>>,
-        indicator: ProgressIndicator?
-    ) {
-        indicator?.checkCanceled()
-        val newPath = currentPath + currentNode
-        val art = currentNode.artifact
-        if (art.groupId == targetGroupId && art.artifactId == targetArtifactId) {
-            result.add(newPath)
-            return
-        }
-
-        if (!visited.add(currentNode)) return
-
-        val childDeps: List<MavenArtifactNode> = try { currentNode.dependencies } catch (_: NullPointerException) { null } ?: emptyList()
-        for (child in childDeps) {
-            findPathsToTarget(child, targetGroupId, targetArtifactId, newPath, visited, result, indicator)
-        }
     }
 
     /**

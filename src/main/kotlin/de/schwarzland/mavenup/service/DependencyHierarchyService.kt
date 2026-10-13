@@ -463,18 +463,9 @@ class DependencyHierarchyService(private val project: Project) {
         currentPath: List<MavenArtifactNode>,
         result: MutableList<List<MavenArtifactNode>>
     ) {
-        if (currentPath.any { it === currentNode }) return
-
-        val newPath = currentPath + currentNode
-        val art = currentNode.artifact
-        if (art.groupId == targetGroupId && art.artifactId == targetArtifactId) {
-            result.add(newPath)
-            return
-        }
-
-        for (child in currentNode.dependencies) {
-            findPathsToTarget(child, targetGroupId, targetArtifactId, newPath, result)
-        }
+        MavenArtifactTraversal.findPathsToTarget(
+            currentNode, targetGroupId, targetArtifactId, currentPath, result
+        )
     }
 
     /**

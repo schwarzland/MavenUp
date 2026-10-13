@@ -27,6 +27,7 @@ Maßgeblich ist immer der Volltext in `.github/copilot-instructions.md`; diese L
     Der Tool-Window-Kontext beschreibt auch die Trennung von Ansichts- und Modellindizes bei Zell-Tooltips; die Testreferenz umfasst `DependencyTableTooltipTest`.
     Die Komponentenreferenzen beschreiben die Quell-POM- und typbezogene Hierarchie-Navigation beider Tabs; `HierarchyTableNavigationIntegrationTest` deckt deren Zielauswahl ab.
     Der Service-Kontext beschreibt die pfadlokale, identitätsbasierte Zyklenerkennung der Hierarchie-Pfadsuche; `DependencyHierarchyPathTest` deckt wiederholte Knoten und echte Zyklen ab.
+    Bei Redundanzprüfungen dürfen nicht eindeutig auflösbare transitive Versionskonflikte nicht als sichere Bereitstellung gewertet werden; Details stehen im Service-Kontext.
 11. **Lizenzen**: Neue oder aktualisierte Abhängigkeiten im `implementation`-Scope in `docs/licenses.md` dokumentieren.
 12. **Refactoring**: Dateien über 800–1000 Zeilen aufteilen – vorher das Risiko benennen und den Anwender fragen.
 13. **UI**: Dialoge und Einstellungen folgen den IntelliJ Platform UI Guidelines (Kotlin UI DSL v2, Bindings, Unterseiten statt Scrollen, Read-only-Dialoge nur mit *Close*).
