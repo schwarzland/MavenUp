@@ -2,7 +2,7 @@
 
 # Maven Up Changelog
 
-## [Unreleased]
+## 3.5.0
 
 ### Added
 

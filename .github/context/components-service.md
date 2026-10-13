@@ -137,7 +137,7 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   `ui/ApiErrorMessages.kt`.
 - **MavenUpBadgeState**: Enum mit den Badge-Zuständen des Tool-Window-Icons (`NONE`, `UPDATES`,
   `VULNERABILITIES`, `SEVERE_VULNERABILITIES`).
-- **VulnerabilityMerger / VulnerabilityAdvisory**: normalisiertes Security-Datenmodell und
+- **VulnerabilityMerger / VulnerabilityAdvisory / VulnerabilitySeverity**: normalisiertes Security-Datenmodell und
   quellenübergreifende Deduplizierung anhand von IDs/Aliasen; CVSS-Vektoren werden über
   `us.springett:cvss-calculator` normalisiert, bei nicht unterstützten CVSS-Versionen wird auf
   den Schweregrad der Quelle zurückgefallen.

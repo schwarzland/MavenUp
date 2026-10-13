@@ -4,6 +4,8 @@ This guide describes how to create, edit, and maintain high-quality annotated sc
 
 The visual assets use a **vector overlay approach** based on Draw.io / Diagrams.net (`.drawio.svg`), combining raw screenshots with editable callouts, highlight frames, and numbered badges conforming to the JetBrains UI design language.
 
+For the Markdown source templates used by Marketplace custom tabs, see the [Custom Pages index](custom/README.md).
+
 ---
 
 ## Directory Structure
