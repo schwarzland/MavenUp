@@ -14,14 +14,24 @@ UI-Komponenten: [`components-ui.md`](components-ui.md) und
 - **UpdateConfirmationDialog**: eigenständiger `DialogWrapper` (Top-Level in `ui`), der vor
   dem Anwenden die anstehenden Updates in einer schreibgeschützten Tabelle bestätigen lässt und
   die Option **Sync Maven Changes** (vorbelegt aus `MavenUpSettings.syncMavenAfterUpdate`) anbietet.
-  In Multi-Modul-Projekten wird bei Vorhandensein transitiver Pins zusätzlich eine Combobox zur Auswahl des
-  Ziel-POMs angeboten (`targetPomComboBox`, Standard: `TargetPomMode.ROOT_POM`, Alternativen: `AFFECTED_MODULES`, `ALL_MODULES`).
+  Der Dialog startet mit einer breiten Standardgröße, verwendet aber eine kleinere Mindestgröße,
+  damit er auf kleineren Bildschirmen wieder sichtbar schmaler gezogen werden kann.
+  Die Tabelle zeigt **Module** immer an dritter Stelle, wie die Haupttabelle, auch in Einzelmodulprojekten;
+  Group Id, Artifact Id, Module und Type sind sortierbar, die Versionsspalten nicht.
+  Für transitive Pins zeigt die Modulspalte abhängig von `targetPomComboBox` die Root-, betroffenen oder
+  alle Zielmodule an; dieselbe `PomUpdateService.resolveUpdatesForTargetPomMode()`-Auflösung wie beim Anwenden
+  wird verwendet. Fehlt eine passende Maven-Projektbezeichnung, erscheint der POM-Pfad; ohne Ziel-POM die Artefakt-ID.
+  Eine Combobox zur Auswahl des Ziel-POMs für transitive Pins ohne bereits festgelegte POM-Datei wird immer angezeigt
+  (`targetPomComboBox`, Standard: `TargetPomMode.ROOT_POM`, Alternativen: `AFFECTED_MODULES`, `ALL_MODULES`); die Auswahl
+  ist ausschließlich bei transitiven Updates in Multi-Modul-Projekten aktiviert. Darunter zeigt eine UI-DSL-Kommentarzeile
+  die Anzahl der transitiven Pins ohne zugewiesene POM-Datei (`targetPomAffectedCount`) an, auf die der Modus wirkt;
+  reguläre Updates und transitive Pins mit bereits gesetzter `pomFile` bleiben davon unberührt.
   `typeLabel()` erzeugt den Text der **Type**-Spalte und kennzeichnet Updates mit
   `DependencyUpdate.transitive = true` über `toolwindow.MyToolWindow.update.confirm.type.transitive`
   als „transitive -> managed dependency".
-  `buildRowSorter()` macht die Spalten Group Id, Artifact Id und Type über `cellTextComparator`
+  `buildRowSorter()` macht die Spalten Group Id, Artifact Id, Module und Type über `cellTextComparator`
   sortierbar (Zyklus aufsteigend → absteigend → unsortiert, `installSortableHeaderRenderer`);
-  ab `CONFIRM_CURRENT_VERSION_COLUMN` (Index 3) sind die Versionsspalten nicht sortierbar.
+  ab `CONFIRM_CURRENT_VERSION_COLUMN` (Index 4) sind die Versionsspalten nicht sortierbar.
 - **RedundantManagedDependencyDialog**: interaktiver `DialogWrapper` zur Prüfung und Übernahme redundanter
   `<dependencyManagement>`-Einträge im Ist-Zustand. Zeigt eine Tabelle mit Checkbox-Auswahl (`COLUMN_SELECT`),
   Managed-Koordinate, aktueller Version, Redundanzgrund (`RedundancyReason`), bereitgestellter Version und Maven-Projekt

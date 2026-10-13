@@ -442,14 +442,14 @@ class MavenUpWindowFactory : ToolWindowFactory {
         private val allTypesFilterLabel =
             MyMessageBundle.message("toolwindow.MyToolWindow.filter.type.all")
 
-        /** Stabile, immer verfügbare Liste der von MavenUp unterstützten Typfilter-Werte. */
-        private fun stableTypeFilterOptions(): List<String> = linkedSetOf(
-            "dependency",
-            "plugin",
+        /** Feste, immer verfügbare Liste der von MavenUp unterstützten Typfilter-Werte. */
+        private val typeFilterOptions = listOf(
             PARENT_TYPE,
+            "plugin",
+            "dependency",
             MANAGED_PLUGIN,
             MANAGED_DEPENDENCY
-        ).toList()
+        )
 
         /** Container für die Aktionsleiste und die Filterzeile des Tabs **Dependencies**. */
         private val topPanel = JBPanel<JBPanel<*>>(BorderLayout())
@@ -875,7 +875,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 knownDependencies.clear()
                 knownTypes.clear()
                 inheritedVersionDependencies.clear()
-                updateTypeFilterOptions()
                 updateUpdateButtonState()
             }
 
@@ -927,7 +926,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 updateModuleColumnVisibility(isMultiModuleProject(snapshot.rows))
                 dropUnavailableVersionSelections()
                 updateUpdateButtonState()
-                updateTypeFilterOptions()
                 updateUpdatesFilterState()
                 updateVulnerabilitiesFilterState()
                 updateVersionSourceFilterState()
@@ -1820,7 +1818,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
 
             filterControlsPanel.add(JLabel(MyMessageBundle.message("toolwindow.MyToolWindow.filter.type.label")))
             typeFilterComboBox.model = DefaultComboBoxModel(
-                (listOf(allTypesFilterLabel) + stableTypeFilterOptions()).toTypedArray()
+                (listOf(allTypesFilterLabel) + typeFilterOptions).toTypedArray()
             )
             typeFilterComboBox.selectedItem = allTypesFilterLabel
             typeFilterComboBox.renderer = typeFilterRenderer()
@@ -2364,7 +2362,8 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
-         * Übernimmt einen vom projektweiten Hintergrundkoordinator veröffentlichten Zustand in die UI.
+         * Übernimmt einen vom projektweiten Hintergrundkoordinator veröffentlichten Zustand in die UI und ersetzt
+         * dabei die zuvor angezeigten Zeilen samt zugehörigem Refresh-Kontext.
          *
          * Ein laufender manueller Update- oder Vulnerability-Vorgang behält Vorrang, damit dessen
          * Ergebnis nicht durch einen gleichzeitig fertig werdenden Maven-Import überschrieben wird.
@@ -2378,6 +2377,7 @@ class MavenUpWindowFactory : ToolWindowFactory {
             isRefreshing = false
             isSearchingVersions = false
             (table.model as DefaultTableModel).setRowCount(0)
+            modelRows.clear()
             availableVersions.clear()
             rawAvailableVersions.clear()
             selectedVersions.clear()
@@ -2423,7 +2423,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
             updateModuleColumnVisibility(isMultiModuleProject(state.snapshot.rows))
             dropUnavailableVersionSelections()
             updateUpdateButtonState()
-            updateTypeFilterOptions()
             updateUpdatesFilterState()
             updateVulnerabilitiesFilterState()
             updateVersionSourceFilterState()
@@ -2449,34 +2448,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
             table.emptyText.text = MyMessageBundle.message(
                 dependencyTableEmptyTextKey(isRefreshing, isSearchingVersions, model.rowCount > 0)
             )
-        }
-
-        /**
-         * Aktualisiert die Auswahlmöglichkeiten der Typ-Combobox anhand der stabilen unterstützten
-         * Typen sowie der aktuell bekannten und in der Tabelle vorhandenen Typen.
-         *
-         * Die bisherige Auswahl bleibt erhalten, sofern der Typ weiterhin existiert; andernfalls
-         * wird auf "alle Typen" zurückgesetzt.
-         */
-        internal fun updateTypeFilterOptions() {
-            val model = table.model as DefaultTableModel
-            val currentTableTypes = (0 until model.rowCount)
-                .mapNotNull { model.getValueAt(it, TYPE_COLUMN) as? String }
-                .filter { it.isNotBlank() }
-            val knownTypeOptions = knownTypes.values.filter { it.isNotBlank() }
-            val types = (stableTypeFilterOptions() + knownTypeOptions + currentTableTypes)
-                .distinct()
-                .filter { it.isNotBlank() }
-                .sorted()
-            val previouslySelected = typeFilterComboBox.selectedItem as? String ?: allTypesFilterLabel
-            typeFilterComboBox.model =
-                DefaultComboBoxModel((listOf(allTypesFilterLabel) + types).toTypedArray())
-            typeFilterComboBox.selectedItem =
-                if (previouslySelected == allTypesFilterLabel || types.contains(previouslySelected)) {
-                    previouslySelected
-                } else {
-                    allTypesFilterLabel
-                }
         }
 
         /**

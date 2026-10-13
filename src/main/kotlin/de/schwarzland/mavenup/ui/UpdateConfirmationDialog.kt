@@ -3,6 +3,7 @@ package de.schwarzland.mavenup.ui
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.ComboBox
 import com.intellij.openapi.ui.DialogWrapper
+import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.ui.SimpleListCellRenderer
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.dsl.builder.Align
@@ -11,6 +12,7 @@ import com.intellij.ui.table.JBTable
 import de.schwarzland.mavenup.model.DependencyUpdate
 import de.schwarzland.mavenup.model.TargetPomMode
 import de.schwarzland.mavenup.service.MavenUpSettings
+import de.schwarzland.mavenup.service.PomUpdateService
 import org.jetbrains.idea.maven.project.MavenProjectsManager
 import java.awt.Dimension
 import javax.swing.JCheckBox
@@ -22,8 +24,9 @@ import javax.swing.table.TableRowSorter
 
 /**
  * Dialog zur Bestätigung der ausgewählten Updates. Zeigt eine Tabelle mit den
- * durchzuführenden Änderungen (Gruppe, Artefakt, Version alt/neu) sowie Optionen zur
- * Maven-Synchronisation und zur Ziel-POM-Auswahl für transitive Pins.
+ * durchzuführenden Änderungen (Gruppe, Artefakt, Modul, Typ und Version alt/neu) sowie Optionen zur
+ * Maven-Synchronisation und zur Ziel-POM-Auswahl für transitive Pins ohne bereits festgelegte POM-Datei.
+ * Die Auswahl bleibt sichtbar und ist nur bei transitiven Updates in Multi-Modul-Projekten aktiviert.
  *
  * @param project Das aktuelle Projekt, an das der Dialog gebunden wird.
  * @property updates Die Liste der zu bestätigenden Abhängigkeits-Updates.
@@ -33,6 +36,7 @@ class UpdateConfirmationDialog(
     private val updates: List<DependencyUpdate>
 ) : DialogWrapper(project) {
     private val mavenProjectsManager = MavenProjectsManager.getInstance(project)
+    private val pomUpdateService = PomUpdateService(project)
 
     private val syncMavenCheckbox: JCheckBox = JCheckBox(
         MyMessageBundle.message("toolwindow.MyToolWindow.update.confirm.syncMaven")
@@ -42,9 +46,12 @@ class UpdateConfirmationDialog(
 
     private val isMultiModule = mavenProjectsManager.projects.size > 1
     private val hasTransitiveUpdates = updates.any { it.transitive }
+    private val targetPomAffectedCount = updates.count { it.transitive && it.pomFile == null }
+    private var confirmationTable: JBTable? = null
 
     internal val targetPomComboBox: ComboBox<TargetPomMode> = ComboBox(TargetPomMode.entries.toTypedArray()).apply {
         selectedItem = TargetPomMode.ROOT_POM
+        isEnabled = hasTransitiveUpdates && isMultiModule
         renderer = SimpleListCellRenderer.create("") { mode ->
             when (mode) {
                 TargetPomMode.ROOT_POM -> MyMessageBundle.message("toolwindow.MyToolWindow.update.confirm.targetPom.root")
@@ -53,6 +60,7 @@ class UpdateConfirmationDialog(
                 null -> ""
             }
         }
+        addActionListener { updateTargetModuleColumn() }
     }
 
     init {
@@ -81,34 +89,55 @@ class UpdateConfirmationDialog(
     }
 
     /**
-     * Erstellt den zentralen Bereich des Dialogs mit der Update-Übersichtstabelle, der Ziel-POM-Auswahl
-     * und der Sync-Option unter Verwendung der Kotlin UI DSL v2.
+     * Erstellt den zentralen Dialogbereich.
      */
-    override fun createCenterPanel(): JComponent {
+    override fun createCenterPanel(): JComponent = buildCenterPanel()
+
+    /**
+     * Erstellt den zentralen Bereich mit Übersichtstabelle, stets sichtbarer (gegebenenfalls deaktivierter)
+     * Ziel-POM-Auswahl samt Anzahl betroffener transitiver Pins und Sync-Option unter Verwendung der Kotlin UI DSL v2.
+     *
+     * Die bevorzugte Größe startet großzügig, die Mindestgröße bleibt bewusst kleiner, damit sich der
+     * Dialog nach Bedarf auch schmaler ziehen lässt.
+     *
+     * @return Der konfigurierte zentrale Dialogbereich.
+     */
+    internal fun buildCenterPanel(): JComponent {
+        val overviewScrollPane = JBScrollPane(buildTable()).apply {
+            minimumSize = CONFIRM_DIALOG_MIN_SIZE
+        }
+
         return panel {
             row {
                 label(MyMessageBundle.message("toolwindow.MyToolWindow.update.confirm.message"))
             }
             row {
-                cell(JBScrollPane(buildTable())).align(Align.FILL).resizableColumn()
+                cell(overviewScrollPane).align(Align.FILL).resizableColumn()
             }.resizableRow()
-            if (hasTransitiveUpdates && isMultiModule) {
-                row(MyMessageBundle.message("toolwindow.MyToolWindow.update.confirm.targetPom.label")) {
-                    cell(targetPomComboBox)
-                }
+            row(MyMessageBundle.message("toolwindow.MyToolWindow.update.confirm.targetPom.label")) {
+                cell(targetPomComboBox)
+            }
+            row {
+                comment(
+                    MyMessageBundle.message(
+                        "toolwindow.MyToolWindow.update.confirm.targetPom.affectedCount",
+                        targetPomAffectedCount
+                    )
+                )
             }
             row {
                 cell(syncMavenCheckbox)
             }
         }.also {
-            it.preferredSize = Dimension(900, 500)
+            it.preferredSize = CONFIRM_DIALOG_PREFERRED_SIZE
+            it.minimumSize = CONFIRM_DIALOG_MIN_SIZE
         }
     }
 
     /**
      * Erstellt die schreibgeschützte Update-Übersichtstabelle mit Einzelselektion.
-     * Die Spalten "Group Id", "Artifact Id" und "Type" sind wie in den übrigen Plugin-Tabellen
-     * sortierbar; die Versionsspalten und die Zielmodul-Spalte bleiben in der Reihenfolge der Auswahl.
+     * Die Spalten "Group Id", "Artifact Id", "Module" und "Type" sind wie in den übrigen Plugin-Tabellen
+     * sortierbar. Die Modul-Spalte steht immer an dritter Stelle; die Versionsspalten bleiben unsortiert.
      *
      * @return Die konfigurierte, nicht editierbare Tabelle mit allen anstehenden Updates.
      */
@@ -118,10 +147,10 @@ class UpdateConfirmationDialog(
         }.apply {
             addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.groupId"))
             addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.artifactId"))
+            addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.module"))
             addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.type"))
             addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.currentVersion"))
             addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.newVersion"))
-            addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.module"))
         }
 
         updates.forEach { update ->
@@ -129,6 +158,7 @@ class UpdateConfirmationDialog(
                 arrayOf(
                     update.groupId,
                     update.artifactId,
+                    targetModuleLabel(update, getSelectedTargetPomMode()),
                     typeLabel(update),
                     update.oldVersion,
                     if (update.removeFromPom) {
@@ -139,8 +169,7 @@ class UpdateConfirmationDialog(
                         }
                     } else {
                         update.newVersion
-                    },
-                    targetModuleLabel(update)
+                    }
                 )
             )
         }
@@ -154,6 +183,7 @@ class UpdateConfirmationDialog(
             trimColumnWidthsToContent(this)
             applyRecommendedRowHeight(this)
         }
+        confirmationTable = table
         return table
     }
 
@@ -178,23 +208,69 @@ class UpdateConfirmationDialog(
      * Liefert den Namen des Zielmoduls für die Bestätigungstabelle.
      *
      * Entspricht für bekannte Maven-Module der Logik der Haupttabelle
-     * (`displayName`, alternativ Maven-`artifactId`) und fällt bei unbekannten Zuordnungen
-     * auf die Artefakt-ID des Updates zurück.
+     * (`displayName`, alternativ Maven-`artifactId`). Ist eine POM-Datei vorhanden, aber keinem
+     * Maven-Projekt zugeordnet, wird ihr Pfad anstelle der Artefakt-ID angezeigt.
      *
      * @param update Das anzuzeigende Update.
-     * @return Anzeigename des Zielmoduls oder als Fallback die Artefakt-ID.
+     * @return Anzeigename des Zielmoduls oder als Fallback POM-Pfad beziehungsweise Artefakt-ID.
      */
     internal fun targetModuleLabel(update: DependencyUpdate): String {
-        val pomPath = update.pomFile?.path ?: return update.artifactId
+        return targetModuleLabel(update.pomFile, update.artifactId)
+    }
+
+    /**
+     * Liefert die Modulnamen der POM-Dateien, auf die ein Update gemäß dem gewählten Modus angewendet wird.
+     *
+     * Für transitive Pins wird dieselbe Auflösung wie beim anschließenden Update verwendet. Im Modus
+     * „All modules“ werden alle Maven-Projekte angezeigt; bekannte Projektbezeichnungen werden genutzt,
+     * sonst der POM-Pfad. Ohne auflösbare POM bleibt die Artefakt-ID der Rückfallwert.
+     *
+     * @param update Das anzuzeigende Update.
+     * @param mode Der ausgewählte Ziel-POM-Modus.
+     * @return Anzeigename oder kommagetrennte Liste der Zielmodule.
+     */
+    private fun targetModuleLabel(update: DependencyUpdate, mode: TargetPomMode): String {
+        if (!update.transitive || update.pomFile != null) return targetModuleLabel(update)
+
+        val targetPomFiles = when (mode) {
+            TargetPomMode.ALL_MODULES -> mavenProjectsManager.projects.map { it.file }
+            TargetPomMode.ROOT_POM, TargetPomMode.AFFECTED_MODULES ->
+                pomUpdateService.resolveUpdatesForTargetPomMode(listOf(update), mode)
+                    .mapNotNull { it.pomFile }
+        }
+        val labels = targetPomFiles.distinctBy { it.path }
+            .map { targetModuleLabel(it, update.artifactId) }
+        return labels.takeIf { it.isNotEmpty() }?.joinToString(", ") ?: update.artifactId
+    }
+
+    /**
+     * Ermittelt den Namen eines Maven-Moduls anhand seiner POM-Datei.
+     *
+     * @param pomFile Die POM-Datei des Moduls oder `null`, wenn kein Ziel zugeordnet wurde.
+     * @param fallback Der Rückgabewert, falls keine POM-Datei angegeben ist.
+     * @return Anzeigename, Maven-Artifact-ID oder POM-Pfad als Rückfallwert.
+     */
+    private fun targetModuleLabel(pomFile: VirtualFile?, fallback: String): String {
+        val pomPath = pomFile?.path ?: return fallback
         val mavenProject = mavenProjectsManager.projects.firstOrNull { it.file.path == pomPath }
         return mavenProject?.displayName?.takeIf { it.isNotBlank() }
             ?: mavenProject?.mavenId?.artifactId?.takeIf { it.isNotBlank() }
-            ?: update.artifactId
+            ?: pomPath
+    }
+
+    /**
+     * Aktualisiert die Modulspalte entsprechend dem aktuell ausgewählten Ziel-POM-Modus.
+     */
+    private fun updateTargetModuleColumn() {
+        val model = confirmationTable?.model as? DefaultTableModel ?: return
+        updates.forEachIndexed { rowIndex, update ->
+            model.setValueAt(targetModuleLabel(update, getSelectedTargetPomMode()), rowIndex, MODULE_COLUMN)
+        }
     }
 
     /**
      * Erstellt den [TableRowSorter] für die Bestätigungstabelle. Die Textspalten "Group Id",
-     * "Artifact Id" und "Type" werden alphabetisch ohne Beachtung der Groß-/Kleinschreibung
+     * "Artifact Id", "Module" und "Type" werden alphabetisch ohne Beachtung der Groß-/Kleinschreibung
      * sortiert und durchlaufen bei Klick den Zyklus aufsteigend → absteigend → unsortiert.
      * Die Versionsspalten sind – wie im Hauptfenster – nicht sortierbar.
      *
@@ -225,7 +301,16 @@ class UpdateConfirmationDialog(
     }
 
     companion object {
+        /** Bevorzugte Startgröße des Dialogs für eine vollständige Erstansicht. */
+        private val CONFIRM_DIALOG_PREFERRED_SIZE = Dimension(900, 500)
+
+        /** Bewusst kleinere Mindestgröße, damit der Dialog nach dem Öffnen verkleinert werden kann. */
+        internal val CONFIRM_DIALOG_MIN_SIZE = Dimension(520, 320)
+
+        /** Index der Modulspalte in der Übersichtstabelle. */
+        private const val MODULE_COLUMN = 2
+
         /** Spaltenindex der Spalte mit der aktuellen Version; ab hier wird nicht mehr sortiert. */
-        internal const val CONFIRM_CURRENT_VERSION_COLUMN = 3
+        internal const val CONFIRM_CURRENT_VERSION_COLUMN = 4
     }
 }

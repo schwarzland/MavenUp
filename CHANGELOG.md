@@ -24,6 +24,10 @@
 
 ### Changed
 
+- **Moved the always-visible Module column to the third position in the Confirm Changes dialog**, matching the main table.
+- **Clarified that the Target POM selector applies only to transitive fixes and shows how many unassigned transitive pins it affects.**
+- The confirmation table's **Module** column previews the root, affected, or all modules as the transitive Target POM selection changes, with POM path and artifactId fallbacks when needed.
+- The main table's **Type** filter keeps only the five supported categories in a fixed order, rather than sorting or dynamically adding discovered types.
 - **Updated the Managed Entries tooltip** to describe the redundancy check alongside removal or comment-out actions and clarify that filter scope applies only to those bulk actions.
 - **Renamed row context menu actions** to "Select Highest Major Version", "Select Highest Minor Version", and "Select Recommended Version" to align with the toolbar selection menu.
 - Moved the **Hierarchy** toolbar action to the right of **Vulnerability Details** so selection-dependent actions are grouped in a clearer left-to-right flow.
@@ -33,6 +37,8 @@
 
 ### Fixed
 
+- **Fixed the minimum size behavior of the Confirm Changes dialog** so the window can be narrowed again instead of getting stuck at a large minimum width.
+- **Fixed the Type filter and New Version status after an automatic refresh replaces the dependency rows.**
 - **Fixed the Confirm Changes dialog in multi-module projects** so the target column now shows the affected module (with artifactId fallback) instead of a raw `pom.xml` path, making same-coordinate updates across modules easier to distinguish.
 - **Fixed dependency-table tooltips in single-module projects** so hovering over New Version no longer throws an exception and version and property-navigation hints remain correct with hidden columns, sorting, and filtering.
 - **Fixed toolbar managed entries bulk comment-out/removal in multi-module projects** by processing all matching rows across all modules instead of deduplicating by coordinate and only updating the first matching row.

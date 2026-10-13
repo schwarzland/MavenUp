@@ -23,7 +23,7 @@
         <dependencies>
             <!-- 
                 REDUNDANT: spring-web is already managed by the Spring Boot BOM 
-                imported by the parent. The BOM provides version 6.1.0.
+                imported by the parent. The BOM provides version 6.1.1.
             -->
             <dependency>
                 <groupId>org.springframework</groupId>

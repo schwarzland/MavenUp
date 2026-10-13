@@ -87,6 +87,53 @@ class VersionSelectionIntegrationTest : BasePlatformTestCase() {
         assertTrue(window.collectSelectedUpdates().isEmpty())
     }
 
+    /** Ersetzt ein neuer automatischer Refresh Typ- und Versionskontext der zuvor dargestellten Zeilen. */
+    fun testAutomaticRefreshReplacesRowContextForFilteringAndVersionStatus() {
+        val window = MavenUpWindowFactory().MyToolWindow(project)
+        val previousKey = "com.example:old-plugin"
+        val previousRows = listOf(
+            RefreshRow("com.example", "old-plugin", "", "plugin", "1.0.0")
+        )
+        val previousCandidates = mapOf(previousKey to listOf("9.0.0", "1.0.0"))
+        window.applyAutomaticVersionSearchState(
+            AutomaticVersionSearchState(
+                RefreshSnapshot(previousRows, emptyMap()),
+                VersionSearchResult(previousCandidates, previousCandidates, mapOf(previousKey to "9.0.0")),
+                null
+            )
+        )
+
+        val currentKey = "com.example:new-dependency"
+        val currentRows = listOf(
+            RefreshRow("com.example", "new-dependency", "", "dependency", "1.0.0")
+        )
+        val currentCandidates = mapOf(currentKey to listOf("2.0.0", "1.0.0"))
+        window.applyAutomaticVersionSearchState(
+            AutomaticVersionSearchState(
+                RefreshSnapshot(currentRows, emptyMap()),
+                VersionSearchResult(currentCandidates, currentCandidates, mapOf(currentKey to "2.0.0")),
+                null
+            )
+        )
+
+        val table = requireNotNull(findTable(window.getContent()))
+        val newVersionColumn = table.convertColumnIndexToView(NEW_VERSION_COLUMN)
+        val renderer = table.getCellRenderer(0, newVersionColumn)
+        val rendered = renderer.getTableCellRendererComponent(
+            table,
+            table.getValueAt(0, newVersionColumn),
+            false,
+            false,
+            0,
+            newVersionColumn
+        )
+
+        assertEquals("2.0.0", combo(rendered).selectedItem)
+        window.typeFilterComboBox.selectedItem = "dependency"
+        assertEquals(1, table.rowCount)
+        assertEquals("new-dependency", table.getValueAt(0, ARTIFACT_ID_COLUMN))
+    }
+
     /** Wird eine gewaehlte SNAPSHOT-Version ausgeblendet, bleibt auch ohne Kandidaten kein Update uebrig. */
     fun testVisibilitySettingsDropUnavailableTargetsWithoutChangingCurrentVersion() {
         val settings = MavenUpSettings.getInstance()

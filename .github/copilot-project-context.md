@@ -53,6 +53,8 @@ Projekt-/PSI-Umgebung erben von `BasePlatformTestCase` (z. B. `MavenUpWindowFact
 `VulnerabilityScanServiceTest`). Netzwerklastige Services werden über
 injizierte Seams/Interfaces netzwerkfrei getestet.
 `CacheContentsDialogTest` deckt TTL-Anzeige und Invalidierung ab;
+`UpdateConfirmationDialogTest` prüft u. a. die kleinere Mindestgröße der Confirm-Changes-Ansicht,
+damit der Dialog trotz breiter Standardgröße verkleinert werden kann;
 `RedundantManagedDependencyDialogTest` prüft Auswahl, Übernahme, Split-Layout, Folgeansichten und
 inhaltsunabhängiges Verkleinern bei langen Detailtexten;
 `RedundantManagedDependencyServiceTest` prüft die Erkennung redundanter Einträge (Parent-Management, direkte Abhängigkeit, transitive Bereitstellung, ungenutzt) einschließlich des Falls, dass ohne lokalen Managed-Override ein niedrigeres Parent-/BOM-Fallback wirksam wäre;

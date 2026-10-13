@@ -43,7 +43,9 @@ Use the **Select Highest Version** dropdown in the top toolbar to target multipl
 
 ### Step 5: Review and Apply Changes Atomically
 * Click **Update** in the toolbar.
-* A confirmation dialog displays an overview of all planned modifications, showing old and new versions, affected files, and dependency types.
+* A confirmation dialog displays an overview of all planned modifications, showing old and new versions, affected files, and dependency types. Its **Module** column is always visible in the third position, matching the main table, including in single-module projects, and previews the modules selected by **Target POM for transitive fixes**.
+* The confirmation dialog opens with a wide default layout but can be narrowed when you need a more compact window width.
+* The **Target POM for transitive fixes** selector is always visible and shows the count of unassigned transitive pins it affects; it is enabled only for transitive updates in multi-module projects and does not change the target of regular version updates.
 * **Sync Maven Changes:** Keep **Sync Maven Changes after update** checked (default) to immediately trigger IntelliJ's Maven sync upon writing changes to `pom.xml`.
 
 ---
@@ -53,7 +55,7 @@ Use the **Select Highest Version** dropdown in the top toolbar to target multipl
 ### Multi-Criteria Filtering
 Filter the table with zero friction using the filter row above the table:
 * **Search text:** Case-insensitive search by `groupId`, `artifactId`, or Maven `property`.
-* **Type filter:** Filter by dependency type (Direct, Managed, Plugin, Managed Plugin, Parent).
+* **Type filter:** Filter by dependency type. Options stay in a fixed order: All, Dependency, Plugin, Parent, Managed plugin, Managed dependency.
 * **Version filter:** Differentiate between explicitly **Declared** versions and **Inherited** versions (from parent POMs or BOMs).
 * **Update filter:** Show only dependencies where updates are **Available** or **Up to date**.
 * **Pending filter:** Filter by pending actions (**All changes**, **Will update**, **Will be removed**, **Unchanged**).
