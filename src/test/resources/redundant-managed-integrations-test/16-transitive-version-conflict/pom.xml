@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>de.schwarzland.mavenup.examples</groupId>
+    <artifactId>transitive-version-conflict</artifactId>
+    <version>1.0.0</version>
+
+    <name>MavenUp Example – Transitive Version Conflict in Dependency Hierarchy</name>
+    <description>
+        Both direct dependencies bring in jackson-core at different versions and at the same depth.
+        Maven resolves the conflict to the version requested by the first dependency, so the losing
+        jackson-core path is absent from the resolved dependency hierarchy.
+    </description>
+
+    <dependencies>
+        <!-- Requests jackson-core:2.15.2 transitively. -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.15.2</version>
+        </dependency>
+
+        <!-- Requests jackson-core:2.14.0 transitively at the same depth. -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.dataformat</groupId>
+            <artifactId>jackson-dataformat-xml</artifactId>
+            <version>2.14.0</version>
+        </dependency>
+    </dependencies>
+</project>

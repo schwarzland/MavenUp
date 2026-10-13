@@ -1,8 +1,8 @@
 # MavenUp – Redundant Managed Dependency Examples
 
-This directory contains real Maven example projects that demonstrate the scenarios detected by the MavenUp plugin's **"Check Managed Dependencies for Redundancy"** and **"Check for Redundancy"** (context menu) features.
+This directory contains real Maven example projects that demonstrate the scenarios detected by the MavenUp plugin's **"Check Managed Dependencies for Redundancy"** and **"Check for Redundancy"** (context menu) features, plus a dependency-hierarchy version-conflict reproducer.
 
-Each example can be imported into IntelliJ IDEA as a standalone Maven project to verify the redundancy detection behavior.
+Each example can be imported into IntelliJ IDEA as a standalone Maven project. Use scenarios 01–15 to verify redundancy detection and scenario 16 to reproduce a dependency-hierarchy version conflict.
 
 ## Scenarios Overview
 
@@ -23,6 +23,7 @@ Each example can be imported into IntelliJ IDEA as a standalone Maven project to
 | 13 | [Parent Unused in Multi-Module](13-parent-unused-multi-module/) | `UNUSED` | Root/Parent POM declares a managed dependency that is not used in any sub-module |
 | 14 | [Version Pinning Override (Boundary)](14-version-pinning-override/) | _None (Not Redundant)_ | Child POM overrides parent with a higher version; removing it would cause a downgrade |
 | 15 | [Transitive Exclusion (Boundary)](15-transitive-exclusion-non-redundant/) | _None (Not Redundant)_ | Transitive artifact is excluded in direct dependency, making the managed entry essential |
+| 16 | [Transitive Version Conflict in Dependency Hierarchy](16-transitive-version-conflict/) | _Not applicable_ | Two direct dependencies request different versions of `jackson-core` at the same depth; Maven resolves one version and omits the losing path from the resolved dependency hierarchy |
 
 ## How to Use
 
