@@ -37,6 +37,7 @@
 
 ### Fixed
 
+- **Fixed the minimum size behavior of the Confirm Changes dialog** so the window can be narrowed again instead of getting stuck at a large minimum width.
 - **Fixed the Type filter and New Version status after an automatic refresh replaces the dependency rows.**
 - **Fixed the Confirm Changes dialog in multi-module projects** so the target column now shows the affected module (with artifactId fallback) instead of a raw `pom.xml` path, making same-coordinate updates across modules easier to distinguish.
 - **Fixed dependency-table tooltips in single-module projects** so hovering over New Version no longer throws an exception and version and property-navigation hints remain correct with hidden columns, sorting, and filtering.

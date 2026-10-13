@@ -97,15 +97,22 @@ class UpdateConfirmationDialog(
      * Erstellt den zentralen Bereich mit Übersichtstabelle, stets sichtbarer (gegebenenfalls deaktivierter)
      * Ziel-POM-Auswahl samt Anzahl betroffener transitiver Pins und Sync-Option unter Verwendung der Kotlin UI DSL v2.
      *
+     * Die bevorzugte Größe startet großzügig, die Mindestgröße bleibt bewusst kleiner, damit sich der
+     * Dialog nach Bedarf auch schmaler ziehen lässt.
+     *
      * @return Der konfigurierte zentrale Dialogbereich.
      */
     internal fun buildCenterPanel(): JComponent {
+        val overviewScrollPane = JBScrollPane(buildTable()).apply {
+            minimumSize = CONFIRM_DIALOG_MIN_SIZE
+        }
+
         return panel {
             row {
                 label(MyMessageBundle.message("toolwindow.MyToolWindow.update.confirm.message"))
             }
             row {
-                cell(JBScrollPane(buildTable())).align(Align.FILL).resizableColumn()
+                cell(overviewScrollPane).align(Align.FILL).resizableColumn()
             }.resizableRow()
             row(MyMessageBundle.message("toolwindow.MyToolWindow.update.confirm.targetPom.label")) {
                 cell(targetPomComboBox)
@@ -122,7 +129,8 @@ class UpdateConfirmationDialog(
                 cell(syncMavenCheckbox)
             }
         }.also {
-            it.preferredSize = Dimension(900, 500)
+            it.preferredSize = CONFIRM_DIALOG_PREFERRED_SIZE
+            it.minimumSize = CONFIRM_DIALOG_MIN_SIZE
         }
     }
 
@@ -293,6 +301,12 @@ class UpdateConfirmationDialog(
     }
 
     companion object {
+        /** Bevorzugte Startgröße des Dialogs für eine vollständige Erstansicht. */
+        private val CONFIRM_DIALOG_PREFERRED_SIZE = Dimension(900, 500)
+
+        /** Bewusst kleinere Mindestgröße, damit der Dialog nach dem Öffnen verkleinert werden kann. */
+        internal val CONFIRM_DIALOG_MIN_SIZE = Dimension(520, 320)
+
         /** Index der Modulspalte in der Übersichtstabelle. */
         private const val MODULE_COLUMN = 2
 

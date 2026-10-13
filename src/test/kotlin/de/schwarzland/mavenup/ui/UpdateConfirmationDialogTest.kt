@@ -61,6 +61,15 @@ class UpdateConfirmationDialogTest : BasePlatformTestCase() {
         assertFalse(dialog.targetPomComboBox.isEnabled)
     }
 
+    fun testCenterPanelUsesSmallerMinimumSizeThanPreferredSize() {
+        val dialog = UpdateConfirmationDialog(project, emptyList())
+        val centerPanel = dialog.buildCenterPanel()
+
+        assertEquals(UpdateConfirmationDialog.CONFIRM_DIALOG_MIN_SIZE, centerPanel.minimumSize)
+        assertTrue(centerPanel.minimumSize.width < centerPanel.preferredSize.width)
+        assertTrue(centerPanel.minimumSize.height < centerPanel.preferredSize.height)
+    }
+
     /** Zeigt die Anzahl nur für transitive Pins, deren Ziel-POM tatsächlich über den Selektor bestimmt wird. */
     fun testTargetPomCountIncludesOnlyTransitiveUpdatesWithoutAssignedPom() {
         val assignedPom = myFixture.tempDirFixture.createFile("module-a/pom.xml")

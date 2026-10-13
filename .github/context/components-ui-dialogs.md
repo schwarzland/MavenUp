@@ -14,6 +14,8 @@ UI-Komponenten: [`components-ui.md`](components-ui.md) und
 - **UpdateConfirmationDialog**: eigenständiger `DialogWrapper` (Top-Level in `ui`), der vor
   dem Anwenden die anstehenden Updates in einer schreibgeschützten Tabelle bestätigen lässt und
   die Option **Sync Maven Changes** (vorbelegt aus `MavenUpSettings.syncMavenAfterUpdate`) anbietet.
+  Der Dialog startet mit einer breiten Standardgröße, verwendet aber eine kleinere Mindestgröße,
+  damit er auf kleineren Bildschirmen wieder sichtbar schmaler gezogen werden kann.
   Die Tabelle zeigt **Module** immer an dritter Stelle, wie die Haupttabelle, auch in Einzelmodulprojekten;
   Group Id, Artifact Id, Module und Type sind sortierbar, die Versionsspalten nicht.
   Für transitive Pins zeigt die Modulspalte abhängig von `targetPomComboBox` die Root-, betroffenen oder
