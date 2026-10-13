@@ -1943,7 +1943,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
             toolWindow.isRefreshEnabled()
         )
         assertEquals(
-            "Refresh and Search for New Versions",
+            "Refresh and search for new versions",
             MyMessageBundle.message("toolwindow.MyToolWindow.refresh.button")
         )
 
