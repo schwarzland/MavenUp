@@ -14,7 +14,14 @@
         unmanaged/pom.xml reveals the original conflicting version requests.
         This fixture deliberately uses historical dependencies and is not a production template.
     </description>
-
+<!--
+mockserver-netty:5.15.0
+└─ mockserver-core:5.15.0
+   └─ velocity-tools-generic:3.1
+      ├─ commons-beanutils:1.9.4
+      └─ commons-digester3:3.2
+         └─ commons-beanutils:1.8.3         ... ohne dependencyManagement
+-->
     <dependencies>
         <dependency>
             <groupId>org.mock-server</groupId>
