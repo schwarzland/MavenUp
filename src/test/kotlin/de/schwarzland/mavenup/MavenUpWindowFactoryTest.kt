@@ -943,9 +943,9 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertEquals(
             "Die Typ-Spalte sollte den transitiven Hinweis enthalten",
             "transitive -> managed dependency",
-            table.getValueAt(0, 2)
+            table.getValueAt(0, 3)
         )
-        assertEquals("dependency", table.getValueAt(1, 2))
+        assertEquals("dependency", table.getValueAt(1, 3))
     }
 
     fun testConfirmChangesDialogSyncCheckboxReflectsSetting() {
