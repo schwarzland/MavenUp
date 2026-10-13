@@ -53,7 +53,7 @@ Use the **Select Highest Version** dropdown in the top toolbar to target multipl
 ### Multi-Criteria Filtering
 Filter the table with zero friction using the filter row above the table:
 * **Search text:** Case-insensitive search by `groupId`, `artifactId`, or Maven `property`.
-* **Type filter:** Filter by dependency type (Direct, Managed, Plugin, Managed Plugin, Parent).
+* **Type filter:** Filter by dependency type. Options stay in a fixed order: All, Dependency, Plugin, Parent, Managed plugin, Managed dependency.
 * **Version filter:** Differentiate between explicitly **Declared** versions and **Inherited** versions (from parent POMs or BOMs).
 * **Update filter:** Show only dependencies where updates are **Available** or **Up to date**.
 * **Pending filter:** Filter by pending actions (**All changes**, **Will update**, **Will be removed**, **Unchanged**).

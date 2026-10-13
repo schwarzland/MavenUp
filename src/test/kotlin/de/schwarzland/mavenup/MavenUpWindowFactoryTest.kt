@@ -551,30 +551,29 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertEquals(TriStateFilter.ALL, toolWindowInstance.updatesFilterComboBox.selectedItem)
     }
 
-    fun testTypeFilterOptionsAlwaysIncludeAllKnownTypeCategories() {
-        val toolWindowInstance = MavenUpWindowFactory().MyToolWindow(project)
-        val knownTypesField = toolWindowInstance.javaClass
-            .getDeclaredField("knownTypes").apply { isAccessible = true }
-        @Suppress("UNCHECKED_CAST")
-        val knownTypes = knownTypesField.get(toolWindowInstance) as MutableMap<String, String>
-        knownTypes.clear()
+    /** Prüft, dass die Typ-Combobox nur die unterstützten Kategorien in fester Reihenfolge anbietet. */
+    fun testTypeFilterOptionsUseFixedCategoriesInDefinedOrder() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        val content = toolWindow.getContent()
+        val tableModel = findTable(content)!!.model as DefaultTableModel
+        tableModel.addRow(
+            arrayOf("com.example", "custom-type", "", "", "custom type", null, "", emptyList<String>())
+        )
 
-        val tableField = toolWindowInstance.javaClass.getDeclaredField("table").apply { isAccessible = true }
-        val table = tableField.get(toolWindowInstance) as JBTable
-        (table.model as DefaultTableModel).setRowCount(0)
+        val options = (0 until toolWindow.typeFilterComboBox.itemCount)
+            .map { toolWindow.typeFilterComboBox.getItemAt(it) as String }
 
-        toolWindowInstance.updateTypeFilterOptions()
-
-        val options = (0 until toolWindowInstance.typeFilterComboBox.itemCount)
-            .map { toolWindowInstance.typeFilterComboBox.getItemAt(it) as String }
-            .toSet()
-
-        assertTrue(options.contains(MyMessageBundle.message("toolwindow.MyToolWindow.filter.type.all")))
-        assertTrue(options.contains("dependency"))
-        assertTrue(options.contains("plugin"))
-        assertTrue(options.contains(PARENT_TYPE))
-        assertTrue(options.contains(MANAGED_PLUGIN))
-        assertTrue(options.contains(MANAGED_DEPENDENCY))
+        assertEquals(
+            listOf(
+                MyMessageBundle.message("toolwindow.MyToolWindow.filter.type.all"),
+                "dependency",
+                "plugin",
+                PARENT_TYPE,
+                MANAGED_PLUGIN,
+                MANAGED_DEPENDENCY
+            ),
+            options
+        )
     }
 
     fun testVulnerabilitiesFilterIsDisabledUntilSuccessfulVulnerabilityScan() {
@@ -2879,7 +2878,6 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         model.addRow(arrayOf("com.example", "lib-a", "", "", "dependency", null, "1.0.0", listOf("1.0.0")))
         model.addRow(arrayOf("com.example", "lib-b", "", "", "plugin", null, "1.0.0", listOf("1.0.0")))
 
-        toolWindow.updateTypeFilterOptions()
         toolWindow.inheritedVersionDependencies.add("com.example:lib-a")
         toolWindow.updateVersionSourceFilterState()
         toolWindow.searchTextField.text = "lib-a"
@@ -3167,7 +3165,6 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         model.addRow(arrayOf("com.example", "hidden-lib", "", "", "plugin", null, "1.0.0", availableVersions[hiddenKey]))
 
         // Nur Zeilen vom Typ "dependency" sichtbar lassen.
-        toolWindow.updateTypeFilterOptions()
         toolWindow.typeFilterComboBox.selectedItem = "dependency"
         toolWindow.applyRowFilter()
         assertTrue(toolWindow.isRowFilterHidingEntries())
@@ -3198,7 +3195,6 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         model.addRow(arrayOf("com.example", "reset-visible", "", "", "dependency", null, "1.0.0", availableVersions[visibleKey]))
         model.addRow(arrayOf("com.example", "reset-hidden", "", "", "plugin", null, "1.0.0", availableVersions[hiddenKey]))
 
-        toolWindow.updateTypeFilterOptions()
         toolWindow.typeFilterComboBox.selectedItem = "dependency"
         toolWindow.applyRowFilter()
 
@@ -3228,7 +3224,6 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         model.addRow(arrayOf("com.example", "reset-visible", "", "", "dependency", null, "1.0.0", availableVersions[visibleKey]))
         model.addRow(arrayOf("com.example", "reset-hidden", "", "", "plugin", null, "1.0.0", availableVersions[hiddenKey]))
 
-        toolWindow.updateTypeFilterOptions()
         toolWindow.typeFilterComboBox.selectedItem = "dependency"
         toolWindow.applyRowFilter()
 
@@ -3257,7 +3252,6 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         assertFalse(toolWindow.isRowFilterHidingEntries())
         assertEquals("Base", toolWindow.bulkSelectionActionDescription("Base"))
 
-        toolWindow.updateTypeFilterOptions()
         toolWindow.typeFilterComboBox.selectedItem = "dependency"
         toolWindow.applyRowFilter()
         assertTrue(toolWindow.isRowFilterHidingEntries())

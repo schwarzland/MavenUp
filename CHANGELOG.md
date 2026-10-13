@@ -24,6 +24,7 @@
 
 ### Changed
 
+- The main table's **Type** filter keeps only the five supported categories in a fixed order, rather than sorting or dynamically adding discovered types.
 - **Updated the Managed Entries tooltip** to describe the redundancy check alongside removal or comment-out actions and clarify that filter scope applies only to those bulk actions.
 - **Renamed row context menu actions** to "Select Highest Major Version", "Select Highest Minor Version", and "Select Recommended Version" to align with the toolbar selection menu.
 - Moved the **Hierarchy** toolbar action to the right of **Vulnerability Details** so selection-dependent actions are grouped in a clearer left-to-right flow.
