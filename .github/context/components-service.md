@@ -257,6 +257,9 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   und den aufgelösten Abhängigkeitsbaum (`MavenArtifactNode`, `collectTransitiveDependencyPaths`, `findPathsToTarget`,
   `attachPathToHierarchy`, `attachTransitiveChildren`), um alle Einbindungs-, Management- und transitiven
   Unterabhängigkeitspfade als `DependencyHierarchyNode`-Baum aufzubereiten.
+  `findPathsToTarget` erkennt Zyklen anhand der Knotenidentität im aktuellen Pfad, nicht anhand
+  der Artefaktgleichheit oder bereits untersuchter Geschwisterpfade; wiederholte Koordinaten mit
+  unterschiedlichen Kindbeständen bleiben dadurch vollständig durchsuchbar.
 - **DependencyHierarchyNode / DependencyHierarchyNodeType**: Datenmodell für den Abhängigkeitshierarchie-Baum.
   `DependencyHierarchyNodeType` unterscheidet die Knotentypen `ROOT`, `PROJECT`, `PARENT_POM`, `BOM_IMPORT`,
   `DEPENDENCY_MANAGEMENT`, `PLUGIN_MANAGEMENT`, `DIRECT_DEPENDENCY`, `DIRECT_PLUGIN` und `TRANSITIVE_DEPENDENCY`.

@@ -12,6 +12,7 @@ import org.jetbrains.idea.maven.model.MavenArtifactNode
  */
 class DependencyHierarchyServiceTest : BasePlatformTestCase() {
 
+    /** Prüft Parent-Deklarationen und BOM-Imports einschließlich Property-Auflösung. */
     fun testCollectParentPomAndBomImport() {
         val pomContent = """
             <project>
@@ -88,6 +89,7 @@ class DependencyHierarchyServiceTest : BasePlatformTestCase() {
         assertEquals("import", bomNode.scope)
     }
 
+    /** Prüft die Zuordnung verwalteter und direkt deklarierter Dependencies. */
     fun testCollectDependencyManagementAndDirectDependency() {
         val pomContent = """
             <project>
@@ -148,6 +150,7 @@ class DependencyHierarchyServiceTest : BasePlatformTestCase() {
         assertTrue(directNode.isManaged)
     }
 
+    /** Prüft verwaltete Plugins und direkte Plugins mit impliziter Maven-GroupId. */
     fun testCollectPluginManagementAndDirect() {
         val pomContent = """
             <project>
@@ -206,6 +209,7 @@ class DependencyHierarchyServiceTest : BasePlatformTestCase() {
         assertTrue(directPluginNode.isManaged)
     }
 
+    /** Prüft die Pfadsuche und die Übernahme eines mehrstufigen Pfads in die Hierarchie. */
     fun testFindPathsToTargetAndAttachHierarchy() {
         val targetArtifact = createArtifact("com.fasterxml.jackson.core", "jackson-databind", "2.15.2")
         val targetNode = MavenArtifactNode(null, targetArtifact, null, null, null, null, null)
@@ -223,7 +227,7 @@ class DependencyHierarchyServiceTest : BasePlatformTestCase() {
 
         val service = DependencyHierarchyService(project)
         val paths = mutableListOf<List<MavenArtifactNode>>()
-        service.findPathsToTarget(rootNode, "com.fasterxml.jackson.core", "jackson-databind", emptyList(), mutableSetOf(), paths)
+        service.findPathsToTarget(rootNode, "com.fasterxml.jackson.core", "jackson-databind", emptyList(), paths)
 
         assertEquals(1, paths.size)
         assertEquals(3, paths[0].size)
@@ -272,6 +276,7 @@ class DependencyHierarchyServiceTest : BasePlatformTestCase() {
         assertTrue(targetDep.isManaged)
     }
 
+    /** Prüft rekursiv angehängte Unterabhängigkeiten und den Abbruch bei einem Zyklus. */
     fun testAttachTransitiveChildrenRecursivelyAndHandlesCycles() {
         val child2Artifact = createArtifact("com.example", "child-two", "1.0.0")
         val child2Node = MavenArtifactNode(null, child2Artifact, null, null, null, null, null)
@@ -317,6 +322,7 @@ class DependencyHierarchyServiceTest : BasePlatformTestCase() {
         assertEquals(0, child2.children.size)
     }
 
+    /** Prüft, dass ein unpassender Parent nicht zur Dependency-Hierarchie hinzugefügt wird. */
     fun testChildProjectDoesNotAddParentPomAsChildWhenInspectingDependency() {
         val pomContent = """
             <project>
@@ -377,6 +383,7 @@ class DependencyHierarchyServiceTest : BasePlatformTestCase() {
         assertEquals("commons-lang3", directNodes[0].artifactId)
     }
 
+    /** Erzeugt ein aufgelöstes JAR-Artefakt mit Compile-Scope für die Tests. */
     private fun createArtifact(groupId: String, artifactId: String, version: String): MavenArtifact {
         return MavenArtifact(
             groupId,

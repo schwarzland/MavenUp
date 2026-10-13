@@ -37,6 +37,7 @@
 
 ### Fixed
 
+- **Fixed missing transitive dependency hierarchies** when an earlier occurrence of the same artifact has no children, preserving all inclusion paths to vulnerable versions.
 - **Fixed hierarchy table navigation across Maven modules** so Select in Dependencies selects the source POM and declaration type from either tab's hierarchy panel, while Select in Transitive CVEs continues to select the aggregated vulnerable coordinate.
 - **Fixed the minimum size behavior of the Confirm Changes dialog** so the window can be narrowed again instead of getting stuck at a large minimum width.
 - **Fixed the Type filter and New Version status after an automatic refresh replaces the dependency rows.**

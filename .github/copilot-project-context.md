@@ -62,6 +62,8 @@ inhaltsunabhängiges Verkleinern bei langen Detailtexten;
 `RedundantManagedExamplesIntegrationTest` prüft die 15 Referenz-Beispielprojekte unter `src/test/resources/redundant-managed-integrations-test/` (01–15) automatisiert und netzwerkfrei gegen `RedundantManagedDependencyService`; `16-transitive-version-conflict` ist ein eigenständiger Maven-Reproducer für einen gleich tiefen transitiven Versionskonflikt in der Abhängigkeitshierarchie;
 `VersionLookupLoggingTest` prüft DEBUG-Ausgaben und lokale HTTP-Versuche einschließlich Cache-Treffern,
 Redundanzprüfungen, POM-Antwortstatus und Ausschluss von Zugangsdaten aus POM-Abfrage-Logs.
+`DependencyHierarchyPathTest` prüft wiederholte Maven-Knoten mit unterschiedlichem Kindbestand,
+beide mehrstufigen BeanUtils-Versionspfade, gemeinsam genutzte Teilbäume und echte Zyklen.
 
 ## KI-Agenten (Copilot / Junie)
 - Für KI-Agenten gelten die verbindlichen Arbeitsanweisungen in `.github/copilot-instructions.md`.
