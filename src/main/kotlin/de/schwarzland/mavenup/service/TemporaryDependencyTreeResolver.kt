@@ -142,7 +142,7 @@ class TemporaryDependencyTreeResolver(
     private fun readFromWorkspaceProjects(groupId: String, artifactId: String, version: String): String? {
         val proj = project ?: return null
         val mavenProjects = try {
-            MavenProjectsManager.getInstance(proj).projects
+            MavenProjectsManager.getInstance(proj).projects.toList()
         } catch (_: Exception) {
             return null
         }
@@ -719,7 +719,7 @@ class TemporaryDependencyTreeResolver(
         artifactId: String,
         version: String,
         maxDepth: Int = 10,
-        visited: MutableSet<String> = mutableSetOf()
+        visited: Set<String> = emptySet()
     ): TemporaryDependencyNode {
         return TemporaryDependencyTreeBuilder(
             resolvePom = { coordinate ->

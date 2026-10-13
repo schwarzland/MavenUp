@@ -18,7 +18,7 @@ internal object TemporaryTransitiveArtifacts {
         root: TemporaryDependencyNode,
         onConflict: (String, Set<String>) -> Unit = { _, _ -> }
     ): Map<String, String> {
-        val versions = linkedMapOf<String, MutableSet<String>>()
+        val versions = linkedMapOf<String, Set<String>>()
         collectVersions(root, listOf(root), versions)
         return versions.mapNotNull { (key, observed) ->
             if (observed.size > 1) onConflict(key, observed.toSet())
@@ -30,13 +30,13 @@ internal object TemporaryTransitiveArtifacts {
     private fun collectVersions(
         node: TemporaryDependencyNode,
         currentPath: List<TemporaryDependencyNode>,
-        versions: MutableMap<String, MutableSet<String>>
+        versions: MutableMap<String, Set<String>>
     ) {
         for (child in node.dependencies) {
             if (currentPath.any { it === child }) continue
             val coordinate = child.coordinate
             val key = "${coordinate.groupId}:${coordinate.artifactId}"
-            versions.getOrPut(key) { linkedSetOf() }.add(coordinate.version)
+            versions[key] = versions[key].orEmpty() + coordinate.version
             collectVersions(child, currentPath + child, versions)
         }
     }

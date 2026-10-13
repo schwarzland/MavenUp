@@ -118,7 +118,12 @@ class RedundantManagedTraversalRegressionTest : BasePlatformTestCase() {
         }
     }
 
-    /** Initialisiert Maven-Projekt und Baum ausschließlich über öffentliche APIs. */
+    /**
+     * Initialisiert ein synthetisches Maven-Projekt ohne Maven-Import oder Netzwerkzugriff.
+     * Die interne, öffentlich aufrufbare Initialisierung ist auf diesen Testhelfer begrenzt,
+     * da MavenProject keine stabile API zum Setzen eines künstlichen Abhängigkeitsbaums bietet.
+     */
+    @Suppress("UnstableApiUsage")
     private fun mavenProject(vararg roots: MavenArtifactNode, withParent: Boolean = false): MavenProject {
         val parent = if (withParent) "<parent><groupId>g</groupId><artifactId>parent</artifactId><version>1</version></parent>" else ""
         val xml = pom("app", "1").replace(
