@@ -43,7 +43,7 @@ Use the **Select Highest Version** dropdown in the top toolbar to target multipl
 
 ### Step 5: Review and Apply Changes Atomically
 * Click **Update** in the toolbar.
-* A confirmation dialog displays an overview of all planned modifications, showing old and new versions, affected files, and dependency types.
+* A confirmation dialog displays an overview of all planned modifications, showing old and new versions, affected files, and dependency types. Its **Module** column is always visible in the third position, matching the main table, including in single-module projects.
 * The **Target POM for transitive fixes** selector is always visible and shows the count of unassigned transitive pins it affects; it is enabled only for transitive updates in multi-module projects and does not change the target of regular version updates.
 * **Sync Maven Changes:** Keep **Sync Maven Changes after update** checked (default) to immediately trigger IntelliJ's Maven sync upon writing changes to `pom.xml`.
 

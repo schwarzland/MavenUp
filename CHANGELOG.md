@@ -24,6 +24,7 @@
 
 ### Changed
 
+- **Moved the always-visible Module column to the third position in the Confirm Changes dialog**, matching the main table.
 - **Clarified that the Target POM selector applies only to transitive fixes and shows how many unassigned transitive pins it affects.**
 - The main table's **Type** filter keeps only the five supported categories in a fixed order, rather than sorting or dynamically adding discovered types.
 - **Updated the Managed Entries tooltip** to describe the redundancy check alongside removal or comment-out actions and clarify that filter scope applies only to those bulk actions.

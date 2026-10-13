@@ -14,6 +14,8 @@ UI-Komponenten: [`components-ui.md`](components-ui.md) und
 - **UpdateConfirmationDialog**: eigenständiger `DialogWrapper` (Top-Level in `ui`), der vor
   dem Anwenden die anstehenden Updates in einer schreibgeschützten Tabelle bestätigen lässt und
   die Option **Sync Maven Changes** (vorbelegt aus `MavenUpSettings.syncMavenAfterUpdate`) anbietet.
+  Die Tabelle zeigt **Module** immer an dritter Stelle, wie die Haupttabelle, auch in Einzelmodulprojekten;
+  Group Id, Artifact Id, Module und Type sind sortierbar, die Versionsspalten nicht.
   Eine Combobox zur Auswahl des Ziel-POMs für transitive Pins ohne bereits festgelegte POM-Datei wird immer angezeigt
   (`targetPomComboBox`, Standard: `TargetPomMode.ROOT_POM`, Alternativen: `AFFECTED_MODULES`, `ALL_MODULES`); die Auswahl
   ist ausschließlich bei transitiven Updates in Multi-Modul-Projekten aktiviert. Darunter zeigt eine UI-DSL-Kommentarzeile
@@ -22,9 +24,9 @@ UI-Komponenten: [`components-ui.md`](components-ui.md) und
   `typeLabel()` erzeugt den Text der **Type**-Spalte und kennzeichnet Updates mit
   `DependencyUpdate.transitive = true` über `toolwindow.MyToolWindow.update.confirm.type.transitive`
   als „transitive -> managed dependency".
-  `buildRowSorter()` macht die Spalten Group Id, Artifact Id und Type über `cellTextComparator`
+  `buildRowSorter()` macht die Spalten Group Id, Artifact Id, Module und Type über `cellTextComparator`
   sortierbar (Zyklus aufsteigend → absteigend → unsortiert, `installSortableHeaderRenderer`);
-  ab `CONFIRM_CURRENT_VERSION_COLUMN` (Index 3) sind die Versionsspalten nicht sortierbar.
+  ab `CONFIRM_CURRENT_VERSION_COLUMN` (Index 4) sind die Versionsspalten nicht sortierbar.
 - **RedundantManagedDependencyDialog**: interaktiver `DialogWrapper` zur Prüfung und Übernahme redundanter
   `<dependencyManagement>`-Einträge im Ist-Zustand. Zeigt eine Tabelle mit Checkbox-Auswahl (`COLUMN_SELECT`),
   Managed-Koordinate, aktueller Version, Redundanzgrund (`RedundancyReason`), bereitgestellter Version und Maven-Projekt

@@ -22,7 +22,7 @@ import javax.swing.table.TableRowSorter
 
 /**
  * Dialog zur Bestätigung der ausgewählten Updates. Zeigt eine Tabelle mit den
- * durchzuführenden Änderungen (Gruppe, Artefakt, Version alt/neu) sowie Optionen zur
+ * durchzuführenden Änderungen (Gruppe, Artefakt, Modul, Typ und Version alt/neu) sowie Optionen zur
  * Maven-Synchronisation und zur Ziel-POM-Auswahl für transitive Pins ohne bereits festgelegte POM-Datei.
  * Die Auswahl bleibt sichtbar und ist nur bei transitiven Updates in Multi-Modul-Projekten aktiviert.
  *
@@ -123,8 +123,8 @@ class UpdateConfirmationDialog(
 
     /**
      * Erstellt die schreibgeschützte Update-Übersichtstabelle mit Einzelselektion.
-     * Die Spalten "Group Id", "Artifact Id" und "Type" sind wie in den übrigen Plugin-Tabellen
-     * sortierbar; die Versionsspalten und die Zielmodul-Spalte bleiben in der Reihenfolge der Auswahl.
+     * Die Spalten "Group Id", "Artifact Id", "Module" und "Type" sind wie in den übrigen Plugin-Tabellen
+     * sortierbar. Die Modul-Spalte steht immer an dritter Stelle; die Versionsspalten bleiben unsortiert.
      *
      * @return Die konfigurierte, nicht editierbare Tabelle mit allen anstehenden Updates.
      */
@@ -134,10 +134,10 @@ class UpdateConfirmationDialog(
         }.apply {
             addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.groupId"))
             addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.artifactId"))
+            addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.module"))
             addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.type"))
             addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.currentVersion"))
             addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.newVersion"))
-            addColumn(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.module"))
         }
 
         updates.forEach { update ->
@@ -145,6 +145,7 @@ class UpdateConfirmationDialog(
                 arrayOf(
                     update.groupId,
                     update.artifactId,
+                    targetModuleLabel(update),
                     typeLabel(update),
                     update.oldVersion,
                     if (update.removeFromPom) {
@@ -155,8 +156,7 @@ class UpdateConfirmationDialog(
                         }
                     } else {
                         update.newVersion
-                    },
-                    targetModuleLabel(update)
+                    }
                 )
             )
         }
@@ -210,7 +210,7 @@ class UpdateConfirmationDialog(
 
     /**
      * Erstellt den [TableRowSorter] für die Bestätigungstabelle. Die Textspalten "Group Id",
-     * "Artifact Id" und "Type" werden alphabetisch ohne Beachtung der Groß-/Kleinschreibung
+     * "Artifact Id", "Module" und "Type" werden alphabetisch ohne Beachtung der Groß-/Kleinschreibung
      * sortiert und durchlaufen bei Klick den Zyklus aufsteigend → absteigend → unsortiert.
      * Die Versionsspalten sind – wie im Hauptfenster – nicht sortierbar.
      *
@@ -242,6 +242,6 @@ class UpdateConfirmationDialog(
 
     companion object {
         /** Spaltenindex der Spalte mit der aktuellen Version; ab hier wird nicht mehr sortiert. */
-        internal const val CONFIRM_CURRENT_VERSION_COLUMN = 3
+        internal const val CONFIRM_CURRENT_VERSION_COLUMN = 4
     }
 }

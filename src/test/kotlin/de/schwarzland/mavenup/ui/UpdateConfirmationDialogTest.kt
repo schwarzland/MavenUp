@@ -7,6 +7,7 @@ import de.schwarzland.mavenup.model.DependencyUpdate
 import de.schwarzland.mavenup.model.TargetPomMode
 import de.schwarzland.mavenup.service.MavenUpSettings
 import javax.swing.JLabel
+import javax.swing.table.TableRowSorter
 import javax.swing.text.JTextComponent
 
 class UpdateConfirmationDialogTest : BasePlatformTestCase() {
@@ -116,7 +117,7 @@ class UpdateConfirmationDialogTest : BasePlatformTestCase() {
             assertEquals(1, table.rowCount)
             assertEquals(
                 MyMessageBundle.message("toolwindow.MyToolWindow.version.willCommentOut"),
-                table.getValueAt(0, 4)
+                table.getValueAt(0, 5)
             )
         } finally {
             settings.state.commentOutManagedEntriesOnRemoval = originalCommentOut
@@ -144,7 +145,7 @@ class UpdateConfirmationDialogTest : BasePlatformTestCase() {
             assertEquals(1, table.rowCount)
             assertEquals(
                 MyMessageBundle.message("toolwindow.MyToolWindow.version.willRemove"),
-                table.getValueAt(0, 4)
+                table.getValueAt(0, 5)
             )
         } finally {
             settings.state.commentOutManagedEntriesOnRemoval = originalCommentOut
@@ -166,7 +167,22 @@ class UpdateConfirmationDialogTest : BasePlatformTestCase() {
         val dialog = UpdateConfirmationDialog(project, updates)
         val table = dialog.buildTable()
 
-        assertEquals(MyMessageBundle.message("toolwindow.MyToolWindow.table.header.module"), table.getColumnName(5))
-        assertEquals("managed-dep", table.getValueAt(0, 5))
+        assertEquals(
+            listOf(
+                "toolwindow.MyToolWindow.table.header.groupId",
+                "toolwindow.MyToolWindow.table.header.artifactId",
+                "toolwindow.MyToolWindow.table.header.module",
+                "toolwindow.MyToolWindow.table.header.type",
+                "toolwindow.MyToolWindow.table.header.currentVersion",
+                "toolwindow.MyToolWindow.table.header.newVersion"
+            ).map(MyMessageBundle::message),
+            (0 until table.columnCount).map(table::getColumnName)
+        )
+        assertEquals("managed-dep", table.getValueAt(0, 2))
+        assertEquals("managed dependency", table.getValueAt(0, 3))
+
+        val sorter = table.rowSorter as TableRowSorter<*>
+        (0..3).forEach { assertTrue("Column $it should be sortable", sorter.isSortable(it)) }
+        (4..5).forEach { assertFalse("Column $it should not be sortable", sorter.isSortable(it)) }
     }
 }
