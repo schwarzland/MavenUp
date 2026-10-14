@@ -7,9 +7,11 @@ import de.schwarzland.mavenup.model.DependencyUpdate
 import de.schwarzland.mavenup.model.TargetPomMode
 import de.schwarzland.mavenup.service.MavenUpSettings
 import javax.swing.JLabel
+import javax.swing.JList
 import javax.swing.table.TableRowSorter
 import javax.swing.text.JTextComponent
 
+/** Prüft die Update-Übersicht und die Optionen des Bestätigungsdialogs. */
 class UpdateConfirmationDialogTest : BasePlatformTestCase() {
 
     fun testTargetPomComboBoxDefaultsToRootPom() {
@@ -51,6 +53,27 @@ class UpdateConfirmationDialogTest : BasePlatformTestCase() {
         val dialog = UpdateConfirmationDialog(project, emptyList())
         val items = (0 until dialog.targetPomComboBox.itemCount).map { dialog.targetPomComboBox.getItemAt(it) }
         assertEquals(listOf(TargetPomMode.ROOT_POM, TargetPomMode.AFFECTED_MODULES, TargetPomMode.ALL_MODULES), items)
+    }
+
+    /** Prüft lokalisierte Texte im Dropdown und für die aktuelle Auswahl sowie leere Werte nach Renderer-Wiederverwendung. */
+    fun testTargetPomRendererDisplaysLocalizedLabelsAndClearsNullValues() {
+        val dialog = UpdateConfirmationDialog(project, emptyList())
+        val renderer = dialog.targetPomComboBox.renderer
+        val list = JList(TargetPomMode.entries.toTypedArray())
+        val messageKeys = mapOf(
+            TargetPomMode.ROOT_POM to "toolwindow.MyToolWindow.update.confirm.targetPom.root",
+            TargetPomMode.AFFECTED_MODULES to "toolwindow.MyToolWindow.update.confirm.targetPom.affected",
+            TargetPomMode.ALL_MODULES to "toolwindow.MyToolWindow.update.confirm.targetPom.all"
+        )
+
+        messageKeys.forEach { (mode, messageKey) ->
+            for (index in listOf(-1, mode.ordinal)) {
+                val component = renderer.getListCellRendererComponent(list, mode, index, index >= 0, false)
+                assertEquals(MyMessageBundle.message(messageKey), (component as JLabel).text)
+            }
+            val emptyComponent = renderer.getListCellRendererComponent(list, null, -1, false, false)
+            assertEquals("", (emptyComponent as JLabel).text)
+        }
     }
 
     fun testTargetPomComboBoxRemainsVisibleButDisabledWithoutTransitiveMultiModuleUpdates() {
