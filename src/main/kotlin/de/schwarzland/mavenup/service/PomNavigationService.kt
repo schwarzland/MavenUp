@@ -5,7 +5,6 @@ import de.schwarzland.mavenup.ui.MyMessageBundle
 import de.schwarzland.mavenup.ui.PARENT_TYPE
 import de.schwarzland.mavenup.ui.TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY
 import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
@@ -197,8 +196,7 @@ internal class PomNavigationService(private val project: Project) {
     private fun openInEditor(pomFile: VirtualFile, targetTag: XmlTag) {
         val offset = ApplicationManager.getApplication().runReadAction<Int> { targetTag.textOffset }
         ApplicationManager.getApplication().invokeLater {
-            val descriptor = OpenFileDescriptor(project, pomFile, offset)
-            FileEditorManager.getInstance(project).openFileEditor(descriptor, true)
+            OpenFileDescriptor(project, pomFile, offset).navigate(true)
         }
     }
 

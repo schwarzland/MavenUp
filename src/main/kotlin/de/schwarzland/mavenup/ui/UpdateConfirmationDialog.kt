@@ -52,8 +52,8 @@ class UpdateConfirmationDialog(
     internal val targetPomComboBox: ComboBox<TargetPomMode> = ComboBox(TargetPomMode.entries.toTypedArray()).apply {
         selectedItem = TargetPomMode.ROOT_POM
         isEnabled = hasTransitiveUpdates && isMultiModule
-        renderer = SimpleListCellRenderer.create<TargetPomMode>("") { mode ->
-            when (mode) {
+        renderer = SimpleListCellRenderer.create<TargetPomMode> { label, mode, _ ->
+            label.text = when (mode) {
                 TargetPomMode.ROOT_POM -> MyMessageBundle.message("toolwindow.MyToolWindow.update.confirm.targetPom.root")
                 TargetPomMode.AFFECTED_MODULES -> MyMessageBundle.message("toolwindow.MyToolWindow.update.confirm.targetPom.affected")
                 TargetPomMode.ALL_MODULES -> MyMessageBundle.message("toolwindow.MyToolWindow.update.confirm.targetPom.all")
