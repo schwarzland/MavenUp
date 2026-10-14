@@ -68,11 +68,13 @@ class UpdateConfirmationDialogTest : BasePlatformTestCase() {
 
         messageKeys.forEach { (mode, messageKey) ->
             for (index in listOf(-1, mode.ordinal)) {
-                val component = renderer.getListCellRendererComponent(list, mode, index, index >= 0, false)
-                assertEquals(MyMessageBundle.message(messageKey), (component as JLabel).text)
+                for (selected in listOf(false, true)) {
+                    val component = renderer.getListCellRendererComponent(list, mode, index, selected, selected)
+                    assertEquals(MyMessageBundle.message(messageKey), (component as JLabel).text)
+                    val emptyComponent = renderer.getListCellRendererComponent(list, null, index, selected, selected)
+                    assertEquals("", (emptyComponent as JLabel).text)
+                }
             }
-            val emptyComponent = renderer.getListCellRendererComponent(list, null, -1, false, false)
-            assertEquals("", (emptyComponent as JLabel).text)
         }
     }
 
