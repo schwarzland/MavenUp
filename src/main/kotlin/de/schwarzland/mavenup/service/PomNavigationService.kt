@@ -198,7 +198,7 @@ internal class PomNavigationService(private val project: Project) {
         val offset = ApplicationManager.getApplication().runReadAction<Int> { targetTag.textOffset }
         ApplicationManager.getApplication().invokeLater {
             val descriptor = OpenFileDescriptor(project, pomFile, offset)
-            FileEditorManager.getInstance(project).openEditor(descriptor, true)
+            FileEditorManager.getInstance(project).openFileEditor(descriptor, true)
         }
     }
 

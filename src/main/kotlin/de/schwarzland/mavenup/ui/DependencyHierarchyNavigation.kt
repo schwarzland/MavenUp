@@ -130,7 +130,7 @@ internal class DependencyHierarchyNavigation(
             xmlTag.textOffset
         }
         ApplicationManager.getApplication().invokeLater {
-            FileEditorManager.getInstance(project).openEditor(
+            FileEditorManager.getInstance(project).openFileEditor(
                 OpenFileDescriptor(project, pomFile, offset),
                 true
             )
