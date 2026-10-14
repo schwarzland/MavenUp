@@ -154,8 +154,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         model.addRow(arrayOf<Any?>("org.b", "b-lib", "", null, "dependency", null, "1.0.0", emptyList<String>()))
         model.addRow(arrayOf<Any?>("org.a", "a-lib", "", null, "dependency", null, "2.0.0", emptyList<String>()))
 
-        @Suppress("UNCHECKED_CAST")
-        val sorter = table.rowSorter as TableRowSorter<DefaultTableModel>
+        val sorter = table.rowSorter as TableRowSorter<*>
 
         // Current-Version- und New-Version-Spalte sind nicht sortierbar; die Vulnerabilities-Spalte ist sortierbar.
         assertTrue(sorter.isSortable(VULNERABILITIES_COLUMN))
@@ -220,8 +219,7 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         model.addRow(arrayOf<Any?>("org.x", "x-lib", "", null, "dependency", null, "1.9.0", emptyList<String>()))
         model.addRow(arrayOf<Any?>("org.y", "y-lib", "", null, "dependency", null, "1.10.0", emptyList<String>()))
 
-        @Suppress("UNCHECKED_CAST")
-        val sorter = table.rowSorter as TableRowSorter<DefaultTableModel>
+        val sorter = table.rowSorter as TableRowSorter<*>
         assertFalse(sorter.isSortable(CURRENT_VERSION_COLUMN))
 
         // Ein Klick auf die Kopfzeile ändert die Reihenfolge nicht.

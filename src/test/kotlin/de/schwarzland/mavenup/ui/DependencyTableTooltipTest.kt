@@ -41,8 +41,7 @@ class DependencyTableTooltipTest : BasePlatformTestCase() {
             "3.0.0", listOf("4.0.0")))
         model.addRow(arrayOf<Any?>("org.a", "first", "", "first.version", "dependency", null,
             "1.0.0", listOf("2.0.0")))
-        @Suppress("UNCHECKED_CAST")
-        val sorter = table.rowSorter as TableRowSorter<DefaultTableModel>
+        val sorter = table.rowSorter as TableRowSorter<*>
         sorter.toggleSortOrder(GROUP_ID_COLUMN)
         assertEquals(1, table.convertRowIndexToModel(0))
 
@@ -73,8 +72,7 @@ class DependencyTableTooltipTest : BasePlatformTestCase() {
         model.addRow(arrayOf<Any?>("org.a", "inherited", "", null, "dependency", null,
             "1.0.0", emptyList<String>()))
         window.inheritedVersionDependencies.add("org.a:inherited")
-        @Suppress("UNCHECKED_CAST")
-        val sorter = table.rowSorter as TableRowSorter<DefaultTableModel>
+        val sorter = table.rowSorter as TableRowSorter<*>
         sorter.toggleSortOrder(GROUP_ID_COLUMN)
 
         listOf(false, true).forEach { moduleVisible ->
