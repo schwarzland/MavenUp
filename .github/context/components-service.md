@@ -137,7 +137,7 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   `ui/ApiErrorMessages.kt`.
 - **MavenUpBadgeState**: Enum mit den Badge-Zuständen des Tool-Window-Icons (`NONE`, `UPDATES`,
   `VULNERABILITIES`, `SEVERE_VULNERABILITIES`).
-- **VulnerabilityMerger / VulnerabilityAdvisory**: normalisiertes Security-Datenmodell und
+- **VulnerabilityMerger / VulnerabilityAdvisory / VulnerabilitySeverity**: normalisiertes Security-Datenmodell und
   quellenübergreifende Deduplizierung anhand von IDs/Aliasen; CVSS-Vektoren werden über
   `us.springett:cvss-calculator` normalisiert, bei nicht unterstützten CVSS-Versionen wird auf
   den Schweregrad der Quelle zurückgefallen.
@@ -257,11 +257,23 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   und den aufgelösten Abhängigkeitsbaum (`MavenArtifactNode`, `collectTransitiveDependencyPaths`, `findPathsToTarget`,
   `attachPathToHierarchy`, `attachTransitiveChildren`), um alle Einbindungs-, Management- und transitiven
   Unterabhängigkeitspfade als `DependencyHierarchyNode`-Baum aufzubereiten.
+  `findPathsToTarget` erkennt Zyklen anhand der Knotenidentität im aktuellen Pfad, nicht anhand
+  der Artefaktgleichheit oder bereits untersuchter Geschwisterpfade; wiederholte Koordinaten mit
+  unterschiedlichen Kindbeständen bleiben dadurch vollständig durchsuchbar.
 - **DependencyHierarchyNode / DependencyHierarchyNodeType**: Datenmodell für den Abhängigkeitshierarchie-Baum.
   `DependencyHierarchyNodeType` unterscheidet die Knotentypen `ROOT`, `PROJECT`, `PARENT_POM`, `BOM_IMPORT`,
   `DEPENDENCY_MANAGEMENT`, `PLUGIN_MANAGEMENT`, `DIRECT_DEPENDENCY`, `DIRECT_PLUGIN` und `TRANSITIVE_DEPENDENCY`.
   `DependencyHierarchyNode` hält Typ, GroupId, ArtifactId, aufgelöste und rohe Version, Property-Namen, Scope,
   Management-Status (`isManaged`), VirtualFile der `pom.xml` und das deklarierende `XmlTag`.
+- **MavenArtifactTraversal**: gemeinsamer Helfer für Hierarchie- und Redundanzprüfungen;
+  `findPathsToTarget` und `containsArtifact` durchlaufen Maven-Knoten mit identitätsbasierter,
+  pfadlokaler Zyklenerkennung und berücksichtigen wiederholte sowie gemeinsam genutzte Teilbäume.
+- **TemporaryDependencyTreeBuilder**: baut temporäre Bäume mit pfadlokaler Koordinaten-Zyklenerkennung
+  auf; wiederholte Koordinaten in unabhängigen Pfaden werden erneut expandiert, während Zyklen,
+  Tiefenbegrenzungen und unaufgelöste Versionen als unvollständige Auflösung diagnostiziert werden.
+- **TemporaryTransitiveArtifacts**: sammelt beobachtete Versionen je Koordinate aus temporären Bäumen;
+  `collect` lässt Koordinaten mit mehreren Versionen aus dem Ergebnis aus und protokolliert Konflikte,
+  statt eine vollständige Maven-Konfliktauflösung vorzutäuschen.
 - **TemporaryDependencyTreeResolver**: löst temporäre Abhängigkeitsbäume und effektives `<dependencyManagement>`
   für Kandidaten-POMs im Arbeitsspeicher auf. Lädt POMs aus dem lokalen Maven-Cache (`~/.m2/repository`) oder
   über konfigurierte Remote-Repositories (inkl. Maven-Central- und Server-Credentials), interpoliert Properties
@@ -270,6 +282,14 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   protokolliert HTTP-GET-Versuche mit Artefaktpfad und Host, Antwortstatus und bei Fehlern nur die Exception-Klasse,
   ohne vollständige URLs, Zugangsdaten, Header oder POM-Inhalte auszugeben. Für Redundanzprüfungen sammelt er fehlende,
   ungültige und zyklische POM-Auflösungen und setzt diese Diagnosen vor jeder neuen Analyse zurück.
+  Die transitive Versionsbewertung verwendet bei mehreren Versionen derselben Koordinate nicht
+  den ersten Tiefensuchtreffer als vermeintliche Maven-Auswahl, sondern behandelt die Koordinate
+  als nicht eindeutig nachgewiesen; Konflikte werden diagnostiziert und nicht als sichere
+  transitive Bereitstellung für Entfernungsempfehlungen verwendet.
+  `transitiveResolutionIssues` beschreibt die unvollständige Auflösung der letzten transitiven
+  Abfrage; die Redundanzprüfung verwirft darauf basierende transitive Empfehlungen und auch
+  widersprüchliche Versionen zwischen Verbraucherwurzeln, sofern kein ausreichendes
+  effektives Parent-/BOM-Fallback ohne den lokalen Management-Eintrag nachgewiesen wurde.
 - **ConsumerDependencyInfo**: Datenmodell für Konsumenten- und Pfadbeschreibungen (`model/ConsumerDependencyInfo.kt`).
 - **TemporaryArtifactCoordinate / TemporaryDependencyNode**: Datenmodelle für den temporären Abhängigkeitsgraphen (`model/TemporaryDependencyNode.kt`).
 - **RedundantManagedDependencyService**: analysiert deklarierte verwaltete Abhängigkeiten (`<dependencyManagement>`) im aktuellen Projekt- und Versionsstand (Ist-Zustand ohne Version-Upgrades). Meldet Parent-Verwaltung (`PARENT_MANAGED`) und direkte Deklarationen (`DIRECT_DEPENDENCY_MATCH`) bei gleicher oder höherer Version; direkte Deklarationen gelten nur dann als ausreichender Grund, wenn keine weiteren bekannten Verbraucherpfade von der Verwaltung abhängen. Eine transitive Redundanz (`TRANSITIVE_MATCH`) wird nur gemeldet, wenn alle bekannten Verbraucherpfade ohne den lokalen Eintrag mindestens die verwaltete Version erhalten; dafür wird zuerst die effektive Fallback-Version aus Parent-/BOM-Management ohne lokalen Override ermittelt und nur bei fehlendem Fallback auf die reine transitive Auflösung der Verbraucherpfade zurückgegriffen. Die Begründungen nennen die konkrete Versionsquelle und weisen auf mögliche Versionsänderungen hin; transitive Verbraucherpfade listen jeweils die bereitgestellte Version auf, damit Anwender über das Entfernen entscheiden können. Niedrigere, fehlende oder nicht auflösbare Versionen reichen nicht aus. Ungenutzte Einträge erhalten `UNUSED`. BOM-Imports (`type=pom`, `scope=import`) werden als Einträge ausgeschlossen. Unterstützt optionale Koordinatenfilter und Abbruch via `ProgressIndicator`.

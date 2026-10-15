@@ -6,9 +6,9 @@ Maven Up is built with a strict **Security-First** and **Data Minimization** phi
 
 ## 1. Core Privacy Guarantees
 
-* **Zero Source Code Transmission:** Maven Up **never** transmits source code, file contents, project file paths, passwords, environment variables, or local user information to any external service.
-* **Standard Maven Coordinates Only:** All network queries for version availability and vulnerability scans are strictly limited to standard Maven coordinates: `groupId`, `artifactId`, and `version`.
-* **Encrypted Communication:** All external requests are performed strictly over encrypted **HTTPS** connections.
+* **Zero Source Code Transmission:** Maven Up never uploads source code, local POM contents, project file paths, or environment variables as project data.
+* **Coordinate-Based Queries:** Version and vulnerability query data is limited to standard Maven coordinates: `groupId`, `artifactId`, and `version`; required authentication is sent separately only to the corresponding configured repository or Sonatype OSS Index.
+* **Encrypted Communication:** Maven Up's public API requests use **HTTPS**; private-repository requests follow the URL scheme configured in the POM or Maven `settings.xml`.
 * **Local Processing:** Dependency hierarchy analysis, POM parsing, version resolution, and redundancy checks are executed 100% locally on your machine within IntelliJ IDEA.
 
 ---
@@ -22,7 +22,7 @@ Maven Up connects only to industry-standard repository endpoints and public vuln
  │                          IntelliJ IDEA / Maven Up                       │
  └───────┬──────────────────────┬───────────────────────┬─────────────────┘
          │                      │                       │
-         │ GET maven-metadata   │ POST /v1/querybatch   │ POST /api/v3/authorized/biomed
+         │ GET maven-metadata   │ POST /v1/querybatch   │ POST /api/v3/component-report
          ▼                      ▼                       ▼
  ┌───────────────┐      ┌───────────────┐       ┌───────────────────────┐
  │ Maven Central │      │    OSV.dev    │       │  Sonatype OSS Index   │
@@ -34,7 +34,7 @@ Maven Up connects only to industry-standard repository endpoints and public vuln
 | :--- | :--- | :--- | :--- |
 | **Maven Central** | `repo1.maven.org` | Version checks (`maven-metadata.xml`) | None (Public) |
 | **Private Repositories** | Configured in `settings.xml` | Company/private artifact versions | Basic Auth / Token (local) |
-| **OSV.dev** | `api.osv.dev` | Multi-source vulnerability database (Google / OpenSSF) | None (Public) |
+| **OSV.dev** | `api.osv.dev` (API); `osv.dev/vulnerability/{id}` (advisory links) | Multi-source vulnerability database (Google / OpenSSF) | None (Public) |
 | **Sonatype OSS Index** | `ossindex.sonatype.org` | Extended Maven vulnerability intelligence *(Optional opt-in)* | Personal API Token (IntelliJ Password Safe) |
 | **Repository Browser** | `mvnrepository.com` or `central.sonatype.com` | User-initiated browser jump (opens in default web browser) | None |
 
@@ -42,16 +42,17 @@ Maven Up connects only to industry-standard repository endpoints and public vuln
 
 ## 3. Enterprise Protection Features
 
-### Private GroupId Prefixes (Prevent Data Leakage)
-In corporate environments, internal dependencies (e.g. `com.mycompany.internal:my-service:1.0.0`) must never leak to public external services.
+### Exclude Private GroupIds from Maven Central
+The **Private GroupId prefixes** setting excludes matching coordinates from Maven Central version lookups only. Coordinates may still be sent to OSV.dev and, when enabled, Sonatype OSS Index during vulnerability scans.
 
 * Maven Up provides a dedicated **Private GroupId prefixes** configuration setting (under `Settings > Tools > Maven Up > Versions and Updates`).
-* Any dependency, plugin, parent POM, or managed entry whose GroupId matches one of your configured prefixes is **strictly excluded from queries to Maven Central (`repo1.maven.org`)**.
+* Any dependency, plugin, parent POM, or managed entry whose GroupId matches one of your configured prefixes is **excluded from Maven Central version queries (`repo1.maven.org`)**.
 * Queries for private artifacts are routed exclusively to your internally configured repository servers (e.g. Nexus or Artifactory).
+* This filter affects Maven Central version lookups only; vulnerability scans still send the relevant coordinates to OSV.dev and, when enabled, Sonatype OSS Index.
 
 ### Secure Credential Handling
 * **IntelliJ Password Safe:** The optional Sonatype OSS Index API token is stored securely in the native OS credential store / IntelliJ Password Safe and is never written to project XML files or version-controlled settings.
-* **`settings.xml` Credentials:** Credentials for private Maven repositories are read from your local Maven `settings.xml` or user-level environment. Authentication headers are only sent directly to the respective repository server and are never exposed in log outputs.
+* **`settings.xml` Credentials:** Credentials for private Maven repositories are read locally from `settings.xml`, including any resolved environment-variable placeholders, and authentication headers are sent only to the respective repository server. The optional OSS Index token is stored in IntelliJ Password Safe and sent only to OSS Index.
 
 ### Disk-Backed Caching & Request Coalescing
 To minimize network traffic, eliminate duplicate requests, and respect external rate limits:

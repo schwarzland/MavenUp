@@ -27,7 +27,8 @@ Tools
 * **Stop after a successful Maven Central lookup:** When enabled (default), skips querying private repositories once an artifact is found on Maven Central, accelerating lookups.
 * **Version cache duration (minutes):** Controls how long fetched version metadata is cached in local memory/disk (default: 120 minutes). Set to `0` to disable.
 * **Private GroupId prefixes:** Comma-separated list of company GroupId prefixes (e.g. `com.mycompany, de.internal`) to exclude from queries to Maven Central.
-* **Version Filters & Preselection:** Hide unstable qualifiers (RC, Beta, Milestone), allow older version downgrades, and configure automatic preselection strategies (**None**, **Highest**, or **Latest Minor**).
+* **Version Filters & Preselection:** Hide unstable versions with configurable qualifiers (for example, RC, Beta, or Milestone), allow older version downgrades, and configure automatic preselection strategies (**None**, **Highest**, or **Latest Minor**).
+* **Confirm before resetting all version selections:** Shows a confirmation before clearing all pending version selections when no filter is active (enabled by default); a filtered reset always asks whether to reset all or only visible rows.
 
 ### Vulnerability Check
 * **Include resolved transitive dependencies:** Toggles whether the vulnerability scan analyzes the complete resolved dependency tree (default: on).

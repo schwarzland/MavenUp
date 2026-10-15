@@ -12,7 +12,6 @@ import de.schwarzland.mavenup.service.VulnerabilityCacheEntrySnapshot
 import de.schwarzland.mavenup.service.VulnerabilityResultCache
 import javax.swing.JButton
 import javax.swing.SortOrder
-import javax.swing.table.DefaultTableModel
 import javax.swing.table.TableRowSorter
 
 /**
@@ -107,8 +106,7 @@ class CacheContentsDialogTest : BasePlatformTestCase() {
         )
 
         val vulnTable = vulnDialog.buildVulnerabilityTable(vulnEntries)
-        @Suppress("UNCHECKED_CAST")
-        val vulnSorter = vulnTable.rowSorter as TableRowSorter<DefaultTableModel>
+        val vulnSorter = vulnTable.rowSorter as TableRowSorter<*>
         vulnSorter.toggleSortOrder(1)
         assertEquals(SortOrder.ASCENDING, vulnSorter.sortKeys.first().sortOrder)
         assertEquals(listOf(2, 10), (0 until vulnTable.rowCount).map { vulnTable.getValueAt(it, 1) })
@@ -120,8 +118,7 @@ class CacheContentsDialogTest : BasePlatformTestCase() {
         )
 
         val versionTable = versionDialog.buildVersionTable(versionEntries)
-        @Suppress("UNCHECKED_CAST")
-        val versionSorter = versionTable.rowSorter as TableRowSorter<DefaultTableModel>
+        val versionSorter = versionTable.rowSorter as TableRowSorter<*>
         versionSorter.toggleSortOrder(2)
         assertEquals(SortOrder.ASCENDING, versionSorter.sortKeys.first().sortOrder)
         assertEquals(listOf(2, 10), (0 until versionTable.rowCount).map { versionTable.getValueAt(it, 2) })

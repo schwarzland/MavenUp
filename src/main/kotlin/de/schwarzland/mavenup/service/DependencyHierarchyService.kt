@@ -13,7 +13,7 @@ import org.jetbrains.idea.maven.project.MavenProject
 import org.jetbrains.idea.maven.project.MavenProjectsManager
 
 /**
- * Ermittelt die Einbindungs- und Management-Hierarchie für Managed Dependencies und Managed Plugins.
+ * Ermittelt die Einbindungs- und Management-Hierarchie für Dependencies, Plugins und Parent-POMs.
  *
  * Analysiert die Maven-Projekte im Workspace, deren `<parent>`-Hierarchie, `<dependencyManagement>`-
  * bzw. `<pluginManagement>`-Deklarationen, BOM-Imports und den aufgelösten Abhängigkeitsbaum,
@@ -151,6 +151,7 @@ class DependencyHierarchyService(private val project: Project) {
         collectDirectDependencyNodes(rootTag, pomFile, targetGroupId, targetArtifactId, effectiveProperties, projectNode)
     }
 
+    /** Ergänzt die lokale Parent-Deklaration, wenn sie der gesuchten Koordinate entspricht. */
     private fun collectParentPomNode(
         rootTag: XmlTag,
         pomFile: VirtualFile,
@@ -183,6 +184,7 @@ class DependencyHierarchyService(private val project: Project) {
         )
     }
 
+    /** Ergänzt passende verwaltete Dependencies und BOM-Imports mit aufgelösten Versionsangaben. */
     private fun collectDependencyManagementNodes(
         rootTag: XmlTag,
         pomFile: VirtualFile,
@@ -239,6 +241,7 @@ class DependencyHierarchyService(private val project: Project) {
         }
     }
 
+    /** Ergänzt passende direkte Dependency-Deklarationen einschließlich ihrer Versionsquelle. */
     private fun collectDirectDependencyNodes(
         rootTag: XmlTag,
         pomFile: VirtualFile,
@@ -399,7 +402,7 @@ class DependencyHierarchyService(private val project: Project) {
     ) {
         val paths = mutableListOf<List<MavenArtifactNode>>()
         for (rootNode in mavenProject.dependencyTree) {
-            findPathsToTarget(rootNode, targetGroupId, targetArtifactId, emptyList(), mutableSetOf(), paths)
+            findPathsToTarget(rootNode, targetGroupId, targetArtifactId, emptyList(), paths)
         }
 
         for (path in paths) {
@@ -444,12 +447,13 @@ class DependencyHierarchyService(private val project: Project) {
 
     /**
      * Durchsucht den Teilbaum rekursiv nach Pfaden zur Zielkoordinate.
+     * Erkennt Zyklen anhand der Knotenidentität im aktuellen Pfad, damit gleiche Artefakte
+     * in anderen Teilbäumen oder in unterschiedlichen Knoteninstanzen weiterhin untersucht werden.
      *
      * @param currentNode Der aktuelle Knoten im Abhängigkeitsbaum.
      * @param targetGroupId Die gesuchte Group-ID.
      * @param targetArtifactId Die gesuchte Artefakt-ID.
      * @param currentPath Der bisherige Pfad von der Wurzel.
-     * @param visited Menge bereits besuchter Knoten zur Vermeidung von Zyklen.
      * @param result Die Ergebnisliste aller gefundenen Pfade.
      */
     internal fun findPathsToTarget(
@@ -457,21 +461,11 @@ class DependencyHierarchyService(private val project: Project) {
         targetGroupId: String,
         targetArtifactId: String,
         currentPath: List<MavenArtifactNode>,
-        visited: MutableSet<MavenArtifactNode>,
         result: MutableList<List<MavenArtifactNode>>
     ) {
-        val newPath = currentPath + currentNode
-        val art = currentNode.artifact
-        if (art.groupId == targetGroupId && art.artifactId == targetArtifactId) {
-            result.add(newPath)
-            return
-        }
-
-        if (!visited.add(currentNode)) return
-
-        for (child in currentNode.dependencies) {
-            findPathsToTarget(child, targetGroupId, targetArtifactId, newPath, visited, result)
-        }
+        MavenArtifactTraversal.findPathsToTarget(
+            currentNode, targetGroupId, targetArtifactId, currentPath, result
+        )
     }
 
     /**
@@ -520,6 +514,7 @@ class DependencyHierarchyService(private val project: Project) {
         }
     }
 
+    /** Liefert den direkten Pfadwurzel-Knoten und verknüpft einen neuen Knoten mit seiner POM-Deklaration. */
     private fun findOrCreateDirectDependencyNode(
         projectNode: DependencyHierarchyNode,
         rootArtifactNode: MavenArtifactNode,

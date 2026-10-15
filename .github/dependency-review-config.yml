@@ -20,6 +20,8 @@ allow-dependencies:
   - "pkg:maven/com.fasterxml.jackson.core/jackson-databind@2.15.2"
   - "pkg:maven/org.apache.logging.log4j/log4j-core@2.20.0"
   - "pkg:maven/org.springframework.boot/spring-boot-dependencies@3.2.0"
+  - "pkg:maven/com.fasterxml.jackson.core/jackson-databind@2.15.2"
+  - "pkg:maven/commons-beanutils/commons-beanutils@1.9.4"
 
 # Allowed GitHub Advisory IDs (GHSAs)
 # Specific vulnerability advisories can be exempted here:

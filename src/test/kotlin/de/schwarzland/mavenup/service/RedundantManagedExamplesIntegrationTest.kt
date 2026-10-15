@@ -17,21 +17,25 @@ import java.util.Properties
 import java.util.regex.Pattern
 
 /**
- * End-to-end integration tests executing redundancy analysis directly against all 15 reference
- * example projects defined in `src/test/resources/redundant-managed-integrations-test/`.
+ * Prüft die Redundanzanalyse der Referenzbeispiele 01–15 und 17 netzwerkfrei
+ * mit gezielt vereinfachten externen POM-Modellen.
  */
 class RedundantManagedExamplesIntegrationTest : BasePlatformTestCase() {
 
+    /** Hält die geladenen Projekte und die netzwerkfreien Services eines Beispiels. */
     private data class ScenarioContext(
         val rootProject: MavenProject,
         val allProjects: List<MavenProject>,
         val projectByArtifactId: Map<String, MavenProject>,
-        val service: RedundantManagedDependencyService
+        val service: RedundantManagedDependencyService,
+        val treeResolver: TemporaryDependencyTreeResolver
     )
 
     /**
-     * Loads an example scenario from `src/test/resources/redundant-managed-integrations-test/<scenarioName>` into the test fixture
-     * and sets up a [RedundantManagedDependencyService] with offline POM/BOM fetchers.
+     * Lädt sämtliche POMs eines Referenzbeispiels in die Testumgebung und erstellt
+     * einen [RedundantManagedDependencyService] mit netzwerkfreier POM-/BOM-Auflösung.
+     *
+     * @param additionalPoms Vereinfachte externe POMs, adressiert über GroupId:ArtifactId:Version.
      */
     private fun loadScenario(
         scenarioName: String,
@@ -80,7 +84,8 @@ class RedundantManagedExamplesIntegrationTest : BasePlatformTestCase() {
             rootProject = rootProject,
             allProjects = allProjects,
             projectByArtifactId = projectByArtifactId,
-            service = service
+            service = service,
+            treeResolver = treeResolver
         )
     }
 
@@ -556,5 +561,63 @@ class RedundantManagedExamplesIntegrationTest : BasePlatformTestCase() {
 
         val recs = findRecommendations(context)
         assertTrue("Managed entry is required due to exclusion; must not be marked redundant", recs.isEmpty())
+    }
+
+    /** Prüft beide BeanUtils-Pfade aus Beispiel 17 und verhindert eine unsichere Entfernungsempfehlung. */
+    fun testScenario17_BeanutilsConflict_NonRedundant() {
+        val beanutils = "commons-beanutils:commons-beanutils"
+        val poms = mapOf(
+            "org.mock-server:mockserver-netty:5.15.0" to conflictPom(
+                "org.mock-server:mockserver-netty:5.15.0", "org.mock-server:mockserver-core:5.15.0"
+            ),
+            "org.mock-server:mockserver-core:5.15.0" to conflictPom(
+                "org.mock-server:mockserver-core:5.15.0", "org.apache.velocity.tools:velocity-tools-generic:3.1"
+            ),
+            "org.apache.velocity.tools:velocity-tools-generic:3.1" to conflictPom(
+                "org.apache.velocity.tools:velocity-tools-generic:3.1",
+                "$beanutils:1.9.4", "org.apache.commons:commons-digester3:3.2"
+            ),
+            "org.apache.commons:commons-digester3:3.2" to conflictPom(
+                "org.apache.commons:commons-digester3:3.2", "$beanutils:1.8.3"
+            ),
+            "$beanutils:1.9.4" to conflictPom("$beanutils:1.9.4"),
+            "$beanutils:1.8.3" to conflictPom("$beanutils:1.8.3")
+        )
+        val context = loadScenario("17-transitive-beanutils-managed-conflict", poms)
+        val managedProject = context.projectByArtifactId.getValue("transitive-beanutils-managed-conflict")
+        val unmanagedProject = context.projectByArtifactId.getValue("transitive-beanutils-unmanaged-conflict")
+        val managed = context.service.collectManagedDependencies(managedProject).single()
+        assertEquals("commons-beanutils", managed.groupId)
+        assertEquals("commons-beanutils", managed.artifactId)
+        assertEquals("1.9.4", managed.currentVersion)
+
+        for (mavenProject in listOf(managedProject, unmanagedProject)) {
+            val paths = context.service.findProjectConsumersForManaged(
+                mavenProject, "commons-beanutils", "commons-beanutils", null
+            )
+            assertEquals(listOf(4, 5), paths.map { it.size })
+            assertEquals(listOf("1.9.4", "1.8.3"), paths.map { it.last().artifact.version })
+            assertTrue(context.service.isUsedInAnyProject(listOf(mavenProject), "commons-beanutils", "commons-beanutils", null))
+        }
+        val fallback = context.treeResolver.resolveTransitiveDependencies("org.mock-server", "mockserver-netty", "5.15.0")
+        assertFalse(fallback.containsKey(beanutils))
+        assertTrue("All simplified external POMs must resolve", context.treeResolver.transitiveResolutionIssues.isEmpty())
+        assertNull(context.service.resolveFallbackManagedVersionWithoutLocalEntry(managedProject, beanutils))
+        assertTrue(findRecommendations(context, "transitive-beanutils-managed-conflict").isEmpty())
+        assertTrue(context.service.collectManagedDependencies(unmanagedProject).isEmpty())
+        assertTrue(findRecommendations(context, "transitive-beanutils-unmanaged-conflict").isEmpty())
+    }
+
+    /** Erstellt ein vereinfachtes externes POM, das ausschließlich die relevanten Konfliktpfade enthält. */
+    private fun conflictPom(coordinate: String, vararg dependencies: String): String {
+        val (groupId, artifactId, version) = coordinate.split(":")
+        val dependencyXml = dependencies.joinToString("") {
+            val (group, artifact, dependencyVersion) = it.split(":")
+            "<dependency><groupId>$group</groupId><artifactId>$artifact</artifactId>" +
+                "<version>$dependencyVersion</version></dependency>"
+        }
+        return "<project><modelVersion>4.0.0</modelVersion><groupId>$groupId</groupId>" +
+            "<artifactId>$artifactId</artifactId><version>$version</version>" +
+            "<dependencies>$dependencyXml</dependencies></project>"
     }
 }

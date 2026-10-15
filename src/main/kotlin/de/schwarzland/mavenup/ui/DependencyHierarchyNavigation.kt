@@ -1,7 +1,6 @@
 package de.schwarzland.mavenup.ui
 
 import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
@@ -129,8 +128,9 @@ internal class DependencyHierarchyNavigation(
         val offset = ApplicationManager.getApplication().runReadAction<Int> {
             xmlTag.textOffset
         }
-        OpenFileDescriptor(project, pomFile, offset).navigate(true)
-        FileEditorManager.getInstance(project).openFile(pomFile, true)
+        ApplicationManager.getApplication().invokeLater {
+            OpenFileDescriptor(project, pomFile, offset).navigate(true)
+        }
     }
 
     /**

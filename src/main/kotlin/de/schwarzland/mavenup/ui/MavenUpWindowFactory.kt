@@ -71,6 +71,8 @@ import com.intellij.ui.table.JBTable
 import com.intellij.util.concurrency.AppExecutorUtil
 import com.intellij.util.ui.AbstractTableCellEditor
 import com.intellij.icons.AllIcons
+import de.schwarzland.mavenup.model.DependencyHierarchyNode
+import de.schwarzland.mavenup.model.DependencyHierarchyNodeType
 import org.jetbrains.idea.maven.project.MavenProjectsManager
 import java.awt.BorderLayout
 import java.awt.Component
@@ -292,9 +294,9 @@ class MavenUpWindowFactory : ToolWindowFactory {
             project,
             { refreshToolbar() },
             { showDirectVulnerabilitiesInDependencies() },
-            { groupId, artifactId -> navigateToDependencyInTable(groupId, artifactId) },
-            { groupId, artifactId -> isDependencyInAnyTable(groupId, artifactId) },
-            { groupId, artifactId -> tableNavigationActionLabel(groupId, artifactId) }
+            { node -> navigateToDependencyInTable(node.groupId, node.artifactId, node) },
+            { node -> isDependencyInAnyTable(node) },
+            { node -> tableNavigationActionLabel(node) }
         )
 
         /** Wurzelkomponente des Tabs **Transitive CVEs**: Aktionsleiste über der transitiven Ansicht. */
@@ -312,14 +314,14 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /** Seitenpanel zur Anzeige des Hierarchiebaums einer ausgewählten Abhängigkeit. */
         private val dependencyHierarchyPanel = DependencyHierarchyPanel(
             project = project,
-            isDependencyInTable = { targetGroupId, targetArtifactId ->
-                isDependencyInAnyTable(targetGroupId, targetArtifactId)
+            isDependencyInTable = { node ->
+                isDependencyInAnyTable(node)
             },
-            tableNavigationLabelProvider = { targetGroupId, targetArtifactId ->
-                tableNavigationActionLabel(targetGroupId, targetArtifactId)
+            tableNavigationLabelProvider = { node ->
+                tableNavigationActionLabel(node)
             },
-            onNavigateToTable = { targetGroupId, targetArtifactId ->
-                navigateToDependencyInTable(targetGroupId, targetArtifactId)
+            onNavigateToTable = { node ->
+                navigateToDependencyInTable(node.groupId, node.artifactId, node)
             },
             onClose = { hideDependencyHierarchy() },
             vulnerabilityAdvisoriesProvider = { vulnerabilityAdvisories }
@@ -4606,15 +4608,20 @@ class MavenUpWindowFactory : ToolWindowFactory {
          *
          * @param groupId Group-ID der anzuspringenden Komponente.
          * @param artifactId Artefakt-ID der anzuspringenden Komponente.
+         * @param node Optionaler Hierarchieknoten zur eindeutigen Zuordnung von Quell-POM und Typ.
          * @return `true`, wenn die Zeile in der Tabelle gefunden und selektiert wurde, sonst `false`.
          */
-        internal fun navigateToDependencyInTable(groupId: String, artifactId: String): Boolean {
+        internal fun navigateToDependencyInTable(
+            groupId: String,
+            artifactId: String,
+            node: DependencyHierarchyNode? = null
+        ): Boolean {
             val toolWindow = ToolWindowManager.getInstance(project).getToolWindow(MAVEN_UP_TOOL_WINDOW_ID)
             if (toolWindow != null && !toolWindow.isVisible) {
                 toolWindow.show()
             }
 
-            val targetModelRow = findDependencyModelRow(groupId, artifactId)
+            val targetModelRow = findDependencyModelRow(groupId, artifactId, node)
             if (targetModelRow != null) {
                 setTransitiveViewVisible(false)
                 resetAllFilters()
@@ -4637,18 +4644,37 @@ class MavenUpWindowFactory : ToolWindowFactory {
         }
 
         /**
-         * Sucht die Modellzeile einer Koordinate in der Haupttabelle unabhängig von aktiven Filtern.
+         * Sucht die Modellzeile unabhängig von Filtern; Deklarationsknoten werden nach POM und Typ
+         * zugeordnet, abstrakte Root- und transitive Knoten weiterhin nach Koordinate.
          *
          * @param groupId Group-ID der gesuchten Komponente.
          * @param artifactId Artefakt-ID der gesuchten Komponente.
+         * @param node Optionaler Hierarchieknoten mit dem konkreten Deklarationskontext.
          * @return Den Index der Modellzeile oder `null`, wenn die Koordinate nicht in der Haupttabelle steht.
          */
-        private fun findDependencyModelRow(groupId: String, artifactId: String): Int? {
+        private fun findDependencyModelRow(
+            groupId: String,
+            artifactId: String,
+            node: DependencyHierarchyNode? = null
+        ): Int? {
+            val declarationType = when (node?.type) {
+                DependencyHierarchyNodeType.DIRECT_DEPENDENCY -> "dependency"
+                DependencyHierarchyNodeType.DEPENDENCY_MANAGEMENT,
+                DependencyHierarchyNodeType.BOM_IMPORT ->
+                    MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
+                DependencyHierarchyNodeType.DIRECT_PLUGIN -> "plugin"
+                DependencyHierarchyNodeType.PLUGIN_MANAGEMENT -> MANAGED_PLUGIN
+                DependencyHierarchyNodeType.PARENT_POM -> PARENT_TYPE
+                else -> null
+            }
             val model = table.model as DefaultTableModel
             return (0 until model.rowCount).firstOrNull { modelRow ->
                 val rowGroupId = model.getValueAt(modelRow, GROUP_ID_COLUMN)?.toString().orEmpty()
                 val rowArtifactId = model.getValueAt(modelRow, ARTIFACT_ID_COLUMN)?.toString().orEmpty()
-                rowGroupId == groupId && rowArtifactId == artifactId
+                val row = modelRows.getOrNull(modelRow)
+                rowGroupId == groupId && rowArtifactId == artifactId &&
+                    (declarationType == null || model.getValueAt(modelRow, TYPE_COLUMN) == declarationType) &&
+                    (declarationType == null || node?.pomFile == null || row?.pomFile?.path == node.pomFile.path)
             }
         }
 
@@ -4696,37 +4722,25 @@ class MavenUpWindowFactory : ToolWindowFactory {
         /**
          * Ermittelt die Beschriftung der Tabellennavigation anhand ihres tatsächlichen Ziels.
          *
-         * @param groupId Group-ID der anzuspringenden Komponente.
-         * @param artifactId Artefakt-ID der anzuspringenden Komponente.
+         * @param node Hierarchieknoten der anzuspringenden Komponente.
          * @return Die lokalisierte Beschriftung für die Haupttabelle oder die Ansicht transitiver CVEs.
          */
-        private fun tableNavigationActionLabel(groupId: String, artifactId: String): String =
-            if (findDependencyModelRow(groupId, artifactId) != null) {
+        private fun tableNavigationActionLabel(node: DependencyHierarchyNode): String =
+            if (findDependencyModelRow(node.groupId, node.artifactId, node) != null) {
                 MyMessageBundle.message("dependency.hierarchy.action.navigateToDependencies")
             } else {
                 MyMessageBundle.message("dependency.hierarchy.action.navigateToTransitiveCves")
             }
 
         /**
-         * Prüft, ob eine Abhängigkeit mit den angegebenen Koordinaten in der Haupttabelle enthalten ist.
-         *
-         * @param groupId Group-ID der Komponente.
-         * @param artifactId Artefakt-ID der Komponente.
-         * @return `true`, wenn die Komponente in der Haupttabelle existiert, sonst `false`.
-         */
-        internal fun isDependencyInTable(groupId: String, artifactId: String): Boolean =
-            findDependencyModelRow(groupId, artifactId) != null
-
-        /**
          * Prüft, ob eine Koordinate entweder in der Haupttabelle oder unter den transitiven
          * Sicherheitslücken des letzten Scans enthalten ist.
          *
-         * @param groupId Group-ID der Komponente.
-         * @param artifactId Artefakt-ID der Komponente.
+         * @param node Hierarchieknoten mit optionalem Deklarationskontext.
          * @return `true`, wenn die Komponente in einer der beiden Ansichten existiert.
          */
-        private fun isDependencyInAnyTable(groupId: String, artifactId: String): Boolean =
-            isDependencyInTable(groupId, artifactId) ||
-                transitiveVulnerabilitiesView.containsDependency(groupId, artifactId)
+        private fun isDependencyInAnyTable(node: DependencyHierarchyNode): Boolean =
+            findDependencyModelRow(node.groupId, node.artifactId, node) != null ||
+                transitiveVulnerabilitiesView.containsDependency(node.groupId, node.artifactId)
     }
 }

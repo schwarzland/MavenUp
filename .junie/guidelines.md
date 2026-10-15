@@ -15,7 +15,7 @@ Für dieses Projekt gelten zusätzliche Anweisungen, die ursprünglich für GitH
 Maßgeblich ist immer der Volltext in `.github/copilot-instructions.md`; diese Liste ist nur eine Kurzfassung.
 
 1. **README.md** schlank halten (Landing Page auf Englisch) und die Dokumentationsliste sowie den Abschnitt *AI instructions* aktuell halten.
-2. **CHANGELOG.md** auf Englisch pflegen: auf einem Feature-Branch im Block `## [Unreleased]`, pro Version genau ein `### Added`-, `### Changed`- und `### Fixed`-Block; Änderungen aus Anwendersicht formulieren (sichtbare oben, interne am Ende, wichtigste hervorheben; bei Unsicherheit nachfragen).
+2. **CHANGELOG.md** auf Englisch für Produktänderungen pflegen: auf einem Feature-Branch im Block `## [Unreleased]`, pro Version genau ein `### Added`-, `### Changed`- und `### Fixed`-Block; Änderungen aus Anwendersicht formulieren (sichtbare oben, interne am Ende, wichtigste hervorheben; bei Unsicherheit nachfragen). Reine Dokumentationskorrekturen erhalten keinen Produktänderungs-Eintrag; auf einem Release-Branch wird `## [Unreleased]` dennoch in die Release-Version umbenannt.
 3. **FEATURES.md** ist nur der Index; die Feature-Beschreibungen stehen in der thematisch passenden Datei unter `docs/features/`.
 4. **Dokumentation unter `docs/`**: jede Änderung gehört in genau eine Datei (`usage.md`, `configuration.md`, `privacy-and-security.md`, `architecture.md`, `development.md`, `release-and-ci.md`, `licenses.md`) – keine Dopplungen.
 5. **plugin.xml** Description aktuell halten (Core Features vor Advanced Capabilities).
@@ -25,6 +25,10 @@ Maßgeblich ist immer der Volltext in `.github/copilot-instructions.md`; diese L
 9. **KDoc**: Alle berührten Klassen/Methoden müssen korrektes KDoc auf Deutsch haben.
 10. **Projektkontext** (`.github/copilot-project-context.md` und `.github/context/`) bei neuen, umbenannten oder entfernten Klassen und bei jeder neuen Einstellung mitpflegen.
     Der Tool-Window-Kontext beschreibt auch die Trennung von Ansichts- und Modellindizes bei Zell-Tooltips; die Testreferenz umfasst `DependencyTableTooltipTest`.
+    Die Komponentenreferenzen beschreiben die Quell-POM- und typbezogene Hierarchie-Navigation beider Tabs; `HierarchyTableNavigationIntegrationTest` deckt deren Zielauswahl ab.
+    Der Service-Kontext beschreibt die pfadlokale, identitätsbasierte Zyklenerkennung der Hierarchie-Pfadsuche; `DependencyHierarchyPathTest` deckt wiederholte Knoten und echte Zyklen ab.
+    Bei Redundanzprüfungen dürfen nicht eindeutig auflösbare transitive Versionskonflikte nicht als sichere Bereitstellung gewertet werden; Details stehen im Service-Kontext.
+    Der Projektkontext und `docs/development.md` beschreiben die Offline-Suite für Beispiele 01–15 und 17; Beispiel 17 prüft beide BeanUtils-Konfliktpfade und den Schutz des Management-Pins mit vereinfachten externen POMs. Beispiel 16 bleibt ein manueller Reproducer.
 11. **Lizenzen**: Neue oder aktualisierte Abhängigkeiten im `implementation`-Scope in `docs/licenses.md` dokumentieren.
 12. **Refactoring**: Dateien über 800–1000 Zeilen aufteilen – vorher das Risiko benennen und den Anwender fragen.
 13. **UI**: Dialoge und Einstellungen folgen den IntelliJ Platform UI Guidelines (Kotlin UI DSL v2, Bindings, Unterseiten statt Scrollen, Read-only-Dialoge nur mit *Close*).

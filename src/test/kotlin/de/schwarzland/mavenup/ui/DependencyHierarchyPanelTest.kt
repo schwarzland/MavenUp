@@ -482,7 +482,7 @@ class DependencyHierarchyPanelTest : BasePlatformTestCase() {
 
         val panel = DependencyHierarchyPanel(
             project = project,
-            isDependencyInTable = { g, a -> g == "com.example" && a == "in-table" }
+            isDependencyInTable = { node -> node.groupId == "com.example" && node.artifactId == "in-table" }
         )
 
         val treeInTable = Tree(DefaultMutableTreeNode(inTableNode)).apply { setSelectionRow(0) }
@@ -498,22 +498,26 @@ class DependencyHierarchyPanelTest : BasePlatformTestCase() {
         assertFalse(panel.canNavigateToTable(emptyTree))
     }
 
+    /** Der Callback erhaelt den vollstaendigen Knoten inklusive Deklarationskontext. */
     fun testNavigateToTableForSelectedNodeExecutesCallback() {
         var navigatedGroupId = ""
         var navigatedArtifactId = ""
+        var navigatedNode: DependencyHierarchyNode? = null
 
         val node = DependencyHierarchyNode(
             type = DependencyHierarchyNodeType.DIRECT_DEPENDENCY,
             groupId = "org.slf4j",
             artifactId = "slf4j-api",
-            version = "2.0.7"
+            version = "2.0.7",
+            pomFile = myFixture.addFileToProject("module-a/pom.xml", "<project/>").virtualFile
         )
 
         val panel = DependencyHierarchyPanel(
             project = project,
-            onNavigateToTable = { g, a ->
-                navigatedGroupId = g
-                navigatedArtifactId = a
+            onNavigateToTable = { selectedNode ->
+                navigatedNode = selectedNode
+                navigatedGroupId = selectedNode.groupId
+                navigatedArtifactId = selectedNode.artifactId
                 true
             }
         )
@@ -524,8 +528,10 @@ class DependencyHierarchyPanelTest : BasePlatformTestCase() {
         assertTrue(result)
         assertEquals("org.slf4j", navigatedGroupId)
         assertEquals("slf4j-api", navigatedArtifactId)
+        assertSame(node, navigatedNode)
     }
 
+    /** Die Aktionsbeschriftung wird aus dem vollstaendigen selektierten Knoten abgeleitet. */
     fun testTableNavigationActionLabelUsesTargetTable() {
         val dependenciesNode = DependencyHierarchyNode(
             type = DependencyHierarchyNodeType.DIRECT_DEPENDENCY,
@@ -539,8 +545,8 @@ class DependencyHierarchyPanelTest : BasePlatformTestCase() {
         )
         val panel = DependencyHierarchyPanel(
             project = project,
-            tableNavigationLabelProvider = { groupId, artifactId ->
-                if (groupId == "com.example" && artifactId == "transitive") {
+            tableNavigationLabelProvider = { node ->
+                if (node.groupId == "com.example" && node.artifactId == "transitive") {
                     MyMessageBundle.message("dependency.hierarchy.action.navigateToTransitiveCves")
                 } else {
                     MyMessageBundle.message("dependency.hierarchy.action.navigateToDependencies")

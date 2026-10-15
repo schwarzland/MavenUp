@@ -42,11 +42,16 @@ class TemporaryDependencyTreeResolver(
     internal val resolutionIssues: Set<String>
         get() = mutableResolutionIssues.toSet()
 
+    /** Unvollständige Auflösungen ausschließlich aus der letzten transitiven Abfrage. */
+    internal var transitiveResolutionIssues: Set<String> = emptySet()
+        private set
+
     /**
      * Löscht die Auflösungsdiagnosen vor einer neuen Redundanzanalyse.
      */
     internal fun resetResolutionIssues() {
         mutableResolutionIssues.clear()
+        transitiveResolutionIssues = emptySet()
     }
 
     /**
@@ -137,7 +142,7 @@ class TemporaryDependencyTreeResolver(
     private fun readFromWorkspaceProjects(groupId: String, artifactId: String, version: String): String? {
         val proj = project ?: return null
         val mavenProjects = try {
-            MavenProjectsManager.getInstance(proj).projects
+            MavenProjectsManager.getInstance(proj).projects.toList()
         } catch (_: Exception) {
             return null
         }
@@ -706,7 +711,7 @@ class TemporaryDependencyTreeResolver(
      * @param artifactId Die Artefakt-ID.
      * @param version Die Version.
      * @param maxDepth Die maximale Rekursionstiefe (Standard 10).
-     * @param visited Bereits besuchte Koordinaten zur Zyklenerkennung.
+     * @param visited Koordinaten im aktuellen Pfad zur Zyklenerkennung; Geschwisterpfade bleiben unabhängig.
      * @return Der Wurzelknoten [TemporaryDependencyNode].
      */
     fun resolveDependencyTree(
@@ -714,82 +719,42 @@ class TemporaryDependencyTreeResolver(
         artifactId: String,
         version: String,
         maxDepth: Int = 10,
-        visited: MutableSet<String> = mutableSetOf()
+        visited: Set<String> = emptySet()
     ): TemporaryDependencyNode {
-        val nodeKey = artifactKey(groupId, artifactId, version)
-        val rootNode = TemporaryDependencyNode(
-            coordinate = TemporaryArtifactCoordinate(groupId, artifactId, version)
-        )
-
-        if (maxDepth <= 0 || !visited.add(nodeKey)) {
-            return rootNode
-        }
-
-        val effectivePom = resolveEffectivePom(groupId, artifactId, version) ?: return rootNode
-        rootNode.dependencyManagement.putAll(effectivePom.dependencyManagement)
-
-        val activeDependencies = effectivePom.dependencies.filter { dep ->
-            !dep.optional &&
-                dep.scope?.lowercase() !in listOf("test", "provided", "system") &&
-                !dep.version.isNullOrBlank()
-        }
-
-        for (dep in activeDependencies) {
-            val childNode = resolveDependencyTree(
-                groupId = dep.groupId,
-                artifactId = dep.artifactId,
-                version = dep.version.orEmpty(),
-                maxDepth = maxDepth - 1,
-                visited = visited
-            )
-            childNode.copy(scope = dep.scope, optional = dep.optional).let {
-                rootNode.dependencies.add(childNode)
-            }
-        }
-
-        return rootNode
+        return TemporaryDependencyTreeBuilder(
+            resolvePom = { coordinate ->
+                resolveEffectivePom(coordinate.groupId, coordinate.artifactId, coordinate.version)
+            },
+            onIssue = { mutableResolutionIssues.add(it) }
+        ).build(TemporaryArtifactCoordinate(groupId, artifactId, version), maxDepth, visited)
     }
 
     /**
-     * Ermittelt alle transitiven Abhängigkeiten eines Artefakts als Map von `groupId:artifactId` zu Version.
+     * Ermittelt eindeutig beobachtete transitive Versionen ohne Maven-Versionsvermittlung.
+     * Koordinaten mit widersprüchlichen Versionen werden ausgelassen; unvollständige Auflösungen
+     * stehen separat in [transitiveResolutionIssues] und dürfen keine Entfernung begründen.
      *
      * @param groupId Die Group-ID.
      * @param artifactId Die Artefakt-ID.
      * @param version Die Version.
-     * @return Eine Map mit allen transitiv bereitgestellten Artefakten und deren Versionen.
+     * @return Eine Map der eindeutig beobachteten transitiven Artefaktversionen, gegebenenfalls unvollständig.
      */
     fun resolveTransitiveDependencies(
         groupId: String,
         artifactId: String,
         version: String
     ): Map<String, String> {
-        val result = mutableMapOf<String, String>()
-        val tree = resolveDependencyTree(groupId, artifactId, version)
-        collectTransitiveArtifacts(tree, result, mutableSetOf())
-        return result
-    }
-
-    /**
-     * Sammelt rekursiv alle Kind-Abhängigkeiten eines Knotens.
-     *
-     * @param node Der aktuelle Knoten im Abhängigkeitsgraphen.
-     * @param result Die Ziel-Map zum Sammeln von `groupId:artifactId` -> Version.
-     * @param visited Die Menge bereits besuchter Knoten zur Zyklenerkennung.
-     */
-    private fun collectTransitiveArtifacts(
-        node: TemporaryDependencyNode,
-        result: MutableMap<String, String>,
-        visited: MutableSet<String>
-    ) {
-        for (child in node.dependencies) {
-            val key = "${child.coordinate.groupId}:${child.coordinate.artifactId}"
-            if (!result.containsKey(key)) {
-                result[key] = child.coordinate.version
+        val previousIssues = mutableResolutionIssues.toSet()
+        mutableResolutionIssues.clear()
+        transitiveResolutionIssues = emptySet()
+        return try {
+            val tree = resolveDependencyTree(groupId, artifactId, version)
+            TemporaryTransitiveArtifacts.collect(tree) { key, versions ->
+                LOG.debug("Ambiguous transitive versions for $key: ${versions.sorted().joinToString()}; omitted")
             }
-            val visitedKey = artifactKey(child.coordinate.groupId, child.coordinate.artifactId, child.coordinate.version)
-            if (visited.add(visitedKey)) {
-                collectTransitiveArtifacts(child, result, visited)
-            }
+        } finally {
+            transitiveResolutionIssues = mutableResolutionIssues.toSet()
+            mutableResolutionIssues.addAll(previousIssues)
         }
     }
 

@@ -22,10 +22,10 @@ Bei **jeder** Änderung im Repository sind diese Punkte immer zu berücksichtige
    - Veraltete Formulierungen (z. B. „now", „new") sind beim Bearbeiten zu entfernen.
    - Keine inhaltlichen Dopplungen zwischen README und `docs/`-Dateien oder zwischen den `docs/`-Dateien – jeder Punkt gehört genau an eine Stelle.
    - Nach jeder Änderung README und die betroffenen `docs/`-Dateien auf Vollständigkeit und Konsistenz prüfen; neue `docs/`-Dateien in der Dokumentationsliste der README verlinken.
-2. **CHANGELOG.md** ergänzen/aktualisieren mit einem passenden Eintrag zur Änderung. Dabei gelten folgende Regeln:
+2. **CHANGELOG.md** für tatsächliche Produktänderungen ergänzen/aktualisieren. Reine Dokumentationspflege (z. B. Korrekturen, fehlende technische Feldnamen, tote Links oder die Angleichung von Dokumenten an die Implementierung) erhält keinen eigenen `Added`-, `Changed`- oder `Fixed`-Eintrag, wenn sich das Produktverhalten nicht ändert; solche Einträge würden Release Notes fälschlich als Produktänderungen darstellen. Auf einem Release-Branch wird ein vorhandener oberster `## [Unreleased]`-Block trotzdem in die Release-Version umbenannt. Dabei gelten folgende Regeln:
    - Ermittle zunächst mit `git rev-parse --abbrev-ref HEAD`, ob du dich in einem Feature-Branch (erkennbar an `feature/*`) befindest.
    - Wenn du dich in einem Feature-Branch befindest, prüfe, ob eine Sektion `## [Unreleased]` existiert. Fehlt sie, füge sie ganz oben in der Datei als erste Überschrift hinzu.
-   - Alle Änderungen des Feature-Branches werden in dieser `## [Unreleased]`-Sektion dokumentiert, nicht als neuer Block angehängt und bevor weitere Release-Abschnitte oder andere Einträge ergänzt werden.
+   - Alle produktrelevanten Änderungen des Feature-Branches werden in dieser `## [Unreleased]`-Sektion dokumentiert, nicht als neuer Block angehängt und bevor weitere Release-Abschnitte oder andere Einträge ergänzt werden; reine Dokumentationspflege bleibt davon ausgenommen.
    - Sprache: Englisch.
    - Struktur: pro Version **genau einen** `### Added`-, `### Changed`- und `### Fixed`-Block – niemals doppelte Kategorien innerhalb derselben Version.
    - Jeder Eintrag ist ein prägnanter Satz (ein Gedanke pro Zeile); keine Redundanzen, keine Dopplungen.

@@ -5,7 +5,6 @@ import de.schwarzland.mavenup.ui.MyMessageBundle
 import de.schwarzland.mavenup.ui.PARENT_TYPE
 import de.schwarzland.mavenup.ui.TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY
 import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.fileEditor.OpenFileDescriptor
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.ProgressManager
@@ -197,8 +196,7 @@ internal class PomNavigationService(private val project: Project) {
     private fun openInEditor(pomFile: VirtualFile, targetTag: XmlTag) {
         val offset = ApplicationManager.getApplication().runReadAction<Int> { targetTag.textOffset }
         ApplicationManager.getApplication().invokeLater {
-            val descriptor = OpenFileDescriptor(project, pomFile, offset)
-            FileEditorManager.getInstance(project).openTextEditor(descriptor, true)
+            OpenFileDescriptor(project, pomFile, offset).navigate(true)
         }
     }
 
@@ -241,18 +239,7 @@ internal class PomNavigationService(private val project: Project) {
                     } ?: continue
 
                     val targetTag = ApplicationManager.getApplication().runReadAction<XmlTag?> {
-                        val rootTag = psiFile.document?.rootTag
-                        val managedDepType =
-                            MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
-                        val isManaged = type == managedDepType || type == MANAGED_PLUGIN
-
-                        if (type == PARENT_TYPE) {
-                            findParent(rootTag, groupId, artifactId)
-                        } else if (type == "dependency" || type == managedDepType) {
-                            findDependency(rootTag, groupId, artifactId, isManaged)
-                        } else {
-                            findPlugin(rootTag, groupId, artifactId, isManaged)
-                        }
+                        findTargetTag(psiFile.document?.rootTag, groupId, artifactId, type)
                     }
 
                     if (targetTag != null) {
@@ -262,5 +249,26 @@ internal class PomNavigationService(private val project: Project) {
                 }
             }
         })
+    }
+
+    /**
+     * Sucht die angeforderte Abhängigkeits-, Parent- oder Plugin-Definition im angegebenen POM.
+     *
+     * @param rootTag Das Root-Tag der `pom.xml`.
+     * @param groupId Die gesuchte Group-ID.
+     * @param artifactId Die gesuchte Artefakt-ID.
+     * @param type Der Typ der Definition, beispielsweise Dependency, Parent oder Plugin.
+     * @return Das passende XML-Tag oder `null`, wenn keine Definition gefunden wurde.
+     */
+    internal fun findTargetTag(rootTag: XmlTag?, groupId: String, artifactId: String, type: String): XmlTag? {
+        val managedDepType = MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
+        val isManaged = type == managedDepType || type == MANAGED_PLUGIN
+
+        return when {
+            type == PARENT_TYPE -> findParent(rootTag, groupId, artifactId)
+            type == "dependency" || type == managedDepType ->
+                findDependency(rootTag, groupId, artifactId, isManaged)
+            else -> findPlugin(rootTag, groupId, artifactId, isManaged)
+        }
     }
 }

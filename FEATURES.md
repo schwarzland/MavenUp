@@ -1,7 +1,7 @@
 # MavenUp Plugin Features
 
-This document is the index of all MavenUp features. It is the single source of truth for what the plugin
-can do; the detailed feature descriptions are split by area into the files under [`docs/features/`](docs/features/).
+This document indexes MavenUp's feature areas. Detailed feature descriptions are maintained in the linked files
+under [`docs/features/`](docs/features/).
 
 ## Feature areas
 

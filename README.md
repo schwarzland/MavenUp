@@ -31,11 +31,11 @@ Install **MavenUp** from the JetBrains Marketplace via `Settings > Plugins > Mar
 2. MavenUp checks for newer versions in the background after the Maven project loads and after Maven resyncs; open the tool window to review the results or use **Refresh and Search for New Versions** to repeat it manually.
 3. Pick target versions and click **Update**, or run **Scan for Vulnerabilities**. 
 
-See the [usage guide](docs/usage.md) for update and redundancy workflows, including resizable review dialogs such as **Confirm Changes**, follow-up filtering, and cache management, [Features](FEATURES.md) for the feature overview, and [development diagnostics](docs/development.md#trace-cache-usage-and-api-requests) for logging setup.
+See the [usage guide](docs/usage.md) for update, redundancy, and hierarchy navigation workflows, including resizable review dialogs such as **Confirm Changes**, follow-up filtering, and cache management, [Features](FEATURES.md) for the feature overview, and [development diagnostics](docs/development.md#trace-cache-usage-and-api-requests) for logging setup.
 
 ## Documentation
 
-- [Features](FEATURES.md) — feature index (single source of truth), split by area under [docs/features/](docs/features/).
+- [Features](FEATURES.md) — feature index, with descriptions split by area under [docs/features/](docs/features/).
 - [Usage](docs/usage.md) — how to use the tool window, filters, and actions.
 - [Configuration](docs/configuration.md) — all settings.
 - [Privacy & Security](docs/privacy-and-security.md) — transmitted data and external endpoints.

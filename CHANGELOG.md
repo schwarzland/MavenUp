@@ -2,57 +2,52 @@
 
 # Maven Up Changelog
 
-## [Unreleased]
+## 3.5.0
 
 ### Added
 
-- **Added Target POM selection for transitive vulnerability fixes** in multi-module projects, allowing developers to choose where pinned `<dependencyManagement>` entries are injected (Root POM as recommended default, affected submodule(s), or all modules).
-- **Added an adaptive Module column** to the main dependencies table that displays the Maven module name in multi-module projects and automatically hides in single-module projects to save screen space, supporting sorting by module, double-click navigation to the module POM, module text search filtering, and context menu filtering by module.
-- **Added managed dependency redundancy analysis** for `<dependencyManagement>` entries that detects transitively satisfied managed dependencies without mutating project files, using in-memory dependency tree resolution with multi-consumer compatibility validation.
-- Added an interactive review dialog for redundant managed dependencies with a theme-aware split divider, remembered divider position, word-wrapping HTML details, and consumer paths displayed as a bulleted list.
+- **Added Target POM selection for transitive vulnerability fixes** in multi-module projects, so users can choose the root POM, affected modules, or all modules for new pins.
+- **Added a sortable, filterable Module column** for multi-module projects; it stays hidden in single-module projects.
+- **Added managed dependency redundancy analysis** that identifies entries supplied by parent management, direct declarations, or transitive consumers, as well as unused entries, without changing project files.
+- Added a resizable review dialog showing redundancy reasons, source POMs, and consumer paths before entries are staged; the Maven Project column appears only for multi-project results.
 - Added an optional **Show all pending changes after staging** checkbox that clears all main-table filters and activates Pending: All Changes after staging the selection.
 - Added **Check Managed Dependencies for Redundancy...** toolbar action and **Check for Redundancy** context menu action to start the redundancy check.
 - Added **Mark Selected Entries for Removal** staging action that clarifies changes are staged until Update.
-- Added redundancy reason labels **Version Managed by Parent** and **Version Provided Transitively**, distinguishing Same Version, Higher Version, or Same and Higher Versions.
-- Highlighted affected candidate and parent dependencies with theme-aware colors and bolded version numbers in the details panel.
-- Enlarged the redundancy dialog into a dedicated resizable information dialog when no redundancy is found.
-- Clarified source POM details and consumer paths, and show the Maven Project column only for multi-project results.
-- **Added structured Markdown source templates for JetBrains Marketplace Custom Pages** under `docs/assets/marketplace/custom/` covering Getting Started, Privacy & Security, Vulnerability Management, and Configuration & FAQ.
-- Expanded redundancy DEBUG logs with analysis scope, results, POM cache and local-repository hits, and individual HTTP GET attempts and response statuses without exposing credentials.
-- Added a regression test for the `tools.jackson.core:jackson-core` fallback scenario and expanded the unit test suite with comprehensive coverage for negative cases, helper methods, property placeholder handling, multi-module scenarios, and criterion prioritization.
-- Added `.github/dependency-review-config.yml` with dependency allowlist exceptions and configured `actions/dependency-review-action` to prevent CI review failures caused by test fixture POMs.
+- Added redundancy reason labels **Version Managed by Parent** and **Version Provided Transitively**, distinguishing same, higher, or mixed provided versions.
+- Highlighted affected dependencies and parent entries in the details panel to make removal evidence easier to review.
+- Added a resizable information dialog for checks that find no redundant managed dependencies.
+- Added DEBUG diagnostics for redundancy checks and repository lookups without logging credentials.
 
 ### Changed
 
 - **Moved the always-visible Module column to the third position in the Confirm Changes dialog**, matching the main table.
-- **Clarified that the Target POM selector applies only to transitive fixes and shows how many unassigned transitive pins it affects.**
-- The confirmation table's **Module** column previews the root, affected, or all modules as the transitive Target POM selection changes, with POM path and artifactId fallbacks when needed.
+- **Clarified that the Target POM selector applies only to transitive fixes and reports how many unassigned transitive pins it affects.**
+- The confirmation table previews the root, affected, or all target modules as the Target POM selection changes.
 - The main table's **Type** filter keeps only the five supported categories in a fixed order, rather than sorting or dynamically adding discovered types.
 - **Updated the Managed Entries tooltip** to describe the redundancy check alongside removal or comment-out actions and clarify that filter scope applies only to those bulk actions.
 - **Renamed row context menu actions** to "Select Highest Major Version", "Select Highest Minor Version", and "Select Recommended Version" to align with the toolbar selection menu.
 - Moved the **Hierarchy** toolbar action to the right of **Vulnerability Details** so selection-dependent actions are grouped in a clearer left-to-right flow.
-- Refactored tool window version selection, table cell editing, and update collection routines to reduce method cognitive complexity and improve maintainability.
-- Aligned the Copilot project context with the current model inventory, update workflow, and component-reference structure.
-- Corrected the documented vulnerability cache duration, Marketplace asset paths, and privacy claims to match repository evidence.
 
 ### Fixed
 
+- **Fixed unsafe managed-dependency removal recommendations** by checking every consumer path and excluding unresolved version conflicts.
+- **Fixed missing transitive dependency hierarchies** so repeated artifacts retain all paths to vulnerable versions.
+- **Fixed hierarchy navigation across Maven modules** so it selects the matching POM declaration or aggregated vulnerable coordinate from either tab.
 - **Fixed the minimum size behavior of the Confirm Changes dialog** so the window can be narrowed again instead of getting stuck at a large minimum width.
 - **Fixed the Type filter and New Version status after an automatic refresh replaces the dependency rows.**
-- **Fixed the Confirm Changes dialog in multi-module projects** so the target column now shows the affected module (with artifactId fallback) instead of a raw `pom.xml` path, making same-coordinate updates across modules easier to distinguish.
-- **Fixed dependency-table tooltips in single-module projects** so hovering over New Version no longer throws an exception and version and property-navigation hints remain correct with hidden columns, sorting, and filtering.
-- **Fixed toolbar managed entries bulk comment-out/removal in multi-module projects** by processing all matching rows across all modules instead of deduplicating by coordinate and only updating the first matching row.
-- **Fixed multi-module POM navigation** by associating each table row with its originating `pom.xml` file (`VirtualFile`), ensuring "Navigate to POM" opens the correct file instead of always the first module matching coordinates.
-- **Fixed workspace parent POM resolution in redundancy checks** by resolving in-workspace Maven projects in `TemporaryDependencyTreeResolver`, allowing "Check Managed Dependencies for Redundancy..." to find redundant managed dependencies inherited from workspace parent POMs.
-- **Fixed table version selection across multi-module entries** by isolating row selections with file- and type-specific keys and avoiding synchronization across entries without explicit, non-blank Maven properties.
-- **Fixed false-positive "Version Provided Transitively" recommendations** by evaluating the effective fallback version from parent/imported BOM dependency management when the local `<dependencyManagement>` entry is removed, and reporting candidate removals only when parent, direct, and every known transitive source supplies at least the currently managed version.
+- **Fixed the Confirm Changes dialog** to identify affected modules rather than showing raw POM paths when available.
+- **Fixed dependency-table tooltips** to remain accurate with hidden columns, sorting, filtering, and single-module projects.
+- **Fixed bulk managed-entry removal and commenting** so every matching row across all modules is processed.
+- **Fixed multi-module POM navigation** so each row opens its own module's `pom.xml`.
+- **Fixed redundancy checks for workspace parent POMs** so inherited managed entries can be evaluated.
+- **Fixed version selection across multi-module entries** so unrelated rows no longer share selections.
+- **Fixed false-positive transitive redundancy recommendations** by checking effective parent/BOM fallback versions and requiring every known source to provide at least the managed version.
 - **Fixed the redundancy dialog introduction** so `<dependencyManagement>` renders as text instead of disappearing as an HTML tag.
 - **Fixed the initial Redundancy Details panel** to show the currently selected table row, including after the table's default sort.
 - **Fixed the Redundant Managed Dependencies dialog** becoming impossible to narrow after displaying long redundancy details or widening the dialog.
-- **Fixed SNAPSHOT version handling** to prevent unintended SNAPSHOT version selections after startup and refresh, including misleading dropdown values, updates created by opening an unchanged editor, higher SNAPSHOT versions appearing below the latest release in dropdowns and version preselection, and timestamped Maven snapshot resolutions replacing declared `*-SNAPSHOT` versions.
-- **Fixed "Set Recommended Version"** in toolbar and context menus to only offer and select versions present in the available versions list, disabling the action when the recommended version is missing or hidden by "Hide unstable versions".
-- Fixed internal IntelliJ API usage in candidate POM local repository resolution by replacing the deprecated internal call with the public repository path API.
-- Fixed a Kotlin inspection warning by simplifying not-null display name blankness checks during snapshot collection.
+- **Fixed SNAPSHOT version handling** so declared `*-SNAPSHOT` versions stay visible and higher SNAPSHOT candidates are correctly displayed and selected.
+- **Fixed Select Recommended Version** to select only an available, visible candidate and disable the action when none is eligible.
+- Improved compatibility with newer IntelliJ versions for Target POM selection and POM navigation.
 
 ## 3.4.0
 

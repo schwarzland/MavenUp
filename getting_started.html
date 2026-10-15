@@ -50,9 +50,9 @@
 <h3>Navigate and inspect entries</h3>
 <ul>
     <li><strong>Filter the table</strong>: Type in the filter field above the table to narrow the list by GroupId,
-        ArtifactId or Property, and use the combo boxes to filter by dependency type, version source, pending version
+        ArtifactId, Module, or Property, and use the combo boxes to filter by dependency type, version source, pending version
         changes, available updates, or security findings. The Type options are fixed in this order: All, Dependency,
-        Plugin, Parent, Managed plugin, Managed dependency. You can also right-click a GroupId, ArtifactId, or Property
+        Plugin, Parent, Managed plugin, Managed dependency. You can also right-click a GroupId, ArtifactId, Module, or Property
         cell and
         choose <strong>Filter by "..."</strong> to filter by that exact value. The version filter becomes available as
         soon as at least one row has an inherited version and lets you show only inherited rows or only rows declaring
@@ -74,7 +74,7 @@
         dependency or plugin entry directly in the editor. Clicking a cell in the <strong>Property</strong> column opens
         the definition of that property instead.</li>
     <li><strong>Use the context menu</strong>: Right-click any row to access <strong>Filter by "..."</strong> (shown when
-        you right-click a GroupId, ArtifactId, or Property cell to filter the table by that value),
+        you right-click a GroupId, ArtifactId, Module, or Property cell to filter the table by that value),
         <strong>Navigate to pom.xml</strong>, use <strong>Show GroupIds</strong> in the hierarchy toolbar to switch
         between full Maven coordinates and a compact artifact-only view,
         <strong>Navigate to Property Definition</strong> (enabled when the row's version comes from a property),
@@ -123,8 +123,9 @@
         dropdown (including <strong>Select Recommended Version</strong>) and <strong>Reset All to Current Versions</strong>
         act on the transitive coordinates, and a right-click offers <strong>Filter by "..."</strong> plus the same version
         actions for a single coordinate. The hierarchy panel uses <strong>Select in Dependencies</strong> when the
-        coordinate exists in the main table; otherwise, <strong>Select in Transitive CVEs</strong> names the scanned
-        transitive target. The action clears the target table's filters and selects the matching row. The view has its
+        matching declaration exists in the main table, selecting its source module and declaration type;
+        otherwise, <strong>Select in Transitive CVEs</strong> names the scanned, coordinate-aggregated
+        transitive target. Both tabs' hierarchy panels clear the target table's filters and select the matching row. The view has its
         own filter row with a text filter for GroupId and ArtifactId,
         an <strong>Update</strong> and a <strong>Pending</strong> combo box, and a reset button; the bulk version
         actions apply only to the rows it leaves visible.

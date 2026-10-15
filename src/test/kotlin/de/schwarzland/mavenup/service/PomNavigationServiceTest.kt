@@ -1,5 +1,9 @@
 package de.schwarzland.mavenup.service
 
+import de.schwarzland.mavenup.ui.MANAGED_PLUGIN
+import de.schwarzland.mavenup.ui.MyMessageBundle
+import de.schwarzland.mavenup.ui.PARENT_TYPE
+import de.schwarzland.mavenup.ui.TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY
 import com.intellij.psi.xml.XmlFile
 import com.intellij.testFramework.fixtures.BasePlatformTestCase
 
@@ -109,6 +113,81 @@ class PomNavigationServiceTest : BasePlatformTestCase() {
 
         val notFound = pomNavigationService.findParent(rootTag, "com.example", "other-artifact")
         assertNull("Nicht passendes Parent-Tag sollte null zurückgeben", notFound)
+    }
+
+    /**
+     * Prüft die Auswahl der passenden Suchlogik anhand des übergebenen Definitionstyps.
+     */
+    fun testFindTargetTagForEachDefinitionType() {
+        val pomContent = """
+            <project>
+                <parent>
+                    <groupId>com.example</groupId>
+                    <artifactId>parent</artifactId>
+                </parent>
+                <dependencies>
+                    <dependency>
+                        <groupId>com.example</groupId>
+                        <artifactId>direct-dependency</artifactId>
+                    </dependency>
+                </dependencies>
+                <dependencyManagement>
+                    <dependencies>
+                        <dependency>
+                            <groupId>com.example</groupId>
+                            <artifactId>managed-dependency</artifactId>
+                        </dependency>
+                    </dependencies>
+                </dependencyManagement>
+                <build>
+                    <plugins>
+                        <plugin>
+                            <groupId>com.example</groupId>
+                            <artifactId>direct-plugin</artifactId>
+                        </plugin>
+                    </plugins>
+                    <pluginManagement>
+                        <plugins>
+                            <plugin>
+                                <groupId>com.example</groupId>
+                                <artifactId>managed-plugin</artifactId>
+                            </plugin>
+                        </plugins>
+                    </pluginManagement>
+                </build>
+            </project>
+        """.trimIndent()
+
+        val rootTag = (myFixture.configureByText("pom.xml", pomContent) as XmlFile).document?.rootTag
+        val service = PomNavigationService(project)
+        val managedDependencyType = MyMessageBundle.message(TOOLWINDOW_MY_TOOL_WINDOW_TYPE_MANAGED_DEPENDENCY)
+
+        assertEquals(
+            "direct-dependency",
+            service.findTargetTag(rootTag, "com.example", "direct-dependency", "dependency")
+                ?.findFirstSubTag("artifactId")?.value?.text
+        )
+        assertEquals(
+            "managed-dependency",
+            service.findTargetTag(rootTag, "com.example", "managed-dependency", managedDependencyType)
+                ?.findFirstSubTag("artifactId")?.value?.text
+        )
+        assertEquals(
+            "parent",
+            service.findTargetTag(rootTag, "com.example", "parent", PARENT_TYPE)
+                ?.findFirstSubTag("artifactId")?.value?.text
+        )
+        assertEquals(
+            "direct-plugin",
+            service.findTargetTag(rootTag, "com.example", "direct-plugin", "plugin")
+                ?.findFirstSubTag("artifactId")?.value?.text
+        )
+        assertEquals(
+            "managed-plugin",
+            service.findTargetTag(rootTag, "com.example", "managed-plugin", MANAGED_PLUGIN)
+                ?.findFirstSubTag("artifactId")?.value?.text
+        )
+        assertNull(service.findTargetTag(null, "com.example", "missing", "dependency"))
     }
 
     fun testFindProperty() {
