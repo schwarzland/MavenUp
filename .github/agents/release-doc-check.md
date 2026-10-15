@@ -65,9 +65,16 @@ direkt vor.
   vorhandene Produktänderungen im Block bleiben erhalten.
 - Die Einträge unter `### Added`, `### Changed` und `### Fixed` (kurz Änderungen) müssen aus
   Sicht des Anwenders formuliert sein.
+- Nimm nur Änderungen auf, die für Anwender einen erkennbaren Nutzen oder eine relevante
+  Verhaltensänderung haben. Lasse interne Refactorings, Wartungsarbeiten, Warnungsbehebungen und
+  technische Kompatibilitätsanpassungen weg, wenn sie nach außen keinen oder kaum Einfluss haben;
+  formuliere technische Ursachen stattdessen als konkrete Auswirkung für Anwender, sofern eine
+  solche besteht.
+- Jeder Eintrag besteht aus genau einem kurzen, prägnanten Satz zu einem einzelnen Punkt. Kürze
+  technische Details und entferne Einträge, die sich nicht knapp und nutzerrelevant ausdrücken
+  lassen.
 - Änderungen, die für einen Anwender sichtbar sind, müssen immer am Anfang der jeweiligen
-  Kategorie stehen; interne Änderungen, die für einen Anwender nicht sichtbar sind, sollen immer
-  am Ende stehen.
+  Kategorie stehen; ausnahmsweise aufgenommene, nicht direkt sichtbare Änderungen stehen am Ende.
 - Die wichtigsten Änderungen müssen hervorgehoben werden.
 - Falls du dir bei der Einordnung oder Formulierung unsicher bist, frage nach.
 - Ergänze fehlende Einträge, korrigiere falsch einsortierte Einträge, entferne Dopplungen.
