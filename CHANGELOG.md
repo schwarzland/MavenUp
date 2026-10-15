@@ -51,7 +51,7 @@
 - **Fixed "Set Recommended Version"** in toolbar and context menus to only offer and select versions present in the available versions list, disabling the action when the recommended version is missing or hidden by "Hide unstable versions".
 - Fixed internal IntelliJ API usage in candidate POM local repository resolution by replacing the deprecated internal call with the public repository path API.
 - Fixed a Kotlin inspection warning by simplifying not-null display name blankness checks during snapshot collection.
-- Fixed future IntelliJ compatibility by replacing the deprecated text-based Target POM renderer factory with the `Customizer` renderer API and using `OpenFileDescriptor.navigate()` for POM navigation.
+- Fixed future IntelliJ compatibility by rendering Target POM choices through `SimpleListCellRenderer.customize()` instead of either deprecated renderer factory and using `OpenFileDescriptor.navigate()` for POM navigation.
 
 ## 3.4.0
 

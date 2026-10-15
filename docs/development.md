@@ -51,24 +51,39 @@ The `com.jetbrains.intellij.platform:test-framework` artifact (pulled in via `te
 ## Gradle proxy configuration
 
 If access to Maven Central in a corporate network only works via a proxy, proxy settings should **not** be maintained in the project-wide `gradle.properties`.
-Use the user-local file instead:
+Use the user-local file instead (for example, `%USERPROFILE%\.gradle\gradle.properties` on Windows):
 
-`./<USER>/.gradle/gradle.properties`
-
-Example:
 ```properties
 systemProp.java.net.useSystemProxies=true
 org.gradle.jvmargs=-Djava.net.useSystemProxies=true -Djava.net.preferIPv4Stack=true
-
-# If a fixed proxy is required:
-# systemProp.http.proxyHost=<proxy-host>
-# systemProp.http.proxyPort=<proxy-port>
-# systemProp.https.proxyHost=<proxy-host>
-# systemProp.https.proxyPort=<proxy-port>
-# systemProp.http.nonProxyHosts=localhost|127.0.0.1|*.local
+```
+If a fixed proxy is required, configure it there:
+```properties
+systemProp.http.proxyHost=<proxy-host>
+systemProp.http.proxyPort=<proxy-port>
+systemProp.https.proxyHost=<proxy-host>
+systemProp.https.proxyPort=<proxy-port>
+systemProp.http.nonProxyHosts=localhost|127.0.0.1|*.local
 ```
 
-Afterwards, run `gradlew --stop` once so the Gradle daemon picks up the new settings.
+After changing Gradle proxy properties, run `gradlew --stop` once so the Gradle daemon picks up the new settings.
+
+### Plugin Verifier cannot resolve `jb.gg`
+
+The `verifyPlugin` task launches the Plugin Verifier in a separate Java process. The verifier may not use the same proxy configuration as the IDE or Gradle. An error such as `java.net.UnknownHostException: jb.gg` while fetching `https://jb.gg/ij-api-changes-raw?flush_cache=true` means the verifier could not resolve the host; it can occur even when the URL is reachable in the browser and Gradle proxy settings are correct.
+
+Pass the proxy JVM properties to the verifier through `JAVA_TOOL_OPTIONS`. For a one-off PowerShell run:
+```powershell
+$env:JAVA_TOOL_OPTIONS = "-Dhttps.proxyHost=<proxy-host> -Dhttps.proxyPort=<proxy-port> -Dhttp.proxyHost=<proxy-host> -Dhttp.proxyPort=<proxy-port>"
+.\gradlew verifyPlugin
+Remove-Item Env:JAVA_TOOL_OPTIONS
+```
+
+To keep this setting for `verifyPlugin` in IntelliJ IDEA, create or edit a **Gradle** run configuration for the `verifyPlugin` task and add the following under **Environment variables**:
+```text
+JAVA_TOOL_OPTIONS=-Dhttps.proxyHost=<proxy-host> -Dhttps.proxyPort=<proxy-port> -Dhttp.proxyHost=<proxy-host> -Dhttp.proxyPort=<proxy-port>
+```
+`JAVA_TOOL_OPTIONS` is read by Java processes started from that environment, including the verifier. Keep proxy details out of shared project configuration, and do not store proxy credentials in a shared run configuration.
 
 ## Troubleshooting
 

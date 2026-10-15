@@ -4,7 +4,6 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.ComboBox
 import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.ui.SimpleListCellRenderer
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.dsl.builder.Align
 import com.intellij.ui.dsl.builder.panel
@@ -52,12 +51,11 @@ class UpdateConfirmationDialog(
     internal val targetPomComboBox: ComboBox<TargetPomMode> = ComboBox(TargetPomMode.entries.toTypedArray()).apply {
         selectedItem = TargetPomMode.ROOT_POM
         isEnabled = hasTransitiveUpdates && isMultiModule
-        renderer = SimpleListCellRenderer.create<TargetPomMode> { label, mode, _ ->
-            label.text = when (mode) {
+        renderer = settingsListCellRenderer { mode: TargetPomMode ->
+            when (mode) {
                 TargetPomMode.ROOT_POM -> MyMessageBundle.message("toolwindow.MyToolWindow.update.confirm.targetPom.root")
                 TargetPomMode.AFFECTED_MODULES -> MyMessageBundle.message("toolwindow.MyToolWindow.update.confirm.targetPom.affected")
                 TargetPomMode.ALL_MODULES -> MyMessageBundle.message("toolwindow.MyToolWindow.update.confirm.targetPom.all")
-                null -> ""
             }
         }
         addActionListener { updateTargetModuleColumn() }

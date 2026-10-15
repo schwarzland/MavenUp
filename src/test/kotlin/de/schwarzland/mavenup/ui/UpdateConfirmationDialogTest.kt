@@ -65,14 +65,18 @@ class UpdateConfirmationDialogTest : BasePlatformTestCase() {
             TargetPomMode.AFFECTED_MODULES to "toolwindow.MyToolWindow.update.confirm.targetPom.affected",
             TargetPomMode.ALL_MODULES to "toolwindow.MyToolWindow.update.confirm.targetPom.all"
         )
+        val initialComponent = renderer.getListCellRendererComponent(list, null, -1, false, false)
+        assertEquals("", (initialComponent as JLabel).text)
 
         messageKeys.forEach { (mode, messageKey) ->
             for (index in listOf(-1, mode.ordinal)) {
                 for (selected in listOf(false, true)) {
-                    val component = renderer.getListCellRendererComponent(list, mode, index, selected, selected)
-                    assertEquals(MyMessageBundle.message(messageKey), (component as JLabel).text)
-                    val emptyComponent = renderer.getListCellRendererComponent(list, null, index, selected, selected)
-                    assertEquals("", (emptyComponent as JLabel).text)
+                    for (hasFocus in listOf(false, true)) {
+                        val component = renderer.getListCellRendererComponent(list, mode, index, selected, hasFocus)
+                        assertEquals(MyMessageBundle.message(messageKey), (component as JLabel).text)
+                        val emptyComponent = renderer.getListCellRendererComponent(list, null, index, selected, hasFocus)
+                        assertEquals("", (emptyComponent as JLabel).text)
+                    }
                 }
             }
         }
