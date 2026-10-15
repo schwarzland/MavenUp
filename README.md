@@ -35,7 +35,7 @@ See the [usage guide](docs/usage.md) for update, redundancy, and hierarchy navig
 
 ## Documentation
 
-- [Features](FEATURES.md) — feature index (single source of truth), split by area under [docs/features/](docs/features/).
+- [Features](FEATURES.md) — feature index, with descriptions split by area under [docs/features/](docs/features/).
 - [Usage](docs/usage.md) — how to use the tool window, filters, and actions.
 - [Configuration](docs/configuration.md) — all settings.
 - [Privacy & Security](docs/privacy-and-security.md) — transmitted data and external endpoints.

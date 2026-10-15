@@ -54,7 +54,7 @@ Use the **Select Highest Version** dropdown in the top toolbar to target multipl
 
 ### Multi-Criteria Filtering
 Filter the table with zero friction using the filter row above the table:
-* **Search text:** Case-insensitive search by `groupId`, `artifactId`, or Maven `property`.
+* **Search text:** Case-insensitive search by `groupId`, `artifactId`, Maven module, or property.
 * **Type filter:** Filter by dependency type. Options stay in a fixed order: All, Dependency, Plugin, Parent, Managed plugin, Managed dependency.
 * **Version filter:** Differentiate between explicitly **Declared** versions and **Inherited** versions (from parent POMs or BOMs).
 * **Update filter:** Show only dependencies where updates are **Available** or **Up to date**.
@@ -71,7 +71,7 @@ Filter the table with zero friction using the filter row above the table:
 
 ### Context Menu & Repository Browser
 Right-click any row to access convenient context actions:
-* **Filter by "..."**: Instantly filter by the clicked GroupId, ArtifactId, or Property.
+* **Filter by "..."**: Instantly filter by the clicked GroupId, ArtifactId, Module, or Property.
 * **Open on [Browser]**: Jump directly to the artifact's release and documentation page on **MVN Repository** or **Sonatype Central**.
 * **Show Dependency Hierarchy**: Open the side panel visualizing BOM imports, parent chains, and transitive trees, including inclusion paths through repeated artifacts with different child dependencies. From either tab's panel, **Select in Dependencies** selects the declaration with the matching source POM and type; **Select in Transitive CVEs** selects the aggregated scanned coordinate when no matching declaration is available.
 * **Remove / Comment out in pom.xml**: Mark unused or redundant managed entries for clean removal or XML commenting.

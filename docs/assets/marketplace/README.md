@@ -54,7 +54,7 @@ Do **not** modify `docs/assets/marketplace/src/_template.drawio.svg` directly. I
 
 ### Step 2: Open the File in IntelliJ IDEA
 
-Open `01_dependency_management.drawio.svg` in IntelliJ IDEA.  
+Open the copied `.drawio.svg` file in IntelliJ IDEA (for example, `configuration.drawio.svg`).
 You will see two areas on the canvas:
 - **Left (Screenshot Canvas / 1280×800):** The bounding area where the UI screenshot is placed.
 - **Right (Component Palette):** Ready-to-use callout bubbles, badges, highlight frames, and arrows in the JetBrains color theme.
@@ -93,7 +93,7 @@ You will see two areas on the canvas:
    - Check **Selection only** (if you highlighted the canvas area).
    - Set **Zoom** to `200%` (or `300%` for crisp HiDPI / 2x rendering).
    - Leave background as white or transparent as needed.
-4. Click **Export** and save the file to `docs/assets/marketplace/dist/01_dependency_management.png`.
+4. Click **Export** and save the file to `docs/assets/marketplace/dist/` (for example, `configuration.png`).
 
 ---
 
