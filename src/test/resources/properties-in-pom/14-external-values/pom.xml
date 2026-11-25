@@ -1,6 +1,7 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
+    <!-- Test case: Resolve versions from settings.xml, a -D CLI property, and MAVENUP_SLF4J_VERSION; with all inputs set, expect 4.13.2, 2.2, and 2.0.13. -->
     <groupId>example.properties</groupId>
     <artifactId>external-values</artifactId>
     <version>1.0</version>

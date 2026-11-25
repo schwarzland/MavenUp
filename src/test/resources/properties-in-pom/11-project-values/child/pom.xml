@@ -1,6 +1,7 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
+    <!-- Test case: Distinguish built-in project values; expect project.version=2.3.4 and project.parent.version=1.2.3. -->
     <parent>
         <groupId>example.properties</groupId>
         <artifactId>project-values-parent</artifactId>

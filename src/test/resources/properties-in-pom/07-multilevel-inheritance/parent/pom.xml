@@ -1,6 +1,7 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
+    <!-- Test case: The middle parent adds hamcrest.version for its child; expect the inherited value to be 2.2. -->
     <parent>
         <groupId>example.properties</groupId>
         <artifactId>grandparent</artifactId>

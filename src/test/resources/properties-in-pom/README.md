@@ -19,7 +19,7 @@ artifacts and the snapshot version in example 10 are not expected to resolve.
 | `07-multilevel-inheritance` | Child uses `junit.version` from grandparent (`4.13.2`), `hamcrest.version` from parent (`2.2`) and local `slf4j.version` (`2.0.13`). |
 | `08-multi-module` | `common` uses the parent's `junit.version` (`4.12`); `override` uses its local value (`4.13.2`). |
 | `09-chained-properties` | `junit.version` → `shared.version` → `base.version`, all local: `4.13.2`. |
-| `10-composite-value` | Local `major`, `minor` and `patch` form `4.13.2`; local `slf4j.base` plus a literal suffix forms `2.0.13-SNAPSHOT`. |
+| `10-composite-value` | Local `major`, `minor` and `patch` form `4.13.2`; local `slf4j.base` plus the literal suffix `.13` forms `2.0.13`. |
 | `11-project-values` | In the child, `${project.version}` is `2.3.4` and `${project.parent.version}` is `1.2.3`. |
 | `12-ci-friendly` | Local `revision`, `sha1` and `changelist` form project version `1.2.3-abc123-SNAPSHOT`; `${project.version}` in the dependency has the same value. |
 | `13-profiles` | Local default `junit.version` is `4.12`; the `modern` POM profile overrides it to `4.13.2`. |
