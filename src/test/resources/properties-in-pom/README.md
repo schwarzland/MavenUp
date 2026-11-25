@@ -1,8 +1,9 @@
 # Maven property examples
 
-These independent Maven projects are manual fixtures for examining property recognition.
-They do not contain automated tests. Open the relevant `pom.xml` as a Maven project in
-IntelliJ and compare MavenUp with the effective Maven model. Entries below describe Maven
+These independent Maven projects are fixtures for examining property recognition. Examples
+`01`–`08` are covered by `PropertiesInPomExamplesIntegrationTest`; examples `09`–`18` remain
+manual fixtures for later analysis. Open the relevant `pom.xml` as a Maven project in IntelliJ
+and compare MavenUp with the effective Maven model. Entries below describe Maven
 resolution, not a claim that MavenUp currently supports every form. Versions and
 coordinates under `example.properties` are illustrative and are not published artifacts.
 Dependency resolution or plugin execution can require network access; the illustrative
