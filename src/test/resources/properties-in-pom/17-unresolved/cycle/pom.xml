@@ -1,0 +1,18 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>example.properties</groupId>
+    <artifactId>cyclic-property</artifactId>
+    <version>1.0</version>
+    <properties>
+        <first.version>${second.version}</first.version>
+        <second.version>${first.version}</second.version>
+    </properties>
+    <dependencies>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>${first.version}</version>
+        </dependency>
+    </dependencies>
+</project>

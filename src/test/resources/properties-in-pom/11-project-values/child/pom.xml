@@ -1,0 +1,23 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>example.properties</groupId>
+        <artifactId>project-values-parent</artifactId>
+        <version>1.2.3</version>
+    </parent>
+    <artifactId>project-values-child</artifactId>
+    <version>2.3.4</version>
+    <dependencies>
+        <dependency>
+            <groupId>example.properties</groupId>
+            <artifactId>same-project-version</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>example.properties</groupId>
+            <artifactId>same-parent-version</artifactId>
+            <version>${project.parent.version}</version>
+        </dependency>
+    </dependencies>
+</project>

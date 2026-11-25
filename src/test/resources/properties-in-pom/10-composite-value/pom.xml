@@ -1,0 +1,25 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>example.properties</groupId>
+    <artifactId>composite-value</artifactId>
+    <version>1.0</version>
+    <properties>
+        <major>4</major>
+        <minor>13</minor>
+        <patch>2</patch>
+        <slf4j.base>2.0</slf4j.base>
+    </properties>
+    <dependencies>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>${major}.${minor}.${patch}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>${slf4j.base}.13</version>
+        </dependency>
+    </dependencies>
+</project>

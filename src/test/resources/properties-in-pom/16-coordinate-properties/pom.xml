@@ -1,0 +1,19 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>example.properties</groupId>
+    <artifactId>coordinate-properties</artifactId>
+    <version>1.0</version>
+    <properties>
+        <library.group>junit</library.group>
+        <library.artifact>junit</library.artifact>
+        <library.version>4.13.2</library.version>
+    </properties>
+    <dependencies>
+        <dependency>
+            <groupId>${library.group}</groupId>
+            <artifactId>${library.artifact}</artifactId>
+            <version>${library.version}</version>
+        </dependency>
+    </dependencies>
+</project>
