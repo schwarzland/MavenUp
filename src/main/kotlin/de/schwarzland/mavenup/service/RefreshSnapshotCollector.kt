@@ -103,6 +103,57 @@ internal class RefreshSnapshotCollector(private val project: Project) {
     }
 
     /**
+     * Erstellt Tabellenzeilen aus genau einem Maven-Deklarationskontext.
+     *
+     * Die Property-Zuordnung stammt ausschließlich aus [propertyNames] dieses Kontexts; gleichlautende
+     * Koordinaten in anderen Abschnitten oder POM-Dateien beeinflussen die Zeile nicht.
+     *
+     * @param declarations Deklarierte Versionen nach Koordinate.
+     * @param propertyNames Property-Namen nach Koordinate aus demselben Deklarationskontext.
+     * @param type Anzuzeigender Eintragstyp.
+     * @param effectiveProperties Effektive Maven-Properties zur Auflösung von Platzhaltern.
+     * @param resolvedVersions Von Maven aufgelöste Versionen nach Koordinate.
+     * @param pomFile Die zugehörige `pom.xml`-Datei, oder `null`.
+     * @param moduleName Name des Maven-Moduls.
+     * @return Die erzeugten Tabellenzeilen.
+     */
+    internal fun createRefreshRows(
+        declarations: Map<String, String>,
+        propertyNames: Map<String, String>,
+        type: String,
+        effectiveProperties: Map<String, String>,
+        resolvedVersions: Map<String, String?> = emptyMap(),
+        pomFile: VirtualFile? = null,
+        moduleName: String = ""
+    ): List<RefreshRow> = declarations.map { (key, value) ->
+        RefreshRow(
+            groupId = key.substringBefore(":"),
+            artifactId = key.substringAfter(":"),
+            propertyName = propertyNames[key].orEmpty(),
+            type = type,
+            currentVersion = resolveCurrentVersion(value, resolvedVersions[key], effectiveProperties),
+            versionInherited = value.isBlank(),
+            pomFile = pomFile,
+            moduleName = moduleName
+        )
+    }
+
+    /**
+     * Liefert nur eindeutige Property-Zuordnungen für Koordinaten, deren jede erfasste Zeile dieselbe
+     * nicht-leere Property verwendet.
+     *
+     * @param rows Erfasste Zeilen aus allen Maven-Deklarationskontexten.
+     * @return Eindeutige Koordinate-zu-Property-Zuordnungen.
+     */
+    internal fun collectPropertyMappings(rows: List<RefreshRow>): Map<String, String> =
+        rows.groupBy { it.key }.mapNotNull { (key, matchingRows) ->
+            val propertyNames = matchingRows.map { it.propertyName }
+            propertyNames.distinct().singleOrNull()
+                ?.takeIf { it.isNotBlank() }
+                ?.let { key to it }
+        }.toMap()
+
+    /**
      * Liest die Parent-Dependency aus dem `<parent>`-Tag der `pom.xml` und erzeugt eine [RefreshRow].
      * Gibt `null` zurück, wenn kein Parent-Tag vorhanden ist oder groupId/artifactId leer sind.
      *
@@ -165,13 +216,17 @@ internal class RefreshSnapshotCollector(private val project: Project) {
         }
 
         val rows = mutableListOf<RefreshRow>()
-        val properties = mutableMapOf<String, String>()
         MavenProjectsManager.getInstance(project).projects.forEach { mavenProject ->
             val psiFile = PsiManager.getInstance(project).findFile(mavenProject.file) as? XmlFile
             val localDependencies = mutableMapOf<String, String>()
             val managedDependencies = mutableMapOf<String, String>()
             val localPlugins = mutableMapOf<String, String>()
             val managedPlugins = mutableMapOf<String, String>()
+            val parentProperties = mutableMapOf<String, String>()
+            val localDependencyProperties = mutableMapOf<String, String>()
+            val managedDependencyProperties = mutableMapOf<String, String>()
+            val localPluginProperties = mutableMapOf<String, String>()
+            val managedPluginProperties = mutableMapOf<String, String>()
 
             val moduleName = mavenProject.displayName.takeIf { it.isNotBlank() }
                 ?: mavenProject.mavenId.artifactId.orEmpty()
@@ -183,7 +238,7 @@ internal class RefreshSnapshotCollector(private val project: Project) {
                 val documentElement = psiFile.document?.rootTag
 
                 // Parent-Dependency erfassen
-                collectParentDependency(documentElement, properties, effectiveProperties, mavenProject.file, moduleName)?.let { parentRow ->
+                collectParentDependency(documentElement, parentProperties, effectiveProperties, mavenProject.file, moduleName)?.let { parentRow ->
                     rows.add(parentRow)
                 }
 
@@ -192,7 +247,7 @@ internal class RefreshSnapshotCollector(private val project: Project) {
                     "dependencies",
                     "dependency",
                     localDependencies,
-                    properties
+                    localDependencyProperties
                 )
                 val dependencyManagement = documentElement?.findFirstSubTag("dependencyManagement")
                 collectDependenciesAndProperties(
@@ -200,106 +255,72 @@ internal class RefreshSnapshotCollector(private val project: Project) {
                     "dependencies",
                     "dependency",
                     managedDependencies,
-                    properties
+                    managedDependencyProperties
                 )
                 val buildTag = documentElement?.findFirstSubTag("build")
-                collectDependenciesAndProperties(buildTag, "plugins", "plugin", localPlugins, properties)
+                collectDependenciesAndProperties(buildTag, "plugins", "plugin", localPlugins, localPluginProperties)
                 val pluginManagement = buildTag?.findFirstSubTag("pluginManagement")
                 collectDependenciesAndProperties(
                     pluginManagement,
                     "plugins",
                     "plugin",
                     managedPlugins,
-                    properties
+                    managedPluginProperties
                 )
             }
 
             val resolvedDependencies =
                 mavenProject.dependencyTree.associateBy { "${it.artifact.groupId}:${it.artifact.artifactId}" }
-            val seenLocalDependencyKeys = mutableSetOf<String>()
-            val seenManagedDependencyKeys = mutableSetOf<String>()
-            localDependencies.forEach { (key, value) ->
-                if (!seenLocalDependencyKeys.add(key)) return@forEach
-                rows.add(
-                    RefreshRow(
-                        groupId = key.substringBefore(":"),
-                        artifactId = key.substringAfter(":"),
-                        propertyName = properties[key].orEmpty(),
-                        type = "dependency",
-                        currentVersion = resolveCurrentVersion(
-                            value,
-                            resolvedDependencies[key]?.artifact?.version,
-                            effectiveProperties
-                        ),
-                        versionInherited = value.isBlank(),
-                        pomFile = mavenProject.file,
-                        moduleName = moduleName
-                    )
+            val resolvedDependencyVersions = resolvedDependencies.mapValues { it.value.artifact.version }
+            rows.addAll(
+                createRefreshRows(
+                    localDependencies,
+                    localDependencyProperties,
+                    "dependency",
+                    effectiveProperties,
+                    resolvedDependencyVersions,
+                    mavenProject.file,
+                    moduleName
                 )
-            }
-            managedDependencies.forEach { (key, value) ->
-                if (!seenManagedDependencyKeys.add(key)) return@forEach
-                rows.add(
-                    RefreshRow(
-                        groupId = key.substringBefore(":"),
-                        artifactId = key.substringAfter(":"),
-                        propertyName = properties[key].orEmpty(),
-                        type = managedDependencyType,
-                        currentVersion = resolveCurrentVersion(
-                            value,
-                            resolvedDependencies[key]?.artifact?.version,
-                            effectiveProperties
-                        ),
-                        versionInherited = value.isBlank(),
-                        pomFile = mavenProject.file,
-                        moduleName = moduleName
-                    )
+            )
+            rows.addAll(
+                createRefreshRows(
+                    managedDependencies,
+                    managedDependencyProperties,
+                    managedDependencyType,
+                    effectiveProperties,
+                    resolvedDependencyVersions,
+                    mavenProject.file,
+                    moduleName
                 )
-            }
+            )
 
             val resolvedPlugins = mavenProject.plugins.associateBy { "${it.groupId}:${it.artifactId}" }
-            val seenLocalPluginKeys = mutableSetOf<String>()
-            val seenManagedPluginKeys = mutableSetOf<String>()
-            localPlugins.forEach { (key, value) ->
-                if (!seenLocalPluginKeys.add(key)) return@forEach
-                rows.add(
-                    RefreshRow(
-                        groupId = key.substringBefore(":"),
-                        artifactId = key.substringAfter(":"),
-                        propertyName = properties[key].orEmpty(),
-                        type = "plugin",
-                        currentVersion = resolveCurrentVersion(
-                            value,
-                            resolvedPlugins[key]?.version,
-                            effectiveProperties
-                        ),
-                        versionInherited = value.isBlank(),
-                        pomFile = mavenProject.file,
-                        moduleName = moduleName
-                    )
+            val resolvedPluginVersions = resolvedPlugins.mapValues { it.value.version }
+            rows.addAll(
+                createRefreshRows(
+                    localPlugins,
+                    localPluginProperties,
+                    "plugin",
+                    effectiveProperties,
+                    resolvedPluginVersions,
+                    mavenProject.file,
+                    moduleName
                 )
-            }
-            managedPlugins.forEach { (key, value) ->
-                if (!seenManagedPluginKeys.add(key)) return@forEach
-                rows.add(
-                    RefreshRow(
-                        groupId = key.substringBefore(":"),
-                        artifactId = key.substringAfter(":"),
-                        propertyName = properties[key].orEmpty(),
-                        type = MANAGED_PLUGIN,
-                        currentVersion = resolveCurrentVersion(
-                            value,
-                            resolvedPlugins[key]?.version,
-                            effectiveProperties
-                        ),
-                        versionInherited = value.isBlank(),
-                        pomFile = mavenProject.file,
-                        moduleName = moduleName
-                    )
+            )
+            rows.addAll(
+                createRefreshRows(
+                    managedPlugins,
+                    managedPluginProperties,
+                    MANAGED_PLUGIN,
+                    effectiveProperties,
+                    resolvedPluginVersions,
+                    mavenProject.file,
+                    moduleName
                 )
-            }
+            )
         }
 
-        return RefreshSnapshot(rows, properties)
+        return RefreshSnapshot(rows, collectPropertyMappings(rows))
     }
 }

@@ -99,6 +99,25 @@ class PropertiesInPomExamplesIntegrationTest : BasePlatformTestCase() {
             dependencies.versions
         )
         assertEquals(setOf("jackson.version"), dependencies.propertyNames.values.toSet())
+
+        val declarations = mutableMapOf<String, String>()
+        val propertyNames = mutableMapOf<String, String>()
+        val collector = RefreshSnapshotCollector(project)
+        collector.collectDependenciesAndProperties(
+            pom.rootTag,
+            "dependencies",
+            "dependency",
+            declarations,
+            propertyNames
+        )
+        val rows = collector.createRefreshRows(declarations, propertyNames, "dependency", pom.localProperties)
+        assertEquals(
+            mapOf(
+                "com.fasterxml.jackson.core:jackson-core" to "jackson.version",
+                "com.fasterxml.jackson.core:jackson-databind" to "jackson.version"
+            ),
+            collector.collectPropertyMappings(rows)
+        )
     }
 
     /** Prüft Property-Versionen in Plugin-Management und in direkten Plugin-Deklarationen. */
@@ -131,6 +150,7 @@ class PropertiesInPomExamplesIntegrationTest : BasePlatformTestCase() {
     /** Prüft Property-Auflösung in Dependency-Management und eine direkte Version ohne eigene Deklaration. */
     fun testScenario04_DependencyManagementProperty() {
         val pom = loadPom("04-dependency-management")
+        val collector = RefreshSnapshotCollector(project)
         val managed = collectEntries(
             pom.rootTag.findFirstSubTag("dependencyManagement"),
             "dependencies",
@@ -143,6 +163,50 @@ class PropertiesInPomExamplesIntegrationTest : BasePlatformTestCase() {
         assertEquals("junit.version", managed.propertyNames["junit:junit"])
         assertEquals(mapOf("junit:junit" to ""), direct.versions)
         assertTrue("The direct declaration inherits its version and has no local property", direct.propertyNames.isEmpty())
+
+        val managedDeclarations = mutableMapOf<String, String>()
+        val managedPropertyNames = mutableMapOf<String, String>()
+        collector.collectDependenciesAndProperties(
+            pom.rootTag.findFirstSubTag("dependencyManagement"),
+            "dependencies",
+            "dependency",
+            managedDeclarations,
+            managedPropertyNames
+        )
+        val directDeclarations = mutableMapOf<String, String>()
+        val directPropertyNames = mutableMapOf<String, String>()
+        collector.collectDependenciesAndProperties(
+            pom.rootTag,
+            "dependencies",
+            "dependency",
+            directDeclarations,
+            directPropertyNames
+        )
+        val rows = collector.createRefreshRows(
+            managedDeclarations,
+            managedPropertyNames,
+            "managed dependency",
+            pom.localProperties
+        ) + collector.createRefreshRows(
+            directDeclarations,
+            directPropertyNames,
+            "dependency",
+            pom.localProperties
+        )
+        val managedRow = rows.single { it.type == "managed dependency" }
+        val directRow = rows.single { it.type == "dependency" }
+
+        assertEquals("junit.version", managedRow.propertyName)
+        assertEquals("", directRow.propertyName)
+        assertTrue("Ambiguous coordinate must not be assigned a shared property", collector.collectPropertyMappings(rows).isEmpty())
+        assertEquals(
+            mapOf("junit:junit" to "junit.version"),
+            collector.collectPropertyMappings(listOf(managedRow))
+        )
+        assertTrue(collector.collectPropertyMappings(emptyList()).isEmpty())
+        assertTrue(
+            collector.createRefreshRows(emptyMap(), emptyMap(), "dependency", pom.localProperties).isEmpty()
+        )
     }
 
     /** Prüft, dass eine Child-POM die Property ihres Parent-Projekts erbt. */

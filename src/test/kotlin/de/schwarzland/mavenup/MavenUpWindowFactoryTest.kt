@@ -3128,6 +3128,43 @@ class MavenUpWindowFactoryTest : BasePlatformTestCase() {
         )
     }
 
+    fun testVersionSelectionDoesNotUseCoordinatePropertyFallbackForRowWithoutProperty() {
+        val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
+        toolWindow.getContent()
+        val (_, selectedVersions, _) = versionMaps(toolWindow)
+        val key = "junit:junit"
+        val dependencyToProperty = toolWindow.javaClass.getDeclaredField("dependencyToProperty")
+            .apply { isAccessible = true }
+            .get(toolWindow) as MutableMap<String, String>
+        dependencyToProperty[key] = "junit.version"
+        selectedVersions[key] = "4.13.4"
+        val row = RefreshRow(
+            groupId = "junit",
+            artifactId = "junit",
+            propertyName = "",
+            type = "dependency",
+            currentVersion = "4.13.2",
+            pomFile = project.baseDir
+        )
+
+        toolWindow.synchronizePropertyVersions(row, "4.13.3")
+
+        assertEquals("4.13.3", selectedVersions[row.entryKey])
+        assertEquals(
+            "A row without a property must not overwrite the coordinate-level selection",
+            "4.13.4",
+            selectedVersions[key]
+        )
+
+        toolWindow.resetVersionForDependency(row)
+
+        assertEquals(
+            "Resetting a row without a property must preserve another row's coordinate-level selection",
+            "4.13.4",
+            selectedVersions[key]
+        )
+    }
+
     fun testIsVersionResetEnabledForDependencyFalseWithoutPendingChange() {
         val toolWindow = MavenUpWindowFactory().MyToolWindow(project)
         toolWindow.getContent()

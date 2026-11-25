@@ -117,10 +117,12 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
   `<Präfix>.`, bereinigt um die Zeichen `*` und `$`); `excludeCentralForPrivateGroupId` entfernt Maven Central aus der Repository-Liste, wenn die
   GroupId privat ist, sodass `fetchAllVersions` für private GroupIds keine Koordinaten an
   `repo1.maven.org` überträgt, andere konfigurierte private Repositories aber weiterhin abfragt.
-- **RefreshSnapshotCollector**: Erfasst die Maven-Einträge aus `pom.xml` und löst Property-Platzhalter
-  anhand der effektiven Maven-Properties auf. Deklarierte `*-SNAPSHOT`-Versionen bleiben statt der
-  zeitgestempelten Maven-Auflösung sichtbar; in anderen Fällen wird die Maven-Auflösung bevorzugt
-  (z. B. bei Versionsbereichen), während Einträge ohne eigene Version ihre geerbte Version behalten.
+- **RefreshSnapshotCollector**: Erfasst Maven-Einträge mit den Property-Namen aus ihrem jeweiligen
+  Deklarationskontext und löst Property-Platzhalter anhand der effektiven Maven-Properties auf.
+  Mehrdeutige Koordinaten erhalten keine gemeinsame Property-Zuordnung. Deklarierte
+  `*-SNAPSHOT`-Versionen bleiben statt der zeitgestempelten Maven-Auflösung sichtbar; in anderen
+  Fällen wird die Maven-Auflösung bevorzugt (z. B. bei Versionsbereichen), während Einträge ohne
+  eigene Version ihre geerbte Version behalten.
 - **OssIndexApiService / OssIndexCredentialService**: optionale Sonatype-Abfrage über Maven-purl
   und sichere Zugangsdatenablage; wirft `OssIndexAuthenticationException` bei ungültigem/abgelaufenem
   Token (HTTP 401/403) und `OssIndexRequestException` (mit HTTP-Status) bei sonstigen HTTP-Fehlern
@@ -150,7 +152,8 @@ Beschreibt alle Klassen in `src/main/kotlin/de/schwarzland/mavenup/service/` und
 
 ## PSI- und Maven-Services
 - **RefreshSnapshotCollector**: liest über PSI die deklarierten Dependencies, Plugins und
-  Versions-Properties der `pom.xml`-Dateien aller Maven-Projekte, erfasst den jeweiligen Modulnamen (`moduleName`)
+  Versions-Properties der `pom.xml`-Dateien aller Maven-Projekte, ordnet jede Property dem jeweiligen
+  Deklarationskontext zu, erfasst den Modulnamen (`moduleName`)
   und liefert einen `RefreshSnapshot`; löst
   Property-Platzhalter (auch die Version im `<parent>`-Tag) über `resolveVersionPlaceholder` auf. Setzt
   `RefreshRow.versionInherited`, wenn die `pom.xml` für den Eintrag kein eigenes `<version>`-Tag deklariert

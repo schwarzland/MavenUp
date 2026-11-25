@@ -2,6 +2,12 @@
 
 # Maven Up Changelog
 
+## [Unreleased]
+
+### Fixed
+
+- **Fixed property-aware version selection** so entries without their own property declaration are not linked to another declaration's property just because they share Maven coordinates.
+
 ## 3.5.0
 
 ### Added

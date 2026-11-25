@@ -3266,9 +3266,10 @@ class MavenUpWindowFactory : ToolWindowFactory {
          */
         private fun clearVersionSelection(row: RefreshRow) {
             selectedVersions.remove(row.entryKey)
-            selectedVersions.remove(row.key)
+            if (row.entryKey == row.key) {
+                selectedVersions.remove(row.key)
+            }
             val property = row.propertyName.takeIf { it.isNotBlank() }
-                ?: dependencyToProperty[row.key]?.takeIf { it.isNotBlank() }
             if (property != null) {
                 modelRows.forEach { otherRow ->
                     if (otherRow.propertyName == property) {
@@ -3892,7 +3893,6 @@ class MavenUpWindowFactory : ToolWindowFactory {
                 selectedVersions[row.key] = selected
             }
             val property = row.propertyName.takeIf { it.isNotBlank() }
-                ?: dependencyToProperty[row.key]?.takeIf { it.isNotBlank() }
             if (property != null) {
                 modelRows.forEach { otherRow ->
                     if (otherRow.propertyName == property) {

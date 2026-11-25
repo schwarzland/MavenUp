@@ -31,7 +31,7 @@ Follow these five steps to inspect and update your project dependencies:
 
 ### Step 3: Choose Target Versions
 * In the **New Version** column, click the dropdown to select the version you want to apply.
-* **Property awareness:** If multiple dependencies share a Maven property (e.g. `${spring.version}` or `${jackson.version}`), Maven Up automatically synchronizes the selection across all associated entries.
+* **Property awareness:** Maven Up synchronizes selections across entries that declare the same Maven property (e.g. `${spring.version}`); an entry that only inherits a managed version is not treated as using that property.
 * **Selection markers:** In the dropdown list, your current version is marked with **(current)**, and recommended vulnerability fix versions are highlighted with **(recommended)**.
 
 ### Step 4: One-Click Bulk Selections
